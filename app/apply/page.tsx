@@ -6,7 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 
-import { applicationSchema, type ApplicationFormData } from "@/lib/schemas/application";
+import {
+  applicationSchema,
+  type ApplicationFormData,
+} from "@/lib/schemas/application";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  countries,
+  degreeOptions,
+  ethnicityOptions,
+  majorOptions,
+  shirtSizeOptions,
+  transportationOptions,
+  universities,
+} from "./form-options";
+import AcademicInformation from "./components/academic-information";
+import { FormField } from "./utils";
 
 const STORAGE_KEY = "mhacks-application-draft";
 
@@ -29,98 +49,8 @@ const genderOptions = [
   { value: "other", label: "Other (please describe)" },
 ];
 
-const ethnicityOptions = [
-  { value: "american-indian", label: "American Indian or Alaska Native" },
-  { value: "asian", label: "Asian" },
-  { value: "black", label: "Black or African American" },
-  { value: "hispanic", label: "Hispanic or Latino / Latina / Latinx" },
-  { value: "mena", label: "Middle Eastern or North African" },
-  { value: "pacific-islander", label: "Native Hawaiian or Pacific Islander" },
-  { value: "white", label: "White" },
-  { value: "multiracial", label: "Multiracial (please describe)" },
-];
-
-const universities = [
-  { value: "umich", label: "University of Michigan" },
-  { value: "mit", label: "Massachusetts Institute of Technology" },
-  { value: "stanford", label: "Stanford University" },
-  { value: "cmu", label: "Carnegie Mellon University" },
-  { value: "gatech", label: "Georgia Institute of Technology" },
-  { value: "uiuc", label: "University of Illinois at Urbana-Champaign" },
-  { value: "ucberkeley", label: "University of California, Berkeley" },
-  { value: "uw", label: "University of Washington" },
-  { value: "utexas", label: "University of Texas at Austin" },
-  { value: "cornell", label: "Cornell University" },
-  { value: "other", label: "Other" },
-];
-
-const countries = [
-  { value: "us", label: "United States" },
-  { value: "canada", label: "Canada" },
-  { value: "uk", label: "United Kingdom" },
-  { value: "mexico", label: "Mexico" },
-  { value: "other", label: "Other" },
-];
-
-const degreeOptions = [
-  { value: "high-school", label: "High School" },
-  { value: "associates", label: "Associate's" },
-  { value: "bachelors", label: "Bachelor's" },
-  { value: "masters", label: "Master's" },
-  { value: "phd", label: "PhD" },
-  { value: "other", label: "Other" },
-];
-
-const majorOptions = [
-  { value: "cs", label: "Computer Science" },
-  { value: "ce", label: "Computer Engineering" },
-  { value: "ee", label: "Electrical Engineering" },
-  { value: "datasci", label: "Data Science" },
-  { value: "stats", label: "Statistics" },
-  { value: "math", label: "Mathematics" },
-  { value: "business", label: "Business" },
-  { value: "other", label: "Other or multiple majors" },
-];
-
-const transportationOptions = [
-  { value: "driving", label: "Driving" },
-  { value: "flying", label: "Flying" },
-  { value: "bus", label: "Bus" },
-  { value: "train", label: "Train" },
-  { value: "local", label: "Local" },
-];
-
-const shirtSizeOptions = [
-  { value: "xs", label: "XS" },
-  { value: "s", label: "S" },
-  { value: "m", label: "M" },
-  { value: "l", label: "L" },
-  { value: "xl", label: "XL" },
-  { value: "xxl", label: "XXL" },
-];
-
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
-
-function FormField({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>
-        {label}
-        {required && <span className="text-destructive"> *</span>}
-      </Label>
-      {children}
-    </div>
-  );
-}
 
 export default function ApplyPage() {
   const router = useRouter();
@@ -281,7 +211,9 @@ export default function ApplyPage() {
                   placeholder="18"
                 />
                 {errors.age && (
-                  <p className="text-sm text-destructive">{errors.age.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.age.message}
+                  </p>
                 )}
               </FormField>
 
@@ -305,14 +237,19 @@ export default function ApplyPage() {
                   )}
                 />
                 {errors.gender && (
-                  <p className="text-sm text-destructive">{errors.gender.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.gender.message}
+                  </p>
                 )}
               </FormField>
             </div>
 
             {gender === "other" && (
               <FormField label="Please describe your gender">
-                <Input {...register("genderOther")} placeholder="Describe your gender" />
+                <Input
+                  {...register("genderOther")}
+                  placeholder="Describe your gender"
+                />
               </FormField>
             )}
 
@@ -336,202 +273,25 @@ export default function ApplyPage() {
                 )}
               />
               {errors.ethnicity && (
-                <p className="text-sm text-destructive">{errors.ethnicity.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.ethnicity.message}
+                </p>
               )}
             </FormField>
 
             {ethnicity === "multiracial" && (
               <FormField label="Please describe your ethnicity">
-                <Input {...register("ethnicityOther")} placeholder="Describe your ethnicity" />
+                <Input
+                  {...register("ethnicityOther")}
+                  placeholder="Describe your ethnicity"
+                />
               </FormField>
             )}
           </CardContent>
         </Card>
 
-        {/* Academic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Academic Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="University" required>
-                <Controller
-                  name="university"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select university" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {universities.map((uni) => (
-                          <SelectItem key={uni.value} value={uni.value}>
-                            {uni.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.university && (
-                  <p className="text-sm text-destructive">{errors.university.message}</p>
-                )}
-              </FormField>
-
-              {university === "other" && (
-                <FormField label="Please specify your university">
-                  <Input {...register("universityOther")} placeholder="University name" />
-                </FormField>
-              )}
-
-              <FormField label="Country" required>
-                <Controller
-                  name="country"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select country" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countries.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.country && (
-                  <p className="text-sm text-destructive">{errors.country.message}</p>
-                )}
-              </FormField>
-
-              {country === "other" && (
-                <FormField label="Please specify your country">
-                  <Input {...register("countryOther")} placeholder="Country name" />
-                </FormField>
-              )}
-
-              <FormField label="Degree" required>
-                <Controller
-                  name="degree"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select degree" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {degreeOptions.map((d) => (
-                          <SelectItem key={d.value} value={d.value}>
-                            {d.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.degree && (
-                  <p className="text-sm text-destructive">{errors.degree.message}</p>
-                )}
-              </FormField>
-
-              {degree === "other" && (
-                <FormField label="Please specify your degree">
-                  <Input {...register("degreeOther")} placeholder="Degree name" />
-                </FormField>
-              )}
-
-              <FormField label="Graduation Year" required>
-                <Controller
-                  name="graduationYear"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value?.toString()}
-                      onValueChange={(val) => field.onChange(parseInt(val))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {graduationYears.map((year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.graduationYear && (
-                  <p className="text-sm text-destructive">{errors.graduationYear.message}</p>
-                )}
-              </FormField>
-
-              <FormField label="Previous Hackathons" required>
-                <Input
-                  type="number"
-                  min={0}
-                  {...register("previousHackathons", { valueAsNumber: true })}
-                  placeholder="0"
-                />
-                {errors.previousHackathons && (
-                  <p className="text-sm text-destructive">{errors.previousHackathons.message}</p>
-                )}
-              </FormField>
-
-              <FormField label="Major" required>
-                <Controller
-                  name="major"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select major" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {majorOptions.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.major && (
-                  <p className="text-sm text-destructive">{errors.major.message}</p>
-                )}
-              </FormField>
-
-              {major === "other" && (
-                <FormField label="Please specify your major">
-                  <Input {...register("majorOther")} placeholder="Major name" />
-                </FormField>
-              )}
-            </div>
-
-            <FormField label="Resume (PDF)">
-              <Input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setValue("resume", file.name);
-                  }
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload your resume as a PDF (dummy upload for now)
-              </p>
-            </FormField>
-          </CardContent>
-        </Card>
+        {/* Academic Inforamtion */}
+        <AcademicInformation />
 
         {/* Essays */}
         <Card>
@@ -549,7 +309,9 @@ export default function ApplyPage() {
                 rows={4}
               />
               {errors.whyAttend && (
-                <p className="text-sm text-destructive">{errors.whyAttend.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.whyAttend.message}
+                </p>
               )}
             </FormField>
 
@@ -563,18 +325,25 @@ export default function ApplyPage() {
                 rows={4}
               />
               {errors.technicalChallenge && (
-                <p className="text-sm text-destructive">{errors.technicalChallenge.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.technicalChallenge.message}
+                </p>
               )}
             </FormField>
 
-            <FormField label="Tell us about a project you're proud of." required>
+            <FormField
+              label="Tell us about a project you're proud of."
+              required
+            >
               <Textarea
                 {...register("proudProject")}
                 placeholder="Tell us about a project you're proud of..."
                 rows={4}
               />
               {errors.proudProject && (
-                <p className="text-sm text-destructive">{errors.proudProject.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.proudProject.message}
+                </p>
               )}
             </FormField>
 
@@ -585,7 +354,9 @@ export default function ApplyPage() {
                 rows={3}
               />
               {errors.anythingElse && (
-                <p className="text-sm text-destructive">{errors.anythingElse.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.anythingElse.message}
+                </p>
               )}
             </FormField>
           </CardContent>
@@ -618,14 +389,18 @@ export default function ApplyPage() {
                   )}
                 />
                 {errors.transportationType && (
-                  <p className="text-sm text-destructive">{errors.transportationType.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.transportationType.message}
+                  </p>
                 )}
               </FormField>
 
               <FormField label="Where Are You Coming From?" required>
                 <Input {...register("comingFrom")} placeholder="City, State" />
                 {errors.comingFrom && (
-                  <p className="text-sm text-destructive">{errors.comingFrom.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.comingFrom.message}
+                  </p>
                 )}
               </FormField>
 
@@ -649,7 +424,9 @@ export default function ApplyPage() {
                   )}
                 />
                 {errors.shirtSize && (
-                  <p className="text-sm text-destructive">{errors.shirtSize.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.shirtSize.message}
+                  </p>
                 )}
               </FormField>
             </div>
@@ -667,7 +444,9 @@ export default function ApplyPage() {
                     />
                   )}
                 />
-              <Label htmlFor="hasAllergies">Do you have any allergies or dietary restrictions?</Label>
+                <Label htmlFor="hasAllergies">
+                  Do you have any allergies or dietary restrictions?
+                </Label>
               </div>
               {hasAllergies && (
                 <FormField label="Please describe">
@@ -693,7 +472,9 @@ export default function ApplyPage() {
                     />
                   )}
                 />
-              <Label htmlFor="needsTravelReimbursement">Will you require travel reimbursement?</Label>
+                <Label htmlFor="needsTravelReimbursement">
+                  Will you require travel reimbursement?
+                </Label>
               </div>
               {needsTravelReimbursement && (
                 <FormField label="If travel reimbursement cannot be provided, would you still attend?">
@@ -734,7 +515,9 @@ export default function ApplyPage() {
                 placeholder="https://github.com/username"
               />
               {errors.github && (
-                <p className="text-sm text-destructive">{errors.github.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.github.message}
+                </p>
               )}
             </FormField>
 
@@ -744,7 +527,9 @@ export default function ApplyPage() {
                 placeholder="https://linkedin.com/in/username"
               />
               {errors.linkedin && (
-                <p className="text-sm text-destructive">{errors.linkedin.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.linkedin.message}
+                </p>
               )}
             </FormField>
 
@@ -754,7 +539,9 @@ export default function ApplyPage() {
                 placeholder="https://yourwebsite.com"
               />
               {errors.personalSite && (
-                <p className="text-sm text-destructive">{errors.personalSite.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.personalSite.message}
+                </p>
               )}
             </FormField>
           </CardContent>
@@ -778,9 +565,9 @@ export default function ApplyPage() {
                   />
                 )}
               />
-            <Label htmlFor="followsInstagram">
-              Did you follow us on Instagram (@mhacks_)? (optional)
-            </Label>
+              <Label htmlFor="followsInstagram">
+                Did you follow us on Instagram (@mhacks_)? (optional)
+              </Label>
             </div>
           </CardContent>
         </Card>
@@ -803,13 +590,18 @@ export default function ApplyPage() {
                   />
                 )}
               />
-              <Label htmlFor="mlhCodeOfConduct" className="text-sm leading-normal cursor-pointer">
+              <Label
+                htmlFor="mlhCodeOfConduct"
+                className="text-sm leading-normal cursor-pointer"
+              >
                 I have read and agree to the MLH Code of Conduct
                 <span className="text-destructive"> *</span>
               </Label>
             </div>
             {errors.mlhCodeOfConduct && (
-              <p className="text-sm text-destructive">{errors.mlhCodeOfConduct.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.mlhCodeOfConduct.message}
+              </p>
             )}
 
             <div className="flex items-start gap-2">
@@ -824,16 +616,22 @@ export default function ApplyPage() {
                   />
                 )}
               />
-              <Label htmlFor="mlhPrivacyPolicy" className="text-sm leading-normal cursor-pointer">
-                I authorize you to share my application/registration information with Major League
-                Hacking for event administration, ranking, and MLH administration in-line with the
-                MLH Privacy Policy. I further agree to the terms of both the MLH Contest Terms and
+              <Label
+                htmlFor="mlhPrivacyPolicy"
+                className="text-sm leading-normal cursor-pointer"
+              >
+                I authorize you to share my application/registration information
+                with Major League Hacking for event administration, ranking, and
+                MLH administration in-line with the MLH Privacy Policy. I
+                further agree to the terms of both the MLH Contest Terms and
                 Conditions and the MLH Privacy Policy
                 <span className="text-destructive"> *</span>
               </Label>
             </div>
             {errors.mlhPrivacyPolicy && (
-              <p className="text-sm text-destructive">{errors.mlhPrivacyPolicy.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.mlhPrivacyPolicy.message}
+              </p>
             )}
 
             <div className="flex items-start gap-2">
@@ -848,14 +646,19 @@ export default function ApplyPage() {
                   />
                 )}
               />
-              <Label htmlFor="mlhEmails" className="text-sm leading-normal cursor-pointer">
-                I authorize MLH to send me occasional emails about relevant events, career
-                opportunities, and community announcements
+              <Label
+                htmlFor="mlhEmails"
+                className="text-sm leading-normal cursor-pointer"
+              >
+                I authorize MLH to send me occasional emails about relevant
+                events, career opportunities, and community announcements
                 <span className="text-destructive"> *</span>
               </Label>
             </div>
             {errors.mlhEmails && (
-              <p className="text-sm text-destructive">{errors.mlhEmails.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.mlhEmails.message}
+              </p>
             )}
 
             <div className="flex items-start gap-2">
@@ -870,16 +673,23 @@ export default function ApplyPage() {
                   />
                 )}
               />
-              <Label htmlFor="sponsorEmails" className="text-sm leading-normal cursor-pointer">
-                I agree to receive emails from event sponsors about relevant opportunities and
-                updates (optional)
+              <Label
+                htmlFor="sponsorEmails"
+                className="text-sm leading-normal cursor-pointer"
+              >
+                I agree to receive emails from event sponsors about relevant
+                opportunities and updates (optional)
               </Label>
             </div>
           </CardContent>
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => localStorage.removeItem(STORAGE_KEY)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => localStorage.removeItem(STORAGE_KEY)}
+          >
             Clear Saved Progress
           </Button>
           <Button type="submit" disabled={isSubmitting}>
