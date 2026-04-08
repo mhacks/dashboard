@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useRouter } from "next/navigation";
 
 import {
@@ -11,17 +10,8 @@ import {
   type ApplicationFormData,
 } from "@/lib/schemas/application";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -29,17 +19,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  countries,
-  degreeOptions,
-  ethnicityOptions,
-  majorOptions,
-  shirtSizeOptions,
-  transportationOptions,
-  universities,
-} from "./form-options";
 import AcademicInformation from "./components/academic-information";
-import { FormField } from "./utils";
+import PersonalInformation from "./components/personal-information";
+import Essays from "./components/essays";
+import Logistics from "./components/logistics";
+import Socials from "./components/socials";
+import Communications from "./components/communications";
 
 const STORAGE_KEY = "mhacks-application-draft";
 
@@ -197,380 +182,45 @@ export default function ApplyPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Personal Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="Age" required>
-                <Input
-                  type="number"
-                  min={18}
-                  {...register("age", { valueAsNumber: true })}
-                  placeholder="18"
-                />
-                {errors.age && (
-                  <p className="text-sm text-destructive">
-                    {errors.age.message}
-                  </p>
-                )}
-              </FormField>
-
-              <FormField label="Gender" required>
-                <Controller
-                  name="gender"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {genderOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.gender && (
-                  <p className="text-sm text-destructive">
-                    {errors.gender.message}
-                  </p>
-                )}
-              </FormField>
-            </div>
-
-            {gender === "other" && (
-              <FormField label="Please describe your gender">
-                <Input
-                  {...register("genderOther")}
-                  placeholder="Describe your gender"
-                />
-              </FormField>
-            )}
-
-            <FormField label="Ethnicity" required>
-              <Controller
-                name="ethnicity"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select ethnicity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ethnicityOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.ethnicity && (
-                <p className="text-sm text-destructive">
-                  {errors.ethnicity.message}
-                </p>
-              )}
-            </FormField>
-
-            {ethnicity === "multiracial" && (
-              <FormField label="Please describe your ethnicity">
-                <Input
-                  {...register("ethnicityOther")}
-                  placeholder="Describe your ethnicity"
-                />
-              </FormField>
-            )}
-          </CardContent>
-        </Card>
+        <PersonalInformation
+          register={register}
+          errors={errors}
+          control={control}
+          genderOptions={genderOptions}
+          gender={gender}
+          ethnicity={ethnicity}
+        />
 
         {/* Academic Inforamtion */}
-        <AcademicInformation />
+        <AcademicInformation
+          university={university}
+          country={country}
+          degree={degree}
+          major={major}
+          errors={errors}
+          register={register}
+          graduationYears={graduationYears}
+          control={control}
+          setValue={setValue}
+        />
 
         {/* Essays */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Essays</CardTitle>
-            <CardDescription>
-              Please write 100-1000 characters for each response
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField label="Why do you want to attend MHacks?" required>
-              <Textarea
-                {...register("whyAttend")}
-                placeholder="Tell us why you want to attend MHacks..."
-                rows={4}
-              />
-              {errors.whyAttend && (
-                <p className="text-sm text-destructive">
-                  {errors.whyAttend.message}
-                </p>
-              )}
-            </FormField>
-
-            <FormField
-              label="Describe a technical challenge you've faced and how you solved it."
-              required
-            >
-              <Textarea
-                {...register("technicalChallenge")}
-                placeholder="Describe a technical challenge..."
-                rows={4}
-              />
-              {errors.technicalChallenge && (
-                <p className="text-sm text-destructive">
-                  {errors.technicalChallenge.message}
-                </p>
-              )}
-            </FormField>
-
-            <FormField
-              label="Tell us about a project you're proud of."
-              required
-            >
-              <Textarea
-                {...register("proudProject")}
-                placeholder="Tell us about a project you're proud of..."
-                rows={4}
-              />
-              {errors.proudProject && (
-                <p className="text-sm text-destructive">
-                  {errors.proudProject.message}
-                </p>
-              )}
-            </FormField>
-
-            <FormField label="Anything else you'd like us to know? (optional)">
-              <Textarea
-                {...register("anythingElse")}
-                placeholder="Anything else..."
-                rows={3}
-              />
-              {errors.anythingElse && (
-                <p className="text-sm text-destructive">
-                  {errors.anythingElse.message}
-                </p>
-              )}
-            </FormField>
-          </CardContent>
-        </Card>
+        <Essays register={register} errors={errors} />
 
         {/* Logistics */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Logistics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="Transportation Type" required>
-                <Controller
-                  name="transportationType"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select transportation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {transportationOptions.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.transportationType && (
-                  <p className="text-sm text-destructive">
-                    {errors.transportationType.message}
-                  </p>
-                )}
-              </FormField>
-
-              <FormField label="Where Are You Coming From?" required>
-                <Input {...register("comingFrom")} placeholder="City, State" />
-                {errors.comingFrom && (
-                  <p className="text-sm text-destructive">
-                    {errors.comingFrom.message}
-                  </p>
-                )}
-              </FormField>
-
-              <FormField label="Shirt Size" required>
-                <Controller
-                  name="shirtSize"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {shirtSizeOptions.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>
-                            {s.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.shirtSize && (
-                  <p className="text-sm text-destructive">
-                    {errors.shirtSize.message}
-                  </p>
-                )}
-              </FormField>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Controller
-                  name="hasAllergies"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      id="hasAllergies"
-                    />
-                  )}
-                />
-                <Label htmlFor="hasAllergies">
-                  Do you have any allergies or dietary restrictions?
-                </Label>
-              </div>
-              {hasAllergies && (
-                <FormField label="Please describe">
-                  <Textarea
-                    {...register("allergiesDescription")}
-                    placeholder="Describe your allergies or dietary restrictions..."
-                    rows={2}
-                  />
-                </FormField>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Controller
-                  name="needsTravelReimbursement"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      id="needsTravelReimbursement"
-                    />
-                  )}
-                />
-                <Label htmlFor="needsTravelReimbursement">
-                  Will you require travel reimbursement?
-                </Label>
-              </div>
-              {needsTravelReimbursement && (
-                <FormField label="If travel reimbursement cannot be provided, would you still attend?">
-                  <Controller
-                    name="wouldAttendWithoutReimbursement"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value?.toString()}
-                        onValueChange={(val) => field.onChange(val === "true")}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select option" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="true">Yes</SelectItem>
-                          <SelectItem value="false">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </FormField>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <Logistics
+          register={register}
+          errors={errors}
+          control={control}
+          hasAllergies={hasAllergies}
+          needsTravelReimbursement={needsTravelReimbursement}
+        />
 
         {/* Socials */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Socials</CardTitle>
-            <CardDescription>Optional: Share your social links</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField label="GitHub (optional)">
-              <Input
-                {...register("github")}
-                placeholder="https://github.com/username"
-              />
-              {errors.github && (
-                <p className="text-sm text-destructive">
-                  {errors.github.message}
-                </p>
-              )}
-            </FormField>
-
-            <FormField label="LinkedIn (optional)">
-              <Input
-                {...register("linkedin")}
-                placeholder="https://linkedin.com/in/username"
-              />
-              {errors.linkedin && (
-                <p className="text-sm text-destructive">
-                  {errors.linkedin.message}
-                </p>
-              )}
-            </FormField>
-
-            <FormField label="Personal Site (optional)">
-              <Input
-                {...register("personalSite")}
-                placeholder="https://yourwebsite.com"
-              />
-              {errors.personalSite && (
-                <p className="text-sm text-destructive">
-                  {errors.personalSite.message}
-                </p>
-              )}
-            </FormField>
-          </CardContent>
-        </Card>
+        <Socials register={register} errors={errors} />
 
         {/* Communications */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Communications</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Controller
-                name="followsInstagram"
-                control={control}
-                render={({ field }) => (
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    id="followsInstagram"
-                  />
-                )}
-              />
-              <Label htmlFor="followsInstagram">
-                Did you follow us on Instagram (@mhacks_)? (optional)
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
+        <Communications control={control} errors={errors} />
 
         {/* MLH & Sponsor Agreements */}
         <Card>
