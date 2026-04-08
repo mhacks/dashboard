@@ -28,15 +28,6 @@ import Communications from "./components/communications";
 
 const STORAGE_KEY = "mhacks-application-draft";
 
-const genderOptions = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "other", label: "Other (please describe)" },
-];
-
-const currentYear = new Date().getFullYear();
-const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
-
 export default function ApplyPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,15 +81,6 @@ export default function ApplyPage() {
       sponsorEmails: false,
     },
   });
-
-  const hasAllergies = watch("hasAllergies");
-  const needsTravelReimbursement = watch("needsTravelReimbursement");
-  const gender = watch("gender");
-  const ethnicity = watch("ethnicity");
-  const university = watch("university");
-  const country = watch("country");
-  const degree = watch("degree");
-  const major = watch("major");
 
   // Load saved progress
   useEffect(() => {
@@ -186,20 +168,12 @@ export default function ApplyPage() {
           register={register}
           errors={errors}
           control={control}
-          genderOptions={genderOptions}
-          gender={gender}
-          ethnicity={ethnicity}
         />
 
         {/* Academic Inforamtion */}
         <AcademicInformation
-          university={university}
-          country={country}
-          degree={degree}
-          major={major}
           errors={errors}
           register={register}
-          graduationYears={graduationYears}
           control={control}
           setValue={setValue}
         />
@@ -212,8 +186,6 @@ export default function ApplyPage() {
           register={register}
           errors={errors}
           control={control}
-          hasAllergies={hasAllergies}
-          needsTravelReimbursement={needsTravelReimbursement}
         />
 
         {/* Socials */}

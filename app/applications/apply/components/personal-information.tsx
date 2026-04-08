@@ -1,17 +1,5 @@
 import { Controller, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useRouter } from "next/navigation";
-
-import {
-  applicationSchema,
-  type ApplicationFormData,
-} from "@/lib/schemas/application";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -22,29 +10,21 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  countries,
-  degreeOptions,
-  ethnicityOptions,
-  majorOptions,
-  shirtSizeOptions,
-  transportationOptions,
-  universities,
-} from "../form-options";
+import { ethnicityOptions } from "../form-options";
 import { FormField } from "../utils";
 
-const PersonalInformation = ({
-  register,
-  errors,
-  control,
-  genderOptions,
-  gender,
-  ethnicity,
-}: any) => {
+const genderOptions = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "other", label: "Other (please describe)" },
+];
+
+const PersonalInformation = ({ register, errors, control }: any) => {
+  const gender = useWatch({ control, name: "gender" });
+  const ethnicity = useWatch({ control, name: "ethnicity" });
   return (
     <Card>
       <CardHeader>

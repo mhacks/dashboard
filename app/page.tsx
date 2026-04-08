@@ -18,6 +18,9 @@ export default function Home() {
           <Link href="/apply">
             <Button>Apply Now</Button>
           </Link>
+          <Link href="/review">
+            <Button variant="outline">Review Applications</Button>
+          </Link>
         </div>
       </main>
     </div>

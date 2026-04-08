@@ -1,14 +1,5 @@
 import { Controller, useWatch } from "react-hook-form";
-
-import {
-  applicationSchema,
-  type ApplicationFormData,
-} from "@/lib/schemas/application";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -19,32 +10,25 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
   countries,
   degreeOptions,
-  ethnicityOptions,
   majorOptions,
-  shirtSizeOptions,
-  transportationOptions,
   universities,
 } from "../form-options";
 import { FormField } from "../utils";
 
-const AcademicInformation = ({
-  university,
-  country,
-  degree,
-  major,
-  errors,
-  register,
-  graduationYears,
-  control,
-  setValue,
-}: any) => {
+const currentYear = new Date().getFullYear();
+const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
+
+const AcademicInformation = ({ errors, register, control, setValue }: any) => {
+  const university = useWatch({ control, name: "university" });
+  const country = useWatch({ control, name: "country" });
+  const degree = useWatch({ control, name: "degree" });
+  const major = useWatch({ control, name: "major" });
   return (
     <>
       {" "}

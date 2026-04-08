@@ -19,13 +19,12 @@ import {
 import { shirtSizeOptions, transportationOptions } from "../form-options";
 import { FormField } from "../utils";
 
-const Logistics = ({
-  register,
-  errors,
-  control,
-  hasAllergies,
-  needsTravelReimbursement,
-}: any) => {
+const Logistics = ({ register, errors, control }: any) => {
+  const hasAllergies = useWatch({ control, name: "hasAllergies" });
+  const needsTravelReimbursement = useWatch({
+    control,
+    name: "needsTravelReimbursement",
+  });
   return (
     <Card>
       <CardHeader>
