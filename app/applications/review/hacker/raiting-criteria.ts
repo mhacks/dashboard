@@ -1,4 +1,4 @@
-interface ReviewFormData {
+export interface ReviewFormData {
   motivation: number | undefined;
   builderMindset: number | undefined;
   collaboration: number | undefined;
@@ -8,7 +8,7 @@ interface ReviewFormData {
   reviewComments: string;
 }
 
-const RATING_CRITERIA: {
+export const rating_criteria: {
   key: keyof Omit<ReviewFormData, "flagForReview" | "reviewComments">;
   label: string;
   descriptions: Record<number, string>;

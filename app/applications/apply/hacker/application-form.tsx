@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 
 import {
-  applicationSchema,
-  type ApplicationFormData,
-} from "@/lib/schemas/application";
+  HackerApplicationFormData,
+  hackerApplicationSchema,
+} from "@/lib/types/applications";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -25,10 +26,16 @@ import Essays from "./components/essays";
 import Logistics from "./components/logistics";
 import Socials from "./components/socials";
 import Communications from "./components/communications";
+import { submitHackerApplication } from "@/lib/actions/application-form.server.actions";
 
 const STORAGE_KEY = "mhacks-application-draft";
 
-export default function ApplyPage() {
+export default function ApplyPage({
+  profileIdPromise,
+}: {
+  profileIdPromise: Promise<string>;
+}) {
+  const profileId = use(profileIdPromise);
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -40,8 +47,8 @@ export default function ApplyPage() {
     watch,
     setValue,
     formState: { errors, isValid },
-  } = useForm<ApplicationFormData>({
-    resolver: zodResolver(applicationSchema),
+  } = useForm<HackerApplicationFormData>({
+    resolver: zodResolver(hackerApplicationSchema),
     mode: "onChange",
     defaultValues: {
       age: undefined,
@@ -90,7 +97,7 @@ export default function ApplyPage() {
         const data = JSON.parse(saved);
         Object.entries(data).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== "") {
-            setValue(key as keyof ApplicationFormData, value as any);
+            setValue(key as keyof HackerApplicationFormData, value as any);
           }
         });
       } catch (e) {
@@ -105,8 +112,8 @@ export default function ApplyPage() {
       const toSave = { ...data };
       // Don't save undefined values
       Object.keys(toSave).forEach((key) => {
-        if (toSave[key as keyof ApplicationFormData] === undefined) {
-          delete toSave[key as keyof ApplicationFormData];
+        if (toSave[key as keyof HackerApplicationFormData] === undefined) {
+          delete toSave[key as keyof HackerApplicationFormData];
         }
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
@@ -114,18 +121,11 @@ export default function ApplyPage() {
     return () => subscription.unsubscribe();
   }, [watch]);
 
-  const onSubmit = async (data: ApplicationFormData) => {
+  const onSubmit = async (data: HackerApplicationFormData) => {
     setIsSubmitting(true);
     try {
-      // Dummy resume upload function
-      const uploadResume = async (file: File): Promise<string> => {
-        // TODO: Implement S3 upload
-        console.log("Uploading resume:", file.name);
-        return "dummy-resume-url";
-      };
-
+      await submitHackerApplication(profileId, data);
       // In a real app, we'd upload the resume here
-      console.log("Submitting application:", data);
       localStorage.removeItem(STORAGE_KEY);
       setSubmitSuccess(true);
     } catch (error) {
@@ -182,11 +182,7 @@ export default function ApplyPage() {
         <Essays register={register} errors={errors} />
 
         {/* Logistics */}
-        <Logistics
-          register={register}
-          errors={errors}
-          control={control}
-        />
+        <Logistics register={register} errors={errors} control={control} />
 
         {/* Socials */}
         <Socials register={register} errors={errors} />
