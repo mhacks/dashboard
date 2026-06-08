@@ -1,303 +1,141 @@
-# Development process: local → remote
+# Development workflow
 
-This is the end-to-end guide to how a change travels from your laptop to the
-shared remote. It walks the lifecycle in order:
-
-1. [Start the local stack](#1-start-the-local-stack) (database / auth / Supabase)
-2. [Develop and update the schema with Drizzle](#2-develop-and-update-the-schema-with-drizzle)
-3. [Merge your branch into `main`](#3-merge-your-branch-into-main)
-4. [Connect `main` to the remote](#4-connect-main-to-the-remote)
-
-> **Companion doc:** [`docs/supabase.md`](./supabase.md) explains the *mechanics*
-> of Supabase (the three clients, the magic-link auth flow, what `config.toml`
-> owns). This doc is the *process* — the order of operations and the git workflow
-> around it. When in doubt about "what does this Supabase piece do," read that;
-> for "what do I run, and when," read this.
-
----
+How a change travels from your laptop to the shared remote. For how Supabase is
+wired into the app (the local stack, the auth clients), see
+[docs/supabase.md](./supabase.md).
 
 ## The core rule
 
-**Every branch develops against its own local database. The shared remote is
-only ever touched from `main`, after merge.**
+**Every branch develops against its own local database. The shared remote is only
+ever touched from `main`, after merge.**
 
-This is the single decision the whole workflow hangs on. Locally you iterate with
-`db:push` (no migration files, instantly disposable, no merge conflicts). The
-remote is only ever changed by **committed migration files**, applied from `main`.
-That keeps two people's in-flight schema changes from clobbering each other on a
-shared database.
-
-"Supabase" is actually three separate concerns, and each promotes to the remote
-its own way — they do **not** move together:
-
-| Concern                                      | Local source           | Promotes to remote via                      |
-| -------------------------------------------- | ---------------------- | ------------------------------------------- |
-| **DB schema** (tables, columns)              | `lib/db/schema.ts`     | `db:migrate` with the remote `DATABASE_URL` |
-| **Platform config** (auth, email templates)  | `supabase/config.toml` | `supabase config push`                      |
-| **App → Supabase connection** (env vars)     | `.env`                 | env vars set on your hosting platform       |
-
----
-
-## 0. One-time setup
-
-Do this once per machine.
-
-```bash
-pnpm install              # installs deps + the Supabase CLI (it's a devDependency)
-# make sure Docker Desktop is running — the local stack runs in containers
-```
-
-You do **not** need to hand-write `.env` — it's generated from the running stack
-in the next step.
-
----
+Locally you iterate with `db:push` — no migration files, instantly disposable, no
+merge conflicts. The remote only ever changes through **committed migration files**,
+applied from `main`. That's what stops two people's in-flight schema changes from
+clobbering each other on a shared database.
 
 ## 1. Start the local stack
 
-`pnpm db:local` boots a full Supabase in Docker (Postgres + Auth/API + Studio +
-Mailpit). Then generate your `.env` from what the stack reports:
-
 ```bash
-pnpm db:local            # boot the Docker stack (Postgres, Auth, Studio, Mailpit)
-pnpm db:env              # write .env from `supabase status` (the live local values)
-pnpm db:push             # apply the current schema to the fresh local db
-pnpm dev                 # run the app against localhost
+pnpm db:local          # boot the Supabase stack in Docker (needs Docker running)
+pnpm db:env            # write .env from `supabase status`
+pnpm db:push           # apply the current schema to the fresh local db
+pnpm dev               # run the app against localhost
 ```
 
-What's now running:
+`db:env` runs [`scripts/gen-env.ts`](../scripts/gen-env.ts): it reads
+`supabase status` and writes `.env` (git-ignored). Re-run it whenever the stack's
+values change. For what the stack contains and the service URLs, see
+[docs/supabase.md](./supabase.md#the-local-stack).
 
-| Service  | URL                 | Purpose                                  |
-| -------- | ------------------- | ---------------------------------------- |
-| Postgres | `127.0.0.1:54322`   | the database (`DATABASE_URL` points here)|
-| API/Auth | `127.0.0.1:54321`   | what the Supabase auth clients talk to   |
-| Studio   | `127.0.0.1:54323`   | DB GUI — also `pnpm db:studio`           |
-| Mailpit  | `127.0.0.1:54324`   | catches outgoing emails locally          |
+> Editing `supabase/config.toml`? It's only read at boot — restart with
+> `pnpm db:local:stop` then `pnpm db:local`.
 
-Notes:
+## 2. Develop: change the schema
 
-- **`pnpm db:env`** runs [`scripts/gen-env.ts`](../scripts/gen-env.ts), which
-  reads `supabase status` and writes `.env`. The local DB URL and Supabase keys
-  come straight from the running stack; the auth redirect URLs are *preserved*
-  from your existing `.env` (or default to `http://localhost:3000`). Re-run it any
-  time the stack's values change. `.env` is git-ignored — never committed.
-- **Magic-link auth runs fully locally.** Logging in sends an email that lands in
-  **Mailpit** (`http://127.0.0.1:54324`), not a real inbox. See the magic-link
-  flow in [`docs/supabase.md`](./supabase.md#magic-link-flow).
-- **Config changes need a restart.** `supabase/config.toml` (ports, auth rules,
-  email template) is only read at boot. After editing it:
-  `pnpm db:local:stop` then `pnpm db:local`.
-
-Handy lifecycle commands:
-
-| Command                  | Does                                                          |
-| ------------------------ | ------------------------------------------------------------ |
-| `pnpm db:local`          | start the stack                                              |
-| `pnpm db:local:stop`     | stop the stack                                               |
-| `pnpm db:local:reset`    | **wipe** the local db and re-apply all migrations from `drizzle/` |
-| `pnpm db:local:restart`  | stop → start → `db:push` (fresh stack with current schema)   |
-| `pnpm db:studio`         | open the Drizzle Studio GUI                                  |
-
----
-
-## 2. Develop and update the schema with Drizzle
-
-The schema lives in [`lib/db/schema.ts`](../lib/db/schema.ts) — Drizzle is the
-single owner of table/column definitions. The local inner loop:
+The schema lives in [`lib/db/schema.ts`](../lib/db/schema.ts) — Drizzle owns every
+table and column.
 
 ```bash
-# 1. edit lib/db/schema.ts (add a table, a column, etc.)
-# 2. push it straight to your LOCAL db — instant, no migration file:
-pnpm db:push
-# 3. iterate in the app / inspect with `pnpm db:studio`
+# edit lib/db/schema.ts
+pnpm db:push           # push straight to your LOCAL db — instant, no migration file
 ```
 
-Iterate freely: `db:push` diffs the schema against your local db and applies the
-change directly. No migration file is written, so there's nothing to conflict on
-a branch.
+Two conventions keep merges painless:
 
-Two conventions that keep merges painless:
+- **Keep changes additive** (new tables, nullable columns) until merged.
+- **Never generate migration files on a branch.** Commit only `lib/db/schema.ts`,
+  nothing in `drizzle/`. Migrations are generated on `main` (step 4).
 
-- **Keep schema changes additive** (new tables, nullable columns) until merged.
-  Destructive changes on a shared remote are where pain lives.
-- **Never generate migration files on a feature branch.** While iterating, only
-  `db:push` (local) and commit `lib/db/schema.ts` — *not* anything in `drizzle/`.
-  Migrations are generated on `main`, after merge (see §3). This is what keeps the
-  migration order a true total order; generating on branches breaks it (see the
-  callout in §3).
-
-The Drizzle commands and what they touch:
-
-| Command            | Target          | When                                                       |
-| ------------------ | --------------- | ---------------------------------------------------------- |
-| `pnpm db:push`     | **local** db    | day-to-day iteration on a branch                           |
-| `pnpm db:generate` | writes `drizzle/*.sql` | **on `main` only**, after merge — turns the merged schema delta into a committed migration (see §3) |
-| `pnpm db:migrate`  | **remote** db   | from `main`, applies committed migrations (see §4)         |
-
-> ⚠️ **Never `db:push` against the remote, and never `db:migrate` against local.**
-> `db:push` is the disposable local tool; `db:migrate` + committed files are the
-> auditable remote path.
-
----
-
-## 3. Merge your branch into `main`
-
-A feature branch only ever commits `lib/db/schema.ts` — **not** migration files.
-Open the PR as usual:
+## 3. Merge to `main`
 
 ```bash
 git add lib/db/schema.ts        # the schema change only — nothing in drizzle/
 git commit -m "Add <thing> to schema"
-git push -u origin <your-branch>
-# open a PR against main
+git push -u origin <your-branch>   # then open a PR against main
 ```
 
-On the PR, CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs
-Prettier, ESLint, and a production build. CI does **not** touch any database — it
-only checks the app builds. Schema correctness is your responsibility via local
-testing (`pnpm db:push` against your local db).
+CI runs Prettier, ESLint, and a production build — it never touches a database.
+Merging lands the new `schema.ts` on `main`; it does **not** create a migration or
+change the remote.
 
-Then merge the PR into `main`. **Merging does not change the remote database, and
-it does not create a migration** — it just lands the new `schema.ts` on `main`.
+## 4. Ship to the remote
 
-### Generate the migration on `main`, not on the branch
+Do this **from `main`, after merge** — never from a branch. The three concerns
+promote separately (see the [three-concerns model](./supabase.md#three-concerns)).
 
-After the merge, generate the migration **from `main`**:
-
-```bash
-git checkout main && git pull
-pnpm db:generate                # diff merged schema.ts → write drizzle/NNNN_*.sql
-git add drizzle/
-git commit -m "Generate migration for <thing>"
-git push
-```
-
-`db:generate` compares `lib/db/schema.ts` against the snapshot in
-[`drizzle/meta/`](../drizzle/meta) and writes a new `drizzle/NNNN_*.sql` file plus
-an updated snapshot. Migrations apply in **numbered order**, and that numbering is
-assigned at generation time.
-
-> ⚠️ **Why generation must happen on `main`, never on a branch.** Migrations are a
-> single, totally-ordered sequence (`0000`, `0001`, `0002`, …). If two branches
-> each generated a migration before merging, they'd *both* claim the next number
-> (e.g. `0001`) against the same base snapshot — colliding filenames and, worse,
-> two migrations whose recorded order doesn't match the order they actually
-> merged. Generating only on `main`, after each merge, makes the migration
-> sequence follow **merge order** — a real total order, one writer at a time. If
-> several schema changes merge before anyone generates, a single `db:generate`
-> captures their combined delta as one correctly-ordered migration.
-
-Sanity-check before shipping it to the remote:
-
-- The generated `drizzle/*.sql` reads the way you expect (no surprise drops).
-- `pnpm db:local:reset` re-runs **all** migrations on a clean local db. If that
-  succeeds, the same files will apply cleanly to the remote.
-
----
-
-## 4. Connect `main` to the remote
-
-Do this **from `main`, after merge** — never from a feature branch. Recall the
-three concerns promote separately.
-
-### One-time: link the CLI to the remote project
+One-time, link the CLI to the remote project:
 
 ```bash
 pnpm supabase login
 pnpm supabase link --project-ref <ref>   # <ref> is in the project's dashboard URL
 ```
 
-### 4a. DB schema → remote (Drizzle migrate)
+### Schema → remote
 
 ```bash
-git checkout main && git pull            # on main, with the migration from §3 committed
+git checkout main && git pull
+pnpm db:generate                  # merged schema delta → drizzle/NNNN_*.sql
+git add drizzle/ && git commit -m "Generate migration" && git push
 DATABASE_URL="<remote-pooler-url>" pnpm db:migrate
 ```
 
-- Use the **Transaction pooler** string (host ends in `pooler.supabase.com`, port
-  `6543`) from **Supabase Dashboard → Connect → ORMs**. That pooled mode is why
+- Use the **Transaction pooler** string (port `6543`) from **Supabase Dashboard →
+  Connect → ORMs** — that pooled mode is why
   [`lib/db/index.ts`](../lib/db/index.ts) sets `prepare: false`.
-- The **inline `DATABASE_URL` overrides `.env`**, so the remote can only be hit
-  on purpose — your `.env` stays pointed at local. This is the guard against
-  accidental remote writes.
-- `db:migrate` applies any migration files the remote hasn't seen yet, in order.
-  It's safe to re-run; already-applied migrations are skipped.
+- The inline `DATABASE_URL` overrides `.env`, so the remote is only ever hit on
+  purpose.
+- **Generate only on `main`.** Migrations are one totally-ordered sequence; two
+  branches generating before merge would claim the same number and scramble the
+  order. Generating after each merge makes the sequence follow merge order.
 
-### 4b. Platform config (auth + email template) → remote
+Sanity check before shipping: `pnpm db:local:reset` re-runs every migration on a
+clean local db. If that succeeds, the files will apply cleanly to the remote.
+
+### Auth config → remote
 
 ```bash
 pnpm supabase config push
 ```
 
-`supabase/config.toml` only configures your **local** stack until pushed. This is
-the **most-forgotten step**: skip it and remote magic-link logins redirect to the
-wrong place (the custom `magic_link.html` template must exist remotely). For
-production also update, in `config.toml` / the dashboard:
+`supabase/config.toml` (auth rules + the magic-link email template) configures only
+your local stack until pushed. **This is the most-forgotten step** — skip it and
+remote logins redirect to the wrong place. For production also set, in the
+dashboard, a real `site_url` / redirect URLs and an SMTP provider (Mailpit is
+local-only, so the remote can't send email without it).
 
-- `site_url` / `additional_redirect_urls` → your real domain (local default is
-  `localhost:3000`).
-- A real **SMTP provider** under `[auth.email.smtp]` — Mailpit is local-only, so
-  the remote can't send email without it.
+### App connection → remote
 
-### 4c. App connection → remote (hosting env)
+Set these on your hosting platform, then redeploy:
 
-The deployed app talks to whatever its env vars resolve to — there's no automatic
-local/remote switching. Set these as environment variables on whatever platform
-hosts the deployed app:
+| Variable                               | Value (Dashboard → Settings → API) |
+| -------------------------------------- | ---------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | remote project URL                 |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | remote publishable key             |
+| `DATABASE_URL`                         | remote Transaction pooler string   |
 
-| Variable                                | Value (Dashboard → Project Settings → API) |
-| --------------------------------------- | ------------------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`              | remote project URL                         |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`  | remote publishable key                     |
-| `DATABASE_URL`                          | remote Transaction pooler string           |
+`NEXT_PUBLIC_*` vars are **inlined at build time**, not read at runtime — changing
+them requires a rebuild/redeploy.
 
-> ⚠️ `NEXT_PUBLIC_*` vars are **inlined at build time**, not read at runtime.
-> Changing them requires a **rebuild/redeploy** — you can't flip an existing
-> deployment between local and remote by editing env.
+## Command reference
 
----
-
-## End-to-end summary
-
-```text
-LOCAL DEV (any feature branch)
-  pnpm db:local                  # boot Docker stack
-  pnpm db:env                    # generate .env from the running stack
-  edit lib/db/schema.ts → pnpm db:push   # iterate against LOCAL db (no migration files)
-  pnpm dev                       # app → localhost, magic-link emails → Mailpit
-
-MERGE (feature branch → main)
-  commit lib/db/schema.ts ONLY (nothing in drizzle/), push, open PR
-  → CI (lint/build) → merge to main
-  # merging does NOT create a migration or change the remote db
-
-GENERATE MIGRATION (on main, after merge — never on a branch)
-  git checkout main && git pull
-  pnpm db:generate               # merged schema delta → drizzle/NNNN_*.sql (merge-ordered)
-  commit drizzle/ + push
-
-SHIP TO REMOTE (from main — three separate promotions)
-  DATABASE_URL="<remote pooler>" pnpm db:migrate   # 4a. schema
-  pnpm supabase config push                        # 4b. auth config + email template
-  # 4c. (hosting platform) set NEXT_PUBLIC_SUPABASE_* + DATABASE_URL, then redeploy
-```
-
----
+| Command               | Does                                                       |
+| --------------------- | ---------------------------------------------------------- |
+| `pnpm db:local`       | start the local stack                                      |
+| `pnpm db:local:stop`  | stop it                                                    |
+| `pnpm db:local:reset` | **wipe** the local db and re-apply all migrations          |
+| `pnpm db:env`         | (re)generate `.env` from the running stack                 |
+| `pnpm db:push`        | apply `schema.ts` to the **local** db (no migration)       |
+| `pnpm db:generate`    | write a migration from the schema delta (**on `main`**)    |
+| `pnpm db:migrate`     | apply migrations to the **remote** (inline `DATABASE_URL`) |
 
 ## Gotchas
 
-1. **Schema and config promote separately.** `db:migrate` (inline remote URL) for
-   schema; `supabase config push` for auth/config. Forgetting the second is the
-   most common mistake.
-2. **`db:push` is local-only; `db:migrate` is remote-only.** Mixing them up either
-   skips the audit trail or risks the shared db.
-3. **Generate migrations on `main`, never on a feature branch.** Branches commit
-   only `schema.ts`; `db:generate` runs on `main` after merge. This keeps the
-   migration sequence a true total order (merge order). Generating on branches
-   makes two branches collide on the same migration number and scrambles ordering.
+1. **Schema and config promote separately** — `db:migrate` for schema,
+   `supabase config push` for auth. Forgetting the second is the most common
+   mistake.
+2. **`db:push` is local-only; `db:migrate` is remote-only.** Never cross them.
+3. **Generate migrations on `main`, never on a branch** — keeps the sequence
+   totally ordered by merge order.
 4. **`NEXT_PUBLIC_*` is build-time** — flipping local↔remote needs a rebuild.
-5. **Mailpit is local-only** — the remote needs real SMTP to send magic-link
-   emails.
-6. **`.env` is generated and git-ignored.** Local default keys are well-known dev
-   values; the remote `DATABASE_URL` and keys are secrets — keep them in your
-   hosting platform's env settings / a password manager, never in a committed file.
-```
+5. **Mailpit is local-only** — the remote needs real SMTP to send magic-link email.

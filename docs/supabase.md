@@ -1,208 +1,62 @@
-# Supabase: local → remote workflow
+# How Supabase is wired in
 
-This project uses Supabase for both the **database** (via Drizzle ORM) and
-**auth** (magic-link, via `@supabase/ssr`). This doc explains how work flows
-from your local machine to the shared remote project.
+Reference for the moving parts. For the _workflow_ — what to run and when to get a
+change from local to the remote — see [docs/development.md](./development.md).
 
-> For the quick DB-only version, see the **Database & schema workflow** section
-> of the [README](../README.md). This doc is the complete picture, including auth.
-> For the step-by-step *process* (what to run and when, plus the git/merge
-> workflow), see [`docs/development.md`](./development.md).
+## Three concerns
 
----
+"Supabase" here is really three separate concerns. Each has its own local source
+and its own path to the remote — they do **not** move together.
 
-## Mental model: three things, three promotion paths
-
-"Supabase" is really three separate concerns, and each gets to the remote a
-different way. Don't assume they move together.
-
-| Concern                                   | Owned by          | Local source            | Promote to remote via                       |
-| ----------------------------------------- | ----------------- | ----------------------- | ------------------------------------------- |
-| **DB schema** (tables, columns)           | Drizzle           | `lib/db/schema.ts`      | `db:migrate` with the remote `DATABASE_URL` |
-| **Platform config** (auth, email templates) | `config.toml`   | `supabase/config.toml`  | `supabase config push`                      |
-| **App → Supabase connection** (auth clients) | env vars        | `.env`                  | env vars set on your hosting platform       |
-
----
+| Concern                                     | Owned by      | Local source           | Promotes to remote via               |
+| ------------------------------------------- | ------------- | ---------------------- | ------------------------------------ |
+| **DB schema** (tables, columns)             | Drizzle       | `lib/db/schema.ts`     | `db:migrate` (remote `DATABASE_URL`) |
+| **Platform config** (auth, email templates) | `config.toml` | `supabase/config.toml` | `supabase config push`               |
+| **App ↔ Supabase connection** (env)         | env vars      | `.env`                 | env vars on your hosting platform    |
 
 ## The local stack
 
 `pnpm db:local` (= `supabase start`) boots a full Supabase in Docker:
 
-| Service | URL                      | Purpose                          |
-| ------- | ------------------------ | -------------------------------- |
-| Postgres| `127.0.0.1:54322`        | the database                     |
-| API/Auth| `127.0.0.1:54321`        | what the auth clients talk to    |
-| Studio  | `127.0.0.1:54323`        | DB GUI (`pnpm db:studio`)        |
-| Mailpit | `127.0.0.1:54324`        | catches outgoing emails locally  |
+| Service  | URL               | Purpose                                   |
+| -------- | ----------------- | ----------------------------------------- |
+| Postgres | `127.0.0.1:54322` | the database (`DATABASE_URL` points here) |
+| API/Auth | `127.0.0.1:54321` | what the auth clients talk to             |
+| Studio   | `127.0.0.1:54323` | Supabase Studio — DB GUI                  |
+| Mailpit  | `127.0.0.1:54324` | catches outgoing email locally            |
 
-Everything about the local stack is configured by
-[`supabase/config.toml`](../supabase/config.toml) — ports, auth rules, and the
-magic-link email template. **Config changes only take effect on restart:**
-`pnpm db:local:stop` then `pnpm db:local`.
+Supabase Studio is already running once the stack is up — open it to inspect data.
+Everything here is configured by [`supabase/config.toml`](../supabase/config.toml),
+which is read only at boot (restart after editing it).
 
-`pnpm db:local:reset` wipes the local DB and re-applies all migrations from
-scratch — your reset button.
+## Auth
 
----
+The app uses magic-link auth via `@supabase/ssr`. There are three clients, one per
+runtime, all reading the same `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — whatever those resolve to is the instance
+the app talks to (there's no automatic local/remote switching).
 
-## Auth code map
+| File                                                          | Runs in                                      | Role                                                   |
+| ------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------ |
+| [`lib/supabase/client.ts`](../lib/supabase/client.ts)         | Client Components                            | browser client                                         |
+| [`lib/supabase/server.ts`](../lib/supabase/server.ts)         | Server Components / Route Handlers / Actions | request-scoped server client (reads cookies)           |
+| [`lib/supabase/middleware.ts`](../lib/supabase/middleware.ts) | middleware                                   | `updateSession()` — refreshes token, syncs cookies     |
+| [`app/auth/confirm/route.ts`](../app/auth/confirm/route.ts)   | Route Handler                                | verifies the magic-link `token_hash`, sets the session |
 
-| File                                                       | Runs in                                            | Role                                            |
-| ---------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------- |
-| [`lib/supabase/client.ts`](../lib/supabase/client.ts)      | Client Components (`"use client"`)                 | browser Supabase client                         |
-| [`lib/supabase/server.ts`](../lib/supabase/server.ts)      | Server Components / Route Handlers / Server Actions| request-scoped server client (reads cookies)    |
-| [`lib/supabase/middleware.ts`](../lib/supabase/middleware.ts) | middleware                                      | `updateSession()` — refreshes token, syncs cookies |
-| [`middleware.ts`](../middleware.ts)                        | every request                                      | runs `updateSession` (excludes static assets)   |
-| [`app/auth/confirm/route.ts`](../app/auth/confirm/route.ts)| Route Handler                                      | verifies magic-link `token_hash`, sets session  |
-
-All three clients read the **same two env vars** —
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Whatever
-those resolve to is the Supabase instance the app talks to. There is **no**
-automatic local/remote switching.
+[`middleware.ts`](../middleware.ts) runs `updateSession` on every request (minus
+static assets).
 
 ### Magic-link flow
 
 1. App calls `supabase.auth.signInWithOtp({ email })`.
-2. Supabase sends an email using the
-   [`magic_link.html`](../supabase/templates/magic_link.html) template, which
-   links to `/auth/confirm?token_hash=...&type=magiclink`.
-3. [`app/auth/confirm/route.ts`](../app/auth/confirm/route.ts) calls
-   `verifyOtp`, establishes the session cookie, and redirects.
+2. Supabase sends the [`magic_link.html`](../supabase/templates/magic_link.html)
+   template, which links to `/auth/confirm?token_hash=...&type=magiclink`.
+3. [`app/auth/confirm/route.ts`](../app/auth/confirm/route.ts) calls `verifyOtp`,
+   sets the session cookie, and redirects.
 
-> The custom template is what makes the SSR (token-hash) flow work. The
-> **default** Supabase template links to Supabase's own verify endpoint and
-> bypasses our confirm route — so the template **must** be present both locally
-> (`config.toml`) and remotely (`config push`).
+> The **custom** template is what makes the token-hash (SSR) flow work; the default
+> links to Supabase's own verify endpoint and bypasses our confirm route. So the
+> template must exist both locally (`config.toml`) and remotely (`config push`).
 
 Locally, the email lands in **Mailpit** (`http://127.0.0.1:54324`), not a real
 inbox.
-
----
-
-## Day-to-day: develop locally
-
-Per the project convention, **every branch develops against its own local
-database.** The shared remote is only touched from `main` after merge.
-
-```bash
-pnpm db:local          # boot the Docker stack (requires Docker running)
-pnpm db:env            # generate .env from the running stack (`supabase status`)
-
-# --- schema changes (Drizzle owns these) ---
-# edit lib/db/schema.ts ...
-pnpm db:push           # push schema straight to LOCAL db — instant, disposable
-
-# --- app + auth ---
-pnpm dev               # app talks to localhost; magic-link emails → Mailpit
-```
-
-Iterate freely with `db:push` locally — no migration files, so no merge
-conflicts. Keep schema changes **additive** (new tables / nullable columns)
-until merged, and commit **only `lib/db/schema.ts`** on a branch (no `drizzle/`).
-`pnpm db:studio` opens a GUI to inspect data.
-
----
-
-## Promote to the shared remote
-
-Do this **from `main`, after merge** — not from feature branches.
-
-### One-time: link the CLI to the remote project
-
-```bash
-pnpm supabase login
-pnpm supabase link --project-ref <ref>   # <ref> is in your project's dashboard URL
-```
-
-### 1. DB schema → remote (Drizzle, **not** `supabase db push`)
-
-Feature branches commit only `lib/db/schema.ts` — the migration is generated on
-`main` after merge, so its number follows merge order (see the total-ordering note
-below). From `main`:
-
-```bash
-pnpm db:generate       # turn the merged schema delta into a committed migration in drizzle/
-git add drizzle/ && git commit -m "Generate migration" && git push
-DATABASE_URL="<remote-pooler-url>" pnpm db:migrate
-```
-
-- Use the **Transaction pooler** string (port `6543`) from
-  **Supabase Dashboard → Connect → ORMs**. That's why
-  [`lib/db/index.ts`](../lib/db/index.ts) sets `prepare: false`.
-- The inline `DATABASE_URL` overrides `.env`, so the remote can't be touched by
-  accident. **Never** run `db:migrate` against local, and **never** run
-  `db:push` against the remote.
-- Migration files in `drizzle/` are the single source of truth for the remote's
-  schema.
-- **Generate only on `main`, never on a branch.** Migrations are a single
-  totally-ordered sequence; two branches generating before merge would claim the
-  same number and scramble the order. Generating on `main` after each merge makes
-  the sequence follow merge order — one writer at a time.
-
-### 2. Platform config (auth + email template) → remote
-
-```bash
-pnpm supabase config push
-```
-
-The auth settings and email template in `config.toml` only configure the
-**local** stack until you push them. Without this, remote logins use the wrong
-redirect (see the magic-link note above). Also update for production:
-
-- `site_url` / `additional_redirect_urls` → your real domain (currently
-  `127.0.0.1:3000`).
-- A real **SMTP provider** (`[auth.email.smtp]`) — Mailpit is local-only, so the
-  remote can't send email without it.
-
-### 3. App connection → remote (hosting env)
-
-Set these as environment variables on whatever platform hosts the deployed app:
-
-| Variable                            | Value (from Dashboard → Settings → API) |
-| ----------------------------------- | --------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`          | remote project URL                      |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | remote publishable key               |
-| `DATABASE_URL`                      | remote Transaction pooler string        |
-
-> ⚠️ The `NEXT_PUBLIC_*` vars are **inlined at build time**, not read at runtime.
-> Changing them requires a **rebuild/redeploy** — you can't flip local↔remote by
-> editing env on an already-built deployment.
-
----
-
-## End-to-end summary
-
-```text
-LOCAL DEV (any branch)
-  pnpm db:local                       # boot Docker stack
-  pnpm db:env                         # generate .env from the running stack
-  edit lib/db/schema.ts → pnpm db:push   # iterate against LOCAL db
-  pnpm dev                            # app → localhost, emails → Mailpit
-  commit lib/db/schema.ts ONLY (no drizzle/) → PR → merge to main
-
-SHIP TO REMOTE (from main, after merge)
-  pnpm db:generate                                 # merged schema delta → drizzle/NNNN_*.sql
-  commit drizzle/ + push                           # migration numbered in merge order
-  DATABASE_URL="<remote pooler>" pnpm db:migrate   # 1. schema
-  pnpm supabase config push                        # 2. auth config + email template
-  # 3. (hosting platform) set NEXT_PUBLIC_SUPABASE_* + DATABASE_URL, then redeploy
-```
-
----
-
-## Gotchas
-
-1. **Schema and config promote separately.** Drizzle migrate (inline URL) for
-   schema; `supabase config push` for auth/config. Forgetting the second is the
-   most common mistake.
-2. **Generate migrations on `main`, never on a branch.** Branches commit only
-   `schema.ts`; `db:generate` runs on `main` after merge so the migration sequence
-   stays totally ordered by merge order.
-3. **The magic-link template must be pushed**, or remote logins redirect to the
-   wrong place.
-4. **`NEXT_PUBLIC_*` is build-time** — flipping local↔remote needs a rebuild.
-5. **Mailpit is local-only** — the remote needs real SMTP configured to send
-   magic-link emails.
-6. **Local default keys are safe to commit** (they're well-known dev values);
-   remote keys and the remote `DATABASE_URL` are **not** — keep them in your
-   hosting platform's env settings / a password manager.
