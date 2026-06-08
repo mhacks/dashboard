@@ -86,6 +86,7 @@ database.** The shared remote is only touched from `main` after merge.
 
 ```bash
 pnpm db:local          # boot the Docker stack (requires Docker running)
+pnpm db:env            # generate .env from the running stack (`supabase status`)
 
 # --- schema changes (Drizzle owns these) ---
 # edit lib/db/schema.ts ...
@@ -97,7 +98,8 @@ pnpm dev               # app talks to localhost; magic-link emails → Mailpit
 
 Iterate freely with `db:push` locally — no migration files, so no merge
 conflicts. Keep schema changes **additive** (new tables / nullable columns)
-until merged. `pnpm db:studio` opens a GUI to inspect data.
+until merged, and commit **only `lib/db/schema.ts`** on a branch (no `drizzle/`).
+`pnpm db:studio` opens a GUI to inspect data.
 
 ---
 
@@ -114,9 +116,13 @@ pnpm supabase link --project-ref <ref>   # <ref> is in your project's dashboard 
 
 ### 1. DB schema → remote (Drizzle, **not** `supabase db push`)
 
+Feature branches commit only `lib/db/schema.ts` — the migration is generated on
+`main` after merge, so its number follows merge order (see the total-ordering note
+below). From `main`:
+
 ```bash
-pnpm db:generate       # turn the schema delta into a committed migration in drizzle/
-# commit the generated migration file, then:
+pnpm db:generate       # turn the merged schema delta into a committed migration in drizzle/
+git add drizzle/ && git commit -m "Generate migration" && git push
 DATABASE_URL="<remote-pooler-url>" pnpm db:migrate
 ```
 
@@ -128,6 +134,10 @@ DATABASE_URL="<remote-pooler-url>" pnpm db:migrate
   `db:push` against the remote.
 - Migration files in `drizzle/` are the single source of truth for the remote's
   schema.
+- **Generate only on `main`, never on a branch.** Migrations are a single
+  totally-ordered sequence; two branches generating before merge would claim the
+  same number and scramble the order. Generating on `main` after each merge makes
+  the sequence follow merge order — one writer at a time.
 
 ### 2. Platform config (auth + email template) → remote
 
@@ -165,11 +175,14 @@ Set these as environment variables on whatever platform hosts the deployed app:
 ```text
 LOCAL DEV (any branch)
   pnpm db:local                       # boot Docker stack
-  edit lib/db/schema.ts → db:generate → db:push
+  pnpm db:env                         # generate .env from the running stack
+  edit lib/db/schema.ts → pnpm db:push   # iterate against LOCAL db
   pnpm dev                            # app → localhost, emails → Mailpit
-  commit drizzle/*.sql
+  commit lib/db/schema.ts ONLY (no drizzle/) → PR → merge to main
 
 SHIP TO REMOTE (from main, after merge)
+  pnpm db:generate                                 # merged schema delta → drizzle/NNNN_*.sql
+  commit drizzle/ + push                           # migration numbered in merge order
   DATABASE_URL="<remote pooler>" pnpm db:migrate   # 1. schema
   pnpm supabase config push                        # 2. auth config + email template
   # 3. (hosting platform) set NEXT_PUBLIC_SUPABASE_* + DATABASE_URL, then redeploy
@@ -182,11 +195,14 @@ SHIP TO REMOTE (from main, after merge)
 1. **Schema and config promote separately.** Drizzle migrate (inline URL) for
    schema; `supabase config push` for auth/config. Forgetting the second is the
    most common mistake.
-2. **The magic-link template must be pushed**, or remote logins redirect to the
+2. **Generate migrations on `main`, never on a branch.** Branches commit only
+   `schema.ts`; `db:generate` runs on `main` after merge so the migration sequence
+   stays totally ordered by merge order.
+3. **The magic-link template must be pushed**, or remote logins redirect to the
    wrong place.
-3. **`NEXT_PUBLIC_*` is build-time** — flipping local↔remote needs a rebuild.
-4. **Mailpit is local-only** — the remote needs real SMTP configured to send
+4. **`NEXT_PUBLIC_*` is build-time** — flipping local↔remote needs a rebuild.
+5. **Mailpit is local-only** — the remote needs real SMTP configured to send
    magic-link emails.
-5. **Local default keys are safe to commit** (they're well-known dev values);
+6. **Local default keys are safe to commit** (they're well-known dev values);
    remote keys and the remote `DATABASE_URL` are **not** — keep them in your
    hosting platform's env settings / a password manager.

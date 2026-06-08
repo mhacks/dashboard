@@ -119,17 +119,18 @@ Two conventions that keep merges painless:
 
 - **Keep schema changes additive** (new tables, nullable columns) until merged.
   Destructive changes on a shared remote are where pain lives.
-- **Don't generate migration files mid-branch.** Use `db:push` while iterating.
-  You only generate the migration once, right before merge (next step), so the
-  committed migration reflects the *final* shape of your change — not every
-  intermediate edit.
+- **Never generate migration files on a feature branch.** While iterating, only
+  `db:push` (local) and commit `lib/db/schema.ts` — *not* anything in `drizzle/`.
+  Migrations are generated on `main`, after merge (see §3). This is what keeps the
+  migration order a true total order; generating on branches breaks it (see the
+  callout in §3).
 
 The Drizzle commands and what they touch:
 
 | Command            | Target          | When                                                       |
 | ------------------ | --------------- | ---------------------------------------------------------- |
 | `pnpm db:push`     | **local** db    | day-to-day iteration on a branch                           |
-| `pnpm db:generate` | writes `drizzle/*.sql` | once, before merge — turns the schema delta into a committed migration |
+| `pnpm db:generate` | writes `drizzle/*.sql` | **on `main` only**, after merge — turns the merged schema delta into a committed migration (see §3) |
 | `pnpm db:migrate`  | **remote** db   | from `main`, applies committed migrations (see §4)         |
 
 > ⚠️ **Never `db:push` against the remote, and never `db:migrate` against local.**
@@ -140,23 +141,11 @@ The Drizzle commands and what they touch:
 
 ## 3. Merge your branch into `main`
 
-This is where the disposable local schema becomes a permanent, committed
-migration.
+A feature branch only ever commits `lib/db/schema.ts` — **not** migration files.
+Open the PR as usual:
 
 ```bash
-# on your feature branch, with the schema in its FINAL shape:
-pnpm db:generate          # diff schema.ts → write a new migration into drizzle/
-```
-
-`db:generate` compares `lib/db/schema.ts` against the snapshot in
-[`drizzle/meta/`](../drizzle/meta) and writes a new `drizzle/NNNN_*.sql` file plus
-an updated snapshot. **Commit these** — the `drizzle/` directory is the single
-source of truth for the remote's schema, and migrations apply in numbered order.
-
-Then open the PR as usual:
-
-```bash
-git add lib/db/schema.ts drizzle/
+git add lib/db/schema.ts        # the schema change only — nothing in drizzle/
 git commit -m "Add <thing> to schema"
 git push -u origin <your-branch>
 # open a PR against main
@@ -165,18 +154,43 @@ git push -u origin <your-branch>
 On the PR, CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs
 Prettier, ESLint, and a production build. CI does **not** touch any database — it
 only checks the app builds. Schema correctness is your responsibility via local
-testing.
+testing (`pnpm db:push` against your local db).
 
-Verify before merging:
+Then merge the PR into `main`. **Merging does not change the remote database, and
+it does not create a migration** — it just lands the new `schema.ts` on `main`.
+
+### Generate the migration on `main`, not on the branch
+
+After the merge, generate the migration **from `main`**:
+
+```bash
+git checkout main && git pull
+pnpm db:generate                # diff merged schema.ts → write drizzle/NNNN_*.sql
+git add drizzle/
+git commit -m "Generate migration for <thing>"
+git push
+```
+
+`db:generate` compares `lib/db/schema.ts` against the snapshot in
+[`drizzle/meta/`](../drizzle/meta) and writes a new `drizzle/NNNN_*.sql` file plus
+an updated snapshot. Migrations apply in **numbered order**, and that numbering is
+assigned at generation time.
+
+> ⚠️ **Why generation must happen on `main`, never on a branch.** Migrations are a
+> single, totally-ordered sequence (`0000`, `0001`, `0002`, …). If two branches
+> each generated a migration before merging, they'd *both* claim the next number
+> (e.g. `0001`) against the same base snapshot — colliding filenames and, worse,
+> two migrations whose recorded order doesn't match the order they actually
+> merged. Generating only on `main`, after each merge, makes the migration
+> sequence follow **merge order** — a real total order, one writer at a time. If
+> several schema changes merge before anyone generates, a single `db:generate`
+> captures their combined delta as one correctly-ordered migration.
+
+Sanity-check before shipping it to the remote:
 
 - The generated `drizzle/*.sql` reads the way you expect (no surprise drops).
-- Sanity-check it applies from scratch: `pnpm db:local:reset` re-runs **all**
-  migrations on a clean db. If that succeeds, the same files will apply cleanly to
-  the remote.
-
-Then merge the PR into `main`. **Merging does not change the remote database** —
-it only lands the migration files in `main`. The remote is updated in the next,
-deliberate step.
+- `pnpm db:local:reset` re-runs **all** migrations on a clean local db. If that
+  succeeds, the same files will apply cleanly to the remote.
 
 ---
 
@@ -195,7 +209,7 @@ pnpm supabase link --project-ref <ref>   # <ref> is in the project's dashboard U
 ### 4a. DB schema → remote (Drizzle migrate)
 
 ```bash
-git checkout main && git pull            # get the merged migration files
+git checkout main && git pull            # on main, with the migration from §3 committed
 DATABASE_URL="<remote-pooler-url>" pnpm db:migrate
 ```
 
@@ -251,12 +265,17 @@ LOCAL DEV (any feature branch)
   edit lib/db/schema.ts → pnpm db:push   # iterate against LOCAL db (no migration files)
   pnpm dev                       # app → localhost, magic-link emails → Mailpit
 
-MERGE (before opening the PR)
-  pnpm db:generate               # schema delta → committed drizzle/*.sql
-  commit lib/db/schema.ts + drizzle/, push, open PR → CI (lint/build) → merge to main
-  # merging does NOT change the remote db
+MERGE (feature branch → main)
+  commit lib/db/schema.ts ONLY (nothing in drizzle/), push, open PR
+  → CI (lint/build) → merge to main
+  # merging does NOT create a migration or change the remote db
 
-SHIP TO REMOTE (from main, after merge — three separate promotions)
+GENERATE MIGRATION (on main, after merge — never on a branch)
+  git checkout main && git pull
+  pnpm db:generate               # merged schema delta → drizzle/NNNN_*.sql (merge-ordered)
+  commit drizzle/ + push
+
+SHIP TO REMOTE (from main — three separate promotions)
   DATABASE_URL="<remote pooler>" pnpm db:migrate   # 4a. schema
   pnpm supabase config push                        # 4b. auth config + email template
   # 4c. (hosting platform) set NEXT_PUBLIC_SUPABASE_* + DATABASE_URL, then redeploy
@@ -271,8 +290,10 @@ SHIP TO REMOTE (from main, after merge — three separate promotions)
    most common mistake.
 2. **`db:push` is local-only; `db:migrate` is remote-only.** Mixing them up either
    skips the audit trail or risks the shared db.
-3. **Generate the migration once, at merge time** — not per-edit on the branch, or
-   you'll commit a pile of intermediate migrations.
+3. **Generate migrations on `main`, never on a feature branch.** Branches commit
+   only `schema.ts`; `db:generate` runs on `main` after merge. This keeps the
+   migration sequence a true total order (merge order). Generating on branches
+   makes two branches collide on the same migration number and scrambles ordering.
 4. **`NEXT_PUBLIC_*` is build-time** — flipping local↔remote needs a rebuild.
 5. **Mailpit is local-only** — the remote needs real SMTP to send magic-link
    emails.
