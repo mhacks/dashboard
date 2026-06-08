@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Refreshes the user's session on every request and keeps the auth cookies in
-// sync between the browser and the server. Called from the root middleware.ts.
+// sync between the browser and the server. Called from the root proxy.ts.
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 

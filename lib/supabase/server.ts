@@ -21,8 +21,8 @@ export async function createClient() {
             );
           } catch {
             // `setAll` was called from a Server Component, where setting cookies
-            // is not allowed. This can be ignored when middleware refreshes the
-            // session (see lib/supabase/middleware.ts).
+            // is not allowed. This can be ignored when the proxy refreshes the
+            // session (see lib/supabase/proxy.ts).
           }
         },
       },

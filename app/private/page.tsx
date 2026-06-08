@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 
-// Example protected page. The middleware refreshes the session on every
+// Example protected page. The proxy refreshes the session on every
 // request; here we read it and gate access, redirecting unauthenticated
 // visitors to /login.
 export default async function PrivatePage() {
