@@ -6,6 +6,8 @@ from your local machine to the shared remote project.
 
 > For the quick DB-only version, see the **Database & schema workflow** section
 > of the [README](../README.md). This doc is the complete picture, including auth.
+> For the step-by-step *process* (what to run and when, plus the git/merge
+> workflow), see [`docs/development.md`](./development.md).
 
 ---
 
@@ -18,7 +20,7 @@ different way. Don't assume they move together.
 | ----------------------------------------- | ----------------- | ----------------------- | ------------------------------------------- |
 | **DB schema** (tables, columns)           | Drizzle           | `lib/db/schema.ts`      | `db:migrate` with the remote `DATABASE_URL` |
 | **Platform config** (auth, email templates) | `config.toml`   | `supabase/config.toml`  | `supabase config push`                      |
-| **App → Supabase connection** (auth clients) | env vars        | `.env`                  | env vars set in Vercel                      |
+| **App → Supabase connection** (auth clients) | env vars        | `.env`                  | env vars set on your hosting platform       |
 
 ---
 
@@ -142,9 +144,9 @@ redirect (see the magic-link note above). Also update for production:
 - A real **SMTP provider** (`[auth.email.smtp]`) — Mailpit is local-only, so the
   remote can't send email without it.
 
-### 3. App connection → remote (Vercel env)
+### 3. App connection → remote (hosting env)
 
-Set in **Vercel → Project Settings → Environment Variables**:
+Set these as environment variables on whatever platform hosts the deployed app:
 
 | Variable                            | Value (from Dashboard → Settings → API) |
 | ----------------------------------- | --------------------------------------- |
@@ -170,7 +172,7 @@ LOCAL DEV (any branch)
 SHIP TO REMOTE (from main, after merge)
   DATABASE_URL="<remote pooler>" pnpm db:migrate   # 1. schema
   pnpm supabase config push                        # 2. auth config + email template
-  # 3. (Vercel) set NEXT_PUBLIC_SUPABASE_* + DATABASE_URL, then redeploy
+  # 3. (hosting platform) set NEXT_PUBLIC_SUPABASE_* + DATABASE_URL, then redeploy
 ```
 
 ---
@@ -186,5 +188,5 @@ SHIP TO REMOTE (from main, after merge)
 4. **Mailpit is local-only** — the remote needs real SMTP configured to send
    magic-link emails.
 5. **Local default keys are safe to commit** (they're well-known dev values);
-   remote keys and the remote `DATABASE_URL` are **not** — keep them in Vercel /
-   a password manager.
+   remote keys and the remote `DATABASE_URL` are **not** — keep them in your
+   hosting platform's env settings / a password manager.

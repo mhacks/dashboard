@@ -58,7 +58,7 @@ export const schema: readonly EnvSection[] = [
   {
     title: "Supabase Auth (client + SSR)",
     description: `For the remote project, copy the URL + publishable key from
-Supabase Dashboard -> Project Settings -> API and set them in Vercel.`,
+Supabase Dashboard -> Project Settings -> API and set them on your hosting platform.`,
     vars: [
       {
         name: "NEXT_PUBLIC_SUPABASE_URL",
