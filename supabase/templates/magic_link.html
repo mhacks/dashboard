@@ -1,9 +1,6 @@
 <h2>Log in</h2>
-<p>Click the link below to log in to your account:</p>
-<p>
-  <a
-    href="{{ .SiteURL }}/example/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink&next=/example/private"
-    >Log in</a
-  >
+<p>Enter this code to log in to your account:</p>
+<p style="font-size: 24px; font-weight: bold; letter-spacing: 4px">
+  {{ .Token }}
 </p>
 <p>If you didn't request this, you can safely ignore this email.</p>

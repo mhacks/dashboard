@@ -244,11 +244,12 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Magic-link template points at our SSR confirm route so the token_hash flow
-# works (see app/example/auth/confirm/route.ts). The default template uses an
-# implicit-flow link that bypasses the server client.
+# OTP template emails a 6-digit code ({{ .Token }}) that the user types into
+# the login form, which then calls supabase.auth.verifyOtp (see
+# app/example/login/page.tsx). The "magic_link" template key also backs the
+# signInWithOtp email flow.
 [auth.email.template.magic_link]
-subject = "Your login link"
+subject = "Your login code"
 content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template
