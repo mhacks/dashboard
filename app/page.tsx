@@ -1,5 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 import FaqAccordion from "@/components/faq-accordion";
+import PhotoGrid from "@/components/photo-grid";
 
 const tracks = [
   {
@@ -24,6 +26,14 @@ const tracks = [
   },
 ];
 
+const timelineEvents = [
+  { date: "Jun. 22",  title: "Applications Open",      desc: "The MHacks 2026 application portal goes live. Start your application early — spots are limited." },
+  { date: "Aug. 07", title: "Early Application Deadline",   desc: "Early applications must be submitted by 11:59 PM ET. No late submissions accepted." },
+  { date: "Aug. 21", title: "Early Decisions Released",     desc: "Early admission decisions will be sent to all applicants via email. Check your inbox." },
+  { date: "Sep. 04", title: "Regular Applications Deadline", desc: "Regular applications must be submitted by 11:59 PM ET. No late submissions accepted." },
+  { date: "Sep. 11",  title: "Regular Recisions Released", desc: "Regular admission decisions will be sent to all applicants via email. Check your inbox." },
+];
+
 const sponsors = {
   diamond: ["AppLovin", "fetch.ai"],
   gold: ["Combinator", "Innovation Labs", "CREO"],
@@ -36,99 +46,104 @@ export default function Home() {
     <div className="overflow-x-hidden bg-white">
       {/* ── Navbar ── */}
       <nav className="fixed top-4 left-1/2 z-50 -translate-x-1/2">
-        <div className="flex items-center gap-8 rounded-full border border-white/20 bg-white/[0.08] px-5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
-          <Image
-            src="/mhacks_logo.png"
-            alt="MHacks"
-            width={28}
-            height={28}
-          />
-          <div className="flex items-center gap-6 text-[13px] font-medium text-white/90">
-            <a href="#about" className="transition-opacity hover:opacity-60">
-              About
-            </a>
-            <a href="#tracks" className="transition-opacity hover:opacity-60">
-              Tracks
-            </a>
-            <a href="#sponsors" className="transition-opacity hover:opacity-60">
-              Sponsors
-            </a>
-            <a href="#faqs" className="transition-opacity hover:opacity-60">
-              FAQs
-            </a>
+        <div className="flex items-center rounded-full border border-white/15 bg-black/[0.38] px-4 py-3 sm:px-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+          <div className="flex items-center gap-4 sm:gap-7 text-[14px] sm:text-[17px] font-semibold text-white">
+            <a href="#about" className="transition-opacity hover:opacity-60">About</a>
+            <a href="#faqs" className="transition-opacity hover:opacity-60">FAQ</a>
+            <a href="#sponsors" className="transition-opacity hover:opacity-60">Sponsors</a>
+            <a href="#apply" className="transition-opacity hover:opacity-60">Apply</a>
           </div>
-          <a
-            href="#register"
-            className="rounded-full border border-white/25 bg-white/15 px-4 py-1.5 text-[13px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-sm transition-all hover:bg-white/25"
-          >
-            Register Now
-          </a>
         </div>
       </nav>
 
       {/* ── Hero ── */}
-      <section className="relative flex min-h-screen flex-col overflow-hidden">
-        <Image
-          src="/hero_bg_w_overlay.png"
-          alt="MHacks 2026"
-          fill
-          className="object-cover object-top"
-          priority
-        />
-        {/* gradient: transparent top → dark bottom for text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+      <section className="bg-white px-3 pt-3">
+        <div className="relative flex min-h-[94vh] flex-col overflow-hidden rounded-[2rem]">
+          <Image
+            src="/hero_bg_w_overlay.png"
+            alt="MHacks 2026"
+            fill
+            className="object-cover object-[65%_center] brightness-[0.88] contrast-[1.35] saturate-[1.7]"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
 
-        <div className="relative z-10 mt-auto px-16 pb-20">
-          <h1 className="font-heading text-[clamp(4.5rem,10.5vw,9rem)] font-black leading-[0.9] tracking-tight text-white">
-            MHACKS 2026
-          </h1>
-          <p className="mt-5 max-w-xs text-[14px] leading-relaxed text-white/55">
-            Michigan&apos;s premier student hackathon.
-            <br />
-            36 hours. Limitless ideas.
-          </p>
-          <div className="mt-8" id="register">
-            <a
-              href="#about"
-              className="inline-flex items-center rounded-full border border-[#8a9a50]/40 bg-[#5c6b2e]/75 px-7 py-3 text-sm font-semibold text-white/95 shadow-[0_4px_24px_rgba(92,107,46,0.35)] backdrop-blur-sm transition-all hover:bg-[#5c6b2e] hover:shadow-[0_6px_32px_rgba(92,107,46,0.5)]"
-            >
-              Register Now
-            </a>
+          <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8">
+            <Link href="/">
+              <Image
+                src="/mhacks_logo.png"
+                alt="MHacks"
+                width={56}
+                height={56}
+                className="drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
+              />
+            </Link>
+
+            <div className="absolute left-[38%] top-1/2 -translate-x-1/2 -translate-y-1/2 hidden lg:block">
+              <div className="relative h-56 w-44 overflow-hidden border border-white/25 shadow-[0_16px_48px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-sm">
+                <Image
+                  src="/hackers_blurred_box.png"
+                  alt="Hackers"
+                  fill
+                  className="object-cover object-top"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+              </div>
+            </div>
+
+            <div className="mt-auto flex justify-center">
+              <div className="flex flex-col items-center sm:items-end sm:w-max">
+                <div className="mb-3 flex gap-3">
+                  <a
+                    href="#sponsors"
+                    className="rounded-full border border-white/25 bg-white/[0.12] px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all hover:bg-white/[0.22]"
+                  >
+                    Sponsor Us
+                  </a>
+                  <a
+                    id="apply"
+                    href="#faqs"
+                    className="rounded-full border border-white/70 bg-white/70 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-zinc-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md transition-all hover:bg-white/85"
+                  >
+                    Apply
+                  </a>
+                </div>
+
+                <p className="mb-4 text-center sm:text-right text-[14px] sm:text-[18px] font-semibold tracking-wide text-white/90">
+                  10/03/2026 – 10/04/2026 &nbsp;·&nbsp; University of Michigan
+                </p>
+
+                <h1 className="font-heading italic whitespace-nowrap text-[12vw] lg:text-[clamp(4rem,15vw,20rem)] leading-[0.9] tracking-tight text-white">
+                  MHACKS 2026
+                </h1>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Calling All Hackers ── */}
-      <section
-        id="about"
-        className="scroll-mt-20 relative overflow-hidden bg-white px-16 py-24"
-      >
-        {/* subtle right-side nature wash */}
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 opacity-15">
-          <Image
-            src="/white_green_bg.png"
-            alt=""
-            fill
-            className="object-cover object-top"
-          />
+      {/* ── About ── */}
+      <section id="about" className="scroll-mt-20 relative overflow-hidden bg-white">
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-full lg:w-[62%] opacity-15">
+          <Image src="/white_green_bg.png" alt="" fill className="object-cover object-top" />
         </div>
 
-        <div className="relative mx-auto flex max-w-6xl items-center gap-20">
+        <div className="relative flex flex-col lg:flex-row lg:min-h-[680px] items-stretch">
           {/* Text */}
-          <div className="flex-1">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-              Welcome
+          <div className="flex w-full lg:w-[38%] flex-col justify-center items-center lg:items-start px-8 sm:px-12 lg:px-16 py-16 lg:py-24">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 text-center lg:text-left">
+              About MHacks
             </p>
-            <h2 className="text-4xl font-bold tracking-tight text-zinc-900">
+            <h2 className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight text-center lg:text-left" style={{ color: "#3A4A26" }}>
               Calling All Hackers
             </h2>
-            <p className="mt-6 max-w-md text-[14px] leading-7 text-zinc-500">
+            <p className="mt-6 max-w-md text-[14px] leading-7 text-zinc-500 text-center lg:text-left">
               MHacks is the University of Michigan&apos;s flagship hackathon,
               bringing together the brightest student minds from across the
               country. Over 36 hours, you&apos;ll collaborate, create, and
               compete for over $30,000 in prizes.
             </p>
-            <p className="mt-4 max-w-md text-[14px] leading-7 text-zinc-500">
+            <p className="mt-4 max-w-md text-[14px] leading-7 text-zinc-500 text-center lg:text-left">
               Whether you&apos;re a seasoned hacker or attending your very first
               hackathon, MHacks is the place to turn your wildest ideas into
               reality. Join us for a weekend of innovation, mentorship, and
@@ -136,41 +151,26 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Liquid glass image panel */}
-          <div className="relative flex-shrink-0">
-            <div className="relative h-72 w-64 overflow-hidden rounded-[2rem] border border-white/50 shadow-[0_24px_64px_rgba(0,0,0,0.10),inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <Image
-                src="/hackers_blurred_box.png"
-                alt="MHacks atmosphere"
-                fill
-                className="object-cover"
-              />
-              {/* glass sheen overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-transparent" />
-              <div className="absolute inset-x-0 top-0 h-px bg-white/60" />
-            </div>
+          {/* Photo grid */}
+          <div className="w-full h-[360px] lg:h-auto lg:w-[62%] pl-4 lg:pl-6 pr-4 lg:pr-8 pt-4 lg:pt-8 pb-4 lg:pb-8">
+            <PhotoGrid />
           </div>
         </div>
 
         {/* Stats bar */}
-        <div className="relative mx-auto mt-20 max-w-6xl border-y border-zinc-100 py-7">
-          <div className="flex items-center justify-center gap-12">
+        <div className="relative border-y px-8 lg:px-16 py-8" style={{ borderColor: "#44572155" }}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-28">
             {[
               { value: "1000+", label: "Hackers" },
               { value: "$30k+", label: "in prizes" },
               { value: "200+", label: "Projects" },
             ].map((stat, i, arr) => (
-              <div key={stat.label} className="flex items-center gap-12">
-                <div className="text-center">
-                  <p className="text-xl font-bold text-zinc-800">
-                    {stat.value}
-                  </p>
-                  <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
-                    {stat.label}
-                  </p>
-                </div>
+              <div key={stat.label} className="flex items-center gap-2 sm:gap-28">
+                <p className="font-heading italic text-xl sm:text-5xl whitespace-nowrap" style={{ color: "#445721" }}>
+                  {stat.value} {stat.label}
+                </p>
                 {i < arr.length - 1 && (
-                  <div className="h-7 w-px bg-zinc-150 shrink-0" />
+                  <span className="hidden sm:inline font-heading italic text-5xl" style={{ color: "#445721" }}>·</span>
                 )}
               </div>
             ))}
@@ -179,175 +179,268 @@ export default function Home() {
       </section>
 
       {/* ── Tracks ── */}
-      <section
-        id="tracks"
-        className="scroll-mt-20 relative overflow-hidden py-28"
-      >
-        <Image
-          src="/white_green_bg.png"
-          alt=""
-          fill
-          className="object-cover object-top"
-        />
-        <div className="absolute inset-0 bg-white/75" />
+      <section id="tracks" className="scroll-mt-20 relative bg-white py-20 sm:py-28 overflow-hidden">
+        {/* ASCII rose background elements */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden select-none">
+          {/* Top-left rose */}
+          <pre
+            className="absolute font-mono leading-snug"
+            style={{ color: "#3A4A26", opacity: 0.22, fontSize: "0.72rem", top: "2%", left: "1%" }}
+          >{`      .      .'
+        :\`...' \`.,'  '
+    \`.  ' .**.  ; ; ':
+    \` \`\`:\`****,'  .' :
+  ..::.  \`\`**":.''   \`.
+.:    \`: ; \`,'        :
+  \`:    \`   :         ;
+    :   :   :        ;
+    :    :   :     .:
+     :    :   :..,'  \`\`::.
+      \`....:..'  ..:;''
+      .:   . ...::::
+     ,'''''  \`\`:::::::
+               \`::::
+                 \`::.
+                  \`::
+           . ,.    ::::'      ,..
+         .'.'  \`\`.  ::      .'.. \`.
+        '        .: ::    ,'.'     .
+      .' ,'    .::::::   ,.'    .:::.
+    .' .'  ..:'     ::: .,   .;'     ~
+   ,;::;.::''        ::.:..::'
+  ~                  ::;'
+                     ::
+                   ,:::
+                     ::.
+                     \`::
+                      ::
+                      ::
+                      ::
+                      ::
+                      ::`}</pre>
 
-        <div className="relative mx-auto max-w-6xl px-16">
-          <p className="mb-16 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
+          {/* Bottom-right rose */}
+          <pre
+            className="absolute font-mono leading-snug"
+            style={{ color: "#3A4A26", opacity: 0.22, fontSize: "0.72rem", bottom: "2%", right: "1%" }}
+          >{`                                    .,,.
+            .,v%;mmmmmmmm;%%vv,.
+         ,vvv%;mmmvv;vvvmmm;%vvvv,    .,,.
+  ,, ,vvvnnv%;mmmvv;%%;vvmmm;%vvvv%;mmmmmmm,
+,mmmmmm;%%vv%;mmmvv;%%;vvmmm;%v%;mmmmmmmmmmm
+mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
+\`mmmmmmmmmmmmmm%;mmv;vmmm;mmmmmmm;%vvvvvv'
+    \`%%%%%;mmmmmmmm;v%v;mmmmmm;%vvvnnvv'
+     vvvvvv%%%%;mmmm%;mmmmmm;%vvvnnnnvv
+     \`vvnnnnvvv%%%;m;mmmmm;%vvnnmmnnvv'
+      vvnmmnnnnvvv%%mmmm;%vvnnmmmnnnvv
+      \`vvnmmmnnvvv%mmm;%vvnnmmmmnnnvv'
+       \`vvnmmmmvv%mmm;%vvnnmmmmnnnvv'
+        \`vvnmmmvv%mm;%vvvnnmmmnnvvv'
+          \`vvnmmvv%m;%vvvvnmnvvvv'
+           .;;vvvvvm;%vvvvvvvv'
+        .;;;;;;;;;;;;;;;;;;;;,
+       ;;;;;;';;;;;;;;;;;'\`;;;;;,
+      .;;;'    \`;;;;;;;;'   \`;;;;;.
+     .;;'        \`;;;;;'      \`;;;;
+     ;'           :\`;;'         ;;'
+     ;            : ;'    ,    ,'             .
+      \`           :'.:   .;;,.        .,;;;;;;'
+                  ::::   ;;,;;;,     ;;;,;;;;'
+                  ;;;;   \`;;;,;;    .,';;;;'
+                  ;;;;      \`';; ,;;'
+                ,;;;;;         .;',.
+                  \`;;;;       .;'  ';,.
+                   \`;;;.     .;'   ,;;,;;,.
+                    ;;;;    .;'    \`;;;;,;;;
+                    ;;;;   .;'       \`;;,;;'
+                    \`;;;,;;'           \`;'
+                     ;;;;
+                     ;;;;.
+                     \`;;;;;,.
+                      ;;;;'
+                      ;;;;
+                      ;;;;`}</pre>
+        </div>
+
+        <div className="relative mx-auto max-w-6xl px-8 sm:px-16">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
             Tracks
           </p>
-          <div className="grid grid-cols-4 gap-10">
+          <h2 className="mb-14 sm:mb-20 font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight" style={{ color: "#3A4A26" }}>
+            Choose Your Focus
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10">
             {tracks.map((track) => (
-              <div
-                key={track.name}
-                className="flex flex-col items-center text-center"
-              >
-                {/* Liquid glass circular frame */}
-                <div className="relative mb-6 flex h-44 w-44 items-center justify-center rounded-full border border-white/70 bg-white/45 shadow-[0_8px_32px_rgba(0,0,0,0.07),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(255,255,255,0.3)] backdrop-blur-md transition-all duration-300 hover:scale-105 hover:shadow-[0_16px_48px_rgba(0,0,0,0.12)]">
+              <div key={track.name} className="flex flex-col items-center text-center">
+                <div className="group relative mb-6 flex h-36 w-36 sm:h-44 sm:w-44 items-center justify-center rounded-full border shadow-[0_8px_32px_rgba(58,74,38,0.08)] transition-all duration-300 hover:scale-105 hover:shadow-[0_16px_48px_rgba(58,74,38,0.14)]" style={{ background: "rgba(58,74,38,0.04)", borderColor: "rgba(58,74,38,0.12)" }}>
                   <Image
                     src={track.flower}
                     alt={track.name}
-                    width={168}
-                    height={168}
-                    className="object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+                    width={130}
+                    height={130}
+                    className="object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-transform duration-500 group-hover:rotate-12"
                   />
                 </div>
-                <h3 className="text-[13px] font-semibold text-zinc-700">
-                  {track.name}
-                </h3>
-                <p className="mt-1.5 text-[12px] leading-5 text-zinc-400">
-                  {track.description}
-                </p>
+                <h3 className="font-heading italic text-xl sm:text-2xl leading-tight" style={{ color: "#3A4A26" }}>{track.name}</h3>
+                <p className="mt-2 text-[12px] leading-5 text-zinc-400">{track.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Sponsors ── */}
-      <section
-        id="sponsors"
-        className="scroll-mt-20 relative overflow-hidden py-28"
-      >
-        <Image
-          src="/sponsors_bg.png"
-          alt=""
-          fill
-          className="object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-black/50" />
+      {/* ── Timeline ── */}
+      <section id="timeline" className="scroll-mt-20 relative bg-white py-20 sm:py-28 overflow-hidden">
+        <div className="pointer-events-none absolute left-0 top-0 h-full w-full opacity-[0.07]">
+          <Image src="/white_green_bg.png" alt="" fill className="object-cover object-top" />
+        </div>
 
-        <div className="relative z-10 mx-auto max-w-6xl px-16">
-          <div className="mb-10 flex justify-end">
-            <h2 className="text-xl font-bold tracking-tight text-white/90">
-              Our Sponsors
-            </h2>
+        <div className="relative mx-auto max-w-6xl px-8 sm:px-16">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
+            Applications
+          </p>
+          <h2 className="mb-14 sm:mb-20 font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight" style={{ color: "#3A4A26" }}>
+            Key Dates
+          </h2>
+
+          {/* Mobile: vertical */}
+          <div className="lg:hidden">
+            {timelineEvents.map((event, i) => (
+              <div key={event.title} className="flex">
+                <div className="flex flex-col items-center w-5 shrink-0">
+                  <div className="w-[9px] h-[9px] rounded-full border-[2px] bg-white mt-[5px] z-10 shrink-0" style={{ borderColor: "#3A4A26" }} />
+                  {i < timelineEvents.length - 1 && (
+                    <div className="w-px flex-1 mt-1" style={{ backgroundColor: "rgba(58,74,38,0.15)", minHeight: "4rem" }} />
+                  )}
+                </div>
+                <div className="flex-1 pl-5 pb-8">
+                  <span className="font-mono text-[13px] font-semibold block mb-1" style={{ color: "rgba(58,74,38,0.55)" }}>{event.date}</span>
+                  <h3 className="font-heading italic text-2xl leading-tight mb-1.5" style={{ color: "#3A4A26" }}>{event.title}</h3>
+                  <p className="text-[13px] leading-relaxed text-zinc-400">{event.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Liquid glass sponsor panel */}
-          <div className="rounded-3xl border border-white/15 bg-white/[0.06] px-14 py-12 shadow-[0_24px_64px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-            {/* Diamond tier */}
-            <div className="mb-10 flex items-center justify-center gap-20">
-              {sponsors.diamond.map((s) => (
-                <span
-                  key={s}
-                  className="text-[1.75rem] font-bold tracking-tight text-white"
-                >
-                  {s}
-                </span>
+          {/* Desktop: horizontal, alternating above/below */}
+          <div className="hidden lg:block">
+            <div className="relative flex">
+              <div
+                className="absolute left-0 right-0 h-px z-0"
+                style={{ top: "calc(7rem + 4px)", backgroundColor: "rgba(58,74,38,0.2)" }}
+              />
+              {timelineEvents.map((event, i) => (
+                <div key={event.title} className="flex-1 flex flex-col items-center">
+                  {/* Above-line */}
+                  <div className="h-28 flex flex-col justify-end items-center pb-4 text-center px-3">
+                    {i % 2 === 0 && (
+                      <>
+                        <span className="font-mono text-[12px] font-bold tracking-wider mb-2 block" style={{ color: "rgba(58,74,38,0.6)" }}>{event.date}</span>
+                        <h3 className="font-heading italic text-xl leading-snug" style={{ color: "#3A4A26" }}>{event.title}</h3>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Dot */}
+                  <div className="w-[9px] h-[9px] rounded-full border-[2px] bg-white z-10 shrink-0" style={{ borderColor: "#3A4A26" }} />
+
+                  {/* Below-line */}
+                  <div className="h-28 flex flex-col justify-start items-center pt-4 text-center px-3">
+                    {i % 2 === 1 && (
+                      <>
+                        <span className="font-mono text-[12px] font-bold tracking-wider mb-2 block" style={{ color: "rgba(58,74,38,0.6)" }}>{event.date}</span>
+                        <h3 className="font-heading italic text-xl leading-snug" style={{ color: "#3A4A26" }}>{event.title}</h3>
+                      </>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="mx-auto mb-9 h-px w-2/3 bg-white/[0.08]" />
+      {/* ── Sponsors ── */}
+      <section id="sponsors" className="scroll-mt-20 bg-white px-3 pb-3">
+        <div className="relative flex min-h-[60vh] flex-col items-center justify-center overflow-hidden rounded-[2rem] py-20 sm:py-28">
+          <Image
+            src="/sponsors_bg.png"
+            alt=""
+            fill
+            className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
+          />
+          <div className="absolute inset-0 bg-black/50" />
 
-            {/* Gold tier */}
-            <div className="mb-9 flex items-center justify-center gap-14">
-              {sponsors.gold.map((s) => (
-                <span key={s} className="text-lg font-semibold text-white/80">
-                  {s}
-                </span>
-              ))}
-            </div>
+          <div className="relative z-10 flex flex-col items-center text-center px-8 sm:px-16">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+              Powering MHacks
+            </p>
+            <h2 className="mb-10 font-heading italic text-5xl sm:text-7xl leading-tight tracking-tight text-white">
+              Our Sponsors
+            </h2>
 
-            <div className="mx-auto mb-9 h-px w-2/3 bg-white/[0.08]" />
+            <p className="mb-10 font-heading italic text-2xl sm:text-3xl text-white/70">
+              Coming Soon...
+            </p>
 
-            {/* Silver tier */}
-            <div className="mb-9 flex flex-wrap items-center justify-center gap-10">
-              {sponsors.silver.map((s) => (
-                <span key={s} className="text-[15px] font-medium text-white/65">
-                  {s}
-                </span>
-              ))}
-            </div>
-
-            <div className="mx-auto mb-9 h-px w-2/3 bg-white/[0.08]" />
-
-            {/* Bronze tier */}
-            <div className="flex flex-wrap items-center justify-center gap-7">
-              {sponsors.bronze.map((s) => (
-                <span key={s} className="text-[13px] text-white/45">
-                  {s}
-                </span>
-              ))}
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-[13px] text-white/50">Interested in supporting MHacks 2026?</p>
+              <a
+                href="mailto:sponsors@mhacks.org"
+                className="rounded-full border border-white/25 bg-white/10 px-7 py-2.5 text-[14px] font-medium text-white backdrop-blur-sm transition-all hover:bg-white/20 hover:border-white/40"
+              >
+                Sponsor Us
+              </a>
             </div>
           </div>
         </div>
       </section>
 
       {/* ── FAQs ── */}
-      <section
-        id="faqs"
-        className="scroll-mt-20 bg-white px-16 py-24"
-      >
-        <div className="mx-auto flex max-w-6xl items-start gap-24">
-          {/* Accordion */}
-          <div className="flex-1">
+      <section id="faqs" className="scroll-mt-20 bg-white px-8 sm:px-16 py-16 sm:py-24">
+        <div className="mx-auto flex max-w-6xl flex-col lg:flex-row items-stretch gap-12 lg:gap-16">
+          <div className="flex-1 w-full">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-              Questions
+              Attending MHacks
             </p>
-            <h2 className="mb-10 text-3xl font-bold tracking-tight text-zinc-900">
+            <h2 className="mb-10 font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight" style={{ color: "#3A4A26" }}>
               FAQs
             </h2>
             <FaqAccordion />
           </div>
 
-          {/* Decorative flower */}
-          <div className="relative mt-4 w-60 flex-shrink-0 self-start">
-            {/* soft pink bloom behind the vase */}
-            <div className="absolute bottom-8 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-pink-100/70 blur-3xl" />
+          <div className="relative hidden lg:block w-[420px] my-2 mx-3 overflow-hidden rounded-3xl shadow-[inset_-32px_0_40px_rgba(0,0,0,0.28)]">
+            {/* Oversized wrapper so rotated bg always covers the container */}
+            <div className="absolute pointer-events-none" style={{ width: "160%", height: "160%", top: "-30%", left: "-30%", transform: "rotate(90deg)" }}>
+              <Image src="/white_green_bg.png" alt="" fill className="object-cover" />
+            </div>
+            <div className="absolute bottom-8 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-pink-100/80 blur-3xl" />
             <Image
               src="/pink_flower_in_vase.png"
               alt="Decorative flower in vase"
-              width={240}
-              height={360}
-              className="relative object-contain"
+              fill
+              className="object-contain -scale-x-100 blur-[2px]"
+            />
+            <Image
+              src="/pink_ascii_flower.png"
+              alt=""
+              fill
+              className="object-contain"
             />
           </div>
         </div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-zinc-100 bg-white px-16 py-8">
-        <div className="mx-auto flex max-w-6xl items-center justify-between text-[12px] text-zinc-400">
+      <footer className="border-t border-zinc-100 bg-white px-8 sm:px-16 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-zinc-400">
           <div className="flex items-center gap-3">
-            <Image
-              src="/mhacks_logo.png"
-              alt="MHacks"
-              width={18}
-              height={18}
-              className="opacity-25"
-            />
+            <Image src="/mhacks_logo.png" alt="MHacks" width={18} height={18} className="opacity-25" />
             <span>© 2026 MHacks. University of Michigan.</span>
           </div>
           <div className="flex gap-6">
-            <a href="#" className="transition-colors hover:text-zinc-700">
-              Code of Conduct
-            </a>
-            <a href="#" className="transition-colors hover:text-zinc-700">
-              Privacy
-            </a>
-            <a href="#" className="transition-colors hover:text-zinc-700">
-              Contact
-            </a>
+            <a href="mailto:hackathon-org@umich.edu" className="transition-colors hover:text-zinc-700">Contact</a>
           </div>
         </div>
       </footer>
