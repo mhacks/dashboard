@@ -245,7 +245,7 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # Magic-link template points at our SSR confirm route so the token_hash flow
-# works (see app/auth/confirm/route.ts). The default template uses an
+# works (see app/example/auth/confirm/route.ts). The default template uses an
 # implicit-flow link that bypasses the server client.
 [auth.email.template.magic_link]
 subject = "Your login link"

@@ -22,5 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Verification failed — send the user to an error page.
-  return NextResponse.redirect(new URL("/auth/auth-code-error", request.url));
+  return NextResponse.redirect(
+    new URL("/example/auth/auth-code-error", request.url),
+  );
 }

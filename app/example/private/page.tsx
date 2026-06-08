@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 // Example protected page. The proxy refreshes the session on every
 // request; here we read it and gate access, redirecting unauthenticated
-// visitors to /login.
+// visitors to /example/login.
 export default async function PrivatePage() {
   const supabase = await createClient();
 
@@ -13,14 +13,14 @@ export default async function PrivatePage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/example/login");
   }
 
   async function signOut() {
     "use server";
     const supabase = await createClient();
     await supabase.auth.signOut();
-    redirect("/login");
+    redirect("/example/login");
   }
 
   return (

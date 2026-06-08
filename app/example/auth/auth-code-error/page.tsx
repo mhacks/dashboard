@@ -11,7 +11,7 @@ export default function AuthCodeErrorPage() {
         <p className="text-sm text-muted-foreground">
           That link has expired or was already used. Request a new one.
         </p>
-        <Link href="/login" className="text-sm font-medium underline">
+        <Link href="/example/login" className="text-sm font-medium underline">
           Back to login
         </Link>
       </div>

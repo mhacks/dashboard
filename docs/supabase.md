@@ -36,12 +36,12 @@ runtime, all reading the same `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — whatever those resolve to is the instance
 the app talks to (there's no automatic local/remote switching).
 
-| File                                                          | Runs in                                      | Role                                                   |
-| ------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------ |
-| [`lib/supabase/client.ts`](../lib/supabase/client.ts)         | Client Components                            | browser client                                         |
-| [`lib/supabase/server.ts`](../lib/supabase/server.ts)         | Server Components / Route Handlers / Actions | request-scoped server client (reads cookies)           |
-| [`lib/supabase/middleware.ts`](../lib/supabase/middleware.ts) | middleware                                   | `updateSession()` — refreshes token, syncs cookies     |
-| [`app/auth/confirm/route.ts`](../app/auth/confirm/route.ts)   | Route Handler                                | verifies the magic-link `token_hash`, sets the session |
+| File                                                                        | Runs in                                      | Role                                                   |
+| --------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------ |
+| [`lib/supabase/client.ts`](../lib/supabase/client.ts)                       | Client Components                            | browser client                                         |
+| [`lib/supabase/server.ts`](../lib/supabase/server.ts)                       | Server Components / Route Handlers / Actions | request-scoped server client (reads cookies)           |
+| [`lib/supabase/middleware.ts`](../lib/supabase/middleware.ts)               | middleware                                   | `updateSession()` — refreshes token, syncs cookies     |
+| [`app/example/auth/confirm/route.ts`](../app/example/auth/confirm/route.ts) | Route Handler                                | verifies the magic-link `token_hash`, sets the session |
 
 [`middleware.ts`](../middleware.ts) runs `updateSession` on every request (minus
 static assets).
@@ -50,8 +50,8 @@ static assets).
 
 1. App calls `supabase.auth.signInWithOtp({ email })`.
 2. Supabase sends the [`magic_link.html`](../supabase/templates/magic_link.html)
-   template, which links to `/auth/confirm?token_hash=...&type=magiclink`.
-3. [`app/auth/confirm/route.ts`](../app/auth/confirm/route.ts) calls `verifyOtp`,
+   template, which links to `/example/auth/confirm?token_hash=...&type=magiclink`.
+3. [`app/example/auth/confirm/route.ts`](../app/example/auth/confirm/route.ts) calls `verifyOtp`,
    sets the session cookie, and redirects.
 
 > The **custom** template is what makes the token-hash (SSR) flow work; the default
