@@ -11,6 +11,7 @@
     "db:local": "supabase start",
     "db:local:stop": "supabase stop",
     "db:local:reset": "supabase db reset",
+    "db:local:restart": "supabase stop || true && supabase start && pnpm db:push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
