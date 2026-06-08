@@ -1,10 +1,8 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text } from "drizzle-orm/pg-core";
 
-// Example table — replace with your own schema.
+// User profile keyed by the Supabase auth user id (auth.users.id).
 // Run `pnpm db:generate` after editing, then `pnpm db:migrate` (or `pnpm db:push`).
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  id: uuid("id").primaryKey(),
   email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
