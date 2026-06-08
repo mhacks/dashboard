@@ -28,6 +28,7 @@ Next.js 16 App Router project using React 19 and TypeScript.
 Tailwind CSS v4 with the shadcn `radix-nova` style. Theme tokens (colors, radius, fonts) are defined as CSS variables in `app/globals.css` and surfaced to Tailwind via `@theme inline`. Dark mode uses a `.dark` class strategy (`@custom-variant dark (&:is(.dark *))`).
 
 The `components.json` shadcn config uses:
+
 - Style: `radix-nova`
 - Base color: `neutral`
 - CSS variables: enabled

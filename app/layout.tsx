@@ -21,7 +21,8 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "MHacks 2026",
-  description: "Michigan's premier student hackathon — 36 hours, limitless ideas.",
+  description:
+    "Michigan's premier student hackathon — 36 hours, limitless ideas.",
 };
 
 export default function RootLayout({

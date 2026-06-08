@@ -43,7 +43,13 @@ export default function PhotoGrid() {
                 className="relative overflow-hidden rounded-lg shadow-sm transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-md"
                 style={{ flex }}
               >
-                <Image src={src} alt="MHacks photo" fill sizes="200px" className="object-cover" />
+                <Image
+                  src={src}
+                  alt="MHacks photo"
+                  fill
+                  sizes="200px"
+                  className="object-cover"
+                />
               </div>
             ))}
           </div>
@@ -60,7 +66,13 @@ export default function PhotoGrid() {
                 className="relative overflow-hidden rounded-lg shadow-sm transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-md"
                 style={{ flex }}
               >
-                <Image src={src} alt="MHacks photo" fill sizes="200px" className="object-cover" />
+                <Image
+                  src={src}
+                  alt="MHacks photo"
+                  fill
+                  sizes="200px"
+                  className="object-cover"
+                />
               </div>
             ))}
           </div>
