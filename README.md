@@ -22,6 +22,10 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Database & schema workflow
 
+> 📖 For the complete Supabase picture — **auth** (magic-link), platform config,
+> and the full local→remote promotion flow — see [docs/supabase.md](docs/supabase.md).
+> The section below is the DB-only quick reference.
+
 We use **Drizzle ORM** against **Supabase Postgres**. To avoid branches clobbering
 each other's schema on the shared remote, **every branch develops against its own
 local database**, and migrations are the only thing that touches the shared remote
