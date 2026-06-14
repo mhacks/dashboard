@@ -24,6 +24,8 @@ export const submitHackerApplication = async (
   }
 };
 
+export const updateHackerApplication = async () => {};
+
 export const updateJudgeApplications = async (
   profileId: string,
   data: JudgeApplicationFormData,
