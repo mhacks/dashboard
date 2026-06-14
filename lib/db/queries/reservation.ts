@@ -1,0 +1,67 @@
+import { asc, eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { events, tables, teams, users } from "@/lib/db/schema";
+
+export type Event = typeof events.$inferSelect;
+
+export type TableWithTeam = {
+  id: string;
+  number: number;
+  reservedByTeamId: string | null;
+  reservedByTeamName: string | null;
+};
+
+export type SignedInUser = {
+  id: string;
+  name: string;
+  teamId: string;
+  teamName: string;
+};
+
+const TEMP_SIGNED_IN_USER = {
+  id: "00000000-0000-4000-8000-000000000001",
+  name: "Test User",
+} as const;
+
+export function getEvents(): Promise<Event[]> {
+  return db
+    .select()
+    .from(events)
+    .orderBy(asc(events.startsAt), asc(events.name));
+}
+
+export async function getSignedInUser(): Promise<SignedInUser | null> {
+  const rows = await db
+    .select({
+      teamId: users.teamId,
+      teamName: teams.name,
+    })
+    .from(users)
+    .leftJoin(teams, eq(users.teamId, teams.id))
+    .where(eq(users.id, TEMP_SIGNED_IN_USER.id))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row?.teamId || !row.teamName) return null;
+
+  return {
+    id: TEMP_SIGNED_IN_USER.id,
+    name: TEMP_SIGNED_IN_USER.name,
+    teamId: row.teamId,
+    teamName: row.teamName,
+  };
+}
+
+export function getTablesForEvent(eventId: string): Promise<TableWithTeam[]> {
+  return db
+    .select({
+      id: tables.id,
+      number: tables.number,
+      reservedByTeamId: tables.reservedByTeamId,
+      reservedByTeamName: teams.name,
+    })
+    .from(tables)
+    .leftJoin(teams, eq(tables.reservedByTeamId, teams.id))
+    .where(eq(tables.eventId, eventId))
+    .orderBy(asc(tables.number));
+}
