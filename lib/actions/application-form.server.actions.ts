@@ -1,25 +1,22 @@
 "use server";
-import { HackerApplicant } from "@/lib/schemas/application";
 import {
   HackerApplicationFormData,
   JudgeApplicationFormData,
 } from "@/lib/types/applications";
+import { db } from "@/lib/db";
+import { hackerApplicants, judgeApplicants } from "@/lib/db/schema";
 
 export const submitHackerApplication = async (
   profileId: string,
   data: HackerApplicationFormData,
 ) => {
   try {
-    // TODODODO do sum here
-
-    // * Hopefully db will automatically assign an id
-    const applicant: Partial<HackerApplicant> = {
+    await db.insert(hackerApplicants).values({
       ...data,
-      user_id: profileId,
-      status: "pending",
-    };
+      userId: profileId,
+    });
   } catch (error) {
-    console.error("Unable to update Hacker Applications");
+    console.error("Unable to submit Hacker Application");
     throw error;
   }
 };
@@ -30,9 +27,11 @@ export const updateJudgeApplications = async (
   profileId: string,
   data: JudgeApplicationFormData,
 ) => {
-  // TODODO do sum here
-
   try {
+    await db.insert(judgeApplicants).values({
+      ...data,
+      userId: profileId,
+    });
   } catch (error) {
     console.error("Unable to update Judge Applications");
     throw error;

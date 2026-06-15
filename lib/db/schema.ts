@@ -8,25 +8,46 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-// Mirrors `ApplicationStatus` in lib/schemas/application.ts
+// Mirrors `ApplicationStatus` in lib/types/applications.ts
 export const applicationStatus = pgEnum("application_status", [
   "pending",
   "reviewed",
   "flagged",
 ]);
 
+// Synced from auth.users via a trigger on signup. The FK to auth.users is
+// enforced in a raw SQL migration (see supabase/migrations) so drizzle-kit
+// doesn't have to model the auth schema.
+export const profiles = pgTable("profiles", {
+  id: uuid("id").primaryKey(), // same value as auth.users.id
+  email: text("email").notNull(),
+  fullName: text("full_name"),
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type ProfileRow = typeof profiles.$inferSelect;
+export type NewProfile = typeof profiles.$inferInsert;
+
 /**
  * Columns shared by both application tables. JS keys are camelCase so a
  * validated Zod payload can be inserted directly (`db.insert(...).values(data)`);
  * the DB columns are snake_case per Postgres convention.
  *
- * Keep these in sync with the Zod schemas in lib/schemas/application.ts.
+ * Keep these in sync with the Zod schemas in lib/types/applications.ts.
  */
 const applicationColumns = () => ({
   id: uuid("id").primaryKey().defaultRandom(),
-  // FK to Supabase auth.users(id) — enforced in a follow-up migration to avoid
-  // modelling the auth schema here. One application per user.
-  userId: uuid("user_id").notNull().unique(),
+  // FK to profiles.id — enforced in a raw SQL migration. One application per user.
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => profiles.id, { onDelete: "cascade" }),
   status: applicationStatus("status").notNull().default("pending"),
 
   // Personal Information

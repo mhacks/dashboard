@@ -1,23 +1,26 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import ApplyPage from "./application-form";
 import ApplicationFormSkeleton from "./application-form-skeleton";
+import { createClient } from "@/lib/supabase/server";
 
 export default function ApplicationForm() {
-  // TODO Call Auth API to fetch user information
-  const profileId: Promise<string> = dataFetchingFunc();
+  const profileIdPromise = getProfileId();
 
   return (
-    <>
-      <Suspense fallback={<ApplicationFormSkeleton />}>
-        <ApplyPage profileIdPromise={profileId} />
-      </Suspense>
-    </>
+    <Suspense fallback={<ApplicationFormSkeleton />}>
+      <ApplyPage profileIdPromise={profileIdPromise} />
+    </Suspense>
   );
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+async function getProfileId(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-const dataFetchingFunc = async () => {
-  await wait(1500);
-  return "";
-};
+  if (!user) redirect("/login");
+
+  return user.id;
+}
