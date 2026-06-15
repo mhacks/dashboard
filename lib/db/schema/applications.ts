@@ -7,6 +7,7 @@ import {
   boolean,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { users } from "./users";
 
 // Mirrors `ApplicationStatus` in lib/types/applications.ts
 export const applicationStatus = pgEnum("application_status", [
@@ -15,39 +16,13 @@ export const applicationStatus = pgEnum("application_status", [
   "flagged",
 ]);
 
-// Synced from auth.users via a trigger on signup. The FK to auth.users is
-// enforced in a raw SQL migration (see supabase/migrations) so drizzle-kit
-// doesn't have to model the auth schema.
-export const profiles = pgTable("profiles", {
-  id: uuid("id").primaryKey(), // same value as auth.users.id
-  email: text("email").notNull(),
-  fullName: text("full_name"),
-  avatarUrl: text("avatar_url"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-export type ProfileRow = typeof profiles.$inferSelect;
-export type NewProfile = typeof profiles.$inferInsert;
-
-/**
- * Columns shared by both application tables. JS keys are camelCase so a
- * validated Zod payload can be inserted directly (`db.insert(...).values(data)`);
- * the DB columns are snake_case per Postgres convention.
- *
- * Keep these in sync with the Zod schemas in lib/types/applications.ts.
- */
 const applicationColumns = () => ({
   id: uuid("id").primaryKey().defaultRandom(),
   // FK to profiles.id — enforced in a raw SQL migration. One application per user.
   userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => profiles.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   status: applicationStatus("status").notNull().default("pending"),
 
   // Personal Information
@@ -121,10 +96,3 @@ export type HackerApplicantRow = typeof hackerApplicants.$inferSelect;
 export type NewHackerApplicant = typeof hackerApplicants.$inferInsert;
 export type JudgeApplicantRow = typeof judgeApplicants.$inferSelect;
 export type NewJudgeApplicant = typeof judgeApplicants.$inferInsert;
-
-// User profile keyed by the Supabase auth user id (auth.users.id).
-// Run `pnpm db:generate` after editing, then `pnpm db:migrate` (or `pnpm db:push`).
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey(),
-  email: text("email").notNull().unique(),
-});

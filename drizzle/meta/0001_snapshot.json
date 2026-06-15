@@ -1,0 +1,622 @@
+{
+  "id": "b93f8375-defc-4338-a057-2c5c7eccfe98",
+  "prevId": "f2885ddd-1b72-4b1e-8461-4ba94da35928",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.hacker_applicants": {
+      "name": "hacker_applicants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "application_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "age": {
+          "name": "age",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gender": {
+          "name": "gender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gender_other": {
+          "name": "gender_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ethnicity": {
+          "name": "ethnicity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ethnicity_other": {
+          "name": "ethnicity_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "university": {
+          "name": "university",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "university_other": {
+          "name": "university_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "country_other": {
+          "name": "country_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "degree": {
+          "name": "degree",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "degree_other": {
+          "name": "degree_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "graduation_year": {
+          "name": "graduation_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_hackathons": {
+          "name": "previous_hackathons",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "major": {
+          "name": "major",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "major_other": {
+          "name": "major_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resume": {
+          "name": "resume",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "why_attend": {
+          "name": "why_attend",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "technical_challenge": {
+          "name": "technical_challenge",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proud_project": {
+          "name": "proud_project",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anything_else": {
+          "name": "anything_else",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transportation_type": {
+          "name": "transportation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "coming_from": {
+          "name": "coming_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shirt_size": {
+          "name": "shirt_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "has_allergies": {
+          "name": "has_allergies",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allergies_description": {
+          "name": "allergies_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "needs_travel_reimbursement": {
+          "name": "needs_travel_reimbursement",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "would_attend_without_reimbursement": {
+          "name": "would_attend_without_reimbursement",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "github": {
+          "name": "github",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linkedin": {
+          "name": "linkedin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "personal_site": {
+          "name": "personal_site",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "follows_instagram": {
+          "name": "follows_instagram",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mlh_code_of_conduct": {
+          "name": "mlh_code_of_conduct",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mlh_privacy_policy": {
+          "name": "mlh_privacy_policy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mlh_emails": {
+          "name": "mlh_emails",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sponsor_emails": {
+          "name": "sponsor_emails",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "hacker_applicants_user_id_users_id_fk": {
+          "name": "hacker_applicants_user_id_users_id_fk",
+          "tableFrom": "hacker_applicants",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "hacker_applicants_user_id_unique": {
+          "name": "hacker_applicants_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.judge_applicants": {
+      "name": "judge_applicants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "application_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "age": {
+          "name": "age",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gender": {
+          "name": "gender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gender_other": {
+          "name": "gender_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ethnicity": {
+          "name": "ethnicity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ethnicity_other": {
+          "name": "ethnicity_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "university": {
+          "name": "university",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "university_other": {
+          "name": "university_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "country_other": {
+          "name": "country_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "degree": {
+          "name": "degree",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "degree_other": {
+          "name": "degree_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "graduation_year": {
+          "name": "graduation_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_hackathons": {
+          "name": "previous_hackathons",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "major": {
+          "name": "major",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "major_other": {
+          "name": "major_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resume": {
+          "name": "resume",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "why_attend": {
+          "name": "why_attend",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "technical_challenge": {
+          "name": "technical_challenge",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proud_project": {
+          "name": "proud_project",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anything_else": {
+          "name": "anything_else",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transportation_type": {
+          "name": "transportation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "coming_from": {
+          "name": "coming_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shirt_size": {
+          "name": "shirt_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "has_allergies": {
+          "name": "has_allergies",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allergies_description": {
+          "name": "allergies_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "needs_travel_reimbursement": {
+          "name": "needs_travel_reimbursement",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "would_attend_without_reimbursement": {
+          "name": "would_attend_without_reimbursement",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "github": {
+          "name": "github",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linkedin": {
+          "name": "linkedin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "personal_site": {
+          "name": "personal_site",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "follows_instagram": {
+          "name": "follows_instagram",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mlh_code_of_conduct": {
+          "name": "mlh_code_of_conduct",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mlh_privacy_policy": {
+          "name": "mlh_privacy_policy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mlh_emails": {
+          "name": "mlh_emails",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sponsor_emails": {
+          "name": "sponsor_emails",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "judge_applicants_user_id_users_id_fk": {
+          "name": "judge_applicants_user_id_users_id_fk",
+          "tableFrom": "judge_applicants",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "judge_applicants_user_id_unique": {
+          "name": "judge_applicants_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.application_status": {
+      "name": "application_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "reviewed",
+        "flagged"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

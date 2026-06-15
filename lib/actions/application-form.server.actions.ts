@@ -4,7 +4,10 @@ import {
   JudgeApplicationFormData,
 } from "@/lib/types/applications";
 import { db } from "@/lib/db";
-import { hackerApplicants, judgeApplicants } from "@/lib/db/schema";
+import {
+  hackerApplicants,
+  judgeApplicants,
+} from "@/lib/db/schema/applications";
 
 export const submitHackerApplication = async (
   profileId: string,
