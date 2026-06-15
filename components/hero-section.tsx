@@ -96,7 +96,7 @@ export default function HeroSection() {
         <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/55 to-transparent" />
 
         <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8">
-          <Link href="/">
+          <Link href="/" id="hero-logo">
             <Image
               src="/mhacks_logo.png"
               alt="MHacks"

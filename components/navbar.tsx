@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import Image from "next/image";
 
 const links = [
   { href: "#about", label: "About" },
@@ -15,12 +16,43 @@ const pillClass =
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
+  const [showLogo, setShowLogo] = useState(false);
+
+  useEffect(() => {
+    const heroLogo = document.getElementById("hero-logo");
+    if (!heroLogo) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowLogo(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+
+    observer.observe(heroLogo);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <>
-      {/* Mobile — top right */}
+      {/* ── Mobile ── */}
+
+      {/* Logo: fades in top-left when hero logo exits */}
+      <div
+        className="fixed top-9 left-9 z-50 sm:hidden transition-all duration-500 ease-out"
+        style={{ opacity: showLogo ? 1 : 0, transform: showLogo ? "translateY(0)" : "translateY(-6px)", pointerEvents: showLogo ? "auto" : "none" }}
+      >
+        <a href="#">
+          <Image
+            src="/mhacks_logo.png"
+            alt="MHacks"
+            width={40}
+            height={40}
+            className="brightness-[1.4] drop-shadow-[0_0_10px_rgba(0,0,0,0.4)]"
+          />
+        </a>
+      </div>
+
+      {/* Hamburger pill: top right */}
       <nav className="fixed top-9 right-9 z-50 sm:hidden">
-        {/* Compact toggle pill — always just icon + padding */}
         <div className={`${pillClass} rounded-full px-3 pt-3 pb-1`}>
           <button
             onClick={() => setOpen((o) => !o)}
@@ -42,7 +74,6 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Absolutely-positioned dropdown — never affects toggle pill width */}
         <div
           className={`absolute right-0 mt-2 ${pillClass} rounded-2xl transition-all duration-300 origin-top-right ${
             open
@@ -65,9 +96,31 @@ export default function NavBar() {
         </div>
       </nav>
 
-      {/* Desktop — centered pill */}
+      {/* ── Desktop ── */}
       <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 sm:block">
         <div className={`flex items-center rounded-full ${pillClass} px-6 py-3`}>
+          {/* Logo slides in from the left */}
+          <div
+            className="overflow-hidden flex items-center"
+            style={{
+              maxWidth: showLogo ? "24px" : "0px",
+              opacity: showLogo ? 1 : 0,
+              marginRight: showLogo ? "20px" : "0px",
+              transition: "max-width 0.5s ease, opacity 0.4s ease, margin 0.5s ease",
+              flexShrink: 0,
+            }}
+          >
+            <a href="#">
+              <Image
+                src="/mhacks_logo.png"
+                alt="MHacks"
+                width={24}
+                height={24}
+                className="brightness-[1.4] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] block"
+              />
+            </a>
+          </div>
+
           <div className="flex items-center gap-7 text-[17px] font-semibold text-white">
             {links.map((link) => (
               <a
