@@ -1,7 +1,8 @@
 import Image from "next/image";
-import Link from "next/link";
 import FaqAccordion from "@/components/faq-accordion";
 import PhotoGrid from "@/components/photo-grid";
+import HeroSection from "@/components/hero-section";
+import NavBar from "@/components/navbar";
 
 const tracks = [
   {
@@ -65,90 +66,10 @@ export default function Home() {
   return (
     <div className="overflow-x-hidden bg-white">
       {/* ── Navbar ── */}
-      <nav className="fixed top-4 left-1/2 z-50 -translate-x-1/2">
-        <div className="flex items-center rounded-full border border-white/15 bg-black/[0.38] px-4 py-3 sm:px-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl">
-          <div className="flex items-center gap-4 sm:gap-7 text-[14px] sm:text-[17px] font-semibold text-white">
-            <a href="#about" className="transition-opacity hover:opacity-60">
-              About
-            </a>
-            <a href="#faqs" className="transition-opacity hover:opacity-60">
-              FAQ
-            </a>
-            <a href="#sponsors" className="transition-opacity hover:opacity-60">
-              Sponsors
-            </a>
-            <a href="#apply" className="transition-opacity hover:opacity-60">
-              Apply
-            </a>
-          </div>
-        </div>
-      </nav>
+      <NavBar />
 
       {/* ── Hero ── */}
-      <section className="bg-white px-3 pt-3">
-        <div className="relative flex min-h-[94vh] flex-col overflow-hidden rounded-[2rem]">
-          <Image
-            src="/hero_bg_w_overlay.png"
-            alt="MHacks 2026"
-            fill
-            className="object-cover object-[65%_center] brightness-[0.88] contrast-[1.35] saturate-[1.7]"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
-
-          <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8">
-            <Link href="/">
-              <Image
-                src="/mhacks_logo.png"
-                alt="MHacks"
-                width={56}
-                height={56}
-                className="drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
-              />
-            </Link>
-
-            <div className="absolute left-[38%] top-1/2 -translate-x-1/2 -translate-y-1/2 hidden lg:block">
-              <div className="relative h-56 w-44 overflow-hidden border border-white/25 shadow-[0_16px_48px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-sm">
-                <Image
-                  src="/hackers_blurred_box.png"
-                  alt="Hackers"
-                  fill
-                  className="object-cover object-top"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
-              </div>
-            </div>
-
-            <div className="mt-auto flex justify-center">
-              <div className="flex flex-col items-center sm:items-end sm:w-max">
-                <div className="mb-3 flex gap-3">
-                  <a
-                    href="#sponsors"
-                    className="rounded-full border border-white/25 bg-white/[0.12] px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all hover:bg-white/[0.22]"
-                  >
-                    Sponsor Us
-                  </a>
-                  <a
-                    id="apply"
-                    href="#faqs"
-                    className="rounded-full border border-white/70 bg-white/70 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-zinc-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md transition-all hover:bg-white/85"
-                  >
-                    Apply
-                  </a>
-                </div>
-
-                <p className="mb-4 text-center sm:text-right text-[14px] sm:text-[18px] font-semibold tracking-wide text-white/90">
-                  10/03/2026 – 10/04/2026 &nbsp;·&nbsp; University of Michigan
-                </p>
-
-                <h1 className="font-heading italic whitespace-nowrap text-[12vw] lg:text-[clamp(4rem,15vw,20rem)] leading-[0.9] tracking-tight text-white">
-                  MHACKS 2026
-                </h1>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroSection />
 
       {/* ── About ── */}
       <section
@@ -196,35 +117,33 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stats bar */}
+        {/* Stats carousel */}
         <div
-          className="relative border-y px-8 lg:px-16 py-8"
+          className="border-y overflow-hidden py-8"
           style={{ borderColor: "#44572155" }}
         >
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-28">
+          <div className="flex animate-scroll-left">
             {[
               { value: "1000+", label: "Hackers" },
               { value: "$30k+", label: "in prizes" },
               { value: "200+", label: "Projects" },
-            ].map((stat, i, arr) => (
-              <div
-                key={stat.label}
-                className="flex items-center gap-2 sm:gap-28"
-              >
+              { value: "1000+", label: "Hackers" },
+              { value: "$30k+", label: "in prizes" },
+              { value: "200+", label: "Projects" },
+            ].map((stat, i) => (
+              <div key={i} className="flex items-center shrink-0">
                 <p
-                  className="font-heading italic text-xl sm:text-5xl whitespace-nowrap"
+                  className="font-heading italic text-xl sm:text-5xl whitespace-nowrap px-8 sm:px-16"
                   style={{ color: "#445721" }}
                 >
                   {stat.value} {stat.label}
                 </p>
-                {i < arr.length - 1 && (
-                  <span
-                    className="hidden sm:inline font-heading italic text-5xl"
-                    style={{ color: "#445721" }}
-                  >
-                    ·
-                  </span>
-                )}
+                <span
+                  className="font-heading italic text-xl sm:text-5xl shrink-0"
+                  style={{ color: "#445721" }}
+                >
+                  ·
+                </span>
               </div>
             ))}
           </div>
