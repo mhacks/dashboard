@@ -35,22 +35,6 @@ export default function NavBar() {
     <>
       {/* ── Mobile ── */}
 
-      {/* Logo: fades in top-left when hero logo exits */}
-      <div
-        className="fixed top-9 left-9 z-50 sm:hidden transition-all duration-500 ease-out"
-        style={{ opacity: showLogo ? 1 : 0, transform: showLogo ? "translateY(0)" : "translateY(-6px)", pointerEvents: showLogo ? "auto" : "none" }}
-      >
-        <a href="#">
-          <Image
-            src="/mhacks_logo.png"
-            alt="MHacks"
-            width={40}
-            height={40}
-            className="brightness-[1.4] drop-shadow-[0_0_10px_rgba(0,0,0,0.4)]"
-          />
-        </a>
-      </div>
-
       {/* Hamburger pill: top right */}
       <nav className="fixed top-9 right-9 z-50 sm:hidden">
         <div className={`${pillClass} rounded-full px-3 pt-3 pb-1`}>
