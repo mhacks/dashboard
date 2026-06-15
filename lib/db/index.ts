@@ -3,13 +3,13 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL;
+
 if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
-// `prepare: false` is required when pointing at Supabase's transaction pooler.
-// For local dev (direct connection on 54322) it is harmless.
+// Disable prefetch — prepared statements are not supported in Supabase's
+// "Transaction" pool mode (the pooled connection string on port 6543).
 const client = postgres(connectionString, { prepare: false });
 
-export const db = drizzle(client, { schema });
-export { schema };
+export const db = drizzle({ client, schema });

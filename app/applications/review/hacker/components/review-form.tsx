@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { useForm, useWatch, Controller } from "react-hook-form"
-import { type Mail } from "../data"
-import { type ReviewFormData, rating_criteria } from "../raiting-criteria"
+import { type ApplicantData } from "../applicant-data"
+import { type ReviewFormData, rating_criteria } from "../review-criteria"
 
 const SCORE_STYLE: Record<number, { bg: string; color: string; border: string }> = {
   1: { bg: "#FEF2F2", color: "#B91C1C", border: "#FECACA" },
@@ -73,7 +73,7 @@ function RatingField({
 }
 
 interface ReviewFormPanelProps {
-  app: Mail
+  app: ApplicantData
   existingReview: ReviewFormData | undefined
   onSave: (data: ReviewFormData) => void
 }

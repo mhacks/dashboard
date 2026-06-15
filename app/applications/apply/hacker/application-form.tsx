@@ -18,6 +18,7 @@ import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
 import { submitHackerApplication } from "@/lib/actions/application-form.server.actions";
+import { MHacksLogo } from "@/components/mhacks-logo";
 
 const STORAGE_KEY = "mhacks-application-draft";
 const PRIMARY = "#1F51A6";
@@ -53,27 +54,6 @@ const STEPS: Array<{
   },
 ];
 
-function MHacksLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 40 40"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect x="2" y="10" width="8" height="22" rx="2" fill={PRIMARY} />
-      <rect x="14" y="2" width="8" height="30" rx="2" fill={PRIMARY} />
-      <rect x="26" y="10" width="8" height="22" rx="2" fill={PRIMARY} />
-      <path
-        d="M26 18 L36 8"
-        stroke={PRIMARY}
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 function StepBar({ current }: { current: number }) {
   return (

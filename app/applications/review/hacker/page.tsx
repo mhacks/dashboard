@@ -1,10 +1,10 @@
-import { mails } from "./data"
-import { Mail } from "./components/mail"
+import { data } from "./applicant-data";
+import { ReviewDashboard } from "./components/review-shell";
 
 export default function ReviewPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <Mail mails={mails} />
+      <ReviewDashboard mails={data} />
     </div>
-  )
+  );
 }

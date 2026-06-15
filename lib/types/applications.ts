@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProfileRow } from "../db/schema";
 
 export const hackerApplicationSchema = z.object({
   // Personal Information
@@ -177,4 +178,11 @@ export type JudgeApplicationFormData = z.infer<typeof judgeApplicationSchema>;
 export type JudgeApplicant = JudgeApplicationFormData & {
   id: string;
   user_id: string;
+};
+
+export type HackerApplicant = HackerApplicationFormData & {
+  id: string;
+  userId: string;
+  status: string;
+  profile: ProfileRow;
 };

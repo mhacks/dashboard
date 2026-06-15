@@ -121,3 +121,10 @@ export type HackerApplicantRow = typeof hackerApplicants.$inferSelect;
 export type NewHackerApplicant = typeof hackerApplicants.$inferInsert;
 export type JudgeApplicantRow = typeof judgeApplicants.$inferSelect;
 export type NewJudgeApplicant = typeof judgeApplicants.$inferInsert;
+
+// User profile keyed by the Supabase auth user id (auth.users.id).
+// Run `pnpm db:generate` after editing, then `pnpm db:migrate` (or `pnpm db:push`).
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey(),
+  email: text("email").notNull().unique(),
+});

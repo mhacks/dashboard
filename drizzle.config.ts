@@ -1,16 +1,15 @@
+import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
 
-// Migrations are written into supabase/migrations so the Supabase CLI applies
-// them on `supabase start` / `supabase db reset` alongside any SQL migrations.
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is not set");
+}
+
 export default defineConfig({
-  schema: "./lib/db/schema.ts",
-  out: "./supabase/migrations",
+  schema: "./lib/db/schema.ts",e
+  out: "./drizzle",
   dialect: "postgresql",
-  // Emit `<timestamp>_name.sql` filenames the Supabase CLI recognizes.
-  migrations: {
-    prefix: "supabase",
-  },
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL,
   },
 });

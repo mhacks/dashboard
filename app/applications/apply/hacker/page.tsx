@@ -20,7 +20,7 @@ async function getProfileId(): Promise<string> {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  // if (!user) redirect("/login");
 
-  return user.id;
+  return user ? user.id : "";
 }
