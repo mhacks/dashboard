@@ -86,21 +86,22 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stats bar */}
-        <div className="relative border-y px-8 lg:px-16 py-8" style={{ borderColor: "#44572155" }}>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-28">
+        {/* Stats carousel */}
+        <div className="border-y overflow-hidden py-8" style={{ borderColor: "#44572155" }}>
+          <div className="flex animate-scroll-left">
             {[
               { value: "1000+", label: "Hackers" },
               { value: "$30k+", label: "in prizes" },
               { value: "200+", label: "Projects" },
-            ].map((stat, i, arr) => (
-              <div key={stat.label} className="flex items-center gap-2 sm:gap-28">
-                <p className="font-heading italic text-xl sm:text-5xl whitespace-nowrap" style={{ color: "#445721" }}>
+              { value: "1000+", label: "Hackers" },
+              { value: "$30k+", label: "in prizes" },
+              { value: "200+", label: "Projects" },
+            ].map((stat, i) => (
+              <div key={i} className="flex items-center shrink-0">
+                <p className="font-heading italic text-xl sm:text-5xl whitespace-nowrap px-8 sm:px-16" style={{ color: "#445721" }}>
                   {stat.value} {stat.label}
                 </p>
-                {i < arr.length - 1 && (
-                  <span className="hidden sm:inline font-heading italic text-5xl" style={{ color: "#445721" }}>·</span>
-                )}
+                <span className="font-heading italic text-xl sm:text-5xl shrink-0" style={{ color: "#445721" }}>·</span>
               </div>
             ))}
           </div>

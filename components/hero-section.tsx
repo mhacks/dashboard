@@ -125,7 +125,10 @@ export default function HeroSection() {
               </div>
 
               <p className="mb-4 text-center sm:text-right text-[14px] sm:text-[18px] font-semibold tracking-wide text-white/90">
-                10/03/2026 – 10/04/2026 &nbsp;·&nbsp; University of Michigan
+                10/03/2026 – 10/04/2026
+                <span className="hidden sm:inline">&nbsp;·&nbsp;</span>
+                <br className="sm:hidden" />
+                University of Michigan
               </p>
 
               <h1 className="font-heading italic whitespace-nowrap text-[12vw] lg:text-[clamp(4rem,15vw,20rem)] leading-[0.9] tracking-tight text-white">
