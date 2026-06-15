@@ -1,9 +1,18 @@
 allowBuilds:
-  msw: false
-  sharp: false
-  unrs-resolver: false
+  esbuild: true
+  msw: true
+  sharp: true
+  unrs-resolver: true
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+minimumReleaseAgeExclude:
+  - esbuild@0.24.3
+  - next@16.1.7
+  - next@16.2.3
+  - postcss@8.5.10
+  - next@16.2.5
+  - next@16.2.6
 onlyBuiltDependencies:
   - msw
+  - esbuild

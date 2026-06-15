@@ -40,7 +40,8 @@ export default function PhotoCarousel() {
       {order.map((imgIdx, pos) => {
         const isTop = pos === 0;
         const s = STACK[pos] ?? STACK[STACK.length - 1];
-        const cardColor = CARD_COLORS[pos] ?? CARD_COLORS[CARD_COLORS.length - 1];
+        const cardColor =
+          CARD_COLORS[pos] ?? CARD_COLORS[CARD_COLORS.length - 1];
 
         return (
           <div
