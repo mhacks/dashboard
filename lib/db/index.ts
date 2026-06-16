@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema/applications";
+import * as usersSchema from "./schema/users";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -12,4 +13,4 @@ if (!connectionString) {
 // "Transaction" pool mode (the pooled connection string on port 6543).
 const client = postgres(connectionString, { prepare: false });
 
-export const db = drizzle({ client, schema });
+export const db = drizzle({ client, schema: { ...schema, ...usersSchema } });

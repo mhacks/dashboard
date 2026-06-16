@@ -10,9 +10,9 @@ import {
 
 const Communications = ({ control, errors }: any) => {
   return (
-    <Card>
+    <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle>Communications</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Communications</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2">

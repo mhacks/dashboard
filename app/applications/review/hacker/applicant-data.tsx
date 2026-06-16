@@ -40,6 +40,15 @@ export type ApplicantData = {
   allergiesDescription?: string;
   needsTravelReimbursement: boolean;
   status: "pending" | "reviewed" | "flagged";
+
+  // Review fields
+  reviewMotivation?: number;
+  reviewBuilderMindset?: number;
+  reviewCollaboration?: number;
+  reviewCreativity?: number;
+  reviewDiversity?: number;
+  flagForReview?: boolean;
+  reviewNotes?: string;
 };
 
 const makeSubject = (university: string, major: string, degree: string) =>

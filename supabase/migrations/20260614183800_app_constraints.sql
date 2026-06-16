@@ -1,13 +1,3 @@
--- Foreign keys to Supabase auth.users (kept out of the Drizzle schema so
--- drizzle-kit doesn't try to manage the auth schema). See lib/db/schema.ts.
-alter table "hacker_applicants"
-  add constraint "hacker_applicants_user_id_fkey"
-  foreign key ("user_id") references "auth"."users" ("id") on delete cascade;
-
-alter table "judge_applicants"
-  add constraint "judge_applicants_user_id_fkey"
-  foreign key ("user_id") references "auth"."users" ("id") on delete cascade;
-
 -- Keep updated_at current on every UPDATE.
 create or replace function "set_updated_at"()
 returns trigger as $$
@@ -24,3 +14,18 @@ create trigger "hacker_applicants_set_updated_at"
 create trigger "judge_applicants_set_updated_at"
   before update on "judge_applicants"
   for each row execute function "set_updated_at"();
+
+-- Auto-insert a users row whenever a new Supabase auth user signs up.
+create or replace function "handle_new_user"()
+returns trigger as $$
+begin
+  insert into public.users (id, email)
+  values (new.id, new.email)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger "on_auth_user_created"
+  after insert on auth.users
+  for each row execute function "handle_new_user"();

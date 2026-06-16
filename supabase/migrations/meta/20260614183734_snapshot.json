@@ -1,6 +1,6 @@
 {
-  "id": "5119c656-84f3-48d3-b9ec-d8ab9a36a138",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "b93f8375-defc-4338-a057-2c5c7eccfe98",
+  "prevId": "f2885ddd-1b72-4b1e-8461-4ba94da35928",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -255,7 +255,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "hacker_applicants_user_id_users_id_fk": {
+          "name": "hacker_applicants_user_id_users_id_fk",
+          "tableFrom": "hacker_applicants",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "hacker_applicants_user_id_unique": {
@@ -521,7 +535,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "judge_applicants_user_id_users_id_fk": {
+          "name": "judge_applicants_user_id_users_id_fk",
+          "tableFrom": "judge_applicants",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "judge_applicants_user_id_unique": {
@@ -529,6 +557,39 @@
           "nullsNotDistinct": false,
           "columns": [
             "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
           ]
         }
       },

@@ -33,9 +33,9 @@ const AcademicInformation = ({ errors, register, control, setValue }: any) => {
     <>
       {" "}
       {/* Academic Information */}
-      <Card>
+      <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
         <CardHeader>
-          <CardTitle>Academic Information</CardTitle>
+          <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Academic Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

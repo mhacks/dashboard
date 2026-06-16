@@ -21,9 +21,11 @@ const PersonalInformation = ({ register, errors, control }: any) => {
   const gender = useWatch({ control, name: "gender" });
   const ethnicity = useWatch({ control, name: "ethnicity" });
   return (
-    <Card>
+    <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle>Personal Information</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
+          Personal Information
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -64,51 +66,51 @@ const PersonalInformation = ({ register, errors, control }: any) => {
               </p>
             )}
           </FormField>
-        </div>
 
-        {gender === "other" && (
-          <FormField label="Please describe your gender">
-            <Input
-              {...register("genderOther")}
-              placeholder="Describe your gender"
-            />
-          </FormField>
-        )}
-
-        <FormField label="Ethnicity" required>
-          <Controller
-            name="ethnicity"
-            control={control}
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select ethnicity" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ethnicityOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.ethnicity && (
-            <p className="text-sm text-destructive">
-              {errors.ethnicity.message}
-            </p>
+          {gender === "other" && (
+            <FormField label="Please describe your gender" className="md:col-span-2">
+              <Input
+                {...register("genderOther")}
+                placeholder="Describe your gender"
+              />
+            </FormField>
           )}
-        </FormField>
 
-        {ethnicity === "multiracial" && (
-          <FormField label="Please describe your ethnicity">
-            <Input
-              {...register("ethnicityOther")}
-              placeholder="Describe your ethnicity"
+          <FormField label="Ethnicity" required className="md:col-span-2">
+            <Controller
+              name="ethnicity"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select ethnicity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ethnicityOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             />
+            {errors.ethnicity && (
+              <p className="text-sm text-destructive">
+                {errors.ethnicity.message}
+              </p>
+            )}
           </FormField>
-        )}
+
+          {ethnicity === "multiracial" && (
+            <FormField label="Please describe your ethnicity" className="md:col-span-2">
+              <Input
+                {...register("ethnicityOther")}
+                placeholder="Describe your ethnicity"
+              />
+            </FormField>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

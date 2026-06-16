@@ -10,9 +10,9 @@ import { FormField } from "../utils";
 
 const Essays = ({ register, errors }: any) => {
   return (
-    <Card>
+    <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle>Essays</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Essays</CardTitle>
         <CardDescription>
           Please write 100-1000 characters for each response
         </CardDescription>

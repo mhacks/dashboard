@@ -7,8 +7,6 @@ import {
   boolean,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { users } from "./users";
-
 // Mirrors `ApplicationStatus` in lib/types/applications.ts
 export const applicationStatus = pgEnum("application_status", [
   "pending",
@@ -18,11 +16,8 @@ export const applicationStatus = pgEnum("application_status", [
 
 const applicationColumns = () => ({
   id: uuid("id").primaryKey().defaultRandom(),
-  // FK to profiles.id — enforced in a raw SQL migration. One application per user.
-  userId: uuid("user_id")
-    .notNull()
-    .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
+  // FK to users.id — one application per user.
+  userId: uuid("user_id").notNull().unique(),
   status: applicationStatus("status").notNull().default("pending"),
 
   // Personal Information
@@ -86,6 +81,15 @@ const applicationColumns = () => ({
 
 export const hackerApplicants = pgTable("hacker_applicants", {
   ...applicationColumns(),
+
+  // Review fields — stored inline since it's a 1-to-1 relationship
+  reviewMotivation: integer("review_motivation"),
+  reviewBuilderMindset: integer("review_builder_mindset"),
+  reviewCollaboration: integer("review_collaboration"),
+  reviewCreativity: integer("review_creativity"),
+  reviewDiversity: integer("review_diversity"),
+  flagForReview: boolean("flag_for_review").notNull().default(false),
+  reviewNotes: text("review_notes"),
 });
 
 export const judgeApplicants = pgTable("judge_applicants", {

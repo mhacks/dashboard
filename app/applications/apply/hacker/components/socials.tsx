@@ -10,9 +10,9 @@ import { FormField } from "../utils";
 
 const Socials = ({ register, errors }: any) => {
   return (
-    <Card>
+    <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle>Socials</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Socials</CardTitle>
         <CardDescription>Optional: Share your social links</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

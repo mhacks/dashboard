@@ -1,6 +1,6 @@
 {
-  "id": "b93f8375-defc-4338-a057-2c5c7eccfe98",
-  "prevId": "f2885ddd-1b72-4b1e-8461-4ba94da35928",
+  "id": "32b777c5-3ea6-4417-85ff-b8b114213113",
+  "prevId": "b93f8375-defc-4338-a057-2c5c7eccfe98",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -252,24 +252,53 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "review_motivation": {
+          "name": "review_motivation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review_builder_mindset": {
+          "name": "review_builder_mindset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review_collaboration": {
+          "name": "review_collaboration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review_creativity": {
+          "name": "review_creativity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review_diversity": {
+          "name": "review_diversity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flag_for_review": {
+          "name": "flag_for_review",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "review_notes": {
+          "name": "review_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "hacker_applicants_user_id_users_id_fk": {
-          "name": "hacker_applicants_user_id_users_id_fk",
-          "tableFrom": "hacker_applicants",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "hacker_applicants_user_id_unique": {
@@ -535,21 +564,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "judge_applicants_user_id_users_id_fk": {
-          "name": "judge_applicants_user_id_users_id_fk",
-          "tableFrom": "judge_applicants",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "judge_applicants_user_id_unique": {

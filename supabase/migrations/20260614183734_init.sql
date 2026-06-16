@@ -1,4 +1,11 @@
-CREATE TYPE "public"."application_status" AS ENUM('pending', 'reviewed', 'flagged');--> statement-breakpoint
+CREATE TABLE "users" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"email" text NOT NULL,
+	CONSTRAINT "users_email_unique" UNIQUE("email")
+);
+--> statement-breakpoint
+CREATE TYPE "public"."application_status" AS ENUM('pending', 'reviewed', 'flagged');
+--> statement-breakpoint
 CREATE TABLE "hacker_applicants" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -86,6 +93,3 @@ CREATE TABLE "judge_applicants" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "judge_applicants_user_id_unique" UNIQUE("user_id")
 );
---> statement-breakpoint
-ALTER TABLE "hacker_applicants" ADD CONSTRAINT "hacker_applicants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "judge_applicants" ADD CONSTRAINT "judge_applicants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;

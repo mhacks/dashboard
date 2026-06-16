@@ -7,8 +7,10 @@ import { Sidebar } from "./applicant-sidebar";
 import { ApplicationDetail } from "./applicant-detail";
 import { ReviewFormPanel } from "./review-form";
 import { MHacksLogo } from "@/components/mhacks-logo";
+import { saveHackerReview } from "@/lib/actions/review.server.actions";
+import { use } from "react";
 
-interface ReviewDashboardProps {
+interface MailProps {
   mails: ApplicantData[];
 }
 
@@ -25,20 +27,39 @@ export function scoreAvg(rev: ReviewFormData | undefined): string | null {
   return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
 }
 
-export function ReviewDashboard({ mails: initialMails }: ReviewDashboardProps) {
-  const [apps, setApps] = React.useState<ApplicantData[]>(initialMails);
+export function ReviewDashboard({ applicationsPromise }: any) {
+  const applications: ApplicantData[] = use(applicationsPromise);
+
+  const [apps, setApps] = React.useState<ApplicantData[]>(applications);
   const [selectedId, setSelectedId] = React.useState<string>(
-    initialMails[0]?.id ?? "",
+    applications[0]?.id ?? "",
   );
   const [reviews, setReviews] = React.useState<Record<string, ReviewFormData>>(
-    {},
+    () =>
+      Object.fromEntries(
+        applications
+          .filter((a) => a.status !== "pending")
+          .map((a) => [
+            a.id,
+            {
+              motivation: a.reviewMotivation,
+              builderMindset: a.reviewBuilderMindset,
+              collaboration: a.reviewCollaboration,
+              creativity: a.reviewCreativity,
+              diversity: a.reviewDiversity,
+              flagForReview: a.flagForReview ?? false,
+              reviewComments: a.reviewNotes ?? "",
+            },
+          ]),
+      ),
   );
   const [query, setQuery] = React.useState("");
 
   const selected = apps.find((a) => a.id === selectedId) ?? null;
 
-  function handleSave(data: ReviewFormData) {
+  async function handleSave(data: ReviewFormData) {
     if (!selectedId) return;
+    await saveHackerReview(selectedId, data);
     setReviews((prev) => ({ ...prev, [selectedId]: data }));
     setApps((prev) =>
       prev.map((a) =>

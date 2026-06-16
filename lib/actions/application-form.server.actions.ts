@@ -8,16 +8,36 @@ import {
   hackerApplicants,
   judgeApplicants,
 } from "@/lib/db/schema/applications";
+import { getTableColumns, sql } from "drizzle-orm";
+import { PgTable } from "drizzle-orm/pg-core";
+
+function conflictUpdateSetAll<TTable extends PgTable>(table: TTable) {
+  const columns = getTableColumns(table);
+
+  return Object.keys(columns).reduce(
+    (acc, columnName) => {
+      const dbColumnName = columns[columnName].name;
+      if (columnName !== "userId") {
+        acc[columnName] = sql.raw(`excluded.${dbColumnName}`);
+      }
+      return acc;
+    },
+    {} as Record<string, any>,
+  );
+}
 
 export const submitHackerApplication = async (
-  profileId: string,
+  userId: string,
   data: HackerApplicationFormData,
 ) => {
   try {
-    await db.insert(hackerApplicants).values({
-      ...data,
-      userId: profileId,
-    });
+    await db
+      .insert(hackerApplicants)
+      .values({ ...data, userId })
+      .onConflictDoUpdate({
+        target: hackerApplicants.userId,
+        set: conflictUpdateSetAll(hackerApplicants),
+      });
   } catch (error) {
     console.error("Unable to submit Hacker Application");
     throw error;
@@ -41,7 +61,10 @@ export const updateJudgeApplications = async (
   }
 };
 
-const uploadResume = async (profileId: string, file: File): Promise<string> => {
+const uploadResume = async (
+  _profileId: string,
+  file: File,
+): Promise<string> => {
   // TODO: Implement S3 upload
   console.log("Uploading resume:", file.name);
   return "dummy-resume-url";

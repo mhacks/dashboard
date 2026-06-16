@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Agreements = ({ control, errors }: any) => {
   return (
-    <Card>
+    <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle>MLH & Sponsor Agreements</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>MLH & Sponsor Agreements</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-1">
