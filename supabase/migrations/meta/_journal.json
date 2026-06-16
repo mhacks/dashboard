@@ -15,6 +15,13 @@
       "when": 1781571944870,
       "tag": "0001_yielding_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781648587135,
+      "tag": "0002_lame_salo",
+      "breakpoints": true
     }
   ]
 }

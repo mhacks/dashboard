@@ -25,6 +25,8 @@ const Logistics = ({ register, errors, control }: any) => {
     control,
     name: "needsTravelReimbursement",
   });
+  const transportationType = useWatch({ control, name: "transportationType" });
+  const isFlying = transportationType === "flying";
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
@@ -66,6 +68,24 @@ const Logistics = ({ register, errors, control }: any) => {
               </p>
             )}
           </FormField>
+
+          {isFlying && (
+            <FormField label="Departure Airport Code" required>
+              <Input
+                {...register("airportCode", {
+                  setValueAs: (v: string) => v.toUpperCase(),
+                })}
+                placeholder="e.g. DTW"
+                maxLength={3}
+                className="uppercase"
+              />
+              {errors.airportCode && (
+                <p className="text-sm text-destructive">
+                  {errors.airportCode.message}
+                </p>
+              )}
+            </FormField>
+          )}
 
           <FormField label="Shirt Size" required>
             <Controller

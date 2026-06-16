@@ -154,6 +154,7 @@ export default function ApplyPage({
       anythingElse: "",
       transportationType: "",
       comingFrom: "",
+      airportCode: "",
       shirtSize: "",
       hasAllergies: false,
       allergiesDescription: "",

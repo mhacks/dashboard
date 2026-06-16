@@ -24,19 +24,14 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AccountSwitcher } from "@/app/applications/review/mail/components/account-switcher";
-import { MailDisplay } from "@/app/applications/review/mail/components/mail-display";
-import { MailList } from "@/app/applications/review/mail/components/mail-list";
-import { Nav } from "@/app/applications/review/mail/components/nav";
-import { type Mail } from "@/app/applications/review/mail/data";
-import { useMail } from "@/app/applications/review/mail/use-mail";
+import { AccountSwitcher } from "@/app/review/mail/components/account-switcher";
+import { MailDisplay } from "@/app/review/mail/components/mail-display";
+import { MailList } from "@/app/review/mail/components/mail-list";
+import { Nav } from "@/app/review/mail/components/nav";
+import { type Mail } from "@/app/review/mail/data";
+import { useMail } from "@/app/review/mail/use-mail";
 
 interface MailProps {
   accounts: {

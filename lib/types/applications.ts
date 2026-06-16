@@ -43,6 +43,11 @@ export const baseApplicationSchema = z.object({
   // Logistics
   transportationType: z.string().min(1, "Please select transportation type"),
   comingFrom: z.string().min(1, "Please enter your location"),
+  airportCode: z
+    .string()
+    .regex(/^[A-Z]{3}$/, "Enter a valid 3-letter IATA airport code (e.g. DTW)")
+    .optional()
+    .or(z.literal("")),
   shirtSize: z.string().min(1, "Please select your shirt size"),
   hasAllergies: z.boolean(),
   allergiesDescription: z.string().max(500).optional(),

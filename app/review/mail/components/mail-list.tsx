@@ -4,8 +4,8 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mail } from "@/app/applications/review/mail/data";
-import { useMail } from "@/app/applications/review/mail/use-mail";
+import { Mail } from "@/app/review/mail/data";
+import { useMail } from "@/app/review/mail/use-mail";
 
 interface MailListProps {
   items: Mail[];

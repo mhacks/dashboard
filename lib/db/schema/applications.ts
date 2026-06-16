@@ -49,6 +49,7 @@ const applicationColumns = () => ({
   // Logistics
   transportationType: text("transportation_type").notNull(),
   comingFrom: text("coming_from").notNull(),
+  airportCode: text("airport_code"),
   shirtSize: text("shirt_size").notNull(),
   hasAllergies: boolean("has_allergies").notNull(),
   allergiesDescription: text("allergies_description"),

@@ -1,7 +1,7 @@
 "use server";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { type ReviewFormData } from "@/app/applications/review/hacker/review-criteria";
+import { type ReviewFormData } from "@/app/review/hacker/review-criteria";
 import { eq } from "drizzle-orm";
 
 export const saveHackerReview = async (
