@@ -280,19 +280,13 @@ export default function ApplyPage({
   }
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden flex items-start justify-center py-10 px-4">
-      {/* Full-page background */}
-      <div className="pointer-events-none absolute inset-0">
-        <Image
-          src="/sponsors_bg.png"
-          alt=""
-          fill
-          className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
-        />
-        <div className="absolute inset-0 bg-black/55" />
+    <div className="min-h-screen bg-white relative overflow-x-hidden">
+      {/* Subtle background */}
+      <div className="pointer-events-none absolute right-0 top-0 h-full w-[55%] opacity-[0.07]">
+        <Image src="/white_green_bg.png" alt="" fill className="object-cover object-top" />
       </div>
 
-      {/* Decorative flowers behind the card */}
+      {/* Decorative flowers */}
       <Image
         src="/yellow_flower.png"
         alt=""
@@ -322,32 +316,29 @@ export default function ApplyPage({
         className="pointer-events-none absolute bottom-12 -right-16 opacity-25 rotate-[-10deg] select-none"
       />
 
-      {/* Unified portal card */}
-      <div className="relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl">
-        {/* Header */}
-        <header className="relative overflow-hidden">
-          <Image
-            src="/sponsors_bg.png"
-            alt=""
-            fill
-            className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
-          />
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent to-white pointer-events-none" />
-          <div className="relative px-8 h-20 flex items-center gap-3">
-            <MHacksLogo size={24} />
-            <span className="font-heading italic text-lg text-white">
-              MHacks 2026
-            </span>
-            <span className="text-white/30 mx-1">|</span>
-            <span className="text-[13px] text-white/60 font-medium">
-              Hacker Application
-            </span>
-          </div>
-        </header>
+      {/* Header */}
+      <header className="relative overflow-hidden">
+        <Image
+          src="/sponsors_bg.png"
+          alt=""
+          fill
+          className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
+        />
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="relative mx-auto max-w-5xl px-8 h-14 flex items-center gap-3">
+          <MHacksLogo size={24} />
+          <span className="font-heading italic text-lg text-white">
+            MHacks 2026
+          </span>
+          <span className="text-white/30 mx-1">|</span>
+          <span className="text-[13px] text-white/60 font-medium">
+            Hacker Application
+          </span>
+        </div>
+      </header>
 
-        {/* Form content */}
-        <div className="bg-white px-6 py-12">
+      {/* Content */}
+      <div className="relative mx-auto max-w-2xl px-6 py-12 bg-white">
         {/* Eyebrow */}
         <div className="flex items-center justify-between mb-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
@@ -466,7 +457,6 @@ export default function ApplyPage({
             )}
           </div>
         </form>
-      </div>
       </div>
     </div>
   );
