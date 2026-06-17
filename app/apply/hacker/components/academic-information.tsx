@@ -233,14 +233,18 @@ const AcademicInformation = ({ errors, register, control, setValue, userId }: an
                 setUploadState("uploading");
                 try {
                   const { uploadUrl, objectUrl } = await getResumeUploadUrl(userId, file.name);
-                  await fetch(uploadUrl, {
+                  const res = await fetch(uploadUrl, {
                     method: "PUT",
                     body: file,
                     headers: { "Content-Type": "application/pdf" },
                   });
+                  if (!res.ok) {
+                    throw new Error(`S3 returned ${res.status}: ${await res.text()}`);
+                  }
                   setValue("resume", objectUrl);
                   setUploadState("done");
-                } catch {
+                } catch (err) {
+                  console.error("Resume upload error:", err);
                   setUploadState("error");
                 }
               }}

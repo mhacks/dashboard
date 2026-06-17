@@ -211,11 +211,6 @@ export default function ApplyPage({
     return () => subscription.unsubscribe();
   }, [watch]);
 
-  const saveProgress = () => {
-    const data = watch();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  };
-
   const goNext = async () => {
     const fields = STEPS[step].fields;
     if (fields.length > 0) {
@@ -422,18 +417,6 @@ export default function ApplyPage({
             )}
 
             <div className="flex-1" />
-
-            <button
-              type="button"
-              onClick={saveProgress}
-              className="rounded-full border px-6 py-2.5 text-[13px] font-medium transition-colors hover:bg-zinc-50"
-              style={{
-                borderColor: "rgba(58,74,38,0.35)",
-                color: "rgba(58,74,38,0.65)",
-              }}
-            >
-              Save Progress
-            </button>
 
             {step < STEPS.length - 1 ? (
               <button

@@ -11,13 +11,27 @@ import {
 import { getTableColumns, sql } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 
+const SKIP_ON_UPDATE = new Set([
+  "id",
+  "userId",
+  "status",
+  "createdAt",
+  "reviewMotivation",
+  "reviewBuilderMindset",
+  "reviewCollaboration",
+  "reviewCreativity",
+  "reviewDiversity",
+  "flagForReview",
+  "reviewNotes",
+]);
+
 function conflictUpdateSetAll<TTable extends PgTable>(table: TTable) {
   const columns = getTableColumns(table);
 
   return Object.keys(columns).reduce(
     (acc, columnName) => {
       const dbColumnName = columns[columnName].name;
-      if (columnName !== "userId") {
+      if (!SKIP_ON_UPDATE.has(columnName)) {
         acc[columnName] = sql.raw(`excluded.${dbColumnName}`);
       }
       return acc;
@@ -39,7 +53,7 @@ export const submitHackerApplication = async (
         set: conflictUpdateSetAll(hackerApplicants),
       });
   } catch (error) {
-    console.error("Unable to submit Hacker Application");
+    console.error("Unable to submit Hacker Application:", error);
     throw error;
   }
 };
