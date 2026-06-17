@@ -1,0 +1,75 @@
+name: CD
+
+on:
+  workflow_dispatch:
+
+env:
+  CONTAINER_NAME: ${{ github.event.repository.name }}
+  ECS_CLUSTER: mhacks-ecs
+  ECS_SERVICE: mhacks-${{ github.event.repository.name }}
+  ECS_TASK_DEFINITION: mhacks-${{ github.event.repository.name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Download task definition from AWS
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Build image
+        id: build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.CONTAINER_NAME }}
+          tags: latest ${{ github.sha }}
+          containerfiles: ./Dockerfile
+
+      - name: Push image to ECR
+        id: push
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: ${{ steps.login-ecr.outputs.registry }}
+
+      - name: Render task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.push.outputs.registry-path }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Deregister old task definition
+        run: |
+          OLD_REVISION=$(jq -r '.revision' task-definition.json)
+          aws ecs deregister-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }}:${OLD_REVISION}
