@@ -25,7 +25,10 @@ export default function CtaSection() {
           style={{ color: "#3A4A26" }}
         >
           Come build something{" "}
-          <span className="font-heading italic" style={{ color: "rgba(58,74,38,0.6)" }}>
+          <span
+            className="font-heading italic"
+            style={{ color: "rgba(58,74,38,0.6)" }}
+          >
             that grows.
           </span>
         </h2>

@@ -25,7 +25,7 @@ export default function NavBar() {
 
     const observer = new IntersectionObserver(
       ([entry]) => setShowLogo(!entry.isIntersecting),
-      { threshold: 0 }
+      { threshold: 0 },
     );
 
     observer.observe(heroLogo);
@@ -50,7 +50,9 @@ export default function NavBar() {
 
         {/* Hamburger pill + dropdown */}
         <div className="relative">
-          <div className={`${pillClass} rounded-full flex items-center justify-center p-3`}>
+          <div
+            className={`${pillClass} rounded-full flex items-center justify-center p-3`}
+          >
             <button
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
@@ -59,13 +61,17 @@ export default function NavBar() {
               <Menu
                 size={18}
                 className={`absolute inset-0 transition-all duration-300 ${
-                  open ? "rotate-90 scale-50 opacity-0" : "rotate-0 scale-100 opacity-100"
+                  open
+                    ? "rotate-90 scale-50 opacity-0"
+                    : "rotate-0 scale-100 opacity-100"
                 }`}
               />
               <X
                 size={18}
                 className={`absolute inset-0 transition-all duration-300 ${
-                  open ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-50 opacity-0"
+                  open
+                    ? "rotate-0 scale-100 opacity-100"
+                    : "-rotate-90 scale-50 opacity-0"
                 }`}
               />
             </button>
@@ -96,7 +102,9 @@ export default function NavBar() {
 
       {/* ── Desktop (lg+) ── */}
       <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 lg:block">
-        <div className={`flex items-center rounded-full ${pillClass} px-6 py-3`}>
+        <div
+          className={`flex items-center rounded-full ${pillClass} px-6 py-3`}
+        >
           {/* Logo slides in from the left */}
           <div
             className="overflow-hidden flex items-center"
@@ -104,7 +112,8 @@ export default function NavBar() {
               maxWidth: showLogo ? "44px" : "0px",
               opacity: showLogo ? 1 : 0,
               marginRight: showLogo ? "20px" : "0px",
-              transition: "max-width 0.5s ease, opacity 0.4s ease, margin 0.5s ease",
+              transition:
+                "max-width 0.5s ease, opacity 0.4s ease, margin 0.5s ease",
               flexShrink: 0,
             }}
           >

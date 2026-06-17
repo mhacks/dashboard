@@ -6,11 +6,11 @@ import VideoPlayer from "./video-player";
 const WRAPPER_VH = 160;
 const EARLY = 0.7;
 const VH_START = 65;
-const VH_PEAK  = 50;
-const VH_END   = 28;
+const VH_PEAK = 50;
+const VH_END = 28;
 
 const ABS_BEFORE = VH_START - EARLY * (WRAPPER_VH - 100); // 23
-const ABS_AFTER  = VH_END   + (1 - EARLY) * (WRAPPER_VH - 100); // 46
+const ABS_AFTER = VH_END + (1 - EARLY) * (WRAPPER_VH - 100); // 46
 
 export default function ScrollExpandVideo() {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -53,16 +53,16 @@ export default function ScrollExpandVideo() {
     ? progress < P0
       ? progress / P0
       : progress > P1
-      ? (1 - progress) / (1 - P1)
-      : 1
+        ? (1 - progress) / (1 - P1)
+        : 1
     : 0;
 
   const topVh = isActive
     ? progress < P0
       ? VH_START + (VH_PEAK - VH_START) * (progress / P0)
       : progress > P1
-      ? VH_PEAK  + (VH_END  - VH_PEAK)  * ((progress - P1) / (1 - P1))
-      : VH_PEAK
+        ? VH_PEAK + (VH_END - VH_PEAK) * ((progress - P1) / (1 - P1))
+        : VH_PEAK
     : 0;
 
   const widthVw = 50 + ep * 25;
@@ -70,7 +70,11 @@ export default function ScrollExpandVideo() {
   const absoluteTop = progress > 1 ? `${ABS_AFTER}vh` : `${ABS_BEFORE}vh`;
 
   return (
-    <div ref={wrapperRef} className="relative w-full" style={{ height: `${WRAPPER_VH}vh` }}>
+    <div
+      ref={wrapperRef}
+      className="relative w-full"
+      style={{ height: `${WRAPPER_VH}vh` }}
+    >
       {overlayOpacity > 0 && (
         <div
           className="fixed inset-0 bg-black pointer-events-none"

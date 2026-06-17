@@ -9,7 +9,11 @@ const KEY_DATES = [
   { iso: "2026-06-22", date: "Jun. 22", label: "Applications Open" },
   { iso: "2026-08-07", date: "Aug. 07", label: "Early Application Deadline" },
   { iso: "2026-08-21", date: "Aug. 21", label: "Early Decisions Released" },
-  { iso: "2026-09-04", date: "Sep. 04", label: "Regular Applications Deadline" },
+  {
+    iso: "2026-09-04",
+    date: "Sep. 04",
+    label: "Regular Applications Deadline",
+  },
   { iso: "2026-09-11", date: "Sep. 11", label: "Regular Decisions Released" },
 ];
 
@@ -65,12 +69,18 @@ export default function KeyDates() {
           style={{ color: "#3A4A26" }}
         >
           Mark your{" "}
-          <span className="font-heading italic" style={{ color: "rgba(58,74,38,0.6)" }}>
+          <span
+            className="font-heading italic"
+            style={{ color: "rgba(58,74,38,0.6)" }}
+          >
             calendar.
           </span>
         </h2>
 
-        <div className="mt-14 border-t" style={{ borderColor: "rgba(58,74,38,0.12)" }}>
+        <div
+          className="mt-14 border-t"
+          style={{ borderColor: "rgba(58,74,38,0.12)" }}
+        >
           {KEY_DATES.map((item, i) => {
             const t = midnightEastern(item.iso);
             const isPast = now !== null && t <= now;
@@ -88,7 +98,8 @@ export default function KeyDates() {
                   opacity: isPast ? 0.4 : 1,
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "rgba(58,74,38,0.04)")
+                  (e.currentTarget.style.backgroundColor =
+                    "rgba(58,74,38,0.04)")
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.backgroundColor = "transparent")

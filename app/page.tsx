@@ -18,8 +18,6 @@ const ribbonItems = [
   "Ann Arbor, MI",
 ];
 
-
-
 export default function Home() {
   return (
     <div style={{ overflowX: "clip" }}>
@@ -31,7 +29,10 @@ export default function Home() {
       <HeroSection />
 
       {/* ── Scrolling ribbon ── */}
-      <div className="border-b overflow-hidden py-5" style={{ borderColor: "#44572155", backgroundColor: "#efe9d4" }}>
+      <div
+        className="border-b overflow-hidden py-5"
+        style={{ borderColor: "#44572155", backgroundColor: "#efe9d4" }}
+      >
         <div className="flex animate-scroll-left">
           {[...ribbonItems, ...ribbonItems].map((item, i) => (
             <div key={i} className="flex items-center shrink-0">
@@ -59,7 +60,10 @@ export default function Home() {
         style={{ backgroundColor: "rgba(244, 242, 232, 0.55)" }}
       >
         <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2" style={{ color: "rgba(58,74,38,0.5)" }}>
+          <p
+            className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2"
+            style={{ color: "rgba(58,74,38,0.5)" }}
+          >
             <span>★</span>
             About MHacks
             <span>★</span>
@@ -69,21 +73,31 @@ export default function Home() {
             style={{ color: "#3A4A26" }}
           >
             <span className="font-sans font-semibold">Calling all</span>{" "}
-            <span className="font-heading font-semibold italic" style={{ color: "rgba(58,74,38,0.62)" }}>hackers.</span>
+            <span
+              className="font-heading font-semibold italic"
+              style={{ color: "rgba(58,74,38,0.62)" }}
+            >
+              hackers.
+            </span>
           </h2>
-          <p className="mt-6 max-w-xl text-[14px] leading-7 text-center" style={{ color: "rgba(58,74,38,0.65)" }}>
+          <p
+            className="mt-6 max-w-xl text-[14px] leading-7 text-center"
+            style={{ color: "rgba(58,74,38,0.65)" }}
+          >
             MHacks is the University of Michigan&apos;s flagship hackathon,
             bringing together the brightest student minds from across the
-            country. Over 24 hours, you&apos;ll collaborate, create, and
-            compete for over $30,000 in prizes.
+            country. Over 24 hours, you&apos;ll collaborate, create, and compete
+            for over $30,000 in prizes.
           </p>
-          <p className="mt-4 max-w-xl text-[14px] leading-7 text-center" style={{ color: "rgba(58,74,38,0.65)" }}>
+          <p
+            className="mt-4 max-w-xl text-[14px] leading-7 text-center"
+            style={{ color: "rgba(58,74,38,0.65)" }}
+          >
             Whether you&apos;re a seasoned hacker or attending your very first
             hackathon, MHacks is the place to turn your wildest ideas into
             reality. Join us for a weekend of innovation, mentorship, and
             community.
           </p>
-
         </div>
 
         <VideoSpotlight />

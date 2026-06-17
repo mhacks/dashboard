@@ -56,8 +56,12 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex w-full cursor-pointer items-baseline gap-5 px-2 py-6 text-left transition-colors duration-300 md:px-4"
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(58,74,38,0.04)")}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.backgroundColor = "rgba(58,74,38,0.04)")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.backgroundColor = "transparent")
+        }
       >
         <span
           className="font-mono text-[11px] tracking-[0.2em]"
@@ -118,12 +122,18 @@ export default function FaqSection() {
           style={{ color: "#3A4A26" }}
         >
           Questions,{" "}
-          <span className="font-heading italic" style={{ color: "rgba(58,74,38,0.6)" }}>
+          <span
+            className="font-heading italic"
+            style={{ color: "rgba(58,74,38,0.6)" }}
+          >
             answered.
           </span>
         </h2>
 
-        <div className="mt-14 border-t" style={{ borderColor: "rgba(58,74,38,0.12)" }}>
+        <div
+          className="mt-14 border-t"
+          style={{ borderColor: "rgba(58,74,38,0.12)" }}
+        >
           {FAQS.map((faq, i) => (
             <FaqItem key={faq.q} q={faq.q} a={faq.a} index={i} />
           ))}

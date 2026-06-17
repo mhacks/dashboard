@@ -40,7 +40,10 @@ export default function HeroSection() {
       }
       if (labelRef.current && heroSize.current.h > 0) {
         // Real latitude range centered on Ann Arbor (42.2808°N) ± 1 degree
-        const ty = Math.max(0, Math.min(1, target.current.y / heroSize.current.h));
+        const ty = Math.max(
+          0,
+          Math.min(1, target.current.y / heroSize.current.h),
+        );
         const lat = (43.2808 - ty * 2).toFixed(4);
         labelRef.current.textContent = `${lat}°N`;
       }
@@ -75,7 +78,7 @@ export default function HeroSection() {
             el.classList.remove("lens-pop");
             el.style.opacity = "1";
           },
-          { once: true }
+          { once: true },
         );
       }
     }
@@ -131,7 +134,10 @@ export default function HeroSection() {
           style={{ left: 0, top: 0, opacity: 0 }}
         >
           {/* Ann Arbor latitude — updates live with lens position */}
-          <p ref={labelRef} className="mb-1.5 text-[13px] font-semibold tracking-widest text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
+          <p
+            ref={labelRef}
+            className="mb-1.5 text-[13px] font-semibold tracking-widest text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
+          >
             42.28°N
           </p>
 
@@ -184,10 +190,16 @@ export default function HeroSection() {
 
           {/* Bottom: left-aligned title then dates */}
           <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10">
-            <h1 className="font-heading sm:whitespace-nowrap text-[14vw] sm:text-[12vw] lg:text-[clamp(4rem,15vw,20rem)] leading-[0.9] tracking-tight uppercase" style={{ color: "#ebe4ce" }}>
+            <h1
+              className="font-heading sm:whitespace-nowrap text-[14vw] sm:text-[12vw] lg:text-[clamp(4rem,15vw,20rem)] leading-[0.9] tracking-tight uppercase"
+              style={{ color: "#ebe4ce" }}
+            >
               MHACKS 2026
             </h1>
-            <p className="mt-3 text-[16px] sm:text-[18px] font-light tracking-[0.2em] uppercase" style={{ color: "#ebe4ce" }}>
+            <p
+              className="mt-3 text-[16px] sm:text-[18px] font-light tracking-[0.2em] uppercase"
+              style={{ color: "#ebe4ce" }}
+            >
               October 3 - 4, 2026
               <span className="hidden sm:inline">&nbsp;·&nbsp;</span>
               <br className="sm:hidden" />

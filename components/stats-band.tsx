@@ -73,7 +73,10 @@ export default function StatsBand() {
           style={{ color: "#3A4A26" }}
         >
           Remember{" "}
-          <span className="font-heading italic" style={{ color: "rgba(58,74,38,0.6)" }}>
+          <span
+            className="font-heading italic"
+            style={{ color: "rgba(58,74,38,0.6)" }}
+          >
             MHacks 2025?
           </span>
         </h2>

@@ -48,7 +48,10 @@ export default function SponsorsSection() {
           >
             Help us empower
             <br />
-            <span className="font-heading italic" style={{ color: "rgba(58,74,38,0.6)" }}>
+            <span
+              className="font-heading italic"
+              style={{ color: "rgba(58,74,38,0.6)" }}
+            >
               potential.
             </span>
           </h2>
@@ -86,7 +89,7 @@ export default function SponsorsSection() {
               borderColor: "rgba(58,74,38,0.1)",
             }}
           >
-            { }
+            {}
             <motion.img
               src="/sponsors-ascii.png"
               alt=""
