@@ -95,7 +95,7 @@ export default function AsciiBackground({
           const wave =
             Math.sin(worldY / 220 - gx * 0.4 - scrollY / 360) * 0.5 + 0.5
           const r = gap * (0.24 + seed * 0.16) * (0.8 + wave * 0.4)
-          const alpha = (0.14 + edge * 0.34) * (0.6 + wave * 0.4)
+          const alpha = (0.22 + edge * 0.48) * (0.65 + wave * 0.35)
           const rot = seed * Math.PI * 2 + scrollY / 1200
 
           drawFlower(ctx, x, y, r, rot, alpha, color)

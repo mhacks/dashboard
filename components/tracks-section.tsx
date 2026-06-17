@@ -11,25 +11,25 @@ const tracks = [
     name: "Artificial Intelligence",
     description: "Build systems that sense, reason, and act in the world",
     flower: "/dark_blue_flower.png",
-    glow: "rgba(99, 140, 220, 0.45)",
+    glow: "rgba(60, 110, 255, 0.72)",
   },
   {
     name: "Sustainability",
     description: "Engineer tech-driven solutions for a resilient planet",
     flower: "/light_blue_flower.png",
-    glow: "rgba(90, 170, 110, 0.45)",
+    glow: "rgba(55, 195, 105, 0.68)",
   },
   {
     name: "Healthcare",
     description: "Reimagine how people access and receive care",
     flower: "/pink_flower.png",
-    glow: "rgba(210, 100, 150, 0.45)",
+    glow: "rgba(230, 55, 130, 0.65)",
   },
   {
     name: "Fintech",
     description: "Reshape money, markets, and economic access for all",
     flower: "/yellow_flower.png",
-    glow: "rgba(210, 180, 60, 0.45)",
+    glow: "rgba(245, 200, 20, 0.72)",
   },
 ];
 
@@ -44,7 +44,7 @@ function TrackCard({ track }: { track: (typeof tracks)[number] }) {
       <div
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(160deg, ${track.glow} 0%, #eef0e4 68%, #f4f2e8 100%)`,
+          background: `linear-gradient(160deg, ${track.glow} 0%, #eef0e4 52%, #f4f2e8 100%)`,
         }}
       />
       <Image
@@ -52,6 +52,7 @@ function TrackCard({ track }: { track: (typeof tracks)[number] }) {
         alt=""
         width={176}
         height={176}
+        style={{ height: "auto" }}
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-90 object-contain"
       />
       <span
@@ -88,7 +89,7 @@ function TrackRow({
         className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border"
         style={{
           borderColor: "rgba(58,74,38,0.1)",
-          backgroundColor: "#f9f6ef",
+          backgroundColor: "#e8e5d6",
         }}
       >
         <div

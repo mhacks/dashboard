@@ -1,10 +1,14 @@
-import Image from "next/image";
-import FaqAccordion from "@/components/faq-accordion";
 import HeroSection from "@/components/hero-section";
 import NavBar from "@/components/navbar";
 import AsciiBackground from "@/components/ascii-background";
 import TracksSection from "@/components/tracks-section";
 import VideoSpotlight from "@/components/video-spotlight";
+import StatsBand from "@/components/stats-band";
+import KeyDates from "@/components/key-dates";
+import SponsorsSection from "@/components/sponsors-section";
+import FaqSection from "@/components/faq-section";
+import CtaSection from "@/components/cta-section";
+import SiteFooter from "@/components/site-footer";
 
 const ribbonItems = [
   "$30k+ In Prizes",
@@ -15,40 +19,6 @@ const ribbonItems = [
 ];
 
 
-const timelineEvents = [
-  {
-    date: "Jun. 22",
-    title: "Applications Open",
-    desc: "The MHacks 2026 application portal goes live. Start your application early — spots are limited.",
-  },
-  {
-    date: "Aug. 07",
-    title: "Early Application Deadline",
-    desc: "Early applications must be submitted by 11:59 PM ET. No late submissions accepted.",
-  },
-  {
-    date: "Aug. 21",
-    title: "Early Decisions Released",
-    desc: "Early admission decisions will be sent to all applicants via email. Check your inbox.",
-  },
-  {
-    date: "Sep. 04",
-    title: "Regular Applications Deadline",
-    desc: "Regular applications must be submitted by 11:59 PM ET. No late submissions accepted.",
-  },
-  {
-    date: "Sep. 11",
-    title: "Regular Recisions Released",
-    desc: "Regular admission decisions will be sent to all applicants via email. Check your inbox.",
-  },
-];
-
-const sponsors = {
-  diamond: ["AppLovin", "fetch.ai"],
-  gold: ["Combinator", "Innovation Labs", "CREO"],
-  silver: ["LiveKit", "REKA", "DEN", "glu", "brighte", "VAPI"],
-  bronze: ["VISA", "WARP", "Windsurf", "Promise", "Apple", "Snap AR", "Matter"],
-};
 
 export default function Home() {
   return (
@@ -61,7 +31,7 @@ export default function Home() {
       <HeroSection />
 
       {/* ── Scrolling ribbon ── */}
-      <div className="border-b overflow-hidden py-5" style={{ borderColor: "#44572155", backgroundColor: "#ebe4ce" }}>
+      <div className="border-b overflow-hidden py-5" style={{ borderColor: "#44572155", backgroundColor: "#efe9d4" }}>
         <div className="flex animate-scroll-left">
           {[...ribbonItems, ...ribbonItems].map((item, i) => (
             <div key={i} className="flex items-center shrink-0">
@@ -86,7 +56,7 @@ export default function Home() {
       <section
         id="about"
         className="scroll-mt-20 relative"
-        style={{ backgroundColor: "rgba(249, 246, 239, 0.55)" }}
+        style={{ backgroundColor: "rgba(244, 242, 232, 0.55)" }}
       >
         <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2" style={{ color: "rgba(58,74,38,0.5)" }}>
@@ -123,259 +93,23 @@ export default function Home() {
       {/* ── Tracks ── */}
       <TracksSection />
 
+      {/* ── Stats / Photo carousel ── */}
+      <StatsBand />
+
       {/* ── Timeline ── */}
-      <section
-        id="timeline"
-        className="scroll-mt-20 relative py-20 sm:py-28 overflow-hidden"
-      >
-        <div className="pointer-events-none absolute left-0 top-0 h-full w-full opacity-[0.07]">
-          <Image
-            src="/white_green_bg.png"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover object-top"
-          />
-        </div>
-
-        <div className="relative mx-auto max-w-6xl px-8 sm:px-16">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-            Applications
-          </p>
-          <h2
-            className="mb-14 sm:mb-20 font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight"
-            style={{ color: "#3A4A26" }}
-          >
-            Key Dates
-          </h2>
-
-          {/* Mobile: vertical */}
-          <div className="lg:hidden">
-            {timelineEvents.map((event, i) => (
-              <div key={event.title} className="flex">
-                <div className="flex flex-col items-center w-5 shrink-0">
-                  <div
-                    className="w-[9px] h-[9px] rounded-full border-[2px] bg-white mt-[5px] z-10 shrink-0"
-                    style={{ borderColor: "#3A4A26" }}
-                  />
-                  {i < timelineEvents.length - 1 && (
-                    <div
-                      className="w-px flex-1 mt-1"
-                      style={{
-                        backgroundColor: "rgba(58,74,38,0.15)",
-                        minHeight: "4rem",
-                      }}
-                    />
-                  )}
-                </div>
-                <div className="flex-1 pl-5 pb-8">
-                  <span
-                    className="font-mono text-[13px] font-semibold block mb-1"
-                    style={{ color: "rgba(58,74,38,0.55)" }}
-                  >
-                    {event.date}
-                  </span>
-                  <h3
-                    className="font-heading italic text-2xl leading-tight mb-1.5"
-                    style={{ color: "#3A4A26" }}
-                  >
-                    {event.title}
-                  </h3>
-                  <p className="text-[13px] leading-relaxed text-zinc-400">
-                    {event.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop: horizontal, alternating above/below */}
-          <div className="hidden lg:block">
-            <div className="relative flex">
-              <div
-                className="absolute left-0 right-0 h-px z-0"
-                style={{
-                  top: "calc(7rem + 4px)",
-                  backgroundColor: "rgba(58,74,38,0.2)",
-                }}
-              />
-              {timelineEvents.map((event, i) => (
-                <div
-                  key={event.title}
-                  className="flex-1 flex flex-col items-center"
-                >
-                  {/* Above-line */}
-                  <div className="h-28 flex flex-col justify-end items-center pb-4 text-center px-3">
-                    {i % 2 === 0 && (
-                      <>
-                        <span
-                          className="font-mono text-[12px] font-bold tracking-wider mb-2 block"
-                          style={{ color: "rgba(58,74,38,0.6)" }}
-                        >
-                          {event.date}
-                        </span>
-                        <h3
-                          className="font-heading italic text-xl leading-snug"
-                          style={{ color: "#3A4A26" }}
-                        >
-                          {event.title}
-                        </h3>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Dot */}
-                  <div
-                    className="w-[9px] h-[9px] rounded-full border-[2px] bg-white z-10 shrink-0"
-                    style={{ borderColor: "#3A4A26" }}
-                  />
-
-                  {/* Below-line */}
-                  <div className="h-28 flex flex-col justify-start items-center pt-4 text-center px-3">
-                    {i % 2 === 1 && (
-                      <>
-                        <span
-                          className="font-mono text-[12px] font-bold tracking-wider mb-2 block"
-                          style={{ color: "rgba(58,74,38,0.6)" }}
-                        >
-                          {event.date}
-                        </span>
-                        <h3
-                          className="font-heading italic text-xl leading-snug"
-                          style={{ color: "#3A4A26" }}
-                        >
-                          {event.title}
-                        </h3>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <KeyDates />
 
       {/* ── Sponsors ── */}
-      <section id="sponsors" className="scroll-mt-20 px-3 pb-3">
-        <div className="relative flex min-h-[60vh] flex-col items-center justify-center overflow-hidden rounded-[2rem] py-20 sm:py-28">
-          <Image
-            src="/sponsors_bg.png"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
-          />
-          <div className="absolute inset-0 bg-black/50" />
-
-          <div className="relative z-10 flex flex-col items-center text-center px-8 sm:px-16">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
-              Powering MHacks
-            </p>
-            <h2 className="mb-10 font-heading italic text-5xl sm:text-7xl leading-tight tracking-tight text-white">
-              Our Sponsors
-            </h2>
-
-            <p className="mb-10 font-heading italic text-2xl sm:text-3xl text-white/70">
-              Coming Soon...
-            </p>
-
-            <div className="flex flex-col items-center gap-3">
-              <p className="text-[13px] text-white/50">
-                Interested in supporting MHacks 2026?
-              </p>
-              <a
-                href="mailto:sponsors@mhacks.org"
-                className="rounded-full border border-white/25 bg-white/10 px-7 py-2.5 text-[14px] font-medium text-white backdrop-blur-sm transition-all hover:bg-white/20 hover:border-white/40"
-              >
-                Sponsor Us
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+      <SponsorsSection />
 
       {/* ── FAQs ── */}
-      <section
-        id="faqs"
-        className="scroll-mt-20 px-8 sm:px-16 py-16 sm:py-24"
-      >
-        <div className="mx-auto flex max-w-6xl flex-col lg:flex-row items-stretch gap-12 lg:gap-16">
-          <div className="flex-1 w-full">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-              Attending MHacks
-            </p>
-            <h2
-              className="mb-10 font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight"
-              style={{ color: "#3A4A26" }}
-            >
-              FAQs
-            </h2>
-            <FaqAccordion />
-          </div>
+      <FaqSection />
 
-          <div className="relative hidden lg:block w-[420px] my-2 mx-3 overflow-hidden rounded-3xl shadow-[inset_-32px_0_40px_rgba(0,0,0,0.28)]">
-            {/* Oversized wrapper so rotated bg always covers the container */}
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                width: "160%",
-                height: "160%",
-                top: "-30%",
-                left: "-30%",
-                transform: "rotate(90deg)",
-              }}
-            >
-              <Image
-                src="/white_green_bg.png"
-                alt=""
-                fill
-                sizes="420px"
-                className="object-cover"
-              />
-            </div>
-            <div className="absolute bottom-8 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-pink-100/80 blur-3xl" />
-            <Image
-              src="/pink_flower_in_vase.png"
-              alt="Decorative flower in vase"
-              fill
-              sizes="420px"
-              className="object-contain -scale-x-100 blur-[2px]"
-            />
-            <Image
-              src="/pink_ascii_flower.png"
-              alt=""
-              fill
-              sizes="420px"
-              className="object-contain"
-            />
-          </div>
-        </div>
-      </section>
+      {/* ── CTA ── */}
+      <CtaSection />
 
       {/* ── Footer ── */}
-      <footer className="border-t border-zinc-100 px-8 sm:px-16 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-zinc-400">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/mhacks_logo.png"
-              alt="MHacks"
-              width={18}
-              height={18}
-              className="opacity-25"
-            />
-            <span>© 2026 MHacks. University of Michigan.</span>
-          </div>
-          <div className="flex gap-6">
-            <a
-              href="mailto:hackathon-org@umich.edu"
-              className="transition-colors hover:text-zinc-700"
-            >
-              Contact
-            </a>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
