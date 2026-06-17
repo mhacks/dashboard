@@ -81,6 +81,7 @@ export default function Home() {
             src="/white_green_bg.png"
             alt=""
             fill
+            sizes="(min-width: 1024px) 62vw, 100vw"
             className="object-cover object-top"
           />
         </div>
@@ -306,6 +307,7 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
             src="/white_green_bg.png"
             alt=""
             fill
+            sizes="100vw"
             className="object-cover object-top"
           />
         </div>
@@ -435,6 +437,7 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
             src="/sponsors_bg.png"
             alt=""
             fill
+            sizes="100vw"
             className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
           />
           <div className="absolute inset-0 bg-black/50" />
@@ -501,6 +504,7 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
                 src="/white_green_bg.png"
                 alt=""
                 fill
+                sizes="420px"
                 className="object-cover"
               />
             </div>
@@ -509,12 +513,14 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
               src="/pink_flower_in_vase.png"
               alt="Decorative flower in vase"
               fill
+              sizes="420px"
               className="object-contain -scale-x-100 blur-[2px]"
             />
             <Image
               src="/pink_ascii_flower.png"
               alt=""
               fill
+              sizes="420px"
               className="object-contain"
             />
           </div>

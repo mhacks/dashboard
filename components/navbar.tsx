@@ -6,9 +6,10 @@ import Image from "next/image";
 
 const links = [
   { href: "#about", label: "About" },
-  { href: "#faqs", label: "FAQ" },
+  { href: "#tracks", label: "Tracks" },
+  { href: "#timeline", label: "Dates" },
   { href: "#sponsors", label: "Sponsors" },
-  { href: "/apply/hacker", label: "Apply" },
+  { href: "#faqs", label: "FAQ" },
 ];
 
 const pillClass =
@@ -33,55 +34,68 @@ export default function NavBar() {
 
   return (
     <>
-      {/* ── Mobile ── */}
-
-      {/* Hamburger pill: top right */}
-      <nav className="fixed top-9 right-9 z-50 sm:hidden">
-        <div className={`${pillClass} rounded-full px-3 pt-3 pb-1`}>
-          <button
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-            className="relative h-[18px] w-[18px] text-white"
+      {/* ── Mobile (< lg) ── */}
+      <nav className="fixed top-6 sm:top-8 right-6 sm:right-8 z-50 lg:hidden flex items-center gap-2">
+        {/* Disabled Apply Now */}
+        <div className="relative group">
+          <span
+            className={`${pillClass} inline-block cursor-not-allowed select-none rounded-full px-4 pt-[9px] pb-[7px] text-[17px] font-heading italic text-white/35`}
           >
-            <Menu
-              size={18}
-              className={`absolute inset-0 transition-all duration-300 ${
-                open ? "rotate-90 scale-50 opacity-0" : "rotate-0 scale-100 opacity-100"
-              }`}
-            />
-            <X
-              size={18}
-              className={`absolute inset-0 transition-all duration-300 ${
-                open ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-50 opacity-0"
-              }`}
-            />
-          </button>
+            Apply Now
+          </span>
+          <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/90 px-3 py-1.5 text-[12px] text-zinc-700 shadow-sm backdrop-blur-sm opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            Applications open Jun. 22
+          </div>
         </div>
 
-        <div
-          className={`absolute right-0 mt-2 ${pillClass} rounded-2xl transition-all duration-300 origin-top-right ${
-            open
-              ? "pointer-events-auto scale-100 opacity-100"
-              : "pointer-events-none scale-95 opacity-0"
-          }`}
-        >
-          <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-[14px] font-semibold text-white">
-            {links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="transition-opacity hover:opacity-60"
-                onClick={() => setOpen(false)}
-              >
-                {link.label}
-              </a>
-            ))}
+        {/* Hamburger pill + dropdown */}
+        <div className="relative">
+          <div className={`${pillClass} rounded-full flex items-center justify-center p-3`}>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              className="relative flex items-center justify-center h-[18px] w-[18px] text-white"
+            >
+              <Menu
+                size={18}
+                className={`absolute inset-0 transition-all duration-300 ${
+                  open ? "rotate-90 scale-50 opacity-0" : "rotate-0 scale-100 opacity-100"
+                }`}
+              />
+              <X
+                size={18}
+                className={`absolute inset-0 transition-all duration-300 ${
+                  open ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-50 opacity-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div
+            className={`absolute right-0 mt-2 ${pillClass} rounded-2xl transition-all duration-300 origin-top-right ${
+              open
+                ? "pointer-events-auto scale-100 opacity-100"
+                : "pointer-events-none scale-95 opacity-0"
+            }`}
+          >
+            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-[17px] font-heading italic text-white">
+              {links.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="transition-opacity hover:opacity-60"
+                  onClick={() => setOpen(false)}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </nav>
 
-      {/* ── Desktop ── */}
-      <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 sm:block">
+      {/* ── Desktop (lg+) ── */}
+      <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 lg:block">
         <div className={`flex items-center rounded-full ${pillClass} px-6 py-3`}>
           {/* Logo slides in from the left */}
           <div
@@ -105,7 +119,7 @@ export default function NavBar() {
             </a>
           </div>
 
-          <div className="flex items-center gap-7 text-[17px] font-semibold text-white">
+          <div className="flex items-center gap-7 text-[19px] font-heading italic text-white">
             {links.map((link) => (
               <a
                 key={link.href}
