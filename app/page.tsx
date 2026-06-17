@@ -1,8 +1,17 @@
 import Image from "next/image";
 import FaqAccordion from "@/components/faq-accordion";
-import PhotoGrid from "@/components/photo-grid";
 import HeroSection from "@/components/hero-section";
 import NavBar from "@/components/navbar";
+import ScrollExpandVideo from "@/components/scroll-expand-video";
+import AsciiBackground from "@/components/ascii-background";
+
+const ribbonItems = [
+  "$30k+ In Prizes",
+  "200+ Projects",
+  "24 Hours",
+  "October 3 - 4, 2026",
+  "Ann Arbor, MI",
+];
 
 const tracks = [
   {
@@ -64,97 +73,79 @@ const sponsors = {
 
 export default function Home() {
   return (
-    <div className="overflow-x-hidden bg-white">
+    <div style={{ overflowX: "clip" }}>
+      <AsciiBackground />
       {/* ── Navbar ── */}
       <NavBar />
 
       {/* ── Hero ── */}
       <HeroSection />
 
+      {/* ── Scrolling ribbon ── */}
+      <div className="border-b overflow-hidden py-5" style={{ borderColor: "#44572155", backgroundColor: "#ebe4ce" }}>
+        <div className="flex animate-scroll-left">
+          {[...ribbonItems, ...ribbonItems].map((item, i) => (
+            <div key={i} className="flex items-center shrink-0">
+              <p
+                className="font-heading italic text-2xl sm:text-4xl whitespace-nowrap px-8 sm:px-14"
+                style={{ color: "#445721" }}
+              >
+                {item}
+              </p>
+              <span
+                className="font-heading not-italic text-sm sm:text-base shrink-0"
+                style={{ color: "#445721" }}
+              >
+                ◆
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── About ── */}
       <section
         id="about"
-        className="scroll-mt-20 relative overflow-hidden bg-white"
+        className="scroll-mt-20 relative"
       >
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-full lg:w-[62%] opacity-15">
-          <Image
-            src="/white_green_bg.png"
-            alt=""
-            fill
-            sizes="(min-width: 1024px) 62vw, 100vw"
-            className="object-cover object-top"
-          />
-        </div>
-
-        <div className="relative flex flex-col lg:flex-row lg:min-h-[680px] items-stretch">
-          {/* Text */}
-          <div className="flex w-full lg:w-[38%] flex-col justify-center items-center lg:items-start px-8 sm:px-12 lg:px-16 py-16 lg:py-24">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 text-center lg:text-left">
-              About MHacks
-            </p>
-            <h2
-              className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight text-center lg:text-left"
-              style={{ color: "#3A4A26" }}
-            >
-              Calling All Hackers
-            </h2>
-            <p className="mt-6 max-w-md text-[14px] leading-7 text-zinc-500 text-center lg:text-left">
-              MHacks is the University of Michigan&apos;s flagship hackathon,
-              bringing together the brightest student minds from across the
-              country. Over 36 hours, you&apos;ll collaborate, create, and
-              compete for over $30,000 in prizes.
-            </p>
-            <p className="mt-4 max-w-md text-[14px] leading-7 text-zinc-500 text-center lg:text-left">
-              Whether you&apos;re a seasoned hacker or attending your very first
-              hackathon, MHacks is the place to turn your wildest ideas into
-              reality. Join us for a weekend of innovation, mentorship, and
-              community.
-            </p>
-          </div>
-
-          {/* Photo grid */}
-          <div className="w-full h-[360px] lg:h-auto lg:w-[62%] pl-4 lg:pl-6 pr-4 lg:pr-8 pt-4 lg:pt-8 pb-4 lg:pb-8">
-            <PhotoGrid />
-          </div>
-        </div>
-
-        {/* Stats carousel */}
-        <div
-          className="border-y overflow-hidden py-8"
-          style={{ borderColor: "#44572155" }}
+        <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16"
+          style={{ background: "linear-gradient(to bottom, rgba(247,243,233,0.5) 0%, rgba(247,243,233,0.5) 75%, transparent 100%)" }}
         >
-          <div className="flex animate-scroll-left">
-            {[
-              { value: "1000+", label: "Hackers" },
-              { value: "$30k+", label: "in prizes" },
-              { value: "200+", label: "Projects" },
-              { value: "1000+", label: "Hackers" },
-              { value: "$30k+", label: "in prizes" },
-              { value: "200+", label: "Projects" },
-            ].map((stat, i) => (
-              <div key={i} className="flex items-center shrink-0">
-                <p
-                  className="font-heading italic text-xl sm:text-5xl whitespace-nowrap px-8 sm:px-16"
-                  style={{ color: "#445721" }}
-                >
-                  {stat.value} {stat.label}
-                </p>
-                <span
-                  className="font-heading italic text-xl sm:text-5xl shrink-0"
-                  style={{ color: "#445721" }}
-                >
-                  ·
-                </span>
-              </div>
-            ))}
-          </div>
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2" style={{ color: "rgba(58,74,38,0.5)" }}>
+            <span>★</span>
+            About MHacks
+            <span>★</span>
+          </p>
+          <h2
+            className="text-5xl sm:text-6xl leading-tight tracking-tight text-center"
+            style={{ color: "#3A4A26" }}
+          >
+            <span className="font-sans font-semibold">Calling all</span>{" "}
+            <span className="font-heading font-semibold italic" style={{ color: "rgba(58,74,38,0.62)" }}>hackers.</span>
+          </h2>
+          <p className="mt-6 max-w-xl text-[14px] leading-7 text-center" style={{ color: "rgba(58,74,38,0.65)" }}>
+            MHacks is the University of Michigan&apos;s flagship hackathon,
+            bringing together the brightest student minds from across the
+            country. Over 24 hours, you&apos;ll collaborate, create, and
+            compete for over $30,000 in prizes.
+          </p>
+          <p className="mt-4 max-w-xl text-[14px] leading-7 text-center" style={{ color: "rgba(58,74,38,0.65)" }}>
+            Whether you&apos;re a seasoned hacker or attending your very first
+            hackathon, MHacks is the place to turn your wildest ideas into
+            reality. Join us for a weekend of innovation, mentorship, and
+            community.
+          </p>
+
         </div>
+
+        <ScrollExpandVideo />
       </section>
 
       {/* ── Tracks ── */}
       <section
         id="tracks"
-        className="scroll-mt-20 relative bg-white py-20 sm:py-28 overflow-hidden"
+        className="scroll-mt-20 relative py-20 sm:py-28 overflow-hidden"
+        style={{ marginTop: "-70vh" }}
       >
         {/* ASCII rose background elements */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden select-none">
@@ -300,7 +291,7 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
       {/* ── Timeline ── */}
       <section
         id="timeline"
-        className="scroll-mt-20 relative bg-white py-20 sm:py-28 overflow-hidden"
+        className="scroll-mt-20 relative py-20 sm:py-28 overflow-hidden"
       >
         <div className="pointer-events-none absolute left-0 top-0 h-full w-full opacity-[0.07]">
           <Image
@@ -431,7 +422,7 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
       </section>
 
       {/* ── Sponsors ── */}
-      <section id="sponsors" className="scroll-mt-20 bg-white px-3 pb-3">
+      <section id="sponsors" className="scroll-mt-20 px-3 pb-3">
         <div className="relative flex min-h-[60vh] flex-col items-center justify-center overflow-hidden rounded-[2rem] py-20 sm:py-28">
           <Image
             src="/sponsors_bg.png"
@@ -472,7 +463,7 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
       {/* ── FAQs ── */}
       <section
         id="faqs"
-        className="scroll-mt-20 bg-white px-8 sm:px-16 py-16 sm:py-24"
+        className="scroll-mt-20 px-8 sm:px-16 py-16 sm:py-24"
       >
         <div className="mx-auto flex max-w-6xl flex-col lg:flex-row items-stretch gap-12 lg:gap-16">
           <div className="flex-1 w-full">
@@ -528,7 +519,7 @@ mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-zinc-100 bg-white px-8 sm:px-16 py-8">
+      <footer className="border-t border-zinc-100 px-8 sm:px-16 py-8">
         <div className="mx-auto flex max-w-6xl flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-zinc-400">
           <div className="flex items-center gap-3">
             <Image

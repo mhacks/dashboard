@@ -101,7 +101,7 @@ export default function NavBar() {
           <div
             className="overflow-hidden flex items-center"
             style={{
-              maxWidth: showLogo ? "24px" : "0px",
+              maxWidth: showLogo ? "44px" : "0px",
               opacity: showLogo ? 1 : 0,
               marginRight: showLogo ? "20px" : "0px",
               transition: "max-width 0.5s ease, opacity 0.4s ease, margin 0.5s ease",
@@ -117,6 +117,7 @@ export default function NavBar() {
                 className="brightness-[1.4] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] block"
               />
             </a>
+            <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
           </div>
 
           <div className="flex items-center gap-7 text-[19px] font-heading italic text-white">

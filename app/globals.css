@@ -122,10 +122,11 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
   }
   html {
     @apply font-sans;
+    background-color: white;
     scroll-behavior: smooth;
   }
 }
