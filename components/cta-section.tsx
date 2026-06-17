@@ -48,7 +48,7 @@ export default function CtaSection() {
             Apply Now
           </a>
           <a
-            href="mailto:sponsors@mhacks.org"
+            href="mailto:sponsorship@mhacks.org"
             className="inline-flex items-center rounded-full border px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-70"
             style={{ borderColor: "rgba(58,74,38,0.3)", color: "#3A4A26" }}
           >

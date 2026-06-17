@@ -25,7 +25,7 @@ const COLUMNS = [
   {
     title: "Sponsor",
     links: [
-      { label: "Become a sponsor", href: "mailto:sponsors@mhacks.org" },
+      { label: "Become a sponsor", href: "mailto:sponsorship@mhacks.org" },
       { label: "Sponsors", href: "#sponsors" },
     ],
   },
