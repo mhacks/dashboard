@@ -61,11 +61,3 @@ export const updateJudgeApplications = async (
   }
 };
 
-const uploadResume = async (
-  _profileId: string,
-  file: File,
-): Promise<string> => {
-  // TODO: Implement S3 upload
-  console.log("Uploading resume:", file.name);
-  return "dummy-resume-url";
-};

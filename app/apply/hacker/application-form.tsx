@@ -226,12 +226,10 @@ export default function ApplyPage({
   };
 
   const onSubmit = async (data: HackerApplicationFormData) => {
+    if (step !== STEPS.length - 1) return;
     setIsSubmitting(true);
     try {
-      await submitHackerApplication(
-        "6fb4e643-baea-4a96-bf9b-4bc863ad760e",
-        data,
-      );
+      await submitHackerApplication("6fb4e643-baea-4a96-bf9b-4bc863ad760e", data);
       localStorage.removeItem(STORAGE_KEY);
       setSubmitSuccess(true);
     } catch (error) {
@@ -390,6 +388,7 @@ export default function ApplyPage({
                 register={register}
                 control={control}
                 setValue={setValue}
+                userId={profileId}
               />
             )}
             {step === 2 && <Essays register={register} errors={errors} />}

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Controller, useWatch } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,11 +21,15 @@ import {
   universities,
 } from "../form-options";
 import { FormField } from "../utils";
+import { getResumeUploadUrl } from "@/lib/aws/s3";
 
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
-const AcademicInformation = ({ errors, register, control, setValue }: any) => {
+type UploadState = "idle" | "uploading" | "done" | "error";
+
+const AcademicInformation = ({ errors, register, control, setValue, userId }: any) => {
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
   const university = useWatch({ control, name: "university" });
   const country = useWatch({ control, name: "country" });
   const degree = useWatch({ control, name: "degree" });
@@ -221,16 +226,37 @@ const AcademicInformation = ({ errors, register, control, setValue }: any) => {
             <Input
               type="file"
               accept=".pdf"
-              onChange={(e) => {
+              disabled={uploadState === "uploading"}
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (file) {
-                  setValue("resume", file.name);
+                if (!file) return;
+                setUploadState("uploading");
+                try {
+                  const { uploadUrl, objectUrl } = await getResumeUploadUrl(userId, file.name);
+                  await fetch(uploadUrl, {
+                    method: "PUT",
+                    body: file,
+                    headers: { "Content-Type": "application/pdf" },
+                  });
+                  setValue("resume", objectUrl);
+                  setUploadState("done");
+                } catch {
+                  setUploadState("error");
                 }
               }}
             />
-            <p className="text-xs text-muted-foreground">
-              Upload your resume as a PDF (dummy upload for now)
-            </p>
+            {uploadState === "idle" && (
+              <p className="text-xs text-muted-foreground">Upload your resume as a PDF (max 10 MB)</p>
+            )}
+            {uploadState === "uploading" && (
+              <p className="text-xs text-muted-foreground animate-pulse">Uploading…</p>
+            )}
+            {uploadState === "done" && (
+              <p className="text-xs text-green-600">Resume uploaded successfully</p>
+            )}
+            {uploadState === "error" && (
+              <p className="text-xs text-destructive">Upload failed — please try again</p>
+            )}
           </FormField>
         </CardContent>
       </Card>
