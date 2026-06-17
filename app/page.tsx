@@ -2,8 +2,9 @@ import Image from "next/image";
 import FaqAccordion from "@/components/faq-accordion";
 import HeroSection from "@/components/hero-section";
 import NavBar from "@/components/navbar";
-import ScrollExpandVideo from "@/components/scroll-expand-video";
 import AsciiBackground from "@/components/ascii-background";
+import TracksSection from "@/components/tracks-section";
+import VideoSpotlight from "@/components/video-spotlight";
 
 const ribbonItems = [
   "$30k+ In Prizes",
@@ -13,28 +14,6 @@ const ribbonItems = [
   "Ann Arbor, MI",
 ];
 
-const tracks = [
-  {
-    name: "Artificial Intelligence",
-    description: "Build systems that sense, reason, and act in the world",
-    flower: "/dark_blue_flower.png",
-  },
-  {
-    name: "Sustainability",
-    description: "Engineer tech-driven solutions for a resilient planet",
-    flower: "/light_blue_flower.png",
-  },
-  {
-    name: "Healthcare",
-    description: "Reimagine how people access and receive care",
-    flower: "/pink_flower.png",
-  },
-  {
-    name: "Fintech",
-    description: "Reshape money, markets, and economic access for all",
-    flower: "/yellow_flower.png",
-  },
-];
 
 const timelineEvents = [
   {
@@ -107,10 +86,9 @@ export default function Home() {
       <section
         id="about"
         className="scroll-mt-20 relative"
+        style={{ backgroundColor: "rgba(249, 246, 239, 0.55)" }}
       >
-        <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16"
-          style={{ background: "linear-gradient(to bottom, rgba(247,243,233,0.5) 0%, rgba(247,243,233,0.5) 75%, transparent 100%)" }}
-        >
+        <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2" style={{ color: "rgba(58,74,38,0.5)" }}>
             <span>★</span>
             About MHacks
@@ -138,155 +116,12 @@ export default function Home() {
 
         </div>
 
-        <ScrollExpandVideo />
+        <VideoSpotlight />
+        <div className="pb-24" />
       </section>
 
       {/* ── Tracks ── */}
-      <section
-        id="tracks"
-        className="scroll-mt-20 relative py-20 sm:py-28 overflow-hidden"
-        style={{ marginTop: "-70vh" }}
-      >
-        {/* ASCII rose background elements */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden select-none">
-          {/* Top-left rose */}
-          <pre
-            className="absolute font-mono leading-snug"
-            style={{
-              color: "#3A4A26",
-              opacity: 0.22,
-              fontSize: "0.72rem",
-              top: "2%",
-              left: "1%",
-            }}
-          >{`      .      .'
-        :\`...' \`.,'  '
-    \`.  ' .**.  ; ; ':
-    \` \`\`:\`****,'  .' :
-  ..::.  \`\`**":.''   \`.
-.:    \`: ; \`,'        :
-  \`:    \`   :         ;
-    :   :   :        ;
-    :    :   :     .:
-     :    :   :..,'  \`\`::.
-      \`....:..'  ..:;''
-      .:   . ...::::
-     ,'''''  \`\`:::::::
-               \`::::
-                 \`::.
-                  \`::
-           . ,.    ::::'      ,..
-         .'.'  \`\`.  ::      .'.. \`.
-        '        .: ::    ,'.'     .
-      .' ,'    .::::::   ,.'    .:::.
-    .' .'  ..:'     ::: .,   .;'     ~
-   ,;::;.::''        ::.:..::'
-  ~                  ::;'
-                     ::
-                   ,:::
-                     ::.
-                     \`::
-                      ::
-                      ::
-                      ::
-                      ::
-                      ::`}</pre>
-
-          {/* Bottom-right rose */}
-          <pre
-            className="absolute font-mono leading-snug"
-            style={{
-              color: "#3A4A26",
-              opacity: 0.22,
-              fontSize: "0.72rem",
-              bottom: "2%",
-              right: "1%",
-            }}
-          >{`                                    .,,.
-            .,v%;mmmmmmmm;%%vv,.
-         ,vvv%;mmmvv;vvvmmm;%vvvv,    .,,.
-  ,, ,vvvnnv%;mmmvv;%%;vvmmm;%vvvv%;mmmmmmm,
-,mmmmmm;%%vv%;mmmvv;%%;vvmmm;%v%;mmmmmmmmmmm
-mmmmmmmmmmm;%%;mmmvv%;vvmmm;%mmmmmmmmmmmmmm'
-\`mmmmmmmmmmmmmm%;mmv;vmmm;mmmmmmm;%vvvvvv'
-    \`%%%%%;mmmmmmmm;v%v;mmmmmm;%vvvnnvv'
-     vvvvvv%%%%;mmmm%;mmmmmm;%vvvnnnnvv
-     \`vvnnnnvvv%%%;m;mmmmm;%vvnnmmnnvv'
-      vvnmmnnnnvvv%%mmmm;%vvnnmmmnnnvv
-      \`vvnmmmnnvvv%mmm;%vvnnmmmmnnnvv'
-       \`vvnmmmmvv%mmm;%vvnnmmmmnnnvv'
-        \`vvnmmmvv%mm;%vvvnnmmmnnvvv'
-          \`vvnmmvv%m;%vvvvnmnvvvv'
-           .;;vvvvvm;%vvvvvvvv'
-        .;;;;;;;;;;;;;;;;;;;;,
-       ;;;;;;';;;;;;;;;;;'\`;;;;;,
-      .;;;'    \`;;;;;;;;'   \`;;;;;.
-     .;;'        \`;;;;;'      \`;;;;
-     ;'           :\`;;'         ;;'
-     ;            : ;'    ,    ,'             .
-      \`           :'.:   .;;,.        .,;;;;;;'
-                  ::::   ;;,;;;,     ;;;,;;;;'
-                  ;;;;   \`;;;,;;    .,';;;;'
-                  ;;;;      \`';; ,;;'
-                ,;;;;;         .;',.
-                  \`;;;;       .;'  ';,.
-                   \`;;;.     .;'   ,;;,;;,.
-                    ;;;;    .;'    \`;;;;,;;;
-                    ;;;;   .;'       \`;;,;;'
-                    \`;;;,;;'           \`;'
-                     ;;;;
-                     ;;;;.
-                     \`;;;;;,.
-                      ;;;;'
-                      ;;;;
-                      ;;;;`}</pre>
-        </div>
-
-        <div className="relative mx-auto max-w-6xl px-8 sm:px-16">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-            Tracks
-          </p>
-          <h2
-            className="mb-14 sm:mb-20 font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight"
-            style={{ color: "#3A4A26" }}
-          >
-            Choose Your Focus
-          </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10">
-            {tracks.map((track) => (
-              <div
-                key={track.name}
-                className="flex flex-col items-center text-center"
-              >
-                <div
-                  className="group relative mb-6 flex h-36 w-36 sm:h-44 sm:w-44 items-center justify-center rounded-full border shadow-[0_8px_32px_rgba(58,74,38,0.08)] transition-all duration-300 hover:scale-105 hover:shadow-[0_16px_48px_rgba(58,74,38,0.14)]"
-                  style={{
-                    background: "rgba(58,74,38,0.04)",
-                    borderColor: "rgba(58,74,38,0.12)",
-                  }}
-                >
-                  <Image
-                    src={track.flower}
-                    alt={track.name}
-                    width={130}
-                    height={130}
-                    className="object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-transform duration-500 group-hover:rotate-12"
-                  />
-                </div>
-                <h3
-                  className="font-heading italic text-xl sm:text-2xl leading-tight"
-                  style={{ color: "#3A4A26" }}
-                >
-                  {track.name}
-                </h3>
-                <p className="mt-2 text-[12px] leading-5 text-zinc-400">
-                  {track.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TracksSection />
 
       {/* ── Timeline ── */}
       <section
