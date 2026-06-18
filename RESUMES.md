@@ -18,20 +18,20 @@ resumes/{userId}/{timestamp}-{sanitized-filename}.pdf
 
 ## Environment Variables
 
-| Variable | Description |
-|---|---|
-| `RESUMES_ACCESS_KEYS_ID` | AWS IAM access key ID |
-| `RESUMES_SECRET_ACCESS_KEY` | AWS IAM secret access key |
-| `RESUMES_BUCKET` | S3 bucket name |
-| `RESUMES_REGION` | AWS region (e.g. `us-east-1`) |
+| Variable                    | Description                   |
+| --------------------------- | ----------------------------- |
+| `RESUMES_ACCESS_KEYS_ID`    | AWS IAM access key ID         |
+| `RESUMES_SECRET_ACCESS_KEY` | AWS IAM secret access key     |
+| `RESUMES_BUCKET`            | S3 bucket name                |
+| `RESUMES_REGION`            | AWS region (e.g. `us-east-1`) |
 
 ## Relevant Files
 
-| File | Role |
-|---|---|
-| `lib/aws/s3.ts` | S3 client + `getResumeUploadUrl` server action (imported directly by components) |
-| `app/apply/hacker/components/academic-information.tsx` | File input — triggers upload, shows status |
-| `app/apply/hacker/application-form.tsx` | Passes `userId` (profileId) to AcademicInformation |
+| File                                                   | Role                                                                             |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `lib/aws/s3.ts`                                        | S3 client + `getResumeUploadUrl` server action (imported directly by components) |
+| `app/apply/hacker/components/academic-information.tsx` | File input — triggers upload, shows status                                       |
+| `app/apply/hacker/application-form.tsx`                | Passes `userId` (profileId) to AcademicInformation                               |
 
 ## IAM Permissions Required
 
@@ -54,7 +54,10 @@ The bucket must allow PUT requests from the app's origin:
   {
     "AllowedHeaders": ["Content-Type"],
     "AllowedMethods": ["PUT"],
-    "AllowedOrigins": ["http://localhost:3000", "https://your-production-domain.com"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://your-production-domain.com"
+    ],
     "ExposeHeaders": []
   }
 ]

@@ -1,4 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { users } from "@/lib/db/schema/users";
@@ -6,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { ReviewDashboard } from "./components/review-shell";
 import { ReviewDashboardSkeleton } from "./components/review-skeleton";
 import { type ApplicantData } from "./applicant-data";
+import { getSessionUser } from "@/lib/session";
 
 async function getApplicants(): Promise<ApplicantData[]> {
   const rows = await db
@@ -14,8 +18,7 @@ async function getApplicants(): Promise<ApplicantData[]> {
     .leftJoin(users, eq(hackerApplicants.userId, users.id))
     .orderBy(hackerApplicants.createdAt);
 
-  return rows
-    .map(({ hacker_applicants: a, users: u }) => {
+  return rows.map(({ hacker_applicants: a, users: u }) => {
     const email = u?.email ?? `applicant-${a.userId.slice(0, 8)}`;
     const name = email.split("@")[0];
     return {
@@ -61,7 +64,10 @@ async function getApplicants(): Promise<ApplicantData[]> {
   });
 }
 
-export default function ReviewPage() {
+export default async function ReviewPage() {
+  const sessionUser = await getSessionUser();
+  if (sessionUser?.role !== "organizer") redirect("/");
+
   const applicationsPromise = getApplicants();
 
   return (

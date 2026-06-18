@@ -1,15 +1,24 @@
 "use client";
 
-import { Controller } from "react-hook-form";
+import { Controller, Control, FieldErrors } from "react-hook-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HackerApplicationFormData } from "@/lib/types/applications";
 
-const Agreements = ({ control, errors }: any) => {
+const Agreements = ({
+  control,
+  errors,
+}: {
+  control: Control<HackerApplicationFormData>;
+  errors: FieldErrors<HackerApplicationFormData>;
+}) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>MLH & Sponsor Agreements</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
+          MLH & Sponsor Agreements
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-1">

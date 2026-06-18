@@ -1,10 +1,14 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import Image from "next/image";
 
 import { Mail } from "@/app/review/mail/components/mail";
 import { accounts, mails } from "@/app/review/mail/data";
+import { getSessionUser } from "@/lib/session";
 
 export default async function MailPage() {
+  const sessionUser = await getSessionUser();
+  if (sessionUser?.role !== "organizer") redirect("/");
   const cookieStore = await cookies();
   const layout = cookieStore.get("react-resizable-panels:layout");
   const collapsed = cookieStore.get("react-resizable-panels:collapsed");

@@ -310,9 +310,7 @@
         "hacker_applicants_user_id_unique": {
           "name": "hacker_applicants_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         }
       },
       "policies": {},
@@ -582,9 +580,7 @@
         "judge_applicants_user_id_unique": {
           "name": "judge_applicants_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         }
       },
       "policies": {},
@@ -615,9 +611,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -629,11 +623,7 @@
     "public.application_status": {
       "name": "application_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "reviewed",
-        "flagged"
-      ]
+      "values": ["pending", "reviewed", "flagged"]
     }
   },
   "schemas": {},

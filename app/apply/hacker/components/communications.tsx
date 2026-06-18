@@ -1,18 +1,20 @@
-import { Controller } from "react-hook-form";
+import { Controller, Control } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HackerApplicationFormData } from "@/lib/types/applications";
 
-const Communications = ({ control, errors }: any) => {
+const Communications = ({
+  control,
+}: {
+  control: Control<HackerApplicationFormData>;
+}) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Communications</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
+          Communications
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2">

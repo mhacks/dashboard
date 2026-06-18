@@ -1,4 +1,10 @@
-import { Controller, useWatch } from "react-hook-form";
+import {
+  Controller,
+  useWatch,
+  UseFormRegister,
+  FieldErrors,
+  Control,
+} from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -10,16 +16,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { shirtSizeOptions, transportationOptions } from "../form-options";
 import { FormField } from "../utils";
+import { HackerApplicationFormData } from "@/lib/types/applications";
 
-const Logistics = ({ register, errors, control }: any) => {
+const Logistics = ({
+  register,
+  errors,
+  control,
+}: {
+  register: UseFormRegister<HackerApplicationFormData>;
+  errors: FieldErrors<HackerApplicationFormData>;
+  control: Control<HackerApplicationFormData>;
+}) => {
   const hasAllergies = useWatch({ control, name: "hasAllergies" });
   const needsTravelReimbursement = useWatch({
     control,
@@ -30,7 +40,9 @@ const Logistics = ({ register, errors, control }: any) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Logistics</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
+          Logistics
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

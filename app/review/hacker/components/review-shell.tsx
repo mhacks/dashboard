@@ -11,10 +11,6 @@ import { MHacksLogo } from "@/components/mhacks-logo";
 import { saveHackerReview } from "@/lib/actions/review.server.actions";
 import { use } from "react";
 
-interface MailProps {
-  mails: ApplicantData[];
-}
-
 export function scoreAvg(rev: ReviewFormData | undefined): string | null {
   if (!rev) return null;
   const vals = [
@@ -28,7 +24,11 @@ export function scoreAvg(rev: ReviewFormData | undefined): string | null {
   return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
 }
 
-export function ReviewDashboard({ applicationsPromise }: any) {
+export function ReviewDashboard({
+  applicationsPromise,
+}: {
+  applicationsPromise: Promise<ApplicantData[]>;
+}) {
   const applications: ApplicantData[] = use(applicationsPromise);
 
   const [apps, setApps] = React.useState<ApplicantData[]>(applications);

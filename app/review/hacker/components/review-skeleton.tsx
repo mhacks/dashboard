@@ -27,11 +27,33 @@ function Bone({
 function SidebarItemSkeleton() {
   return (
     <div style={{ padding: "10px 12px", marginBottom: 2 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
-        <div style={{ width: 7, height: 7, borderRadius: "50%", background: GRAY.mid, flexShrink: 0 }} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          marginBottom: 6,
+        }}
+      >
+        <div
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: GRAY.mid,
+            flexShrink: 0,
+          }}
+        />
         <Bone w="55%" h={12} />
       </div>
-      <div style={{ paddingLeft: 14, display: "flex", flexDirection: "column", gap: 4 }}>
+      <div
+        style={{
+          paddingLeft: 14,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+        }}
+      >
         <Bone w="70%" h={10} />
         <Bone w="50%" h={10} />
       </div>
@@ -43,7 +65,14 @@ function DetailSkeleton() {
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: 28 }}>
       {/* Name + meta row */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          marginBottom: 20,
+        }}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <Bone w={200} h={22} />
           <Bone w={140} h={14} />
@@ -62,7 +91,14 @@ function DetailSkeleton() {
       {[1, 2, 3].map((i) => (
         <div key={i} style={{ marginBottom: 24 }}>
           <Bone w={160} h={13} radius={4} />
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
             <Bone w="100%" h={12} />
             <Bone w="92%" h={12} />
             <Bone w="85%" h={12} />
@@ -87,14 +123,34 @@ function ReviewPanelSkeleton() {
       }}
     >
       {/* Header */}
-      <div style={{ padding: "16px 20px", borderBottom: `1px solid ${GRAY.light}` }}>
+      <div
+        style={{
+          padding: "16px 20px",
+          borderBottom: `1px solid ${GRAY.light}`,
+        }}
+      >
         <Bone w={60} h={11} />
       </div>
 
       {/* Criteria */}
-      <div style={{ flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
+      <div
+        style={{
+          flex: 1,
+          padding: "16px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+        }}
+      >
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <Bone w="55%" h={12} />
             <Bone w={52} h={32} radius={6} />
           </div>
@@ -105,7 +161,9 @@ function ReviewPanelSkeleton() {
       </div>
 
       {/* Save button */}
-      <div style={{ padding: "12px 20px", borderTop: `1px solid ${GRAY.light}` }}>
+      <div
+        style={{ padding: "12px 20px", borderTop: `1px solid ${GRAY.light}` }}
+      >
         <Bone w="100%" h={36} radius={8} />
       </div>
     </div>
@@ -159,7 +217,12 @@ export function ReviewDashboardSkeleton() {
           }}
         >
           {/* Search */}
-          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${GRAY.light}` }}>
+          <div
+            style={{
+              padding: "12px 14px",
+              borderBottom: `1px solid ${GRAY.light}`,
+            }}
+          >
             <Bone w="100%" h={32} radius={7} />
           </div>
           {/* Items */}
@@ -169,7 +232,12 @@ export function ReviewDashboardSkeleton() {
             ))}
           </div>
           {/* Footer */}
-          <div style={{ padding: "10px 14px", borderTop: `1px solid ${GRAY.light}` }}>
+          <div
+            style={{
+              padding: "10px 14px",
+              borderTop: `1px solid ${GRAY.light}`,
+            }}
+          >
             <Bone w={180} h={11} />
           </div>
         </div>

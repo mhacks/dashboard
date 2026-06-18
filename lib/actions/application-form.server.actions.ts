@@ -4,6 +4,7 @@ import {
   JudgeApplicationFormData,
 } from "@/lib/types/applications";
 import { db } from "@/lib/db";
+import { eq } from "drizzle-orm";
 import {
   hackerApplicants,
   judgeApplicants,
@@ -27,7 +28,20 @@ export const submitHackerApplication = async (
   }
 };
 
-export const updateHackerApplication = async () => {};
+export const updateHackerApplication = async (
+  userId: string,
+  data: HackerApplicationFormData,
+): Promise<void> => {
+  try {
+    await db
+      .update(hackerApplicants)
+      .set({ ...data })
+      .where(eq(hackerApplicants.userId, userId));
+  } catch (error) {
+    console.error("Unable to update Hacker Application:", error);
+    throw error;
+  }
+};
 
 export const updateJudgeApplications = async (
   userId: string,

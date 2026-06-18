@@ -235,14 +235,14 @@ otp_length = 6
 otp_expiry = 3600
 
 # Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+[auth.email.smtp]
+enabled = true
+host = "email-smtp.us-east-2.amazonaws.com"
+port = 587
+user = "env(AWS_SES_SMTP_USER)"
+pass = "env(AWS_SES_SMTP_PASSWORD)"
+admin_email = "hackathon@mhacks.org"
+sender_name = "MHacks Team"
 
 # OTP template emails a 6-digit code ({{ .Token }}) that the user types into
 # the login form, which then calls supabase.auth.verifyOtp (see

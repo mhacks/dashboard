@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Controller, useWatch } from "react-hook-form";
+import {
+  Controller,
+  useWatch,
+  UseFormRegister,
+  FieldErrors,
+  Control,
+  UseFormSetValue,
+} from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -8,12 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   countries,
   degreeOptions,
@@ -22,13 +24,26 @@ import {
 } from "../form-options";
 import { FormField } from "../utils";
 import { getResumeUploadUrl } from "@/lib/aws/s3";
+import { HackerApplicationFormData } from "@/lib/types/applications";
 
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
 type UploadState = "idle" | "uploading" | "done" | "error";
 
-const AcademicInformation = ({ errors, register, control, setValue, userId }: any) => {
+const AcademicInformation = ({
+  errors,
+  register,
+  control,
+  setValue,
+  userId,
+}: {
+  errors: FieldErrors<HackerApplicationFormData>;
+  register: UseFormRegister<HackerApplicationFormData>;
+  control: Control<HackerApplicationFormData>;
+  setValue: UseFormSetValue<HackerApplicationFormData>;
+  userId: string;
+}) => {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const university = useWatch({ control, name: "university" });
   const country = useWatch({ control, name: "country" });
@@ -40,7 +55,12 @@ const AcademicInformation = ({ errors, register, control, setValue, userId }: an
       {/* Academic Information */}
       <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
         <CardHeader>
-          <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Academic Information</CardTitle>
+          <CardTitle
+            className="font-heading italic"
+            style={{ color: "#3A4A26" }}
+          >
+            Academic Information
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -232,14 +252,19 @@ const AcademicInformation = ({ errors, register, control, setValue, userId }: an
                 if (!file) return;
                 setUploadState("uploading");
                 try {
-                  const { uploadUrl, objectUrl } = await getResumeUploadUrl(userId, file.name);
+                  const { uploadUrl, objectUrl } = await getResumeUploadUrl(
+                    userId,
+                    file.name,
+                  );
                   const res = await fetch(uploadUrl, {
                     method: "PUT",
                     body: file,
                     headers: { "Content-Type": "application/pdf" },
                   });
                   if (!res.ok) {
-                    throw new Error(`S3 returned ${res.status}: ${await res.text()}`);
+                    throw new Error(
+                      `S3 returned ${res.status}: ${await res.text()}`,
+                    );
                   }
                   setValue("resume", objectUrl);
                   setUploadState("done");
@@ -250,16 +275,24 @@ const AcademicInformation = ({ errors, register, control, setValue, userId }: an
               }}
             />
             {uploadState === "idle" && (
-              <p className="text-xs text-muted-foreground">Upload your resume as a PDF (max 10 MB)</p>
+              <p className="text-xs text-muted-foreground">
+                Upload your resume as a PDF (max 10 MB)
+              </p>
             )}
             {uploadState === "uploading" && (
-              <p className="text-xs text-muted-foreground animate-pulse">Uploading…</p>
+              <p className="text-xs text-muted-foreground animate-pulse">
+                Uploading…
+              </p>
             )}
             {uploadState === "done" && (
-              <p className="text-xs text-green-600">Resume uploaded successfully</p>
+              <p className="text-xs text-green-600">
+                Resume uploaded successfully
+              </p>
             )}
             {uploadState === "error" && (
-              <p className="text-xs text-destructive">Upload failed — please try again</p>
+              <p className="text-xs text-destructive">
+                Upload failed — please try again
+              </p>
             )}
           </FormField>
         </CardContent>

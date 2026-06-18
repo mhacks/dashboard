@@ -1,4 +1,10 @@
-import { Controller, useWatch } from "react-hook-form";
+import {
+  Controller,
+  useWatch,
+  UseFormRegister,
+  FieldErrors,
+  Control,
+} from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -10,6 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ethnicityOptions } from "../form-options";
 import { FormField } from "../utils";
+import { HackerApplicationFormData } from "@/lib/types/applications";
 
 const genderOptions = [
   { value: "male", label: "Male" },
@@ -17,7 +24,15 @@ const genderOptions = [
   { value: "other", label: "Other (please describe)" },
 ];
 
-const PersonalInformation = ({ register, errors, control }: any) => {
+const PersonalInformation = ({
+  register,
+  errors,
+  control,
+}: {
+  register: UseFormRegister<HackerApplicationFormData>;
+  errors: FieldErrors<HackerApplicationFormData>;
+  control: Control<HackerApplicationFormData>;
+}) => {
   const gender = useWatch({ control, name: "gender" });
   const ethnicity = useWatch({ control, name: "ethnicity" });
   return (
@@ -51,7 +66,7 @@ const PersonalInformation = ({ register, errors, control }: any) => {
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent>
-                    {genderOptions.map((option: any) => (
+                    {genderOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -68,7 +83,10 @@ const PersonalInformation = ({ register, errors, control }: any) => {
           </FormField>
 
           {gender === "other" && (
-            <FormField label="Please describe your gender" className="md:col-span-2">
+            <FormField
+              label="Please describe your gender"
+              className="md:col-span-2"
+            >
               <Input
                 {...register("genderOther")}
                 placeholder="Describe your gender"
@@ -103,7 +121,10 @@ const PersonalInformation = ({ register, errors, control }: any) => {
           </FormField>
 
           {ethnicity === "multiracial" && (
-            <FormField label="Please describe your ethnicity" className="md:col-span-2">
+            <FormField
+              label="Please describe your ethnicity"
+              className="md:col-span-2"
+            >
               <Input
                 {...register("ethnicityOther")}
                 placeholder="Describe your ethnicity"

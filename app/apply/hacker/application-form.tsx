@@ -19,6 +19,7 @@ import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
 import { submitHackerApplication } from "@/lib/actions/application-form.server.actions";
+import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 
 const STORAGE_KEY = "mhacks-application-draft";
@@ -120,12 +121,57 @@ function StepBar({ current }: { current: number }) {
   );
 }
 
+function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
+  return {
+    age: row.age,
+    gender: row.gender,
+    genderOther: row.genderOther ?? "",
+    ethnicity: row.ethnicity,
+    ethnicityOther: row.ethnicityOther ?? "",
+    university: row.university,
+    universityOther: row.universityOther ?? "",
+    country: row.country,
+    countryOther: row.countryOther ?? "",
+    degree: row.degree,
+    degreeOther: row.degreeOther ?? "",
+    graduationYear: row.graduationYear,
+    previousHackathons: row.previousHackathons,
+    major: row.major,
+    majorOther: row.majorOther ?? "",
+    resume: row.resume ?? undefined,
+    whyAttend: row.whyAttend,
+    technicalChallenge: row.technicalChallenge,
+    proudProject: row.proudProject,
+    anythingElse: row.anythingElse ?? "",
+    transportationType: row.transportationType,
+    comingFrom: row.comingFrom,
+    airportCode: row.airportCode ?? "",
+    shirtSize: row.shirtSize,
+    hasAllergies: row.hasAllergies,
+    allergiesDescription: row.allergiesDescription ?? "",
+    needsTravelReimbursement: row.needsTravelReimbursement,
+    wouldAttendWithoutReimbursement:
+      row.wouldAttendWithoutReimbursement ?? undefined,
+    github: row.github ?? "",
+    linkedin: row.linkedin ?? "",
+    personalSite: row.personalSite ?? "",
+    followsInstagram: row.followsInstagram ?? false,
+    mlhCodeOfConduct: row.mlhCodeOfConduct,
+    mlhPrivacyPolicy: row.mlhPrivacyPolicy,
+    mlhEmails: row.mlhEmails,
+    sponsorEmails: row.sponsorEmails ?? false,
+  };
+}
+
 export default function ApplyPage({
   userIdPromise,
+  existingData,
 }: {
   userIdPromise: Promise<string>;
+  existingData: HackerApplicantRow | null;
 }) {
   const userId = use(userIdPromise);
+  const readOnly = existingData !== null;
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,61 +189,67 @@ export default function ApplyPage({
   } = useForm<HackerApplicationFormData>({
     resolver: zodResolver(hackerApplicationSchema),
     mode: "onChange",
-    defaultValues: {
-      age: undefined,
-      gender: "",
-      genderOther: "",
-      ethnicity: "",
-      ethnicityOther: "",
-      university: "",
-      universityOther: "",
-      country: "",
-      countryOther: "",
-      degree: "",
-      degreeOther: "",
-      graduationYear: undefined,
-      previousHackathons: undefined,
-      major: "",
-      majorOther: "",
-      resume: undefined,
-      whyAttend: "",
-      technicalChallenge: "",
-      proudProject: "",
-      anythingElse: "",
-      transportationType: "",
-      comingFrom: "",
-      airportCode: "",
-      shirtSize: "",
-      hasAllergies: false,
-      allergiesDescription: "",
-      needsTravelReimbursement: false,
-      wouldAttendWithoutReimbursement: undefined,
-      github: "",
-      linkedin: "",
-      personalSite: "",
-      followsInstagram: false,
-      mlhCodeOfConduct: false,
-      mlhPrivacyPolicy: false,
-      mlhEmails: false,
-      sponsorEmails: false,
-    },
+    defaultValues: existingData
+      ? rowToFormData(existingData)
+      : {
+          age: undefined,
+          gender: "",
+          genderOther: "",
+          ethnicity: "",
+          ethnicityOther: "",
+          university: "",
+          universityOther: "",
+          country: "",
+          countryOther: "",
+          degree: "",
+          degreeOther: "",
+          graduationYear: undefined,
+          previousHackathons: undefined,
+          major: "",
+          majorOther: "",
+          resume: undefined,
+          whyAttend: "",
+          technicalChallenge: "",
+          proudProject: "",
+          anythingElse: "",
+          transportationType: "",
+          comingFrom: "",
+          airportCode: "",
+          shirtSize: "",
+          hasAllergies: false,
+          allergiesDescription: "",
+          needsTravelReimbursement: false,
+          wouldAttendWithoutReimbursement: undefined,
+          github: "",
+          linkedin: "",
+          personalSite: "",
+          followsInstagram: false,
+          mlhCodeOfConduct: false,
+          mlhPrivacyPolicy: false,
+          mlhEmails: false,
+          sponsorEmails: false,
+        },
   });
 
   useEffect(() => {
+    if (readOnly) return;
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const data = JSON.parse(saved);
         Object.entries(data).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== "") {
-            setValue(key as keyof HackerApplicationFormData, value as any);
+            setValue(
+              key as keyof HackerApplicationFormData,
+              value as HackerApplicationFormData[keyof HackerApplicationFormData],
+            );
           }
         });
       } catch (e) {
         console.error("Failed to load saved progress:", e);
       }
     }
-  }, [setValue]);
+  }, [setValue, readOnly]);
 
   useEffect(() => {
     const subscription = watch((data) => {
@@ -213,22 +265,21 @@ export default function ApplyPage({
   }, [watch]);
 
   const goNext = async () => {
-    const fields = STEPS[step].fields;
-    if (fields.length > 0) {
-      const valid = await trigger(fields);
-      if (!valid) return;
+    if (!readOnly) {
+      const fields = STEPS[step].fields;
+      if (fields.length > 0) {
+        const valid = await trigger(fields);
+        if (!valid) return;
+      }
     }
     setStep((s) => s + 1);
   };
 
   const onSubmit = async (data: HackerApplicationFormData) => {
-    if (step !== STEPS.length - 1) return;
+    if (step !== STEPS.length - 1 || readOnly) return;
     setIsSubmitting(true);
     try {
-      const { duplicate } = await submitHackerApplication(
-        "03a354f2-37f4-4da5-b101-48d198838695",
-        data,
-      );
+      const { duplicate } = await submitHackerApplication(userId, data);
       localStorage.removeItem(STORAGE_KEY);
       if (duplicate) {
         setIsDuplicate(true);
@@ -410,9 +461,25 @@ export default function ApplyPage({
           <StepBar current={step} />
         </div>
 
+        {readOnly && (
+          <div
+            className="mb-6 rounded-xl px-4 py-3 text-[13px] font-medium"
+            style={{
+              background: "rgba(58,74,38,0.08)",
+              color: "#3A4A26",
+              border: "1px solid rgba(58,74,38,0.15)",
+            }}
+          >
+            Your application has been submitted and is under review. No further
+            changes can be made.
+          </div>
+        )}
+
         {/* Step content */}
         <form onSubmit={(e) => e.preventDefault()}>
-          <div className="mb-8">
+          <div
+            className={`mb-8${readOnly ? " pointer-events-none select-none" : ""}`}
+          >
             {step === 0 && (
               <PersonalInformation
                 register={register}
@@ -440,7 +507,7 @@ export default function ApplyPage({
             {step === 4 && (
               <div className="space-y-6">
                 <Socials register={register} errors={errors} />
-                <Communications control={control} errors={errors} />
+                <Communications control={control} />
               </div>
             )}
             {step === 5 && <Agreements control={control} errors={errors} />}
@@ -469,6 +536,15 @@ export default function ApplyPage({
                 style={{ background: GREEN }}
               >
                 Continue
+              </button>
+            ) : readOnly ? (
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
+                style={{ background: GREEN }}
+              >
+                Return Home
               </button>
             ) : (
               <button

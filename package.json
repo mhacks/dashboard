@@ -11,7 +11,7 @@
     "preinstall": "npx only-allow pnpm",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "format": "prettier --write .",
     "db:env": "node scripts/gen-env.ts",

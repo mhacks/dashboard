@@ -21,6 +21,7 @@ If a form submit event fires on any step — the most common trigger being press
 ## Secondary Bug (fixed alongside)
 
 `submitHackerApplication` was called with a **hardcoded UUID** instead of `profileId`:
+
 ```ts
 // Before (wrong)
 await submitHackerApplication("6fb4e643-baea-4a96-bf9b-4bc863ad760e", data);
@@ -32,6 +33,7 @@ await submitHackerApplication(profileId, data);
 ## Fix
 
 Added a step guard as the first line of `onSubmit` in `application-form.tsx`:
+
 ```ts
 const onSubmit = async (data: HackerApplicationFormData) => {
   if (step !== STEPS.length - 1) return; // must be on final step

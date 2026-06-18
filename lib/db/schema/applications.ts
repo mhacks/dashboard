@@ -18,7 +18,10 @@ export const applicationStatus = pgEnum("application_status", [
 
 const applicationColumns = () => ({
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
   status: applicationStatus("status").notNull().default("pending"),
 
   // Personal Information

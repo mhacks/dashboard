@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm dev          # start dev server at localhost:3000
-pnpm build        # production build
+pnpm build        # production build (output: standalone)
+pnpm start        # run production build via node .next/standalone/server.js
 pnpm lint         # run ESLint (next/core-web-vitals + typescript)
 pnpm format       # run Prettier (write mode)
 pnpm prettier --check .  # check formatting without writing
@@ -45,6 +46,7 @@ The `components.json` shadcn config uses:
 - Migrations live in `supabase/migrations/` and are applied by the Supabase CLI (`pnpm db:reset` / `supabase db push`). Raw SQL migrations (FKs to `auth.users`, triggers) sit alongside Drizzle-generated ones — don't overwrite them with `drizzle-kit push`.
 
 Local DB commands:
+
 ```bash
 pnpm db:start     # start local Supabase (Docker)
 pnpm db:stop      # stop local Supabase

@@ -1,3 +1,4 @@
+import { UseFormRegister, FieldErrors } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -7,12 +8,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FormField } from "../utils";
+import { HackerApplicationFormData } from "@/lib/types/applications";
 
-const Socials = ({ register, errors }: any) => {
+const Socials = ({
+  register,
+  errors,
+}: {
+  register: UseFormRegister<HackerApplicationFormData>;
+  errors: FieldErrors<HackerApplicationFormData>;
+}) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>Socials</CardTitle>
+        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
+          Socials
+        </CardTitle>
         <CardDescription>Optional: Share your social links</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
