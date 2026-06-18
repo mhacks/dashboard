@@ -30,8 +30,8 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DATABASE_URL"
         },
         {
-          "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          "name": "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
         },
         {
           "name": "NEXT_PUBLIC_SUPABASE_URL",
