@@ -18,18 +18,6 @@
       "volumesFrom": [],
       "secrets": [
         {
-          "name": "AWS_ACCESS_KEY_ID",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_ACCESS_KEY_ID"
-        },
-        {
-          "name": "AWS_SECRET_ACCESS_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SECRET_ACCESS_KEY"
-        },
-        {
-          "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DATABASE_URL"
-        },
-        {
           "name": "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
         },
@@ -42,6 +30,14 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_BUCKET"
         },
         {
+          "name": "RESUMES_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_ACCESS_KEY_ID"
+        },
+        {
+          "name": "RESUMES_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_SECRET_ACCESS_KEY"
+        },
+        {
           "name": "SES_ACCESS_KEY_ID",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_ACCESS_KEY_ID"
         },
@@ -52,6 +48,10 @@
         {
           "name": "SES_SMTP_PASSWORD",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_SMTP_PASSWORD"
+        },
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DATABASE_URL"
         },
         {
           "name": "SUPABASE_DB_PASSWORD",
