@@ -63,7 +63,7 @@ export default function KeyDates() {
     <section id="timeline" className="scroll-mt-20 px-5 py-24 md:px-10">
       <div className="mx-auto max-w-6xl">
         <p
-          className="text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
+          className="font-red-hat text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           <span>◆</span>Applications<span>◆</span>

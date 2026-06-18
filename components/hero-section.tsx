@@ -136,7 +136,7 @@ export default function HeroSection() {
           {/* Ann Arbor latitude — updates live with lens position */}
           <p
             ref={labelRef}
-            className="mb-1.5 text-[13px] font-semibold tracking-widest text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
+            className="font-red-hat mb-1.5 text-[13px] font-semibold tracking-widest text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
           >
             42.28°N
           </p>
@@ -179,7 +179,7 @@ export default function HeroSection() {
               onMouseEnter={handleButtonEnter}
               onMouseLeave={handleButtonLeave}
             >
-              <span className="inline-block cursor-not-allowed select-none rounded-full border border-white/30 bg-white/30 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-zinc-800/50 backdrop-blur-md">
+              <span className="font-red-hat inline-block cursor-not-allowed select-none rounded-full border border-white/30 bg-white/30 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-zinc-800/50 backdrop-blur-md">
                 Apply Now
               </span>
               <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/90 px-3 py-1.5 text-[12px] text-zinc-700 shadow-sm backdrop-blur-sm opacity-0 transition-opacity duration-150 group-hover:opacity-100">

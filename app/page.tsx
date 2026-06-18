@@ -36,7 +36,7 @@ export default function Home() {
           {[...ribbonItems, ...ribbonItems].map((item, i) => (
             <div key={i} className="flex items-center shrink-0">
               <p
-                className="font-heading italic text-2xl sm:text-4xl whitespace-nowrap px-8 sm:px-14"
+                className="font-red-hat italic text-2xl sm:text-4xl whitespace-nowrap px-8 sm:px-14"
                 style={{ color: "#445721" }}
               >
                 {item}
@@ -60,7 +60,7 @@ export default function Home() {
       >
         <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
           <p
-            className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2"
+            className="font-red-hat mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2"
             style={{ color: "rgba(58,74,38,0.5)" }}
           >
             <span>★</span>
@@ -80,7 +80,7 @@ export default function Home() {
             </span>
           </h2>
           <p
-            className="mt-6 max-w-xl text-[14px] leading-7 text-center"
+            className="font-red-hat mt-6 max-w-xl text-[14px] leading-7 text-center"
             style={{ color: "rgba(58,74,38,0.65)" }}
           >
             MHacks is the University of Michigan&apos;s flagship hackathon,
@@ -89,7 +89,7 @@ export default function Home() {
             for over $40,000 in prizes.
           </p>
           <p
-            className="mt-4 max-w-xl text-[14px] leading-7 text-center"
+            className="font-red-hat mt-4 max-w-xl text-[14px] leading-7 text-center"
             style={{ color: "rgba(58,74,38,0.65)" }}
           >
             Whether you&apos;re a seasoned hacker or attending your very first

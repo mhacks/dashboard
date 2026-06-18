@@ -15,7 +15,7 @@ export default function CtaSection() {
         className="mx-auto max-w-3xl text-center"
       >
         <p
-          className="text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
+          className="font-red-hat text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           <span>◆</span>October 3–4, 2026<span>◆</span>
@@ -33,7 +33,7 @@ export default function CtaSection() {
           </span>
         </h2>
         <p
-          className="mx-auto mt-6 max-w-xl text-base font-light leading-relaxed"
+          className="font-red-hat mx-auto mt-6 max-w-xl text-base font-light leading-relaxed"
           style={{ color: "rgba(58,74,38,0.7)" }}
         >
           Applications open June 22. Grab your spot for 24 hours of building,
@@ -42,14 +42,14 @@ export default function CtaSection() {
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <a
             href="#"
-            className="inline-flex items-center rounded-full px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-80"
+            className="font-red-hat inline-flex items-center rounded-full px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-80"
             style={{ backgroundColor: "#3A4A26" }}
           >
             Apply Now
           </a>
           <a
             href="mailto:sponsorship@mhacks.org"
-            className="inline-flex items-center rounded-full border px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-70"
+            className="font-red-hat inline-flex items-center rounded-full border px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-70"
             style={{ borderColor: "rgba(58,74,38,0.3)", color: "#3A4A26" }}
           >
             Sponsor Us
