@@ -8,50 +8,19 @@ import {
   hackerApplicants,
   judgeApplicants,
 } from "@/lib/db/schema/applications";
-import { getTableColumns, sql } from "drizzle-orm";
-import { PgTable } from "drizzle-orm/pg-core";
-
-const SKIP_ON_UPDATE = new Set([
-  "id",
-  "userId",
-  "status",
-  "createdAt",
-  "reviewMotivation",
-  "reviewBuilderMindset",
-  "reviewCollaboration",
-  "reviewCreativity",
-  "reviewDiversity",
-  "flagForReview",
-  "reviewNotes",
-]);
-
-function conflictUpdateSetAll<TTable extends PgTable>(table: TTable) {
-  const columns = getTableColumns(table);
-
-  return Object.keys(columns).reduce(
-    (acc, columnName) => {
-      const dbColumnName = columns[columnName].name;
-      if (!SKIP_ON_UPDATE.has(columnName)) {
-        acc[columnName] = sql.raw(`excluded.${dbColumnName}`);
-      }
-      return acc;
-    },
-    {} as Record<string, any>,
-  );
-}
 
 export const submitHackerApplication = async (
   userId: string,
   data: HackerApplicationFormData,
-) => {
+): Promise<{ duplicate: boolean }> => {
   try {
-    await db
+    const result = await db
       .insert(hackerApplicants)
       .values({ ...data, userId })
-      .onConflictDoUpdate({
-        target: hackerApplicants.userId,
-        set: conflictUpdateSetAll(hackerApplicants),
-      });
+      .onConflictDoNothing()
+      .returning({ id: hackerApplicants.id });
+
+    return { duplicate: result.length === 0 };
   } catch (error) {
     console.error("Unable to submit Hacker Application:", error);
     throw error;
@@ -61,17 +30,16 @@ export const submitHackerApplication = async (
 export const updateHackerApplication = async () => {};
 
 export const updateJudgeApplications = async (
-  profileId: string,
+  userId: string,
   data: JudgeApplicationFormData,
 ) => {
   try {
     await db.insert(judgeApplicants).values({
       ...data,
-      userId: profileId,
+      userId: userId,
     });
   } catch (error) {
     console.error("Unable to update Judge Applications");
     throw error;
   }
 };
-

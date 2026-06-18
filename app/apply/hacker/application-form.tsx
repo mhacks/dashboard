@@ -121,15 +121,16 @@ function StepBar({ current }: { current: number }) {
 }
 
 export default function ApplyPage({
-  profileIdPromise,
+  userIdPromise,
 }: {
-  profileIdPromise: Promise<string>;
+  userIdPromise: Promise<string>;
 }) {
-  const profileId = use(profileIdPromise);
+  const userId = use(userIdPromise);
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isDuplicate, setIsDuplicate] = useState(false);
 
   const {
     register,
@@ -224,15 +225,52 @@ export default function ApplyPage({
     if (step !== STEPS.length - 1) return;
     setIsSubmitting(true);
     try {
-      await submitHackerApplication("6fb4e643-baea-4a96-bf9b-4bc863ad760e", data);
+      const { duplicate } = await submitHackerApplication(
+        "03a354f2-37f4-4da5-b101-48d198838695",
+        data,
+      );
       localStorage.removeItem(STORAGE_KEY);
-      setSubmitSuccess(true);
+      if (duplicate) {
+        setIsDuplicate(true);
+      } else {
+        setSubmitSuccess(true);
+      }
     } catch (error) {
       console.error("Submission error:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isDuplicate) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <MHacksLogo size={48} />
+          <p className="mt-6 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
+            MHacks 2026
+          </p>
+          <h2
+            className="mt-3 font-heading italic text-4xl leading-tight tracking-tight"
+            style={{ color: GREEN }}
+          >
+            Already Applied!
+          </h2>
+          <p className="mt-4 text-[14px] leading-7 text-zinc-500">
+            You&apos;ve already submitted a hacker application for MHacks 2026.
+            We&apos;ll be in touch soon with a decision.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-8 rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
+            style={{ background: GREEN }}
+          >
+            Return Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (submitSuccess) {
     return (
@@ -276,7 +314,12 @@ export default function ApplyPage({
     <div className="min-h-screen bg-white relative overflow-x-hidden">
       {/* Subtle background */}
       <div className="pointer-events-none absolute right-0 top-0 h-full w-[55%] opacity-[0.07]">
-        <Image src="/white_green_bg.png" alt="" fill className="object-cover object-top" />
+        <Image
+          src="/white_green_bg.png"
+          alt=""
+          fill
+          className="object-cover object-top"
+        />
       </div>
 
       {/* Decorative flowers */}
@@ -368,7 +411,7 @@ export default function ApplyPage({
         </div>
 
         {/* Step content */}
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={(e) => e.preventDefault()}>
           <div className="mb-8">
             {step === 0 && (
               <PersonalInformation
@@ -383,7 +426,7 @@ export default function ApplyPage({
                 register={register}
                 control={control}
                 setValue={setValue}
-                userId={profileId}
+                userId={userId}
               />
             )}
             {step === 2 && <Essays register={register} errors={errors} />}
@@ -429,7 +472,8 @@ export default function ApplyPage({
               </button>
             ) : (
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmit(onSubmit)}
                 disabled={isSubmitting}
                 className="rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:opacity-50"
                 style={{ background: GREEN }}

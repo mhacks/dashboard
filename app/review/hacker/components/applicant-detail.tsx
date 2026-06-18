@@ -8,17 +8,14 @@ interface ApplicationDetailProps {
   app: ApplicantData
 }
 
-const PILL_BLUE   = { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE33" }
-const PILL_GREEN  = { bg: "#F0FDF4", color: "#166534", border: "#BBF7D033" }
-const PILL_ORANGE = { bg: "#FFF7ED", color: "#C2410C", border: "#FED7AA33" }
-const PILL_GRAY   = { bg: "#F9FAFB", color: "#374151", border: "#E5E7EB" }
+const PILL = { bg: "rgba(58,74,38,0.07)", color: "#3A4A26", border: "rgba(58,74,38,0.18)" }
 
-function Pill({ text, style = PILL_BLUE }: { text: string; style?: typeof PILL_BLUE }) {
+function Pill({ text }: { text: string }) {
   return (
     <span style={{
-      fontSize: 11, fontWeight: 500, background: style.bg, color: style.color,
-      borderRadius: 99, padding: "2px 8px", border: `1px solid ${style.border}`,
-      display: "inline-block",
+      fontSize: 11, fontWeight: 500, background: PILL.bg, color: PILL.color,
+      borderRadius: 99, padding: "2px 9px", border: `1px solid ${PILL.border}`,
+      display: "inline-block", fontFamily: "var(--font-geist-sans), system-ui",
     }}>
       {text}
     </span>
@@ -28,12 +25,25 @@ function Pill({ text, style = PILL_BLUE }: { text: string; style?: typeof PILL_B
 function LinkPill({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <a href={href} target="_blank" rel="noreferrer" style={{
-      fontSize: 11, color: "#6B7280", textDecoration: "none",
-      border: "1px solid #E5E7EB", borderRadius: 99, padding: "2px 8px",
+      fontSize: 11, color: "rgba(58,74,38,0.6)", textDecoration: "none",
+      border: "1px solid rgba(58,74,38,0.18)", borderRadius: 99, padding: "2px 9px",
       display: "inline-flex", alignItems: "center", gap: 3,
+      fontFamily: "var(--font-geist-sans), system-ui",
     }}>
       ↗ {children}
     </a>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize: 11, fontWeight: 500, letterSpacing: "0.28em",
+      color: "rgba(58,74,38,0.5)", textTransform: "uppercase", marginBottom: 10,
+      fontFamily: "var(--font-geist-mono), monospace",
+    }}>
+      ◆ {children}
+    </div>
   )
 }
 
@@ -45,52 +55,58 @@ const ESSAY_QUESTIONS: { label: string; key: keyof Pick<ApplicantData, "whyAtten
 
 export function ApplicationDetail({ app }: ApplicationDetailProps) {
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px", background: "#fff" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "28px 36px", background: "#fff" }}>
       {/* ── Applicant header ──────────────────────── */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
           <div>
             <h2 style={{
-              fontFamily: '"Red Hat Display", system-ui, sans-serif',
-              fontWeight: 700, fontSize: 22, color: "#111", marginBottom: 4,
+              fontFamily: "var(--font-heading)",
+              fontStyle: "italic",
+              fontWeight: 400,
+              fontSize: 28,
+              color: "#3A4A26",
+              marginBottom: 4,
+              lineHeight: 1.1,
             }}>
               {app.name}
             </h2>
-            <div style={{ fontSize: 13, color: "#6B7280" }}>{app.email}</div>
+            <div style={{ fontSize: 13, color: "rgba(58,74,38,0.55)", fontFamily: "var(--font-geist-sans), system-ui" }}>{app.email}</div>
           </div>
-          <div style={{ fontSize: 11, color: "#9CA3AF", flexShrink: 0 }}>
-            Submitted {format(new Date(app.date), "MMM d, yyyy")}
+          <div style={{
+            fontSize: 11, color: "rgba(58,74,38,0.4)", flexShrink: 0,
+            fontFamily: "var(--font-geist-mono), monospace", letterSpacing: "0.05em",
+          }}>
+            {format(new Date(app.date), "MMM d, yyyy")}
           </div>
         </div>
 
         {/* Pills */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
           <Pill text={app.university} />
-          <Pill text={`Class of ${app.graduationYear}`} style={PILL_GREEN} />
-          <Pill text={app.major} style={PILL_ORANGE} />
-          <Pill text={app.degree} style={PILL_GRAY} />
-          <Pill text={`${app.previousHackathons} hackathons`} style={PILL_GRAY} />
+          <Pill text={`Class of ${app.graduationYear}`} />
+          <Pill text={app.major} />
+          <Pill text={app.degree} />
+          <Pill text={`${app.previousHackathons} hackathons`} />
           {app.github && <LinkPill href={app.github}>GitHub</LinkPill>}
           {app.linkedin && <LinkPill href={app.linkedin}>LinkedIn</LinkPill>}
           {app.personalSite && <LinkPill href={app.personalSite}>Website</LinkPill>}
         </div>
       </div>
 
-      <div style={{ height: 1, background: "#F3F4F6", marginBottom: 20 }} />
+      <div style={{ height: 1, background: "rgba(58,74,38,0.1)", marginBottom: 24 }} />
 
       {/* ── Essays ────────────────────────────────── */}
       {ESSAY_QUESTIONS.map(({ label, key }) => {
         const text = app[key]
         if (!text) return null
         return (
-          <div key={key} style={{ marginBottom: 24 }}>
-            <div style={{
-              fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
-              color: "#9CA3AF", textTransform: "uppercase", marginBottom: 8,
+          <div key={key} style={{ marginBottom: 26 }}>
+            <SectionLabel>{label}</SectionLabel>
+            <p style={{
+              fontSize: 14, fontWeight: 300, lineHeight: 1.75,
+              color: "rgba(58,74,38,0.8)", fontFamily: "var(--font-geist-sans), system-ui",
             }}>
-              {label}
-            </div>
-            <p style={{ fontSize: 14, fontWeight: 300, lineHeight: 1.7, color: "#374151" }}>
               {text}
             </p>
           </div>
@@ -98,30 +114,23 @@ export function ApplicationDetail({ app }: ApplicationDetailProps) {
       })}
 
       {app.anythingElse && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{
-            fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
-            color: "#9CA3AF", textTransform: "uppercase", marginBottom: 8,
+        <div style={{ marginBottom: 26 }}>
+          <SectionLabel>Anything else?</SectionLabel>
+          <p style={{
+            fontSize: 14, fontWeight: 300, lineHeight: 1.75,
+            color: "rgba(58,74,38,0.8)", fontFamily: "var(--font-geist-sans), system-ui",
           }}>
-            Anything else?
-          </div>
-          <p style={{ fontSize: 14, fontWeight: 300, lineHeight: 1.7, color: "#374151" }}>
             {app.anythingElse}
           </p>
         </div>
       )}
 
-      <div style={{ height: 1, background: "#F3F4F6", marginBottom: 20 }} />
+      <div style={{ height: 1, background: "rgba(58,74,38,0.1)", marginBottom: 24 }} />
 
       {/* ── Logistics ─────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{
-          fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
-          color: "#9CA3AF", textTransform: "uppercase", marginBottom: 10,
-        }}>
-          Logistics
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 0", fontSize: 12 }}>
+        <SectionLabel>Logistics</SectionLabel>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 0", fontSize: 12 }}>
           {[
             ["Coming from", app.comingFrom],
             ["Transportation", app.transportationType],
@@ -131,10 +140,10 @@ export function ApplicationDetail({ app }: ApplicationDetailProps) {
             ["Country", app.country],
             ["Gender", app.gender],
             ["Ethnicity", app.ethnicity],
-          ].map(([label, value]) => (
+          ].map(([label, value]) => [label, value ? value.charAt(0).toUpperCase() + value.slice(1) : value]).map(([label, value]) => (
             <React.Fragment key={label}>
-              <span style={{ color: "#9CA3AF", paddingRight: 16 }}>{label}</span>
-              <span style={{ color: "#374151" }}>{value}</span>
+              <span style={{ color: "rgba(58,74,38,0.45)", paddingRight: 16, fontFamily: "var(--font-geist-mono), monospace", letterSpacing: "0.03em" }}>{label}</span>
+              <span style={{ color: "rgba(58,74,38,0.8)", fontFamily: "var(--font-geist-sans), system-ui" }}>{value}</span>
             </React.Fragment>
           ))}
         </div>

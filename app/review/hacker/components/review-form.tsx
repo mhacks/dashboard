@@ -9,7 +9,7 @@ const SCORE_STYLE: Record<number, { bg: string; color: string; border: string }>
   1: { bg: "#FEF2F2", color: "#B91C1C", border: "#FECACA" },
   2: { bg: "#FFF7ED", color: "#C2410C", border: "#FED7AA" },
   3: { bg: "#FEFCE8", color: "#92400E", border: "#FDE68A" },
-  4: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+  4: { bg: "#f0efe6", color: "#3A4A26", border: "rgba(58,74,38,0.25)" },
   5: { bg: "#F0FDF4", color: "#166534", border: "#BBF7D0" },
 }
 
@@ -39,7 +39,10 @@ function RatingField({
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <label style={{ fontSize: 12, fontWeight: 500, color: "#374151" }}>
+        <label style={{
+          fontSize: 12, fontWeight: 500, color: "#3A4A26",
+          fontFamily: "var(--font-geist-sans), system-ui",
+        }}>
           {criterion.label}
         </label>
         <input
@@ -54,9 +57,10 @@ function RatingField({
             else onChange(Math.max(1, Math.min(5, raw)))
           }}
           style={{
-            width: 52, height: 32, borderRadius: 6, border: "1.5px solid #E2E8F0",
-            padding: "0 8px", fontSize: 15, fontWeight: 700, color: "#1F51A6",
-            textAlign: "center", outline: "none", fontFamily: "inherit", background: "#fff",
+            width: 52, height: 32, borderRadius: 8, border: "1.5px solid rgba(58,74,38,0.2)",
+            padding: "0 8px", fontSize: 15, fontWeight: 700, color: "#3A4A26",
+            textAlign: "center", outline: "none",
+            fontFamily: "var(--font-geist-mono), monospace", background: "#fff",
           }}
         />
       </div>
@@ -64,6 +68,7 @@ function RatingField({
         <div style={{
           fontSize: 11, lineHeight: 1.5, padding: "5px 10px", borderRadius: 6,
           background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
+          fontFamily: "var(--font-geist-mono), monospace",
         }}>
           {n}/5 — {desc}
         </div>
@@ -94,9 +99,13 @@ export function ReviewFormPanel({ app, existingReview, onSave }: ReviewFormPanel
       style={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
       {/* Header */}
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid #F3F4F6" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "#9CA3AF", textTransform: "uppercase" }}>
-          Review
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(58,74,38,0.12)" }}>
+        <div style={{
+          fontSize: 11, fontWeight: 500, letterSpacing: "0.28em",
+          color: "rgba(58,74,38,0.5)", textTransform: "uppercase",
+          fontFamily: "var(--font-geist-mono), monospace",
+        }}>
+          ◆ Review
         </div>
       </div>
 
@@ -117,7 +126,7 @@ export function ReviewFormPanel({ app, existingReview, onSave }: ReviewFormPanel
           />
         ))}
 
-        <div style={{ height: 1, background: "#F3F4F6", margin: "16px 0" }} />
+        <div style={{ height: 1, background: "rgba(58,74,38,0.1)", margin: "16px 0" }} />
 
         {/* Flag checkbox */}
         <Controller
@@ -131,7 +140,11 @@ export function ReviewFormPanel({ app, existingReview, onSave }: ReviewFormPanel
                 onChange={(e) => field.onChange(e.target.checked)}
                 style={{ width: 15, height: 15, accentColor: "#EF4444", cursor: "pointer" }}
               />
-              <span style={{ fontSize: 12, fontWeight: 500, color: field.value ? "#EF4444" : "#374151" }}>
+              <span style={{
+                fontSize: 12, fontWeight: 500,
+                color: field.value ? "#B91C1C" : "rgba(58,74,38,0.75)",
+                fontFamily: "var(--font-geist-sans), system-ui",
+              }}>
                 Flag for review
               </span>
             </label>
@@ -148,9 +161,11 @@ export function ReviewFormPanel({ app, existingReview, onSave }: ReviewFormPanel
               placeholder={flagged ? "Add review notes…" : "Optional notes…"}
               style={{
                 width: "100%", minHeight: flagged ? 80 : 64, borderRadius: 8,
-                border: flagged ? "1.5px solid #FECACA" : "1.5px solid #E2E8F0",
-                padding: "8px 10px", fontSize: 12, fontFamily: "inherit", color: "#374151",
-                background: flagged ? "#FEF2F2" : "#F9FAFB",
+                border: flagged ? "1.5px solid #FECACA" : "1.5px solid rgba(58,74,38,0.2)",
+                padding: "8px 10px", fontSize: 12,
+                fontFamily: "var(--font-geist-sans), system-ui",
+                color: "rgba(58,74,38,0.85)",
+                background: flagged ? "#FEF2F2" : "#fff",
                 resize: "vertical", outline: "none", lineHeight: 1.5,
               }}
             />
@@ -159,16 +174,17 @@ export function ReviewFormPanel({ app, existingReview, onSave }: ReviewFormPanel
       </div>
 
       {/* Save button */}
-      <div style={{ padding: "12px 20px", borderTop: "1px solid #F3F4F6" }}>
+      <div style={{ padding: "12px 20px", borderTop: "1px solid rgba(58,74,38,0.12)" }}>
         <button
           type="submit"
           style={{
-            width: "100%", height: 36, borderRadius: 8, background: "#1F51A6",
+            width: "100%", height: 38, borderRadius: 999, background: "#3A4A26",
             border: "none", color: "#fff", fontSize: 13, fontWeight: 600,
-            cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s",
+            cursor: "pointer", fontFamily: "var(--font-geist-sans), system-ui",
+            transition: "opacity 0.15s",
           }}
-          onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.background = "#184396" }}
-          onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "#1F51A6" }}
+          onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.opacity = "0.82" }}
+          onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.opacity = "1" }}
         >
           Save Review
         </button>

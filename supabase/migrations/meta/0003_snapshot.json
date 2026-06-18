@@ -1,6 +1,6 @@
 {
-  "id": "7374c837-2b3f-4b05-ad65-755a924900cb",
-  "prevId": "32b777c5-3ea6-4417-85ff-b8b114213113",
+  "id": "52ecead2-0b7c-428e-9fda-7aa302d37f63",
+  "prevId": "7374c837-2b3f-4b05-ad65-755a924900cb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -304,7 +304,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "hacker_applicants_user_id_users_id_fk": {
+          "name": "hacker_applicants_user_id_users_id_fk",
+          "tableFrom": "hacker_applicants",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "hacker_applicants_user_id_unique": {
@@ -576,7 +590,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "judge_applicants_user_id_users_id_fk": {
+          "name": "judge_applicants_user_id_users_id_fk",
+          "tableFrom": "judge_applicants",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "judge_applicants_user_id_unique": {

@@ -7,6 +7,8 @@ import {
   boolean,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { users } from "./users";
+
 // Mirrors `ApplicationStatus` in lib/types/applications.ts
 export const applicationStatus = pgEnum("application_status", [
   "pending",
@@ -16,8 +18,7 @@ export const applicationStatus = pgEnum("application_status", [
 
 const applicationColumns = () => ({
   id: uuid("id").primaryKey().defaultRandom(),
-  // FK to users.id — one application per user.
-  userId: uuid("user_id").notNull().unique(),
+  userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
   status: applicationStatus("status").notNull().default("pending"),
 
   // Personal Information

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { users } from "@/lib/db/schema/users";
-import { leftJoin, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { ReviewDashboard } from "./components/review-shell";
 import { ReviewDashboardSkeleton } from "./components/review-skeleton";
 import { type ApplicantData } from "./applicant-data";
@@ -10,14 +10,13 @@ import { type ApplicantData } from "./applicant-data";
 async function getApplicants(): Promise<ApplicantData[]> {
   const rows = await db
     .select()
-    .from(users)
-    .leftJoin(hackerApplicants, eq(users.id, hackerApplicants.userId))
+    .from(hackerApplicants)
+    .leftJoin(users, eq(hackerApplicants.userId, users.id))
     .orderBy(hackerApplicants.createdAt);
 
   return rows
-    .filter(({ hacker_applicants: a }) => a !== null)
     .map(({ hacker_applicants: a, users: u }) => {
-    const email = u.email;
+    const email = u?.email ?? `applicant-${a.userId.slice(0, 8)}`;
     const name = email.split("@")[0];
     return {
       id: a.id,

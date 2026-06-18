@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { type ApplicantData } from "../applicant-data";
 import { type ReviewFormData } from "../review-criteria";
 import { Sidebar } from "./applicant-sidebar";
@@ -73,7 +74,6 @@ export function ReviewDashboard({ applicationsPromise }: any) {
           : a,
       ),
     );
-    // Auto-advance to next pending
     const next = apps.find(
       (a) => a.id !== selectedId && a.status === "pending",
     );
@@ -89,62 +89,55 @@ export function ReviewDashboard({ applicationsPromise }: any) {
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        fontFamily: '"Red Hat Text", system-ui, sans-serif',
-        color: "#1a1a1e",
+        fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
+        color: "#3A4A26",
+        background: "#f4f2e8",
       }}
     >
-      {/* ── Header ─────────────────────────────────────────────────── */}
+      {/* ── Header — matches apply/hacker style ───────────────────── */}
+      <header className="relative overflow-hidden flex-shrink-0">
+        <Image
+          src="/sponsors_bg.png"
+          alt=""
+          fill
+          className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
+        />
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="relative px-6 h-14 flex items-center gap-3">
+          <MHacksLogo size={24} />
+          <span className="font-heading italic text-lg text-white">
+            MHacks 2026
+          </span>
+          <span className="text-white/30 mx-1">|</span>
+          <span className="text-[13px] text-white/60 font-medium">
+            Application Review
+          </span>
+        </div>
+      </header>
+
+      {/* ── Stats sub-bar ──────────────────────────────────────────── */}
       <div
         style={{
-          height: 50,
-          borderBottom: "1px solid #F3F4F6",
+          height: 36,
+          borderBottom: "1px solid rgba(58,74,38,0.12)",
           display: "flex",
           alignItems: "center",
           padding: "0 20px",
-          gap: 12,
+          gap: 16,
           flexShrink: 0,
-          background: "#fff",
+          background: "#f0efe6",
+          fontSize: 11,
+          fontFamily: "var(--font-geist-mono), monospace",
+          letterSpacing: "0.05em",
         }}
       >
-        <MHacksLogo />
-        <span
-          style={{
-            fontFamily: '"Red Hat Display", system-ui, sans-serif',
-            fontWeight: 700,
-            fontSize: 15,
-            color: "#1F51A6",
-          }}
-        >
-          MHacks 2026
+        <span style={{ color: "#166534", fontWeight: 600 }}>
+          {reviewedCount} reviewed
         </span>
-        <span style={{ color: "#E5E7EB", fontSize: 14 }}>|</span>
-        <span
-          style={{
-            fontFamily: '"Red Hat Display", system-ui, sans-serif',
-            fontWeight: 600,
-            fontSize: 14,
-            color: "#374151",
-          }}
-        >
-          Application Review
+        <span style={{ color: "#B91C1C", fontWeight: 600 }}>
+          {flaggedCount} flagged
         </span>
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            gap: 16,
-            fontSize: 12,
-            color: "#6B7280",
-          }}
-        >
-          <span style={{ color: "#22C55E", fontWeight: 600 }}>
-            {reviewedCount} reviewed
-          </span>
-          <span style={{ color: "#EF4444", fontWeight: 600 }}>
-            {flaggedCount} flagged
-          </span>
-          <span>{apps.length} total</span>
-        </div>
+        <span style={{ color: "rgba(58,74,38,0.5)" }}>{apps.length} total</span>
       </div>
 
       {/* ── Body ──────────────────────────────────────────────────── */}
@@ -164,11 +157,11 @@ export function ReviewDashboard({ applicationsPromise }: any) {
             <div
               style={{
                 width: 300,
-                borderLeft: "1px solid #F3F4F6",
+                borderLeft: "1px solid rgba(58,74,38,0.12)",
                 flexShrink: 0,
                 display: "flex",
                 flexDirection: "column",
-                background: "#fff",
+                background: "#f4f2e8",
               }}
             >
               <ReviewFormPanel
@@ -186,8 +179,10 @@ export function ReviewDashboard({ applicationsPromise }: any) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#9CA3AF",
-              fontSize: 14,
+              color: "rgba(58,74,38,0.4)",
+              fontSize: 13,
+              fontFamily: "var(--font-geist-mono), monospace",
+              letterSpacing: "0.1em",
             }}
           >
             No application selected

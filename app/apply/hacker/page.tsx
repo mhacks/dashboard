@@ -32,7 +32,7 @@ export default async function ApplicationFormPage() {
 
   return (
     <Suspense fallback={<ApplicationFormSkeleton />}>
-      <ApplyPage profileIdPromise={Promise.resolve(userId)} />
+      <ApplyPage userIdPromise={Promise.resolve(userId)} />
     </Suspense>
   );
 }
