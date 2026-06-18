@@ -20,7 +20,7 @@ const FAQS = [
   },
   {
     q: "Are there travel reimbursements?",
-    a: "We offer travel reimbursements on a limited basis for participants traveling from outside the Ann Arbor area. Apply during registration and we'll follow up with details.",
+    a: "We offer travel reimbursements on a limited basis for participants traveling from outside the Ann Arbor area. To qualify, you must submit your application before the early deadline (Aug. 7). Apply during registration and we'll follow up with details.",
   },
   {
     q: "How much does MHacks cost?",

@@ -1,7 +1,6 @@
 import HeroSection from "@/components/hero-section";
 import NavBar from "@/components/navbar";
 import AsciiBackground from "@/components/ascii-background";
-import TracksSection from "@/components/tracks-section";
 import VideoSpotlight from "@/components/video-spotlight";
 import StatsBand from "@/components/stats-band";
 import KeyDates from "@/components/key-dates";
@@ -11,8 +10,8 @@ import CtaSection from "@/components/cta-section";
 import SiteFooter from "@/components/site-footer";
 
 const ribbonItems = [
-  "$30k+ In Prizes",
-  "200+ Projects",
+  "$40k+ In Prizes",
+  "350+ Projects",
   "24 Hours",
   "October 3 - 4, 2026",
   "Ann Arbor, MI",
@@ -87,7 +86,7 @@ export default function Home() {
             MHacks is the University of Michigan&apos;s flagship hackathon,
             bringing together the brightest student minds from across the
             country. Over 24 hours, you&apos;ll collaborate, create, and compete
-            for over $30,000 in prizes.
+            for over $40,000 in prizes.
           </p>
           <p
             className="mt-4 max-w-xl text-[14px] leading-7 text-center"
@@ -99,16 +98,13 @@ export default function Home() {
             community.
           </p>
         </div>
-
-        <VideoSpotlight />
-        <div className="pb-24" />
       </section>
-
-      {/* ── Tracks ── */}
-      <TracksSection />
 
       {/* ── Stats / Photo carousel ── */}
       <StatsBand />
+
+      {/* ── MHacks 2025 Recap Video ── */}
+      <VideoSpotlight />
 
       {/* ── Timeline ── */}
       <KeyDates />

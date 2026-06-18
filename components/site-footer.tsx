@@ -68,7 +68,7 @@ export default function SiteFooter() {
           <div className="max-w-xs">
             <div className="flex items-center gap-3">
               <Image
-                src="/mhacks_logo.png"
+                src="/green_logo.png"
                 alt="MHacks logo"
                 width={36}
                 height={36}

@@ -67,7 +67,11 @@ export default function SponsorsSection() {
             <a
               href="mailto:sponsorship@mhacks.org"
               className="inline-flex items-center rounded-full border px-6 py-2.5 text-sm font-medium transition-all hover:opacity-70"
-              style={{ borderColor: "rgba(58,74,38,0.3)", color: "#3A4A26" }}
+              style={{
+                borderColor: "rgba(58,74,38,0.3)",
+                color: "#3A4A26",
+                backgroundColor: "#f4f2e8",
+              }}
             >
               Become a sponsor ↗
             </a>

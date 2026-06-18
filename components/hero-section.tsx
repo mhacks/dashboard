@@ -191,13 +191,13 @@ export default function HeroSection() {
           {/* Bottom: left-aligned title then dates */}
           <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10">
             <h1
-              className="font-heading sm:whitespace-nowrap text-[14vw] sm:text-[12vw] lg:text-[clamp(4rem,15vw,20rem)] leading-[0.9] tracking-tight uppercase"
+              className="font-red-hat sm:whitespace-nowrap text-[10vw] sm:text-[8vw] lg:text-[clamp(3rem,9vw,13rem)] leading-[0.9] tracking-tight uppercase"
               style={{ color: "#ebe4ce" }}
             >
               MHACKS 2026
             </h1>
             <p
-              className="mt-3 text-[16px] sm:text-[18px] font-light tracking-[0.2em] uppercase"
+              className="mt-3 text-[16px] sm:text-[18px] font-red-hat font-light tracking-[0.2em] uppercase"
               style={{ color: "#ebe4ce" }}
             >
               October 3 - 4, 2026

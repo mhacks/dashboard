@@ -1,8 +1,8 @@
 import Image from "next/image";
 
 const STATS = [
-  { value: "$30k+", caption: "Prize pool across all tracks" },
-  { value: "200+", caption: "Projects shipped in a weekend" },
+  { value: "$40k+", caption: "Prize pool across all tracks" },
+  { value: "350+", caption: "Projects shipped in a weekend" },
   { value: "24 hrs", caption: "Of building, start to demo" },
   { value: "14", caption: "Editions since 2013" },
 ];
