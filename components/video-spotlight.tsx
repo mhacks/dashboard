@@ -70,7 +70,7 @@ export default function VideoSpotlight() {
 
             {!playing && (
               <div className="absolute bottom-5 left-6 pointer-events-none">
-                <p className="text-white text-[11px] font-light tracking-[0.35em] uppercase">
+                <p className="font-red-hat text-white text-[11px] font-light tracking-[0.35em] uppercase">
                   MHacks 2025&nbsp;·&nbsp;Recap
                 </p>
               </div>

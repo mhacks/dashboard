@@ -37,7 +37,7 @@ export default function SponsorsSection() {
           transition={{ duration: 0.7, ease: EASE }}
         >
           <p
-            className="text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
+            className="font-red-hat text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
             style={{ color: "rgba(58,74,38,0.5)" }}
           >
             <span>◆</span>Powering MHacks<span>◆</span>
@@ -56,7 +56,7 @@ export default function SponsorsSection() {
             </span>
           </h2>
           <p
-            className="mt-6 max-w-md text-base font-light leading-relaxed"
+            className="font-red-hat mt-6 max-w-md text-base font-light leading-relaxed"
             style={{ color: "rgba(58,74,38,0.7)" }}
           >
             MHacks built its success on the support of generous sponsors across
@@ -66,8 +66,12 @@ export default function SponsorsSection() {
           <div className="mt-9">
             <a
               href="mailto:sponsorship@mhacks.org"
-              className="inline-flex items-center rounded-full border px-6 py-2.5 text-sm font-medium transition-all hover:opacity-70"
-              style={{ borderColor: "rgba(58,74,38,0.3)", color: "#3A4A26" }}
+              className="font-red-hat inline-flex items-center rounded-full border px-6 py-2.5 text-sm font-medium transition-all hover:opacity-70"
+              style={{
+                borderColor: "rgba(58,74,38,0.3)",
+                color: "#3A4A26",
+                backgroundColor: "#f4f2e8",
+              }}
             >
               Become a sponsor ↗
             </a>
@@ -119,7 +123,7 @@ export default function SponsorsSection() {
                 Our Sponsors
               </h3>
               <p
-                className="mt-4 font-heading text-2xl italic md:text-3xl"
+                className="font-red-hat mt-4 text-2xl italic md:text-3xl"
                 style={{ color: "rgba(58,74,38,0.8)" }}
               >
                 Coming Soon

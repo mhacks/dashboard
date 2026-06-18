@@ -1,8 +1,8 @@
 import Image from "next/image";
 
 const STATS = [
-  { value: "$30k+", caption: "Prize pool across all tracks" },
-  { value: "200+", caption: "Projects shipped in a weekend" },
+  { value: "$40k+", caption: "Prize pool across all tracks" },
+  { value: "350+", caption: "Projects shipped in a weekend" },
   { value: "24 hrs", caption: "Of building, start to demo" },
   { value: "14", caption: "Editions since 2013" },
 ];
@@ -63,7 +63,7 @@ export default function StatsBand() {
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-10">
         <p
-          className="text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
+          className="font-red-hat text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           <span>◆</span>By The Numbers<span>◆</span>
@@ -89,13 +89,13 @@ export default function StatsBand() {
               style={{ borderColor: "rgba(31,42,22,0.15)" }}
             >
               <p
-                className="font-sans text-4xl font-semibold md:text-5xl"
+                className="font-red-hat text-4xl font-semibold md:text-5xl"
                 style={{ color: "#3A4A26" }}
               >
                 {s.value}
               </p>
               <p
-                className="mt-3 max-w-[170px] font-mono text-[10px] uppercase leading-relaxed tracking-[0.18em]"
+                className="font-red-hat mt-3 max-w-[170px] text-[10px] uppercase leading-relaxed tracking-[0.18em]"
                 style={{ color: "rgba(58,74,38,0.6)" }}
               >
                 {s.caption}

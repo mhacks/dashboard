@@ -6,7 +6,7 @@ import Image from "next/image";
 
 const links = [
   { href: "#about", label: "About" },
-  { href: "#tracks", label: "Tracks" },
+  // { href: "#tracks", label: "Tracks" },
   { href: "#timeline", label: "Dates" },
   { href: "#sponsors", label: "Sponsors" },
   { href: "#faqs", label: "FAQ" },
@@ -39,7 +39,7 @@ export default function NavBar() {
         {/* Disabled Apply Now */}
         <div className="relative group">
           <span
-            className={`${pillClass} inline-block cursor-not-allowed select-none rounded-full px-4 pt-[9px] pb-[7px] text-[17px] font-heading italic text-white/35`}
+            className={`${pillClass} font-red-hat inline-block cursor-not-allowed select-none rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic text-white/35`}
           >
             Apply Now
           </span>

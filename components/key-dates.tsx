@@ -8,13 +8,17 @@ const EASE = [0.25, 0.1, 0.25, 1] as const;
 const KEY_DATES = [
   { iso: "2026-06-22", date: "Jun. 22", label: "Applications Open" },
   { iso: "2026-08-07", date: "Aug. 07", label: "Early Application Deadline" },
-  { iso: "2026-08-21", date: "Aug. 21", label: "Early Decisions Released" },
   {
-    iso: "2026-09-04",
-    date: "Sep. 04",
+    iso: "2026-08-21",
+    date: "Aug. 21",
+    label: "Early Decisions Released (Rolling)",
+  },
+  {
+    iso: "2026-09-12",
+    date: "Sep. 12",
     label: "Regular Applications Deadline",
   },
-  { iso: "2026-09-11", date: "Sep. 11", label: "Regular Decisions Released" },
+  { iso: "2026-09-19", date: "Sep. 19", label: "Regular Decisions Released" },
 ];
 
 function midnightEastern(iso: string) {
@@ -59,7 +63,7 @@ export default function KeyDates() {
     <section id="timeline" className="scroll-mt-20 px-5 py-24 md:px-10">
       <div className="mx-auto max-w-6xl">
         <p
-          className="text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
+          className="font-red-hat text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           <span>◆</span>Applications<span>◆</span>
@@ -96,13 +100,14 @@ export default function KeyDates() {
                 style={{
                   borderColor: "rgba(58,74,38,0.12)",
                   opacity: isPast ? 0.4 : 1,
+                  backgroundColor: "#f4f2e8",
                 }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.backgroundColor =
-                    "rgba(58,74,38,0.04)")
+                    "rgba(58,74,38,0.06)")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
+                  (e.currentTarget.style.backgroundColor = "#f4f2e8")
                 }
               >
                 <span
@@ -126,7 +131,7 @@ export default function KeyDates() {
                     className="rounded-full px-3 py-1 font-mono text-[11px] tracking-[0.12em] tabular-nums"
                     style={{ backgroundColor: "#3A4A26", color: "#f0efe6" }}
                   >
-                    {countdown(t - now)}
+                    {countdown(t - now!)}
                   </span>
                 ) : (
                   <span

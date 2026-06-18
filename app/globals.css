@@ -10,6 +10,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-instrument-serif);
+  --font-red-hat: var(--font-red-hat-display);
 
   /* Brand palette */
   --color-moss: #3a4a26;

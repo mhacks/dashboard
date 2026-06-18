@@ -20,7 +20,7 @@ const FAQS = [
   },
   {
     q: "Are there travel reimbursements?",
-    a: "We offer travel reimbursements on a limited basis for participants traveling from outside the Ann Arbor area. Apply during registration and we'll follow up with details.",
+    a: "We offer travel reimbursements on a limited basis for participants traveling from outside the Ann Arbor area. To qualify, you must submit your application before the early deadline (Aug. 7). Apply during registration and we'll follow up with details.",
   },
   {
     q: "How much does MHacks cost?",
@@ -55,7 +55,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full cursor-pointer items-baseline gap-5 px-2 py-6 text-left transition-colors duration-300 md:px-4"
+        className="font-red-hat flex w-full cursor-pointer items-baseline gap-5 px-2 py-6 text-left transition-colors duration-300 md:px-4"
         onMouseEnter={(e) =>
           (e.currentTarget.style.backgroundColor = "rgba(58,74,38,0.04)")
         }
@@ -95,7 +95,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
             className="overflow-hidden"
           >
             <p
-              className="max-w-[600px] pb-7 pl-9 text-[15px] font-light leading-relaxed md:pl-12"
+              className="font-red-hat max-w-[600px] pb-7 pl-9 text-[15px] font-light leading-relaxed md:pl-12"
               style={{ color: "rgba(58,74,38,0.7)" }}
             >
               {a}
@@ -112,7 +112,7 @@ export default function FaqSection() {
     <section id="faqs" className="scroll-mt-20 px-5 py-24 md:px-10">
       <div className="mx-auto max-w-3xl">
         <p
-          className="text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
+          className="font-red-hat text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           <span>◆</span>Attending MHacks<span>◆</span>

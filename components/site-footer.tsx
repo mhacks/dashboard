@@ -68,7 +68,7 @@ export default function SiteFooter() {
           <div className="max-w-xs">
             <div className="flex items-center gap-3">
               <Image
-                src="/mhacks_logo.png"
+                src="/green_logo.png"
                 alt="MHacks logo"
                 width={36}
                 height={36}
@@ -82,13 +82,13 @@ export default function SiteFooter() {
               </span>
             </div>
             <p
-              className="mt-4 font-heading text-xl italic"
+              className="font-red-hat mt-4 text-xl italic"
               style={{ color: "rgba(58,74,38,0.75)" }}
             >
               Build something that grows.
             </p>
             <p
-              className="mt-3 font-mono text-[10px] uppercase tracking-[0.2em]"
+              className="font-red-hat mt-3 text-[10px] uppercase tracking-[0.2em]"
               style={{ color: "rgba(58,74,38,0.5)" }}
             >
               {COORDS}
@@ -100,7 +100,7 @@ export default function SiteFooter() {
             {COLUMNS.map((col) => (
               <div key={col.title}>
                 <p
-                  className="font-mono text-[10px] uppercase tracking-[0.25em]"
+                  className="font-red-hat text-[10px] uppercase tracking-[0.25em]"
                   style={{ color: "rgba(58,74,38,0.55)" }}
                 >
                   {col.title}
