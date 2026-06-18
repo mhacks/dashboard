@@ -80,7 +80,8 @@
         ],
         "interval": 30,
         "timeout": 5,
-        "retries": 3
+        "retries": 3,
+        "startPeriod": 30
       },
       "systemControls": []
     }
