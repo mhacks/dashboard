@@ -1,0 +1,100 @@
+{
+  "containerDefinitions": [
+    {
+      "name": "dashboard",
+      "image": "AWS_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/dashboard:latest",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp",
+          "name": "dashboard-3000-tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "secrets": [
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_ACCESS_KEY_ID"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SECRET_ACCESS_KEY"
+        },
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DATABASE_URL"
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_SUPABASE_ANON_KEY"
+        },
+        {
+          "name": "NEXT_PUBLIC_SUPABASE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_SUPABASE_URL"
+        },
+        {
+          "name": "RESUMES_BUCKET",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_BUCKET"
+        },
+        {
+          "name": "SES_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_ACCESS_KEY_ID"
+        },
+        {
+          "name": "SES_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_SECRET_ACCESS_KEY"
+        },
+        {
+          "name": "SES_SMTP_PASSWORD",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_SMTP_PASSWORD"
+        },
+        {
+          "name": "SUPABASE_DB_PASSWORD",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SUPABASE_DB_PASSWORD"
+        },
+        {
+          "name": "SUPABASE_SERVICE_ROLE_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SUPABASE_SERVICE_ROLE_KEY"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mhacks-dashboard",
+          "awslogs-region": "us-east-2",
+          "awslogs-stream-prefix": "ecs"
+        },
+        "secretOptions": []
+      },
+      "healthCheck": {
+        "command": [
+          "CMD",
+          "node",
+          "-e",
+          "\"if(!(await fetch('http://localhost:3000/')).ok) process.exit(1)\""
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3
+      },
+      "systemControls": []
+    }
+  ],
+  "family": "mhacks-dashboard",
+  "executionRoleArn": "arn:aws:iam::AWS_ACCOUNT_ID:role/mhacks-ecs-exec",
+  "networkMode": "awsvpc",
+  "volumes": [],
+  "placementConstraints": [],
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512"
+}
