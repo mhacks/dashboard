@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -164,13 +164,12 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
 }
 
 export default function ApplyPage({
-  userIdPromise,
+  userId,
   existingData,
 }: {
-  userIdPromise: Promise<string>;
+  userId: string;
   existingData: HackerApplicantRow | null;
 }) {
-  const userId = use(userIdPromise);
   const readOnly = existingData !== null;
   const router = useRouter();
   const [step, setStep] = useState(0);

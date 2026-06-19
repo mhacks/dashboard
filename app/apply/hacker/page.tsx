@@ -33,7 +33,7 @@ export default async function ApplicationFormPage() {
   return (
     <Suspense fallback={<ApplicationFormSkeleton />}>
       <ApplyPage
-        userIdPromise={Promise.resolve(userId)}
+        userId={userId}
         existingData={existingApp}
       />
     </Suspense>
