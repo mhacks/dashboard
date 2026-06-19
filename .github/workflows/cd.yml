@@ -58,7 +58,7 @@ jobs:
 
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        timeout-minutes: 10
+        timeout-minutes: 5
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
           service: ${{ env.ECS_SERVICE }}
