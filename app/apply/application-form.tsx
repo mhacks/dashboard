@@ -311,11 +311,11 @@ export default function ApplyPage({
             We&apos;ll be in touch soon with a decision.
           </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/apply")}
             className="mt-8 rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
             style={{ background: GREEN }}
           >
-            Return Home
+            View Application
           </button>
         </div>
       </div>
@@ -349,11 +349,11 @@ export default function ApplyPage({
             application and be in touch soon.
           </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/apply")}
             className="mt-8 rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
             style={{ background: GREEN }}
           >
-            Return Home
+            View Application
           </button>
         </div>
       </div>
@@ -539,11 +539,11 @@ export default function ApplyPage({
             ) : readOnly ? (
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/apply")}
                 className="rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
                 style={{ background: GREEN }}
               >
-                Return Home
+                View Application
               </button>
             ) : (
               <button
