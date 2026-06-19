@@ -23,7 +23,6 @@ import {
   universities,
 } from "../form-options";
 import { FormField } from "../utils";
-import { getResumeUploadUrl } from "@/lib/aws/s3";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
 const currentYear = new Date().getFullYear();
@@ -252,21 +251,17 @@ const AcademicInformation = ({
                 if (!file) return;
                 setUploadState("uploading");
                 try {
-                  const { uploadUrl, objectUrl } = await getResumeUploadUrl(
-                    userId,
-                    file.name,
-                  );
-                  const res = await fetch(uploadUrl, {
-                    method: "PUT",
-                    body: file,
-                    headers: { "Content-Type": "application/pdf" },
+                  const body = new FormData();
+                  body.append("file", file);
+                  const res = await fetch("/api/upload-resume", {
+                    method: "POST",
+                    body,
                   });
                   if (!res.ok) {
-                    throw new Error(
-                      `S3 returned ${res.status}: ${await res.text()}`,
-                    );
+                    throw new Error(`Upload failed: ${await res.text()}`);
                   }
-                  setValue("resume", objectUrl);
+                  const { key } = await res.json();
+                  setValue("resume", key);
                   setUploadState("done");
                 } catch (err) {
                   console.error("Resume upload error:", err);
