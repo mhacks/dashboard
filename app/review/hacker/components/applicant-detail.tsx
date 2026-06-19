@@ -86,15 +86,12 @@ const ESSAY_QUESTIONS: {
   label: string;
   key: keyof Pick<
     ApplicantData,
-    "whyAttend" | "technicalChallenge" | "proudProject" | "anythingElse"
+    "whatWouldYouDo" | "whyMhacks" | "hillToDieOn"
   >;
 }[] = [
-  { label: "Why do you want to attend MHacks?", key: "whyAttend" },
-  { label: "Describe a project you have built.", key: "proudProject" },
-  {
-    label: "Describe a technical challenge you overcame.",
-    key: "technicalChallenge",
-  },
+  { label: "What would you do?", key: "whatWouldYouDo" },
+  { label: "Why MHacks?", key: "whyMhacks" },
+  { label: "What's a hill you're willing to die on?", key: "hillToDieOn" },
 ];
 
 export function ApplicationDetail({ app }: ApplicationDetailProps) {
@@ -205,23 +202,6 @@ export function ApplicationDetail({ app }: ApplicationDetailProps) {
           </div>
         );
       })}
-
-      {app.anythingElse && (
-        <div style={{ marginBottom: 26 }}>
-          <SectionLabel>Anything else?</SectionLabel>
-          <p
-            style={{
-              fontSize: 14,
-              fontWeight: 300,
-              lineHeight: 1.75,
-              color: "rgba(58,74,38,0.8)",
-              fontFamily: "var(--font-geist-sans), system-ui",
-            }}
-          >
-            {app.anythingElse}
-          </p>
-        </div>
-      )}
 
       <div
         style={{

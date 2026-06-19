@@ -1,95 +1,48 @@
+import Image from "next/image";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-
-function SectionSkeleton({ fields = 3 }: { fields?: number }) {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-6 w-48" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {Array.from({ length: fields }).map((_, i) => (
-          <div key={i} className="space-y-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function ApplicationFormSkeleton() {
   return (
-    <div className="container mx-auto max-w-3xl py-8">
-      {/* Header */}
-      <div className="mb-8 text-center space-y-2">
-        <Skeleton className="h-9 w-56 mx-auto" />
-        <Skeleton className="h-4 w-72 mx-auto" />
-      </div>
+    <div className="relative min-h-screen overflow-hidden">
+      <Image
+        src="/hero_bg_w_overlay.png"
+        alt=""
+        fill
+        className="object-cover object-center"
+        priority
+      />
+      <div className="absolute inset-0 bg-black/55" />
 
-      <div className="space-y-8">
-        {/* Personal Information */}
-        <SectionSkeleton fields={4} />
+      <div className="relative z-10 min-h-screen flex flex-col items-center py-8 px-4 sm:px-6">
+        {/* Header pill skeleton */}
+        <div className="flex items-center justify-between w-full max-w-2xl mb-8">
+          <Skeleton className="h-10 w-64 rounded-full bg-white/10" />
+          <Skeleton className="h-8 w-16 rounded-full bg-white/10" />
+        </div>
 
-        {/* Academic Information */}
-        <SectionSkeleton fields={5} />
-
-        {/* Essays */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-24" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="h-28 w-full" />
+        {/* Card skeleton */}
+        <div className="w-full max-w-2xl rounded-3xl overflow-hidden border border-white/30 bg-[#f4f2e8]/[0.88] shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+          <div className="px-8 pt-8 pb-6">
+            <div className="flex items-start justify-between mb-6">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-10 w-48" />
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <Skeleton className="h-16 w-16 rounded-full opacity-30" />
+            </div>
+            <Skeleton className="h-3 w-full" />
+          </div>
 
-        {/* Logistics */}
-        <SectionSkeleton fields={4} />
+          <div className="h-px mx-8 bg-[rgba(58,74,38,0.08)]" />
 
-        {/* Socials */}
-        <SectionSkeleton fields={3} />
-
-        {/* Communications */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-36" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Skeleton className="h-4 w-4 rounded" />
-                <Skeleton className="h-4 w-64" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* MLH & Sponsor Agreements */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-52" />
-          </CardHeader>
-          <CardContent className="space-y-3">
+          <div className="px-8 py-7 space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <Skeleton className="h-4 w-4 mt-0.5 rounded flex-shrink-0" />
-                <Skeleton className="h-4 w-full" />
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-10 w-full" />
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-        {/* Action buttons */}
-        <div className="flex justify-end gap-4">
-          <Skeleton className="h-10 w-40" />
-          <Skeleton className="h-10 w-40" />
+          </div>
         </div>
       </div>
     </div>

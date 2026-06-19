@@ -45,10 +45,9 @@ const applicationColumns = () => ({
   resume: text("resume"),
 
   // Essays
-  whyAttend: text("why_attend").notNull(),
-  technicalChallenge: text("technical_challenge").notNull(),
-  proudProject: text("proud_project").notNull(),
-  anythingElse: text("anything_else"),
+  whatWouldYouDo: text("what_would_you_do").notNull(),
+  whyMhacks: text("why_mhacks").notNull(),
+  hillToDieOn: text("hill_to_die_on").notNull(),
 
   // Logistics
   transportationType: text("transportation_type").notNull(),

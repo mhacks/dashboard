@@ -23,22 +23,42 @@ export const baseApplicationSchema = z.object({
   resume: z.string().optional(), // Will store file info
 
   // Essays
-  whyAttend: z
+  whatWouldYouDo: z
     .string()
-    .min(100, "Please write at least 100 characters")
-    .max(1000, "Please limit your response to 1000 characters"),
-  technicalChallenge: z
+    .min(1, "Required")
+    .max(600, "Please limit your response to 600 characters")
+    .refine(
+      (s) => s.trim().split(/\s+/).filter(Boolean).length >= 10,
+      "Please write at least 10 words",
+    )
+    .refine(
+      (s) => s.trim().split(/\s+/).filter(Boolean).length <= 100,
+      "Please limit your response to 100 words",
+    ),
+  whyMhacks: z
     .string()
-    .min(100, "Please write at least 100 characters")
-    .max(1000, "Please limit your response to 1000 characters"),
-  proudProject: z
+    .min(1, "Required")
+    .max(1200, "Please limit your response to 1200 characters")
+    .refine(
+      (s) => s.trim().split(/\s+/).filter(Boolean).length >= 20,
+      "Please write at least 20 words",
+    )
+    .refine(
+      (s) => s.trim().split(/\s+/).filter(Boolean).length <= 200,
+      "Please limit your response to 200 words",
+    ),
+  hillToDieOn: z
     .string()
-    .min(100, "Please write at least 100 characters")
-    .max(1000, "Please limit your response to 1000 characters"),
-  anythingElse: z
-    .string()
-    .max(1000, "Please limit your response to 1000 characters")
-    .optional(),
+    .min(1, "Required")
+    .max(80, "Please limit your response to 80 characters")
+    .refine(
+      (s) => s.trim().split(/\s+/).filter(Boolean).length >= 3,
+      "Please write at least 3 words",
+    )
+    .refine(
+      (s) => s.trim().split(/\s+/).filter(Boolean).length <= 10,
+      "Please limit your response to 10 words",
+    ),
 
   // Logistics
   transportationType: z.string().min(1, "Please select transportation type"),

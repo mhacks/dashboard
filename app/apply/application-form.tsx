@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 
 import {
   HackerApplicationFormData,
@@ -23,8 +24,13 @@ import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 
 const STORAGE_KEY = "mhacks-application-draft";
+const EASE = [0.25, 0.1, 0.25, 1] as const;
 const GREEN = "#3A4A26";
-const GREEN_BORDER = "rgba(58,74,38,0.15)";
+
+const GLASS_CARD =
+  "border border-white/30 bg-[#f4f2e8]/[0.88] shadow-[0_24px_64px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-2xl";
+const GLASS_PILL =
+  "border border-white/20 bg-black/[0.32] shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-xl";
 
 const STEPS: Array<{
   label: string;
@@ -44,7 +50,7 @@ const STEPS: Array<{
   },
   {
     label: "Essays",
-    fields: ["whyAttend", "technicalChallenge", "proudProject"],
+    fields: ["whatWouldYouDo", "whyMhacks", "hillToDieOn"],
   },
   {
     label: "Logistics",
@@ -59,45 +65,48 @@ const STEPS: Array<{
 
 function StepBar({ current }: { current: number }) {
   return (
-    <div className="w-full px-6 pt-5 pb-4">
-      {/* Dots + connecting lines — stretch full width */}
+    <div className="w-full">
       <div className="flex items-center w-full">
         {STEPS.map((step, i) => {
           const isDone = i < current;
           const isActive = i === current;
           return (
             <React.Fragment key={i}>
-              <div
-                className="shrink-0 rounded-full transition-all duration-200"
+              <motion.div
+                animate={isActive ? { scale: 1.3 } : { scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="rounded-full shrink-0"
                 style={
                   isActive
                     ? {
-                        width: 12,
-                        height: 12,
+                        width: 10,
+                        height: 10,
                         background: GREEN,
-                        boxShadow: `0 0 0 3px rgba(58,74,38,0.18)`,
+                        boxShadow: `0 0 0 3px rgba(58,74,38,0.2)`,
                       }
                     : isDone
-                      ? { width: 9, height: 9, background: GREEN }
+                      ? { width: 8, height: 8, background: GREEN }
                       : {
-                          width: 9,
-                          height: 9,
-                          background: "white",
-                          border: "2px solid #D1D5DB",
+                          width: 8,
+                          height: 8,
+                          background: "rgba(58,74,38,0.15)",
+                          border: "1.5px solid rgba(58,74,38,0.25)",
                         }
                 }
               />
               {i < STEPS.length - 1 && (
-                <div
-                  className="flex-1 h-px mx-1 transition-colors duration-200"
-                  style={{ backgroundColor: isDone ? GREEN : "#D1D5DB" }}
+                <motion.div
+                  className="flex-1 h-px mx-1"
+                  animate={{
+                    backgroundColor: isDone ? GREEN : "rgba(58,74,38,0.15)",
+                  }}
+                  transition={{ duration: 0.4 }}
                 />
               )}
             </React.Fragment>
           );
         })}
       </div>
-      {/* Labels — each label is centered under its dot via flex-1 + text-center */}
       <div className="flex w-full mt-2">
         {STEPS.map((step, i) => {
           const isDone = i < current;
@@ -105,10 +114,14 @@ function StepBar({ current }: { current: number }) {
           return (
             <span
               key={i}
-              className="flex-1 text-center text-[11px] transition-colors duration-200 leading-tight"
+              className="flex-1 text-center text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat"
               style={{
-                color: isActive ? GREEN : isDone ? GREEN : "#6B7280",
-                fontWeight: isActive ? 700 : isDone ? 600 : 500,
+                color: isActive
+                  ? GREEN
+                  : isDone
+                    ? "rgba(58,74,38,0.65)"
+                    : "rgba(58,74,38,0.3)",
+                fontWeight: isActive ? 700 : isDone ? 600 : 400,
               }}
             >
               {isDone ? "✓ " : ""}
@@ -139,10 +152,9 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
     major: row.major,
     majorOther: row.majorOther ?? "",
     resume: row.resume ?? undefined,
-    whyAttend: row.whyAttend,
-    technicalChallenge: row.technicalChallenge,
-    proudProject: row.proudProject,
-    anythingElse: row.anythingElse ?? "",
+    whatWouldYouDo: row.whatWouldYouDo,
+    whyMhacks: row.whyMhacks,
+    hillToDieOn: row.hillToDieOn,
     transportationType: row.transportationType,
     comingFrom: row.comingFrom,
     airportCode: row.airportCode ?? "",
@@ -163,6 +175,12 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
   };
 }
 
+const stepVariants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir * 28 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: dir * -28 }),
+};
+
 export default function ApplyPage({
   userId,
   existingData,
@@ -173,6 +191,7 @@ export default function ApplyPage({
   const readOnly = existingData !== null;
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
@@ -207,10 +226,9 @@ export default function ApplyPage({
           major: "",
           majorOther: "",
           resume: undefined,
-          whyAttend: "",
-          technicalChallenge: "",
-          proudProject: "",
-          anythingElse: "",
+          whatWouldYouDo: "",
+          whyMhacks: "",
+          hillToDieOn: "",
           transportationType: "",
           comingFrom: "",
           airportCode: "",
@@ -271,7 +289,13 @@ export default function ApplyPage({
         if (!valid) return;
       }
     }
+    setDirection(1);
     setStep((s) => s + 1);
+  };
+
+  const goBack = () => {
+    setDirection(-1);
+    setStep((s) => s - 1);
   };
 
   const onSubmit = async (data: HackerApplicationFormData) => {
@@ -292,272 +316,332 @@ export default function ApplyPage({
     }
   };
 
-  if (isDuplicate) {
+  if (isDuplicate || submitSuccess) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <MHacksLogo size={48} />
-          <p className="mt-6 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-            MHacks 2026
-          </p>
-          <h2
-            className="mt-3 font-heading italic text-4xl leading-tight tracking-tight"
-            style={{ color: GREEN }}
-          >
-            Already Applied!
-          </h2>
-          <p className="mt-4 text-[14px] leading-7 text-zinc-500">
-            You&apos;ve already submitted a hacker application for MHacks 2026.
-            We&apos;ll be in touch soon with a decision.
-          </p>
-          <button
-            onClick={() => router.push("/apply")}
-            className="mt-8 rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
-            style={{ background: GREEN }}
-          >
-            View Application
-          </button>
-        </div>
-      </div>
-    );
-  }
+      <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+        <Image
+          src="/hero_bg_w_overlay.png"
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/55" />
 
-  if (submitSuccess) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4 relative overflow-hidden">
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-[55%] opacity-10">
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+          className="pointer-events-none absolute -top-10 -left-16 opacity-20 rotate-[-18deg] hidden md:block"
+        >
+          <Image src="/yellow_flower.png" alt="" width={300} height={300} />
+        </motion.div>
+        <motion.div
+          animate={{ y: [0, -8, 0] }}
+          transition={{
+            duration: 9,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1.2,
+          }}
+          className="pointer-events-none absolute bottom-10 -right-12 opacity-20 rotate-[-10deg] hidden md:block"
+        >
           <Image
-            src="/white_green_bg.png"
+            src="/pink_ascii_flower.png"
             alt=""
-            fill
-            className="object-cover object-top"
+            width={260}
+            height={260}
           />
-        </div>
-        <div className="relative text-center max-w-md">
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.7, ease: EASE }}
+          className={`relative z-10 text-center max-w-md w-full rounded-3xl px-10 py-12 ${GLASS_CARD}`}
+        >
           <MHacksLogo size={48} />
-          <p className="mt-6 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
+          <p
+            className="mt-6 font-red-hat text-[11px] font-semibold uppercase tracking-[0.3em]"
+            style={{ color: "rgba(58,74,38,0.55)" }}
+          >
             MHacks 2026
           </p>
           <h2
             className="mt-3 font-heading italic text-4xl leading-tight tracking-tight"
             style={{ color: GREEN }}
           >
-            Application Submitted!
+            {isDuplicate ? "Already Applied!" : "Application Submitted!"}
           </h2>
-          <p className="mt-4 text-[14px] leading-7 text-zinc-500">
-            Thank you for applying to MHacks 2026. We&apos;ll review your
-            application and be in touch soon.
+          <p
+            className="mt-4 font-red-hat text-[14px] leading-7"
+            style={{ color: "rgba(58,74,38,0.65)" }}
+          >
+            {isDuplicate
+              ? "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
+              : "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."}
           </p>
           <button
-            onClick={() => router.push("/apply")}
-            className="mt-8 rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
+            onClick={() => { window.location.href = "/apply"; }}
+            className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
             style={{ background: GREEN }}
           >
             View Application
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white relative overflow-x-hidden">
-      {/* Subtle background */}
-      <div className="pointer-events-none absolute right-0 top-0 h-full w-[55%] opacity-[0.07]">
-        <Image
-          src="/white_green_bg.png"
-          alt=""
-          fill
-          className="object-cover object-top"
-        />
-      </div>
-
-      {/* Decorative flowers */}
+    <div className="relative min-h-screen overflow-x-hidden">
+      {/* Background */}
       <Image
-        src="/yellow_flower.png"
+        src="/hero_bg_w_overlay.png"
         alt=""
-        width={300}
-        height={300}
-        className="pointer-events-none absolute -top-8 -left-24 opacity-30 rotate-[-18deg] select-none"
+        fill
+        className="object-cover object-center"
+        priority
       />
-      <Image
-        src="/pink_flower.png"
-        alt=""
-        width={260}
-        height={260}
-        className="pointer-events-none absolute top-32 -right-20 opacity-25 rotate-12 select-none"
-      />
-      <Image
-        src="/light_blue_flower.png"
-        alt=""
-        width={240}
-        height={240}
-        className="pointer-events-none absolute bottom-40 -left-20 opacity-25 rotate-[8deg] select-none"
-      />
-      <Image
-        src="/pink_ascii_flower.png"
-        alt=""
-        width={220}
-        height={220}
-        className="pointer-events-none absolute bottom-12 -right-16 opacity-25 rotate-[-10deg] select-none"
-      />
+      <div className="absolute inset-0 bg-black/55" />
 
-      {/* Header */}
-      <header className="relative overflow-hidden">
-        <Image
-          src="/sponsors_bg.png"
-          alt=""
-          fill
-          className="object-cover object-center brightness-[1.15] contrast-[1.2] saturate-[1.3]"
-        />
-        <div className="absolute inset-0 bg-black/50" />
-        <div className="relative mx-auto max-w-5xl px-8 h-14 flex items-center gap-3">
-          <MHacksLogo size={24} />
-          <span className="font-heading italic text-lg text-white">
-            MHacks 2026
-          </span>
-          <span className="text-white/30 mx-1">|</span>
-          <span className="text-[13px] text-white/60 font-medium">
-            Hacker Application
-          </span>
-        </div>
-      </header>
+      {/* Floating flowers */}
+      <motion.div
+        animate={{ y: [0, -14, 0] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        className="pointer-events-none absolute -top-10 -left-20 opacity-[0.18] rotate-[-18deg] select-none hidden md:block"
+      >
+        <Image src="/yellow_flower.png" alt="" width={360} height={360} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, -10, 0] }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 1.5,
+        }}
+        className="pointer-events-none absolute top-24 -right-20 opacity-[0.14] rotate-12 select-none hidden md:block"
+      >
+        <Image src="/pink_flower.png" alt="" width={300} height={300} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, -9, 0] }}
+        transition={{
+          duration: 12,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 0.8,
+        }}
+        className="pointer-events-none absolute bottom-28 -left-16 opacity-[0.14] rotate-[8deg] select-none hidden md:block"
+      >
+        <Image src="/light_blue_flower.png" alt="" width={280} height={280} />
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, -11, 0] }}
+        transition={{
+          duration: 9,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 2.2,
+        }}
+        className="pointer-events-none absolute bottom-6 -right-14 opacity-[0.14] rotate-[-10deg] select-none hidden md:block"
+      >
+        <Image src="/pink_ascii_flower.png" alt="" width={240} height={240} />
+      </motion.div>
 
-      {/* Content */}
-      <div className="relative mx-auto max-w-2xl px-6 py-12 bg-white">
-        {/* Eyebrow */}
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-            Apply
-          </p>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-            Step {step + 1} of {STEPS.length}
-          </p>
-        </div>
-
-        {/* Page title */}
-        <div className="relative mb-8">
-          <h1
-            className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight"
-            style={{ color: GREEN }}
-          >
-            {STEPS[step].label}
-          </h1>
-          <Image
-            src="/yellow_flower.png"
-            alt=""
-            width={72}
-            height={72}
-            className="pointer-events-none opacity-30 rotate-[-18deg] select-none absolute top-1 right-0"
-          />
-        </div>
-
-        {/* Step bar */}
-        <div
-          className="rounded-2xl bg-white mb-8 border"
-          style={{ borderColor: GREEN_BORDER }}
+      {/* Page content */}
+      <div className="relative z-10 min-h-screen flex flex-col items-center py-8 px-4 sm:px-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: EASE }}
+          className="flex items-center justify-between w-full max-w-2xl mb-8"
         >
-          <StepBar current={step} />
-        </div>
-
-        {readOnly && (
           <div
-            className="mb-6 rounded-xl px-4 py-3 text-[13px] font-medium"
-            style={{
-              background: "rgba(58,74,38,0.08)",
-              color: "#3A4A26",
-              border: "1px solid rgba(58,74,38,0.15)",
-            }}
+            className={`flex items-center gap-3 rounded-full px-5 py-2.5 ${GLASS_PILL}`}
           >
-            Your application has been submitted and is under review. No further
-            changes can be made.
+            <MHacksLogo size={20} />
+            <span className="font-heading italic text-[17px] text-white leading-none">
+              MHacks 2026
+            </span>
+            <span className="text-white/25 mx-0.5">|</span>
+            <span className="font-red-hat text-[12px] text-white/55">
+              Hacker Application
+            </span>
           </div>
-        )}
+          <div className={`rounded-full px-4 py-2 ${GLASS_PILL}`}>
+            <span className="font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55">
+              {step + 1} / {STEPS.length}
+            </span>
+          </div>
+        </motion.div>
 
-        {/* Step content */}
-        <form onSubmit={(e) => e.preventDefault()}>
-          <div
-            className={`mb-8${readOnly ? " pointer-events-none select-none" : ""}`}
-          >
-            {step === 0 && (
-              <PersonalInformation
-                register={register}
-                errors={errors}
-                control={control}
-              />
-            )}
-            {step === 1 && (
-              <AcademicInformation
-                errors={errors}
-                register={register}
-                control={control}
-                setValue={setValue}
-                userId={userId}
-              />
-            )}
-            {step === 2 && <Essays register={register} errors={errors} />}
-            {step === 3 && (
-              <Logistics
-                register={register}
-                errors={errors}
-                control={control}
-              />
-            )}
-            {step === 4 && (
-              <div className="space-y-6">
-                <Socials register={register} errors={errors} />
-                <Communications control={control} />
+        {/* Form card */}
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.65, ease: EASE, delay: 0.1 }}
+          className={`w-full max-w-2xl rounded-3xl overflow-hidden ${GLASS_CARD}`}
+        >
+          {/* Card header */}
+          <div className="px-8 pt-8 pb-6">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <p
+                  className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] mb-1"
+                  style={{ color: "rgba(58,74,38,0.45)" }}
+                >
+                  Apply
+                </p>
+                <h1
+                  className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight"
+                  style={{ color: GREEN }}
+                >
+                  {STEPS[step].label}
+                </h1>
               </div>
-            )}
-            {step === 5 && <Agreements control={control} errors={errors} />}
+              <Image
+                src="/yellow_flower.png"
+                alt=""
+                width={68}
+                height={68}
+                className="opacity-30 rotate-[-18deg] pointer-events-none select-none shrink-0 mt-1"
+              />
+            </div>
+            <StepBar current={step} />
           </div>
 
-          {/* Navigation */}
-          <div className="flex items-center gap-3">
-            {step > 0 && (
-              <button
-                type="button"
-                onClick={() => setStep((s) => s - 1)}
-                className="rounded-full border px-6 py-2.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
-                style={{ borderColor: GREEN_BORDER }}
+          <div
+            className="h-px mx-8"
+            style={{ background: "rgba(58,74,38,0.08)" }}
+          />
+
+          {/* Step content */}
+          <div className="px-8 py-7">
+            {readOnly && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: EASE }}
+                className="mb-5 rounded-xl px-4 py-3 font-red-hat text-[13px] font-medium"
+                style={{
+                  background: "rgba(58,74,38,0.07)",
+                  color: GREEN,
+                  border: "1px solid rgba(58,74,38,0.13)",
+                }}
               >
-                Back
-              </button>
+                Your application has been submitted and is under review. No
+                further changes can be made.
+              </motion.div>
             )}
 
-            <div className="flex-1" />
+            <form onSubmit={(e) => e.preventDefault()}>
+              <AnimatePresence mode="wait" custom={direction}>
+                <motion.div
+                  key={step}
+                  custom={direction}
+                  variants={stepVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.22, ease: EASE }}
+                  className={
+                    readOnly ? "pointer-events-none select-none" : ""
+                  }
+                >
+                  {step === 0 && (
+                    <PersonalInformation
+                      register={register}
+                      errors={errors}
+                      control={control}
+                    />
+                  )}
+                  {step === 1 && (
+                    <AcademicInformation
+                      errors={errors}
+                      register={register}
+                      control={control}
+                      setValue={setValue}
+                      userId={userId}
+                    />
+                  )}
+                  {step === 2 && (
+                    <Essays register={register} errors={errors} control={control} />
+                  )}
+                  {step === 3 && (
+                    <Logistics
+                      register={register}
+                      errors={errors}
+                      control={control}
+                    />
+                  )}
+                  {step === 4 && (
+                    <div className="space-y-6">
+                      <Socials register={register} errors={errors} />
+                      <Communications control={control} />
+                    </div>
+                  )}
+                  {step === 5 && (
+                    <Agreements control={control} errors={errors} />
+                  )}
+                </motion.div>
+              </AnimatePresence>
 
-            {step < STEPS.length - 1 ? (
-              <button
-                type="button"
-                onClick={goNext}
-                className="rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
-                style={{ background: GREEN }}
+              {/* Navigation */}
+              <div
+                className="flex items-center gap-3 mt-8 pt-6 border-t"
+                style={{ borderColor: "rgba(58,74,38,0.08)" }}
               >
-                Continue
-              </button>
-            ) : readOnly ? (
-              <button
-                type="button"
-                onClick={() => router.push("/apply")}
-                className="rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
-                style={{ background: GREEN }}
-              >
-                View Application
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit(onSubmit)}
-                disabled={isSubmitting}
-                className="rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:opacity-50"
-                style={{ background: GREEN }}
-              >
-                {isSubmitting ? "Submitting…" : "Submit Application"}
-              </button>
-            )}
+                {step > 0 && (
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="font-red-hat rounded-full border px-6 py-2.5 text-[13px] font-medium transition-colors hover:bg-black/5"
+                    style={{
+                      borderColor: "rgba(58,74,38,0.2)",
+                      color: GREEN,
+                    }}
+                  >
+                    Back
+                  </button>
+                )}
+                <div className="flex-1" />
+                {step < STEPS.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
+                    style={{ background: GREEN }}
+                  >
+                    Continue
+                  </button>
+                ) : readOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/apply")}
+                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
+                    style={{ background: GREEN }}
+                  >
+                    View Application
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmit(onSubmit)}
+                    disabled={isSubmitting}
+                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:opacity-50"
+                    style={{ background: GREEN }}
+                  >
+                    {isSubmitting ? "Submitting…" : "Submit Application"}
+                  </button>
+                )}
+              </div>
+            </form>
           </div>
-        </form>
+        </motion.div>
+
+        <div className="h-12 shrink-0" />
       </div>
     </div>
   );
