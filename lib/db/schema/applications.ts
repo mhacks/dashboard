@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   timestamp,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
 
@@ -100,7 +101,19 @@ export const judgeApplicants = pgTable("judge_applicants", {
   ...applicationColumns(),
 });
 
+export const hackerApplicationDrafts = pgTable("hacker_application_drafts", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  data: jsonb("data").notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type HackerApplicantRow = typeof hackerApplicants.$inferSelect;
 export type NewHackerApplicant = typeof hackerApplicants.$inferInsert;
 export type JudgeApplicantRow = typeof judgeApplicants.$inferSelect;
 export type NewJudgeApplicant = typeof judgeApplicants.$inferInsert;
+export type HackerApplicationDraftRow =
+  typeof hackerApplicationDrafts.$inferSelect;

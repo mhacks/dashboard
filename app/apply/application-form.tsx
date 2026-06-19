@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -19,11 +19,15 @@ import Logistics from "./components/logistics";
 import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
-import { submitHackerApplication } from "@/lib/actions/application-form.server.actions";
+import {
+  submitHackerApplication,
+  saveDraft,
+} from "@/lib/actions/application-form.server.actions";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 
-const STORAGE_KEY = "mhacks-application-draft";
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 const GREEN = "#3A4A26";
 
@@ -184,9 +188,13 @@ const stepVariants = {
 export default function ApplyPage({
   userId,
   existingData,
+  draftData,
+  resumeUrl,
 }: {
   userId: string;
   existingData: HackerApplicantRow | null;
+  draftData: Record<string, unknown> | null;
+  resumeUrl: string | null;
 }) {
   const readOnly = existingData !== null;
   const router = useRouter();
@@ -195,6 +203,11 @@ export default function ApplyPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const draft = (draftData ?? {}) as Partial<HackerApplicationFormData>;
 
   const {
     register,
@@ -210,76 +223,74 @@ export default function ApplyPage({
     defaultValues: existingData
       ? rowToFormData(existingData)
       : {
-          age: undefined,
-          gender: "",
-          genderOther: "",
-          ethnicity: "",
-          ethnicityOther: "",
-          university: "",
-          universityOther: "",
-          country: "",
-          countryOther: "",
-          degree: "",
-          degreeOther: "",
-          graduationYear: undefined,
-          previousHackathons: undefined,
-          major: "",
-          majorOther: "",
-          resume: undefined,
-          whatWouldYouDo: "",
-          whyMhacks: "",
-          hillToDieOn: "",
-          transportationType: "",
-          comingFrom: "",
-          airportCode: "",
-          shirtSize: "",
-          hasAllergies: false,
-          allergiesDescription: "",
-          needsTravelReimbursement: false,
-          wouldAttendWithoutReimbursement: undefined,
-          github: "",
-          linkedin: "",
-          personalSite: "",
-          followsInstagram: false,
-          mlhCodeOfConduct: false,
-          mlhPrivacyPolicy: false,
-          mlhEmails: false,
-          sponsorEmails: false,
+          age: (draft.age as number | undefined) ?? undefined,
+          gender: draft.gender ?? "",
+          genderOther: draft.genderOther ?? "",
+          ethnicity: draft.ethnicity ?? "",
+          ethnicityOther: draft.ethnicityOther ?? "",
+          university: draft.university ?? "",
+          universityOther: draft.universityOther ?? "",
+          country: draft.country ?? "",
+          countryOther: draft.countryOther ?? "",
+          degree: draft.degree ?? "",
+          degreeOther: draft.degreeOther ?? "",
+          graduationYear: (draft.graduationYear as number | undefined) ?? undefined,
+          previousHackathons: (draft.previousHackathons as number | undefined) ?? undefined,
+          major: draft.major ?? "",
+          majorOther: draft.majorOther ?? "",
+          resume: draft.resume ?? undefined,
+          whatWouldYouDo: draft.whatWouldYouDo ?? "",
+          whyMhacks: draft.whyMhacks ?? "",
+          hillToDieOn: draft.hillToDieOn ?? "",
+          transportationType: draft.transportationType ?? "",
+          comingFrom: draft.comingFrom ?? "",
+          airportCode: draft.airportCode ?? "",
+          shirtSize: draft.shirtSize ?? "",
+          hasAllergies: draft.hasAllergies ?? false,
+          allergiesDescription: draft.allergiesDescription ?? "",
+          needsTravelReimbursement: draft.needsTravelReimbursement ?? false,
+          wouldAttendWithoutReimbursement: draft.wouldAttendWithoutReimbursement ?? undefined,
+          github: draft.github ?? "",
+          linkedin: draft.linkedin ?? "",
+          personalSite: draft.personalSite ?? "",
+          followsInstagram: draft.followsInstagram ?? false,
+          mlhCodeOfConduct: draft.mlhCodeOfConduct ?? false,
+          mlhPrivacyPolicy: draft.mlhPrivacyPolicy ?? false,
+          mlhEmails: draft.mlhEmails ?? false,
+          sponsorEmails: draft.sponsorEmails ?? false,
         },
   });
 
-  useEffect(() => {
-    if (readOnly) return;
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        Object.entries(data).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== "") {
-            setValue(
-              key as keyof HackerApplicationFormData,
-              value as HackerApplicationFormData[keyof HackerApplicationFormData],
-            );
-          }
-        });
-      } catch (e) {
-        console.error("Failed to load saved progress:", e);
-      }
-    }
-  }, [setValue, readOnly]);
+  const scheduleSave = useCallback(
+    (data: Partial<HackerApplicationFormData>) => {
+      if (readOnly) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      setSaveStatus("saving");
+      saveTimer.current = setTimeout(async () => {
+        try {
+          await saveDraft(userId, data);
+          setSaveStatus("saved");
+          savedTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
+        } catch {
+          setSaveStatus("error");
+        }
+      }, 1500);
+    },
+    [userId, readOnly],
+  );
 
   useEffect(() => {
+    if (readOnly) return;
     const subscription = watch((data) => {
-      const toSave = { ...data };
-      (Object.keys(toSave) as (keyof HackerApplicationFormData)[]).forEach(
-        (key) => {
-          if (toSave[key] === undefined) delete toSave[key];
-        },
-      );
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+      scheduleSave(data as Partial<HackerApplicationFormData>);
     });
-    return () => subscription.unsubscribe();
-  }, [watch]);
+    return () => {
+      subscription.unsubscribe();
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    };
+  }, [watch, scheduleSave, readOnly]);
 
   const goNext = async () => {
     if (!readOnly) {
@@ -300,10 +311,11 @@ export default function ApplyPage({
 
   const onSubmit = async (data: HackerApplicationFormData) => {
     if (step !== STEPS.length - 1 || readOnly) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
     setIsSubmitting(true);
     try {
       const { duplicate } = await submitHackerApplication(userId, data);
-      localStorage.removeItem(STORAGE_KEY);
       if (duplicate) {
         setIsDuplicate(true);
       } else {
@@ -470,10 +482,29 @@ export default function ApplyPage({
               Hacker Application
             </span>
           </div>
-          <div className={`rounded-full px-4 py-2 ${GLASS_PILL}`}>
-            <span className="font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55">
-              {step + 1} / {STEPS.length}
-            </span>
+          <div className="flex items-center gap-2">
+            {!readOnly && saveStatus !== "idle" && (
+              <span
+                className="font-red-hat text-[11px] transition-opacity duration-300"
+                style={{
+                  color:
+                    saveStatus === "error"
+                      ? "rgba(220,38,38,0.8)"
+                      : "rgba(255,255,255,0.45)",
+                }}
+              >
+                {saveStatus === "saving"
+                  ? "Saving…"
+                  : saveStatus === "saved"
+                    ? "Saved"
+                    : "Failed to save"}
+              </span>
+            )}
+            <div className={`rounded-full px-4 py-2 ${GLASS_PILL}`}>
+              <span className="font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55">
+                {step + 1} / {STEPS.length}
+              </span>
+            </div>
           </div>
         </motion.div>
 
@@ -564,6 +595,7 @@ export default function ApplyPage({
                       control={control}
                       setValue={setValue}
                       userId={userId}
+                      resumeUrl={resumeUrl}
                     />
                   )}
                   {step === 2 && (

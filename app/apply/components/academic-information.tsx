@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Controller,
   useWatch,
@@ -36,14 +36,18 @@ const AcademicInformation = ({
   control,
   setValue,
   userId,
+  resumeUrl,
 }: {
   errors: FieldErrors<HackerApplicationFormData>;
   register: UseFormRegister<HackerApplicationFormData>;
   control: Control<HackerApplicationFormData>;
   setValue: UseFormSetValue<HackerApplicationFormData>;
   userId: string;
+  resumeUrl: string | null;
 }) => {
-  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const resume = useWatch({ control, name: "resume" });
+  const justUploaded = useRef(false);
+  const [uploadState, setUploadState] = useState<UploadState>(resume ? "done" : "idle");
   const university = useWatch({ control, name: "university" });
   const country = useWatch({ control, name: "country" });
   const degree = useWatch({ control, name: "degree" });
@@ -262,6 +266,7 @@ const AcademicInformation = ({
                   }
                   const { key } = await res.json();
                   setValue("resume", key);
+                  justUploaded.current = true;
                   setUploadState("done");
                 } catch (err) {
                   console.error("Resume upload error:", err);
@@ -281,7 +286,9 @@ const AcademicInformation = ({
             )}
             {uploadState === "done" && (
               <p className="text-xs text-green-600">
-                Resume uploaded successfully
+                {justUploaded.current
+                  ? "Resume uploaded successfully"
+                  : "Resume on file — upload a new PDF to replace it"}
               </p>
             )}
             {uploadState === "error" && (
@@ -290,6 +297,34 @@ const AcademicInformation = ({
               </p>
             )}
           </FormField>
+
+          {resumeUrl && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium" style={{ color: "#3A4A26" }}>
+                  Your Resume
+                </p>
+                <a
+                  href={resumeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs underline underline-offset-2"
+                  style={{ color: "rgba(58,74,38,0.6)" }}
+                >
+                  Open in new tab
+                </a>
+              </div>
+              <iframe
+                src={resumeUrl}
+                title="Your resume"
+                className="w-full rounded-xl border"
+                style={{
+                  height: "480px",
+                  borderColor: "rgba(58,74,38,0.15)",
+                }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
     </>

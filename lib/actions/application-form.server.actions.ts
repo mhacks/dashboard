@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import {
   hackerApplicants,
+  hackerApplicationDrafts,
   judgeApplicants,
 } from "@/lib/db/schema/applications";
 
@@ -21,9 +22,33 @@ export const submitHackerApplication = async (
       .onConflictDoNothing()
       .returning({ id: hackerApplicants.id });
 
+    if (result.length > 0) {
+      await db
+        .delete(hackerApplicationDrafts)
+        .where(eq(hackerApplicationDrafts.userId, userId));
+    }
+
     return { duplicate: result.length === 0 };
   } catch (error) {
     console.error("Unable to submit Hacker Application:", error);
+    throw error;
+  }
+};
+
+export const saveDraft = async (
+  userId: string,
+  data: Partial<HackerApplicationFormData>,
+): Promise<void> => {
+  try {
+    await db
+      .insert(hackerApplicationDrafts)
+      .values({ userId, data: data as Record<string, unknown> })
+      .onConflictDoUpdate({
+        target: hackerApplicationDrafts.userId,
+        set: { data: data as Record<string, unknown>, updatedAt: new Date() },
+      });
+  } catch (error) {
+    console.error("Unable to save draft:", error);
     throw error;
   }
 };
