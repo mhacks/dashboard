@@ -87,4 +87,57 @@ are preserved across regeneration.`,
       },
     ],
   },
+  {
+    title: "Admin email campaigns",
+    description: `Server-only campaign sending settings. Keep campaigns disabled until local
+database tables are pushed and real SES credentials are intentionally configured.`,
+    vars: [
+      {
+        name: "ENABLE_EMAIL_CAMPAIGNS",
+        source: preserved("false"),
+      },
+      {
+        name: "EMAIL_CAMPAIGN_ALLOW_FULL_SENDS",
+        source: preserved("false"),
+        comment:
+          "Set true in production only after admin auth and SES limits are verified.",
+      },
+      {
+        name: "AWS_SES_REGION",
+        source: preserved(""),
+      },
+      {
+        name: "AWS_ACCESS_KEY_ID",
+        source: preserved(""),
+      },
+      {
+        name: "AWS_SECRET_ACCESS_KEY",
+        source: preserved(""),
+      },
+      {
+        name: "SES_FROM_EMAIL",
+        source: preserved("hackathon@mhacks.org"),
+      },
+      {
+        name: "SES_FROM_NAME",
+        source: preserved("MHacks Team"),
+      },
+      {
+        name: "EMAIL_CAMPAIGN_MAX_RECIPIENTS",
+        source: preserved("2000"),
+      },
+      {
+        name: "EMAIL_CAMPAIGN_BATCH_SIZE",
+        source: preserved("25"),
+      },
+      {
+        name: "EMAIL_CAMPAIGN_SEND_DELAY_MS",
+        source: preserved("100"),
+      },
+      {
+        name: "EMAIL_CAMPAIGN_MAX_SEND_RATE_PER_SECOND",
+        source: preserved("14"),
+      },
+    ],
+  },
 ];
