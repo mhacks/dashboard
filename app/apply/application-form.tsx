@@ -594,7 +594,6 @@ export default function ApplyPage({
                       register={register}
                       control={control}
                       setValue={setValue}
-                      userId={userId}
                       resumeUrl={resumeUrl}
                     />
                   )}

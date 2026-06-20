@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   Controller,
   useWatch,
@@ -35,18 +35,16 @@ const AcademicInformation = ({
   register,
   control,
   setValue,
-  userId,
   resumeUrl,
 }: {
   errors: FieldErrors<HackerApplicationFormData>;
   register: UseFormRegister<HackerApplicationFormData>;
   control: Control<HackerApplicationFormData>;
   setValue: UseFormSetValue<HackerApplicationFormData>;
-  userId: string;
   resumeUrl: string | null;
 }) => {
   const resume = useWatch({ control, name: "resume" });
-  const justUploaded = useRef(false);
+  const [justUploaded, setJustUploaded] = useState(false);
   const [uploadState, setUploadState] = useState<UploadState>(resume ? "done" : "idle");
   const university = useWatch({ control, name: "university" });
   const country = useWatch({ control, name: "country" });
@@ -266,7 +264,7 @@ const AcademicInformation = ({
                   }
                   const { key } = await res.json();
                   setValue("resume", key);
-                  justUploaded.current = true;
+                  setJustUploaded(true);
                   setUploadState("done");
                 } catch (err) {
                   console.error("Resume upload error:", err);
@@ -286,7 +284,7 @@ const AcademicInformation = ({
             )}
             {uploadState === "done" && (
               <p className="text-xs text-green-600">
-                {justUploaded.current
+                {justUploaded
                   ? "Resume uploaded successfully"
                   : "Resume on file — upload a new PDF to replace it"}
               </p>

@@ -15,12 +15,10 @@ function wordCount(s: string) {
 
 function Counters({
   value,
-  minWords,
   maxWords,
   maxChars,
 }: {
   value: string;
-  minWords: number;
   maxWords: number;
   maxChars: number;
 }) {
@@ -77,7 +75,6 @@ const Essays = ({
             )}
             <Counters
               value={whatWouldYouDo}
-              minWords={10}
               maxWords={100}
               maxChars={600}
             />
@@ -100,7 +97,6 @@ const Essays = ({
             )}
             <Counters
               value={whyMhacks}
-              minWords={20}
               maxWords={200}
               maxChars={1200}
             />
@@ -123,7 +119,6 @@ const Essays = ({
             )}
             <Counters
               value={hillToDieOn}
-              minWords={3}
               maxWords={10}
               maxChars={80}
             />
