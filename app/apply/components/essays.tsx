@@ -1,11 +1,11 @@
-import { UseFormRegister, FieldErrors, useWatch, Control } from "react-hook-form";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  UseFormRegister,
+  FieldErrors,
+  useWatch,
+  Control,
+} from "react-hook-form";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "../utils";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
@@ -73,11 +73,7 @@ const Essays = ({
             ) : (
               <span />
             )}
-            <Counters
-              value={whatWouldYouDo}
-              maxWords={100}
-              maxChars={600}
-            />
+            <Counters value={whatWouldYouDo} maxWords={100} maxChars={600} />
           </div>
         </FormField>
 
@@ -95,11 +91,7 @@ const Essays = ({
             ) : (
               <span />
             )}
-            <Counters
-              value={whyMhacks}
-              maxWords={200}
-              maxChars={1200}
-            />
+            <Counters value={whyMhacks} maxWords={200} maxChars={1200} />
           </div>
         </FormField>
 
@@ -117,11 +109,7 @@ const Essays = ({
             ) : (
               <span />
             )}
-            <Counters
-              value={hillToDieOn}
-              maxWords={10}
-              maxChars={80}
-            />
+            <Counters value={hillToDieOn} maxWords={10} maxChars={80} />
           </div>
         </FormField>
       </CardContent>

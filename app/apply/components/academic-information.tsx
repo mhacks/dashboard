@@ -45,7 +45,9 @@ const AcademicInformation = ({
 }) => {
   const resume = useWatch({ control, name: "resume" });
   const [justUploaded, setJustUploaded] = useState(false);
-  const [uploadState, setUploadState] = useState<UploadState>(resume ? "done" : "idle");
+  const [uploadState, setUploadState] = useState<UploadState>(
+    resume ? "done" : "idle",
+  );
   const university = useWatch({ control, name: "university" });
   const country = useWatch({ control, name: "country" });
   const degree = useWatch({ control, name: "degree" });

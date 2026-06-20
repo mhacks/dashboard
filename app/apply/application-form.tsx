@@ -234,8 +234,10 @@ export default function ApplyPage({
           countryOther: draft.countryOther ?? "",
           degree: draft.degree ?? "",
           degreeOther: draft.degreeOther ?? "",
-          graduationYear: (draft.graduationYear as number | undefined) ?? undefined,
-          previousHackathons: (draft.previousHackathons as number | undefined) ?? undefined,
+          graduationYear:
+            (draft.graduationYear as number | undefined) ?? undefined,
+          previousHackathons:
+            (draft.previousHackathons as number | undefined) ?? undefined,
           major: draft.major ?? "",
           majorOther: draft.majorOther ?? "",
           resume: draft.resume ?? undefined,
@@ -249,7 +251,8 @@ export default function ApplyPage({
           hasAllergies: draft.hasAllergies ?? false,
           allergiesDescription: draft.allergiesDescription ?? "",
           needsTravelReimbursement: draft.needsTravelReimbursement ?? false,
-          wouldAttendWithoutReimbursement: draft.wouldAttendWithoutReimbursement ?? undefined,
+          wouldAttendWithoutReimbursement:
+            draft.wouldAttendWithoutReimbursement ?? undefined,
           github: draft.github ?? "",
           linkedin: draft.linkedin ?? "",
           personalSite: draft.personalSite ?? "",
@@ -357,12 +360,7 @@ export default function ApplyPage({
           }}
           className="pointer-events-none absolute bottom-10 -right-12 opacity-20 rotate-[-10deg] hidden md:block"
         >
-          <Image
-            src="/pink_ascii_flower.png"
-            alt=""
-            width={260}
-            height={260}
-          />
+          <Image src="/pink_ascii_flower.png" alt="" width={260} height={260} />
         </motion.div>
 
         <motion.div
@@ -393,7 +391,9 @@ export default function ApplyPage({
               : "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."}
           </p>
           <button
-            onClick={() => { window.location.href = "/apply"; }}
+            onClick={() => {
+              window.location.href = "/apply";
+            }}
             className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
             style={{ background: GREEN }}
           >
@@ -577,9 +577,7 @@ export default function ApplyPage({
                   animate="center"
                   exit="exit"
                   transition={{ duration: 0.22, ease: EASE }}
-                  className={
-                    readOnly ? "pointer-events-none select-none" : ""
-                  }
+                  className={readOnly ? "pointer-events-none select-none" : ""}
                 >
                   {step === 0 && (
                     <PersonalInformation
@@ -598,7 +596,11 @@ export default function ApplyPage({
                     />
                   )}
                   {step === 2 && (
-                    <Essays register={register} errors={errors} control={control} />
+                    <Essays
+                      register={register}
+                      errors={errors}
+                      control={control}
+                    />
                   )}
                   {step === 3 && (
                     <Logistics

@@ -186,7 +186,8 @@ export const data: ApplicantData[] = [
     country: "United States",
     previousHackathons: 0,
     whatWouldYouDo: "Learn from developers and maybe build a simple web app.",
-    whyMhacks: "I want to attend to learn about technology and meet developers.",
+    whyMhacks:
+      "I want to attend to learn about technology and meet developers.",
     hillToDieOn: "Excel is a perfectly valid programming language.",
     transportationType: "Driving",
     comingFrom: "Champaign, IL",
