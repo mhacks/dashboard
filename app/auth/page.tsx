@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sendOtp } from "@/lib/actions/auth.server.actions";
@@ -98,8 +99,8 @@ function AuthForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-[#f4f2e8]">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
+      <Card className="w-full max-w-sm bg-[#faf9f4] border-[#c8d4a8]">
+        <CardHeader className="flex flex-col items-center pb-2">
           <MHacksLogo size={48} />
           <p
             className="mt-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-center"
@@ -119,64 +120,71 @@ function AuthForm() {
           >
             Enter your email to receive a one-time code.
           </p>
-        </div>
+        </CardHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label
-              htmlFor="email"
-              className="text-[12px] font-medium uppercase tracking-widest"
-              style={{ color: "rgba(58,74,38,0.6)" }}
+        <CardContent>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label
+                htmlFor="email"
+                className="text-[12px] font-medium uppercase tracking-widest"
+                style={{ color: "rgba(58,74,38,0.6)" }}
+              >
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+                className="bg-white border-[#c8d4a8] focus-visible:ring-[#3A4A26] text-[14px] h-11"
+              />
+            </div>
+
+            {error && <p className="text-[13px] text-red-600">{error}</p>}
+
+            {lastSent && (
+              <p
+                className="text-[12px]"
+                style={{ color: "rgba(58,74,38,0.55)" }}
+              >
+                {inCooldown ? (
+                  <>
+                    Code sent to{" "}
+                    <span className="font-medium">{lastSent.email}</span> at{" "}
+                    {formatTime(new Date(lastSent.timestamp))}. Resend in{" "}
+                    <span className="font-medium tabular-nums">
+                      {timeLeft}s
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Last code sent to{" "}
+                    <span className="font-medium">{lastSent.email}</span> at{" "}
+                    {formatTime(new Date(lastSent.timestamp))}.
+                  </>
+                )}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loading || inCooldown}
+              className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
+              style={{ background: "#3A4A26", color: "#fff" }}
             >
-              Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-              className="bg-white border-[#c8d4a8] focus-visible:ring-[#3A4A26] text-[14px] h-11"
-            />
-          </div>
-
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
-
-          {lastSent && (
-            <p className="text-[12px]" style={{ color: "rgba(58,74,38,0.55)" }}>
-              {inCooldown ? (
-                <>
-                  Code sent to{" "}
-                  <span className="font-medium">{lastSent.email}</span> at{" "}
-                  {formatTime(new Date(lastSent.timestamp))}. Resend in{" "}
-                  <span className="font-medium tabular-nums">{timeLeft}s</span>
-                </>
-              ) : (
-                <>
-                  Last code sent to{" "}
-                  <span className="font-medium">{lastSent.email}</span> at{" "}
-                  {formatTime(new Date(lastSent.timestamp))}.
-                </>
-              )}
-            </p>
-          )}
-
-          <Button
-            type="submit"
-            disabled={loading || inCooldown}
-            className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
-            style={{ background: "#3A4A26", color: "#fff" }}
-          >
-            {loading
-              ? "Sending…"
-              : inCooldown
-                ? `Resend in ${timeLeft}s`
-                : "Send code"}
-          </Button>
-        </form>
-      </div>
+              {loading
+                ? "Sending…"
+                : inCooldown
+                  ? `Resend in ${timeLeft}s`
+                  : "Send code"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
