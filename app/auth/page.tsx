@@ -6,6 +6,11 @@ import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { sendOtp, verifyOtp } from "@/lib/actions/auth.server.actions";
 
@@ -230,28 +235,22 @@ function AuthForm() {
 
             <CardContent>
               <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="token"
-                    className="text-[12px] font-medium uppercase tracking-widest"
-                    style={{ color: "rgba(58,74,38,0.6)" }}
-                  >
-                    One-time code
-                  </Label>
-                  <Input
-                    id="token"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="123456"
-                    value={token}
-                    onChange={(e) =>
-                      setToken(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
+                <div className="flex flex-col items-center gap-3">
+                  <InputOTP
                     maxLength={6}
-                    required
+                    value={token}
+                    onChange={setToken}
                     autoFocus
-                    className="bg-white border-[#c8d4a8] focus-visible:ring-[#3A4A26] text-[14px] h-11 tracking-[0.4em] font-mono"
-                  />
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
+                      <InputOTPSlot index={1} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
+                      <InputOTPSlot index={2} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
+                      <InputOTPSlot index={3} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
+                      <InputOTPSlot index={4} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
+                      <InputOTPSlot index={5} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
+                    </InputOTPGroup>
+                  </InputOTP>
                 </div>
 
                 {error && <p className="text-[13px] text-red-600">{error}</p>}
