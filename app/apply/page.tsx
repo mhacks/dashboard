@@ -47,7 +47,6 @@ export default async function ApplicationFormPage() {
     return (
       <Suspense fallback={<ApplicationFormSkeleton />}>
         <ApplyPage
-          userId={userId}
           existingData={existingApp}
           draftData={null}
           resumeUrl={resumeUrl}
@@ -89,7 +88,6 @@ export default async function ApplicationFormPage() {
   return (
     <Suspense fallback={<ApplicationFormSkeleton />}>
       <ApplyPage
-        userId={userId}
         existingData={null}
         draftData={draftData}
         resumeUrl={resumeUrl}

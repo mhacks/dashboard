@@ -187,12 +187,10 @@ const stepVariants = {
 };
 
 export default function ApplyPage({
-  userId,
   existingData,
   draftData,
   resumeUrl,
 }: {
-  userId: string;
   existingData: HackerApplicantRow | null;
   draftData: Record<string, unknown> | null;
   resumeUrl: string | null;
@@ -273,7 +271,7 @@ export default function ApplyPage({
       setSaveStatus("saving");
       saveTimer.current = setTimeout(async () => {
         try {
-          await saveDraft(userId, data);
+          await saveDraft(data);
           setSaveStatus("saved");
           savedTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
         } catch {
@@ -281,7 +279,7 @@ export default function ApplyPage({
         }
       }, 1500);
     },
-    [userId, readOnly],
+    [readOnly],
   );
 
   useEffect(() => {
@@ -319,7 +317,7 @@ export default function ApplyPage({
     if (savedTimer.current) clearTimeout(savedTimer.current);
     setIsSubmitting(true);
     try {
-      const { duplicate } = await submitHackerApplication(userId, data);
+      const { duplicate } = await submitHackerApplication(data);
       if (duplicate) {
         setIsDuplicate(true);
       } else {

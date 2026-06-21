@@ -2,6 +2,8 @@
 import {
   HackerApplicationFormData,
   JudgeApplicationFormData,
+  hackerApplicationSchema,
+  judgeApplicationSchema,
 } from "@/lib/types/applications";
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -10,15 +12,27 @@ import {
   hackerApplicationDrafts,
   judgeApplicants,
 } from "@/lib/db/schema/applications";
+import { createClient } from "@/lib/supabase/server";
+
+async function getAuthenticatedUserId(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  return user.id;
+}
 
 export const submitHackerApplication = async (
-  userId: string,
   data: HackerApplicationFormData,
 ): Promise<{ duplicate: boolean }> => {
+  const userId = await getAuthenticatedUserId();
+  const parsed = hackerApplicationSchema.parse(data);
+
   try {
     const result = await db
       .insert(hackerApplicants)
-      .values({ ...data, userId })
+      .values({ ...parsed, userId })
       .onConflictDoNothing()
       .returning({ id: hackerApplicants.id });
 
@@ -36,16 +50,21 @@ export const submitHackerApplication = async (
 };
 
 export const saveDraft = async (
-  userId: string,
   data: Partial<HackerApplicationFormData>,
 ): Promise<void> => {
+  const userId = await getAuthenticatedUserId();
+  const parsed = hackerApplicationSchema.partial().parse(data);
+
   try {
     await db
       .insert(hackerApplicationDrafts)
-      .values({ userId, data: data as Record<string, unknown> })
+      .values({ userId, data: parsed as Record<string, unknown> })
       .onConflictDoUpdate({
         target: hackerApplicationDrafts.userId,
-        set: { data: data as Record<string, unknown>, updatedAt: new Date() },
+        set: {
+          data: parsed as Record<string, unknown>,
+          updatedAt: new Date(),
+        },
       });
   } catch (error) {
     console.error("Unable to save draft:", error);
@@ -54,13 +73,15 @@ export const saveDraft = async (
 };
 
 export const updateHackerApplication = async (
-  userId: string,
   data: HackerApplicationFormData,
 ): Promise<void> => {
+  const userId = await getAuthenticatedUserId();
+  const parsed = hackerApplicationSchema.parse(data);
+
   try {
     await db
       .update(hackerApplicants)
-      .set({ ...data })
+      .set({ ...parsed })
       .where(eq(hackerApplicants.userId, userId));
   } catch (error) {
     console.error("Unable to update Hacker Application:", error);
@@ -69,13 +90,15 @@ export const updateHackerApplication = async (
 };
 
 export const updateJudgeApplications = async (
-  userId: string,
   data: JudgeApplicationFormData,
 ) => {
+  const userId = await getAuthenticatedUserId();
+  const parsed = judgeApplicationSchema.parse(data);
+
   try {
     await db.insert(judgeApplicants).values({
-      ...data,
-      userId: userId,
+      ...parsed,
+      userId,
     });
   } catch (error) {
     console.error("Unable to update Judge Applications");
