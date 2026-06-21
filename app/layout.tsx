@@ -7,6 +7,7 @@ import {
 } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthStateSync } from "@/components/auth-state-sync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,7 +49,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${redHatDisplay.variable} antialiased`}
         suppressHydrationWarning
       >
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <AuthStateSync />
+          {children}
+        </TooltipProvider>
       </body>
     </html>
   );

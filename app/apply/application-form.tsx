@@ -23,7 +23,7 @@ import {
   submitHackerApplication,
   saveDraft,
 } from "@/lib/actions/application-form.server.actions";
-import { logout } from "@/lib/actions/auth.server.actions";
+import { createClient } from "@/lib/supabase/client";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 
@@ -203,6 +203,7 @@ export default function ApplyPage({
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -504,14 +505,18 @@ export default function ApplyPage({
                 {step + 1} / {STEPS.length}
               </span>
             </div>
-            <form action={logout}>
-              <button
-                type="submit"
-                className={`rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 ${GLASS_PILL}`}
-              >
-                Sign out
-              </button>
-            </form>
+            <button
+              type="button"
+              disabled={isSigningOut}
+              onClick={async () => {
+                setIsSigningOut(true);
+                await createClient().auth.signOut().catch(() => {});
+                router.push("/");
+              }}
+              className={`rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 disabled:opacity-50 ${GLASS_PILL}`}
+            >
+              Sign out
+            </button>
           </div>
         </motion.div>
 
