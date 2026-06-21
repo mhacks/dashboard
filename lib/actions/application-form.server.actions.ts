@@ -45,7 +45,7 @@ export const submitHackerApplication = async (
     return { duplicate: result.length === 0 };
   } catch (error) {
     console.error("Unable to submit Hacker Application:", error);
-    throw error;
+    throw new Error(error instanceof Error ? error.message : "Failed to submit application");
   }
 };
 
@@ -53,22 +53,21 @@ export const saveDraft = async (
   data: Partial<HackerApplicationFormData>,
 ): Promise<void> => {
   const userId = await getAuthenticatedUserId();
-  const parsed = hackerApplicationSchema.partial().parse(data);
 
   try {
     await db
       .insert(hackerApplicationDrafts)
-      .values({ userId, data: parsed as Record<string, unknown> })
+      .values({ userId, data: data as Record<string, unknown> })
       .onConflictDoUpdate({
         target: hackerApplicationDrafts.userId,
         set: {
-          data: parsed as Record<string, unknown>,
+          data: data as Record<string, unknown>,
           updatedAt: new Date(),
         },
       });
   } catch (error) {
     console.error("Unable to save draft:", error);
-    throw error;
+    throw new Error(error instanceof Error ? error.message : "Failed to save draft");
   }
 };
 
@@ -85,7 +84,7 @@ export const updateHackerApplication = async (
       .where(eq(hackerApplicants.userId, userId));
   } catch (error) {
     console.error("Unable to update Hacker Application:", error);
-    throw error;
+    throw new Error(error instanceof Error ? error.message : "Failed to update application");
   }
 };
 
