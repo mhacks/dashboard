@@ -30,6 +30,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.4.0",
+    "@marsidev/react-turnstile": "^1.5.3",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "@tanstack/react-table": "^8.21.3",

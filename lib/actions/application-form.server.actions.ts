@@ -45,7 +45,9 @@ export const submitHackerApplication = async (
     return { duplicate: result.length === 0 };
   } catch (error) {
     console.error("Unable to submit Hacker Application:", error);
-    throw new Error(error instanceof Error ? error.message : "Failed to submit application");
+    throw new Error(
+      error instanceof Error ? error.message : "Failed to submit application",
+    );
   }
 };
 
@@ -67,7 +69,9 @@ export const saveDraft = async (
       });
   } catch (error) {
     console.error("Unable to save draft:", error);
-    throw new Error(error instanceof Error ? error.message : "Failed to save draft");
+    throw new Error(
+      error instanceof Error ? error.message : "Failed to save draft",
+    );
   }
 };
 
@@ -84,7 +88,9 @@ export const updateHackerApplication = async (
       .where(eq(hackerApplicants.userId, userId));
   } catch (error) {
     console.error("Unable to update Hacker Application:", error);
-    throw new Error(error instanceof Error ? error.message : "Failed to update application");
+    throw new Error(
+      error instanceof Error ? error.message : "Failed to update application",
+    );
   }
 };
 

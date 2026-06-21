@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -37,6 +38,8 @@ function AuthForm() {
 
   const [step, setStep] = useState<"email" | "verify">("email");
   const [sentEmail, setSentEmail] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const emailForm = useForm<EmailForm>({
     resolver: zodResolver(emailSchema),
@@ -51,9 +54,17 @@ function AuthForm() {
   const tokenValue = tokenForm.watch("token");
 
   async function onSendOtp({ email }: EmailForm) {
-    const result = await sendOtp(email);
+    if (!turnstileToken) {
+      emailForm.setError("email", {
+        message: "Please complete the security check.",
+      });
+      return;
+    }
+    const result = await sendOtp(email, turnstileToken);
     if (result?.error) {
       emailForm.setError("email", { message: result.error });
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       return;
     }
     setSentEmail(email);
@@ -70,6 +81,8 @@ function AuthForm() {
   function goBack() {
     setStep("email");
     tokenForm.reset();
+    emailForm.reset();
+    setTurnstileToken(null);
   }
 
   const sharedHeader = (
@@ -133,9 +146,18 @@ function AuthForm() {
                   )}
                 </div>
 
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={process.env.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY!}
+                  options={{ appearance: "interaction-only" }}
+                  onSuccess={setTurnstileToken}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                />
+
                 <Button
                   type="submit"
-                  disabled={emailForm.formState.isSubmitting}
+                  disabled={emailForm.formState.isSubmitting || !turnstileToken}
                   className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
                   style={{ background: "#3A4A26", color: "#fff" }}
                 >
