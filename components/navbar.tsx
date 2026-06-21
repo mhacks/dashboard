@@ -1,62 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import Image from "next/image";
 
 const links = [
   { href: "#about", label: "About" },
-  // { href: "#tracks", label: "Tracks" },
+  { href: "#stats", label: "Tracks" },
   { href: "#timeline", label: "Dates" },
   { href: "#sponsors", label: "Sponsors" },
   { href: "#faqs", label: "FAQ" },
 ];
 
 const pillClass =
-  "border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl";
+  "border border-[rgba(31,42,22,0.1)] bg-white shadow-[0_8px_16px_rgba(31,42,22,0.12),inset_0_1px_0_rgba(255,255,255,0.8)]";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
-  const [showLogo, setShowLogo] = useState(false);
-
-  useEffect(() => {
-    const heroLogo = document.getElementById("hero-logo");
-    if (!heroLogo) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowLogo(!entry.isIntersecting),
-      { threshold: 0 },
-    );
-
-    observer.observe(heroLogo);
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <>
       {/* ── Mobile (< lg) ── */}
-      <nav className="fixed top-6 sm:top-8 right-6 sm:right-8 z-50 lg:hidden flex items-center gap-2">
-        {/* Disabled Apply Now */}
-        <div className="relative group">
-          <span
-            className={`${pillClass} font-red-hat inline-block cursor-not-allowed select-none rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic text-white/35`}
-          >
-            Apply Now
-          </span>
-          <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/90 px-3 py-1.5 text-[12px] text-zinc-700 shadow-sm backdrop-blur-sm opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            Applications open Jun. 22
-          </div>
-        </div>
-
+      <nav className="fixed left-1/2 top-6 z-50 flex -translate-x-1/2 items-center gap-2 lg:hidden">
         {/* Hamburger pill + dropdown */}
         <div className="relative">
           <div
-            className={`${pillClass} rounded-full flex items-center justify-center p-3`}
+            className={`${pillClass} flex items-center justify-center rounded-full p-3`}
           >
             <button
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              className="relative flex items-center justify-center h-[18px] w-[18px] text-white"
+              className="relative flex h-[18px] w-[18px] items-center justify-center text-[#1f2a16]"
             >
               <Menu
                 size={18}
@@ -78,13 +51,13 @@ export default function NavBar() {
           </div>
 
           <div
-            className={`absolute right-0 mt-2 ${pillClass} rounded-2xl transition-all duration-300 origin-top-right ${
+            className={`absolute left-1/2 mt-2 -translate-x-1/2 ${pillClass} origin-top rounded-2xl transition-all duration-300 ${
               open
                 ? "pointer-events-auto scale-100 opacity-100"
                 : "pointer-events-none scale-95 opacity-0"
             }`}
           >
-            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-[17px] font-heading italic text-white">
+            <div className="font-red-hat flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-center text-[15px] font-medium text-[rgba(31,42,22,0.72)]">
               {links.map((link) => (
                 <a
                   key={link.href}
@@ -101,40 +74,16 @@ export default function NavBar() {
       </nav>
 
       {/* ── Desktop (lg+) ── */}
-      <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 lg:block">
+      <nav className="fixed left-1/2 top-[44px] z-50 hidden -translate-x-1/2 lg:block">
         <div
-          className={`flex items-center rounded-full ${pillClass} px-6 py-3`}
+          className={`flex items-center gap-1 rounded-full ${pillClass} p-[7px]`}
         >
-          {/* Logo slides in from the left */}
-          <div
-            className="overflow-hidden flex items-center"
-            style={{
-              maxWidth: showLogo ? "44px" : "0px",
-              opacity: showLogo ? 1 : 0,
-              marginRight: showLogo ? "20px" : "0px",
-              transition:
-                "max-width 0.5s ease, opacity 0.4s ease, margin 0.5s ease",
-              flexShrink: 0,
-            }}
-          >
-            <a href="#">
-              <Image
-                src="/mhacks_logo.png"
-                alt="MHacks"
-                width={24}
-                height={24}
-                className="brightness-[1.4] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] block"
-              />
-            </a>
-            <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
-          </div>
-
-          <div className="flex items-center gap-7 text-[19px] font-heading italic text-white">
+          <div className="font-red-hat flex items-center text-[13.5px] font-medium leading-[20.25px]">
             {links.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="transition-opacity hover:opacity-60"
+                className="rounded-full px-4 py-2 text-[rgba(31,42,22,0.7)] transition-colors duration-300 first:bg-[#d2e7ff] first:text-[#010101] hover:bg-[#eef6ec]"
               >
                 {link.label}
               </a>

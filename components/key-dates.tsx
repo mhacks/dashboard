@@ -1,152 +1,215 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { motion } from "framer-motion";
 
-const EASE = [0.25, 0.1, 0.25, 1] as const;
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 const KEY_DATES = [
-  { iso: "2026-06-22", date: "Jun. 22", label: "Applications Open" },
-  { iso: "2026-08-07", date: "Aug. 07", label: "Early Application Deadline" },
   {
-    iso: "2026-08-21",
-    date: "Aug. 21",
-    label: "Early Decisions Released (Rolling)",
+    date: "June 22nd, 2026",
+    label: "Hacker Applications Open",
+    x: "33px",
+    y: "348px",
+    dateOffset: "8px",
+    tone: "pink",
   },
   {
-    iso: "2026-09-12",
-    date: "Sep. 12",
-    label: "Regular Applications Deadline",
+    date: "August 7th, 2026",
+    label: "Early Applications Due",
+    x: "331px",
+    y: "378px",
+    dateOffset: "8px",
+    tone: "blue",
   },
-  { iso: "2026-09-19", date: "Sep. 19", label: "Regular Decisions Released" },
-];
+  {
+    date: "August 14th, 2026",
+    label: "Early Decisions Released",
+    x: "617px",
+    y: "492px",
+    dateOffset: "8px",
+    tone: "pink",
+  },
+  {
+    date: "September 12th, 2026",
+    label: "Regular Applications Due",
+    x: "864px",
+    y: "606px",
+    dateOffset: "8px",
+    tone: "blue",
+  },
+  {
+    date: "September 19th, 2026",
+    label: "Regular Decisions Released",
+    x: "1101px",
+    y: "678px",
+    dateOffset: "8px",
+    tone: "pink",
+  },
+] as const;
 
-function midnightEastern(iso: string) {
-  return new Date(`${iso}T00:00:00-04:00`).getTime();
+const toneStyles = {
+  pink: {
+    labelBg: "#fde2f2",
+    labelText: "#7f1140",
+  },
+  blue: {
+    labelBg: "#d2e6ff",
+    labelText: "#111f7f",
+  },
+};
+
+function CornerSticker({
+  label,
+  tone,
+  className,
+  rotate,
+  flip,
+}: {
+  label: string;
+  tone: "pink" | "green";
+  className: string;
+  rotate: number;
+  flip?: boolean;
+}) {
+  const styles =
+    tone === "pink"
+      ? { bg: "#fde2f2", text: "#7f1140" }
+      : { bg: "#d6ff92", text: "#3a4a26" };
+
+  return (
+    <motion.div
+      className={`pointer-events-none absolute z-20 hidden items-center gap-2 lg:flex ${className}`}
+      initial={{ opacity: 0, y: -14, rotate: rotate - 6 }}
+      whileInView={{
+        opacity: 1,
+        y: 0,
+        rotate: [rotate - 6, rotate + 2, rotate - 1, rotate],
+      }}
+      viewport={{ once: true, amount: 0.6 }}
+      transition={{ duration: 1.1, ease: EASE }}
+    >
+      {flip && (
+        <span aria-hidden style={{ color: styles.bg }}>
+          ⤸
+        </span>
+      )}
+      <span
+        className="font-red-hat px-4 py-1.5 text-[16px] font-bold shadow-[0_4px_2px_rgba(0,0,0,0.1)]"
+        style={{ backgroundColor: styles.bg, color: styles.text }}
+      >
+        {label}
+      </span>
+      {!flip && (
+        <span aria-hidden style={{ color: styles.bg }}>
+          ⤴
+        </span>
+      )}
+    </motion.div>
+  );
 }
 
-function countdown(ms: number) {
-  if (ms <= 0) return "T–00:00:00";
-  const d = Math.floor(ms / 86_400_000);
-  const h = Math.floor((ms % 86_400_000) / 3_600_000);
-  const m = Math.floor((ms % 3_600_000) / 60_000);
-  const s = Math.floor((ms % 60_000) / 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `T–${d}D ${pad(h)}:${pad(m)}:${pad(s)}`;
-}
+function DateSticker({
+  item,
+  index,
+}: {
+  item: (typeof KEY_DATES)[number];
+  index: number;
+}) {
+  const tone = toneStyles[item.tone];
 
-function useNow() {
-  const [now, setNow] = useState<number | null>(null);
-
-  useEffect(() => {
-    const updateNow = () => setNow(Date.now());
-    const initialId = window.setTimeout(updateNow, 0);
-    const intervalId = window.setInterval(updateNow, 1000);
-
-    return () => {
-      window.clearTimeout(initialId);
-      window.clearInterval(intervalId);
-    };
-  }, []);
-
-  return now;
+  return (
+    <motion.div
+      className="relative flex flex-col items-start gap-1 md:absolute md:left-[var(--sticker-x)] md:top-[var(--sticker-y)]"
+      style={
+        {
+          "--sticker-x": item.x,
+          "--sticker-y": item.y,
+          "--date-offset": item.dateOffset,
+        } as CSSProperties
+      }
+      initial={{ opacity: 0, y: 14, rotate: -9 }}
+      whileInView={{ opacity: 1, y: 0, rotate: -9 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.7, delay: 1.0 + index * 0.14, ease: EASE }}
+    >
+      <div
+        className="font-red-hat w-max px-5 py-2.5 text-center text-[16px] font-bold shadow-[0_4px_2px_rgba(0,0,0,0.1)] md:text-[20px]"
+        style={{ backgroundColor: tone.labelBg, color: tone.labelText }}
+      >
+        {item.label}
+      </div>
+      <div
+        className="font-heading w-max px-5 py-2.5 text-center text-[20px] shadow-[0_4px_2px_rgba(0,0,0,0.1)] md:ml-[var(--date-offset)] md:text-[24px]"
+        style={{ backgroundColor: "#fffbb5", color: "#76681a" }}
+      >
+        {item.date}
+      </div>
+    </motion.div>
+  );
 }
 
 export default function KeyDates() {
-  const now = useNow();
-  const nextIso =
-    now === null
-      ? undefined
-      : KEY_DATES.find((k) => midnightEastern(k.iso) > now)?.iso;
-
   return (
-    <section id="timeline" className="scroll-mt-20 px-5 py-24 md:px-10">
-      <div className="mx-auto max-w-6xl">
-        <p
-          className="font-red-hat text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
-          style={{ color: "rgba(58,74,38,0.5)" }}
+    <section
+      id="timeline"
+      className="scroll-mt-20 relative overflow-hidden bg-[#f4f2e8] px-5 py-20 md:px-10 md:py-24"
+    >
+      <div className="relative mx-auto max-w-[1440px]">
+        <CornerSticker
+          label="Oct 3-4"
+          tone="pink"
+          rotate={-8}
+          flip
+          className="left-2 top-0 xl:left-10"
+        />
+        <CornerSticker
+          label="Ann Arbor, MI"
+          tone="green"
+          rotate={7}
+          className="right-2 top-0 xl:right-10"
+        />
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.45 }}
+          transition={{ duration: 0.8, ease: EASE }}
+          className="relative z-30 text-center"
         >
-          <span>◆</span>Applications<span>◆</span>
-        </p>
-        <h2
-          className="mt-6 font-sans font-semibold text-4xl tracking-tight md:text-6xl"
-          style={{ color: "#3A4A26" }}
-        >
-          Mark your{" "}
-          <span
-            className="font-heading italic"
-            style={{ color: "rgba(58,74,38,0.6)" }}
+          <h2
+            className="font-red-hat text-[clamp(3rem,6vw,3.75rem)] font-semibold leading-none tracking-[-0.025em]"
+            style={{ color: "#3A4A26" }}
           >
-            calendar.
-          </span>
-        </h2>
+            Application{" "}
+            <span className="font-heading italic font-normal">Timeline</span>
+          </h2>
+          <p className="font-red-hat mx-auto mt-5 max-w-[531px] text-[13px] font-semibold leading-5 text-black/50">
+            Did you know: <span className="italic">Wild</span> Lily of the
+            Valley is highly native to Michigan. Common Lily of the Valley,
+            however, is classified as invasive and aggressive.
+          </p>
+        </motion.div>
 
-        <div
-          className="mt-14 border-t"
-          style={{ borderColor: "rgba(58,74,38,0.12)" }}
-        >
-          {KEY_DATES.map((item, i) => {
-            const t = midnightEastern(item.iso);
-            const isPast = now !== null && t <= now;
-            const isNext = now !== null && item.iso === nextIso;
-            return (
-              <motion.div
-                key={item.label}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.7, delay: i * 0.08, ease: EASE }}
-                className="flex flex-wrap items-baseline gap-x-5 gap-y-2 border-b px-2 py-6 transition-colors duration-300 md:px-4"
-                style={{
-                  borderColor: "rgba(58,74,38,0.12)",
-                  opacity: isPast ? 0.4 : 1,
-                  backgroundColor: "#f4f2e8",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    "rgba(58,74,38,0.06)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#f4f2e8")
-                }
-              >
-                <span
-                  className="w-16 font-mono text-sm tracking-[0.1em]"
-                  style={{ color: "rgba(58,74,38,0.6)" }}
-                >
-                  {item.date}
-                </span>
-                <h3
-                  className="font-heading text-2xl italic md:text-4xl"
-                  style={{ color: "#3A4A26" }}
-                >
-                  {item.label}
-                </h3>
-                <span
-                  className="hidden flex-1 -translate-y-1.5 border-b border-dotted sm:block"
-                  style={{ borderColor: "rgba(58,74,38,0.2)" }}
-                />
-                {isNext ? (
-                  <span
-                    className="rounded-full px-3 py-1 font-mono text-[11px] tracking-[0.12em] tabular-nums"
-                    style={{ backgroundColor: "#3A4A26", color: "#f0efe6" }}
-                  >
-                    {countdown(t - now!)}
-                  </span>
-                ) : (
-                  <span
-                    className="rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
-                    style={{
-                      borderColor: "rgba(58,74,38,0.2)",
-                      color: "rgba(58,74,38,0.55)",
-                    }}
-                  >
-                    {isPast ? "Passed" : "Upcoming"}
-                  </span>
-                )}
-              </motion.div>
-            );
-          })}
+        <div className="relative mt-12 min-h-[760px] md:mt-6 md:min-h-[910px]">
+          <motion.img
+            src="/timeline-flower.png"
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[37%] w-[1120px] max-w-none origin-top -translate-x-1/2 -translate-y-1/2 select-none md:w-[1510px]"
+            initial={{ y: -12, rotate: -9.3 }}
+            whileInView={{
+              y: [16, -4, 2, 0],
+              rotate: [-9.3, -6.4, -8.6, -7.2, -8, -7.68],
+            }}
+            viewport={{ once: true, amount: 0.32 }}
+            transition={{ duration: 2.1, ease: [0.34, 1.2, 0.64, 1] }}
+          />
+
+          <div className="relative z-10 grid gap-6 pt-[360px] md:block md:pt-0">
+            {KEY_DATES.map((item, index) => (
+              <DateSticker key={item.label} item={item} index={index} />
+            ))}
+          </div>
         </div>
       </div>
     </section>

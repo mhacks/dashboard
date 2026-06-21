@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MikoTone</title>
+  
+  <style>
+
+
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .tool-canvas-area {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas { display: block; background: transparent; }
+
+  </style>
+</head>
+<body>
+  <div class="tool-canvas-area">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+
+    // Mobile perf: cap devicePixelRatio so canvases allocate fewer pixels.
+    (function() {
+      var _isMobile = window.innerWidth <= 768;
+      if (_isMobile) {
+        var _nativeDPR = window.devicePixelRatio || 1;
+        var _cappedDPR = Math.min(1.5, _nativeDPR);
+        Object.defineProperty(window, 'devicePixelRatio', { get: function() { return _cappedDPR; } });
+      }
+    })();
+
+    window.CanvasRuntimeAPI = (function() {
+      var _exportMode = 'auto';
+      var _exportWidth = 0;
+      var _exportHeight = 0;
+      var _bgState = { mode: 'none', color: '#ffffff', imageEl: null, imageDataURL: null, fit: 'cover' };
+      var _cameraBridgeEnabled = false;
+      var _cameraRequestSeq = 0;
+      var _cameraSessions = {};
+      var _cameraFrameListeners = [];
+      var _cameraStopNotified = {};
+      var _micBridgeEnabled = false;
+      var _micRequestSeq = 0;
+      var _micSessions = {};
+      var _micChunkListeners = [];
+      var _micStopNotified = {};
+
+      var _canvas = document.getElementById('canvas');
+      var _area = _canvas ? _canvas.parentElement : document.querySelector('.tool-canvas-area');
+      var _resizeRAF = null;
+
+      function _detectCanvas() {
+        var r = window.renderer || window.threeRenderer;
+        if (r && r.domElement) {
+          _canvas = r.domElement;
+          _area = _canvas.parentElement;
+          return;
+        }
+        var area = document.querySelector('.tool-canvas-area');
+        if (area) {
+          var canvases = area.querySelectorAll('canvas');
+          var visible = [];
+          for (var j = 0; j < canvases.length; j++) {
+            if (canvases[j].style.display !== 'none') visible.push(canvases[j]);
+          }
+          if (visible.length >= 1) {
+            var largest = visible[0];
+            for (var i = 1; i < visible.length; i++) {
+              if (visible[i].width * visible[i].height > largest.width * largest.height) {
+                largest = visible[i];
+              }
+            }
+            _canvas = largest;
+            _area = _canvas.parentElement;
+          }
+        }
+      }
+
+      function _cameraFallbackConstraints(constraints) {
+        return constraints || { audio: false, video: true };
+      }
+
+      function _makeCameraRequestId() {
+        _cameraRequestSeq += 1;
+        return 'camera-' + Date.now() + '-' + _cameraRequestSeq;
+      }
+
+      function _makeCameraCanvas(width, height) {
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(width || 1));
+        canvas.height = Math.max(1, Math.round(height || 1));
+        canvas.style.display = 'none';
+        canvas.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(canvas);
+        return canvas;
+      }
+
+      function _emitCameraFrame(session, payload) {
+        var detail = {
+          requestId: payload.requestId,
+          width: session.canvas.width,
+          height: session.canvas.height,
+          timestamp: payload.timestamp || Date.now(),
+          canvas: session.canvas,
+          imageData: payload.imageData || null,
+          stream: session.stream
+        };
+        for (var i = 0; i < _cameraFrameListeners.length; i++) {
+          try {
+            _cameraFrameListeners[i](detail);
+          } catch (err) {
+            setTimeout(function() { throw err; }, 0);
+          }
+        }
+        if (typeof CustomEvent !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('clay:camera-frame', { detail: detail }));
+        }
+      }
+
+      function _wrapCameraStream(stream, requestId) {
+        if (!stream) return stream;
+        try {
+          Object.defineProperty(stream, '__clayCameraRequestId', {
+            value: requestId,
+            configurable: true
+          });
+        } catch (err) {}
+        return stream;
+      }
+
+      function _captureNativeCameraFrame(session, timestamp) {
+        if (!session.video || session.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+          return;
+        }
+        var width = Math.max(1, session.video.videoWidth || session.canvas.width || 1);
+        var height = Math.max(1, session.video.videoHeight || session.canvas.height || 1);
+        if (session.canvas.width !== width) session.canvas.width = width;
+        if (session.canvas.height !== height) session.canvas.height = height;
+        if (!session.ctx) return;
+        session.ctx.drawImage(session.video, 0, 0, width, height);
+        _emitCameraFrame(session, {
+          imageData: session.ctx.getImageData(0, 0, width, height),
+          requestId: session.requestId,
+          timestamp: timestamp,
+          width: width,
+          height: height
+        });
+      }
+
+      function _scheduleNativeCameraFrame(session) {
+        if (!session || session.stopped) return;
+        if (session.video && session.video.requestVideoFrameCallback) {
+          session.videoFrameRequestId = session.video.requestVideoFrameCallback(function(now) {
+            _captureNativeCameraFrame(session, now || performance.now());
+            _scheduleNativeCameraFrame(session);
+          });
+          return;
+        }
+        session.animationFrameId = requestAnimationFrame(function(now) {
+          _captureNativeCameraFrame(session, now);
+          _scheduleNativeCameraFrame(session);
+        });
+      }
+
+      function _watchNativeCameraStream(stream, requestId) {
+        var canvas = _makeCameraCanvas(1, 1);
+        var video = document.createElement('video');
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+
+        var session = {
+          animationFrameId: null,
+          canvas: canvas,
+          ctx: canvas.getContext('2d', { willReadFrequently: true }),
+          requestId: requestId,
+          stopped: false,
+          stream: stream,
+          video: video,
+          videoFrameRequestId: null
+        };
+        _cameraSessions[requestId] = session;
+        video.play().then(function() {
+          _scheduleNativeCameraFrame(session);
+        }).catch(function() {});
+      }
+
+      function requestCamera(constraints) {
+        if (
+          typeof navigator === 'undefined' ||
+          !navigator.mediaDevices ||
+          typeof navigator.mediaDevices.getUserMedia !== 'function'
+        ) {
+          return Promise.reject(new Error('Camera is not available in this browser.'));
+        }
+        var requestId = _makeCameraRequestId();
+        delete _cameraStopNotified[requestId];
+        return navigator.mediaDevices.getUserMedia(_cameraFallbackConstraints(constraints))
+          .then(function(stream) {
+            _wrapCameraStream(stream, requestId);
+            _watchNativeCameraStream(stream, requestId);
+            return stream;
+          });
+      }
+
+      function stopCamera(stream) {
+        var requestId = typeof stream === 'string'
+          ? stream
+          : stream && stream.__clayCameraRequestId
+          ? stream.__clayCameraRequestId
+          : null;
+        var session = requestId ? _cameraSessions[requestId] : null;
+        if (requestId) delete _cameraSessions[requestId];
+        if (session) {
+          session.stopped = true;
+          if (typeof session.videoFrameRequestId === 'number' && session.video) {
+            session.video.cancelVideoFrameCallback && session.video.cancelVideoFrameCallback(session.videoFrameRequestId);
+          }
+          if (typeof session.animationFrameId === 'number') {
+            cancelAnimationFrame(session.animationFrameId);
+          }
+          if (session.video) {
+            session.video.pause();
+            session.video.srcObject = null;
+          }
+          if (session.canvas && session.canvas.remove) session.canvas.remove();
+          stream = session.stream;
+        }
+        if (stream && stream.getTracks) {
+          var tracks = stream.getTracks();
+          for (var i = 0; i < tracks.length; i++) {
+            if (tracks[i] && typeof tracks[i].stop === 'function') {
+              tracks[i].stop();
+            }
+          }
+        }
+      }
+
+      function onCameraFrame(callback) {
+        if (typeof callback !== 'function') {
+          return function() {};
+        }
+        _cameraFrameListeners.push(callback);
+        return function() {
+          var next = [];
+          for (var i = 0; i < _cameraFrameListeners.length; i++) {
+            if (_cameraFrameListeners[i] !== callback) next.push(_cameraFrameListeners[i]);
+          }
+          _cameraFrameListeners = next;
+        };
+      }
+
+      function _micFallbackConstraints(constraints) {
+        return constraints || { audio: true, video: false };
+      }
+
+      function _makeMicRequestId() {
+        _micRequestSeq += 1;
+        return 'mic-' + Date.now() + '-' + _micRequestSeq;
+      }
+
+      function _emitMicChunk(payload) {
+        var detail = {
+          requestId: payload.requestId,
+          samples: payload.samples || null,
+          sampleRate: payload.sampleRate || 0,
+          timestamp: payload.timestamp || Date.now()
+        };
+        for (var i = 0; i < _micChunkListeners.length; i++) {
+          try {
+            _micChunkListeners[i](detail);
+          } catch (err) {
+            setTimeout(function() { throw err; }, 0);
+          }
+        }
+        if (typeof CustomEvent !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('clay:mic-chunk', { detail: detail }));
+        }
+      }
+
+      function _wrapMicStream(stream, requestId) {
+        if (!stream) return stream;
+        try {
+          Object.defineProperty(stream, '__clayMicRequestId', {
+            value: requestId,
+            configurable: true
+          });
+        } catch (err) {}
+        return stream;
+      }
+
+      function requestMicrophone(constraints) {
+        if (
+          typeof navigator === 'undefined' ||
+          !navigator.mediaDevices ||
+          typeof navigator.mediaDevices.getUserMedia !== 'function'
+        ) {
+          return Promise.reject(new Error('Microphone is not available in this browser.'));
+        }
+        var requestId = _makeMicRequestId();
+        delete _micStopNotified[requestId];
+        return navigator.mediaDevices.getUserMedia(_micFallbackConstraints(constraints))
+          .then(function(stream) {
+            _wrapMicStream(stream, requestId);
+            _micSessions[requestId] = { stream: stream };
+            return stream;
+          });
+      }
+
+      function stopMicrophone(stream) {
+        var requestId = typeof stream === 'string'
+          ? stream
+          : stream && stream.__clayMicRequestId
+          ? stream.__clayMicRequestId
+          : null;
+        var session = requestId ? _micSessions[requestId] : null;
+        if (requestId) delete _micSessions[requestId];
+        if (session) stream = session.stream;
+        if (stream && stream.getTracks) {
+          var tracks = stream.getTracks();
+          for (var i = 0; i < tracks.length; i++) {
+            if (tracks[i] && typeof tracks[i].stop === 'function') {
+              tracks[i].stop();
+            }
+          }
+        }
+      }
+
+      function onMicChunk(callback) {
+        if (typeof callback !== 'function') {
+          return function() {};
+        }
+        _micChunkListeners.push(callback);
+        return function() {
+          var next = [];
+          for (var i = 0; i < _micChunkListeners.length; i++) {
+            if (_micChunkListeners[i] !== callback) next.push(_micChunkListeners[i]);
+          }
+          _micChunkListeners = next;
+        };
+      }
+
+
+      function _applyBgCSS() {
+        _detectCanvas();
+        if (!_canvas) return;
+        if (_bgState.mode === 'none') {
+          _canvas.style.background = '';
+        } else if (_bgState.mode === 'solid') {
+          _canvas.style.background = _bgState.color;
+        } else if (_bgState.mode === 'image') {
+          if (_bgState.imageDataURL) {
+            var fitCss = _bgState.fit === 'fill' ? '100% 100%' : _bgState.fit;
+            _canvas.style.backgroundColor = _bgState.color;
+            _canvas.style.backgroundImage = 'url("' + _bgState.imageDataURL + '")';
+            _canvas.style.backgroundSize = fitCss;
+            _canvas.style.backgroundPosition = 'center';
+            _canvas.style.backgroundRepeat = 'no-repeat';
+          } else {
+            _canvas.style.backgroundImage = '';
+            _canvas.style.backgroundColor = _bgState.color;
+          }
+        }
+      }
+
+      function setBackground(state) {
+        state = state || {};
+        _bgState.mode = state.mode || 'none';
+        _bgState.color = state.color || '#ffffff';
+        _bgState.fit = state.fit || 'cover';
+        if (state.image && state.image !== _bgState.imageDataURL) {
+          _bgState.imageDataURL = state.image;
+          _bgState.imageEl = null;
+          _applyBgCSS();
+          var img = new Image();
+          img.onload = function() {
+            if (_bgState.imageDataURL !== state.image) return;
+            _bgState.imageEl = img;
+          };
+          img.src = state.image;
+        } else if (!state.image) {
+          _bgState.imageEl = null;
+          _bgState.imageDataURL = null;
+        }
+        _applyBgCSS();
+      }
+
+      function getBackground() {
+        return { mode: _bgState.mode, color: _bgState.color, fit: _bgState.fit };
+      }
+
+      function setCanvas(el) {
+        _canvas = el;
+        _area = el ? el.parentElement : document.querySelector('.tool-canvas-area');
+        if (_bgState.mode !== 'none') _applyBgCSS();
+      }
+
+      function setExportDimensions(w, h) {
+        _detectCanvas();
+        _exportMode = 'fixed';
+        _exportWidth = Math.max(1, Math.round(w || 1));
+        _exportHeight = Math.max(1, Math.round(h || 1));
+        if (_canvas) {
+          _canvas.width = _exportWidth;
+          _canvas.height = _exportHeight;
+        }
+        if (window.p5 && typeof window.resizeCanvas === 'function') window.resizeCanvas(_exportWidth, _exportHeight);
+        if (window.renderer && window.renderer.setSize) window.renderer.setSize(_exportWidth, _exportHeight, false);
+        if (window.hydra && window.hydra.setResolution) window.hydra.setResolution(_exportWidth, _exportHeight);
+        window.dispatchEvent(new Event('resize'));
+      }
+
+      function fitToArea() {}
+
+      function getExportDimensions() {
+        if (_exportMode === 'fixed') return { width: _exportWidth, height: _exportHeight, mode: 'fixed' };
+        _detectCanvas();
+        return { width: _canvas ? _canvas.width : 0, height: _canvas ? _canvas.height : 0, mode: 'auto' };
+      }
+
+      function isFixedExportMode() { return _exportMode === 'fixed'; }
+
+      function _onAreaResize() {
+        var r = window.renderer || window.threeRenderer;
+        if (!r || !r.setSize) return;
+        if (_resizeRAF) cancelAnimationFrame(_resizeRAF);
+        _resizeRAF = requestAnimationFrame(function() {
+          _detectCanvas();
+          if (!_area) return;
+          var w = _area.clientWidth;
+          var h = _area.clientHeight;
+          if (w <= 0 || h <= 0) return;
+          r.setSize(w, h);
+          window.dispatchEvent(new Event('resize'));
+        });
+      }
+      if (typeof ResizeObserver !== 'undefined' && _area) {
+        new ResizeObserver(_onAreaResize).observe(_area);
+      }
+      window.addEventListener('resize', _onAreaResize);
+
+      setTimeout(function() {
+        _detectCanvas();
+        if (_bgState.mode !== 'none') _applyBgCSS();
+      }, 500);
+
+      function getMousePos(event) {
+        _detectCanvas();
+        if (!_canvas) return { x: 0, y: 0 };
+        var rect = _canvas.getBoundingClientRect();
+        var scaleX = _canvas.width / rect.width;
+        var scaleY = _canvas.height / rect.height;
+        var touch = event.touches && event.touches[0]
+          ? event.touches[0]
+          : event.changedTouches && event.changedTouches[0]
+          ? event.changedTouches[0]
+          : null;
+        var clientX = touch ? touch.clientX : event.clientX;
+        var clientY = touch ? touch.clientY : event.clientY;
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      }
+
+      function drawImage(ctx, img, x, y, w, h, fit) {
+        if (!img || !img.width || !img.height) return;
+        fit = fit || 'cover';
+        var ar = img.width / img.height;
+        var car = w / h;
+        var sx = 0, sy = 0, sw = img.width, sh = img.height;
+        var dx = x, dy = y, dw = w, dh = h;
+
+        if (fit === 'cover') {
+          if (ar > car) { sw = img.height * car; sx = (img.width - sw) / 2; }
+          else { sh = img.width / car; sy = (img.height - sh) / 2; }
+        } else if (fit === 'contain') {
+          if (ar > car) { dh = w / ar; dy = y + (h - dh) / 2; }
+          else { dw = h * ar; dx = x + (w - dw) / 2; }
+        }
+
+        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
+
+      return {
+        setCanvas: setCanvas,
+        setBackground: setBackground,
+        getBackground: getBackground,
+        setExportDimensions: setExportDimensions,
+        fitToArea: fitToArea,
+        getExportDimensions: getExportDimensions,
+        isFixedExportMode: isFixedExportMode,
+        requestCamera: requestCamera,
+        stopCamera: stopCamera,
+        onCameraFrame: onCameraFrame,
+        requestMicrophone: requestMicrophone,
+        stopMicrophone: stopMicrophone,
+        onMicChunk: onMicChunk,
+        getMousePos: getMousePos,
+        drawImage: drawImage
+      };
+    })();
+
+    window.ChatoolyCanvas = window.CanvasRuntimeAPI;
+    window.ChatoolyControls = window.ControlsAPI;
+
+    (function() {
+      var srcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+      if (srcDesc && srcDesc.set) {
+        Object.defineProperty(HTMLImageElement.prototype, 'src', {
+          get: srcDesc.get,
+          set: function(val) {
+            if (val && typeof val === 'string' && !val.startsWith('data:') && !this.crossOrigin) {
+              this.crossOrigin = 'anonymous';
+            }
+            srcDesc.set.call(this, val);
+          },
+          configurable: true,
+          enumerable: true
+        });
+      }
+    })();
+
+    window.loadImage = function(src, callback) {
+      var img = new Image();
+      if (src && typeof src === 'string' && !src.startsWith('data:')) {
+        img.crossOrigin = 'anonymous';
+      }
+      img.onload = function() { if (callback) callback(img); };
+      img.onerror = function() { console.error('Failed to load image:', src); };
+      img.src = src;
+      return img;
+    };
+  
+  </script>
+  <script>
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+    var __ctArea = canvas.parentElement;
+    var __maxDim = (window.innerWidth <= 768) ? 960 : 4096;
+
+    function resizeCanvas() {
+      var cs = getComputedStyle(__ctArea);
+      canvas.width = Math.min(__maxDim, __ctArea.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+      canvas.height = Math.min(__maxDim, __ctArea.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom));
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    var controls = (function() {
+      var _v = {"source":"https://base44.app/api/apps/69cbcd44d3da2a5cef013f5e/files/mp/public/69cbcd44d3da2a5cef013f5e/c39850e53_source_mqmx5p01.mp4","useWebcam":false,"matchSourceRes":true,"resolution":150,"play":true,"shape":"box","echoEnabled":true,"echoCount":10,"echoTimeOffset":2,"echoDecay":0.8,"echoScale":0.75,"echoOffsetX":10,"echoOffsetY":10,"echoColor":"#ff0055","minScale":0,"maxScale":1,"smoothing":0.5,"contrast":1.17,"threshold":0,"smoothThreshold":0.1,"colorMode":"source","fgColor":"#ffffff","invert":false,"__sys_bg":{"mode":"solid","color":"#000000","image":null,"fit":"fill"}};
+      var _defaults = JSON.parse(JSON.stringify(_v));
+      function _hexToRgb(hex) {
+        var h = String(hex || '').replace('#', '');
+        if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        if (h.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(h)) return null;
+        return {
+          r: parseInt(h.slice(0, 2), 16),
+          g: parseInt(h.slice(2, 4), 16),
+          b: parseInt(h.slice(4, 6), 16)
+        };
+      }
+      function _clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
+      function _hexToRgbaCss(hex, opacity0to100) {
+        var rgb = _hexToRgb(hex);
+        if (!rgb) return 'rgba(0,0,0,1)';
+        var op = opacity0to100 != null && !isNaN(Number(opacity0to100)) ? Number(opacity0to100) : 100;
+        var a = _clamp(op, 0, 100) / 100;
+        return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + a + ')';
+      }
+      var api = {
+        get: function(k) { return _v[k]; },
+        getAll: function() { return Object.assign({}, _v); },
+        getDefaults: function() { return JSON.parse(JSON.stringify(_defaults)); },
+        getColorWithAlpha: function(baseKey) { return _hexToRgbaCss(_v[baseKey], _v[baseKey + '_opacity']); },
+        set: function(k, v) { _v[k] = v; },
+        onChange: function() {},
+        onAny: function() {},
+        onAction: function() {}
+      };
+      window.ControlsAPI = api;
+      window.ChatoolyControls = api;
+      return api;
+    })();
+
+    
+
+    // Creative Code
+    {
+      const buffer = document.createElement('canvas');
+const bctx = buffer.getContext('2d', { willReadFrequently: true });
+
+let sourceElement = null;
+let sourceType = null; // 'image', 'video', or 'webcam'
+let isLoaded = false;
+let brightnessCache = []; // For smoothing
+let history = []; // For time echoes
+let webcamStream = null;
+
+class SourceManager {
+  constructor() {
+    this.currentUrl = '';
+  }
+
+  async load(url) {
+    if (controls.get('useWebcam')) {
+      this.setupWebcam();
+      return;
+    }
+
+    // If we were using webcam, we MUST reload the source media even if URL is same
+    if (!url || (url === this.currentUrl && sourceType !== 'webcam')) return;
+    this.currentUrl = url;
+    isLoaded = false;
+
+    const isVideo = typeof url === 'string' && (
+                    url.match(/\.(mp4|webm|ogg|mov|m4v)$/i) || 
+                    url.startsWith('blob:') || 
+                    url.includes('video') ||
+                    url.startsWith('data:video'));
+    
+    if (isVideo) {
+      this.setupVideo(url);
+    } else {
+      this.setupImage(url);
+    }
+  }
+
+  setupImage(url) {
+    this.stopWebcam();
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      sourceElement = img;
+      sourceType = 'image';
+      isLoaded = true;
+      this.updateBufferSize();
+    };
+    img.onerror = () => {
+      if (sourceType !== 'video') this.setupVideo(url);
+    };
+    img.src = url;
+  }
+
+  setupVideo(url) {
+    this.stopWebcam();
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    
+    video.onloadedmetadata = () => {
+      sourceElement = video;
+      sourceType = 'video';
+      this.updateBufferSize();
+    };
+
+    video.oncanplay = () => {
+      isLoaded = true;
+      if (controls.get('play')) video.play().catch(e => console.warn("Autoplay blocked", e));
+    };
+
+    video.onerror = () => {
+      if (sourceType !== 'image') this.setupImage(url);
+    };
+
+    video.src = url;
+    video.load();
+  }
+
+  async setupWebcam() {
+    this.stopWebcam();
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      const video = document.createElement('video');
+      video.srcObject = webcamStream;
+      video.muted = true;
+      video.playsInline = true;
+      
+      video.onloadedmetadata = () => {
+        sourceElement = video;
+        sourceType = 'webcam';
+        this.updateBufferSize();
+        video.play();
+        isLoaded = true;
+      };
+    } catch (err) {
+      console.error("Webcam access denied", err);
+      controls.set('useWebcam', false);
+    }
+  }
+
+  stopWebcam() {
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(track => track.stop());
+      webcamStream = null;
+    }
+  }
+
+  updateBufferSize() {
+    if (!sourceElement) return;
+    const sw = sourceType === 'image' ? sourceElement.width : sourceElement.videoWidth;
+    const sh = sourceType === 'image' ? sourceElement.height : sourceElement.videoHeight;
+    
+    if (!sw || !sh) {
+      setTimeout(() => this.updateBufferSize(), 100);
+      return;
+    }
+
+    if (controls.get('matchSourceRes')) {
+      canvas.width = sw;
+      canvas.height = sh;
+    } else {
+      const area = document.querySelector('.tool-canvas-area');
+      canvas.width = area.clientWidth;
+      canvas.height = area.clientHeight;
+    }
+
+    const res = controls.get('resolution');
+    const aspect = sw / sh;
+    
+    buffer.width = res;
+    buffer.height = Math.round(res / aspect);
+    brightnessCache = new Array(buffer.width * buffer.height).fill(0);
+    history = []; // Clear history on resolution change
+  }
+}
+
+const manager = new SourceManager();
+
+controls.onChange('source', (url) => manager.load(url));
+controls.onChange('useWebcam', (val) => val ? manager.setupWebcam() : manager.load(controls.get('source')));
+controls.onChange('resolution', () => manager.updateBufferSize());
+controls.onChange('matchSourceRes', () => manager.updateBufferSize());
+controls.onChange('play', (val) => {
+  if ((sourceType === 'video' || sourceType === 'webcam') && sourceElement) {
+    val ? sourceElement.play() : sourceElement.pause();
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (!controls.get('matchSourceRes')) {
+    manager.updateBufferSize();
+  }
+});
+
+manager.load(controls.get('source'));
+
+function draw() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  if (!isLoaded || !sourceElement) {
+    requestAnimationFrame(draw);
+    return;
+  }
+
+  // Sample to buffer
+  bctx.save();
+  if (sourceType === 'webcam') {
+    bctx.translate(buffer.width, 0);
+    bctx.scale(-1, 1);
+  }
+  bctx.drawImage(sourceElement, 0, 0, buffer.width, buffer.height);
+  bctx.restore();
+
+  const imageData = bctx.getImageData(0, 0, buffer.width, buffer.height);
+  const data = imageData.data;
+
+  const resX = buffer.width;
+  const resY = buffer.height;
+  const cellW = w / resX;
+  const cellH = h / resY;
+  
+  const minScale = controls.get('minScale');
+  const maxScale = controls.get('maxScale');
+  const shape = controls.get('shape');
+  const colorMode = controls.get('colorMode');
+  const fgColor = controls.get('fgColor');
+  const invert = controls.get('invert');
+  const contrast = controls.get('contrast');
+  const smoothing = controls.get('smoothing');
+  const threshold = controls.get('threshold');
+  const smoothThreshold = controls.get('smoothThreshold');
+
+  const echoEnabled = controls.get('echoEnabled');
+  const echoCount = controls.get('echoCount');
+  const echoTimeOffset = controls.get('echoTimeOffset');
+  const echoDecay = controls.get('echoDecay');
+  const echoScale = controls.get('echoScale');
+  const echoOffsetX = controls.get('echoOffsetX');
+  const echoOffsetY = controls.get('echoOffsetY');
+  const echoColor = controls.get('echoColor');
+
+  // Prepare current frame data for history
+  const currentFrame = new Float32Array(resX * resY * 5); // r, g, b, bVal, visibility
+
+  for (let y = 0; y < resY; y++) {
+    for (let x = 0; x < resX; x++) {
+      const idx = (y * resX + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      
+      let brightness = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      brightness = (brightness - 0.5) * contrast + 0.5;
+      brightness = Math.max(0, Math.min(1, brightness));
+
+      if (invert) brightness = 1 - brightness;
+
+      const cacheIdx = y * resX + x;
+      brightnessCache[cacheIdx] = brightnessCache[cacheIdx] * smoothing + brightness * (1 - smoothing);
+      const bVal = brightnessCache[cacheIdx];
+
+      // Smooth Threshold Logic
+      let visibility = 1;
+      if (bVal < threshold) {
+        visibility = 0;
+      } else if (bVal < threshold + smoothThreshold) {
+        visibility = (bVal - threshold) / smoothThreshold;
+      }
+      
+      const fIdx = cacheIdx * 5;
+      currentFrame[fIdx] = r;
+      currentFrame[fIdx + 1] = g;
+      currentFrame[fIdx + 2] = b;
+      currentFrame[fIdx + 3] = bVal;
+      currentFrame[fIdx + 4] = visibility;
+    }
+  }
+
+  // Update history
+  if (echoTimeOffset > 0) {
+    history.push(currentFrame);
+    const maxHistory = echoCount * echoTimeOffset + 1;
+    if (history.length > maxHistory) history.shift();
+  } else {
+    history = [currentFrame];
+  }
+
+  for (let y = 0; y < resY; y++) {
+    for (let x = 0; x < resX; x++) {
+      const cacheIdx = y * resX + x;
+      const fIdx = cacheIdx * 5;
+      
+      const r = currentFrame[fIdx];
+      const g = currentFrame[fIdx + 1];
+      const b = currentFrame[fIdx + 2];
+      const bVal = currentFrame[fIdx + 3];
+      const visibility = currentFrame[fIdx + 4];
+
+      const posX = x * cellW + cellW / 2;
+      const posY = y * cellH + cellH / 2;
+
+      // Draw Echoes
+      if (echoEnabled && echoCount > 0) {
+        for (let i = echoCount; i > 0; i--) {
+          let eR = r, eG = g, eB = b, eBVal = bVal, eVis = visibility;
+
+          if (echoTimeOffset > 0) {
+            const histIdx = history.length - 1 - (i * echoTimeOffset);
+            if (histIdx >= 0) {
+              const hFrame = history[histIdx];
+              eR = hFrame[fIdx];
+              eG = hFrame[fIdx + 1];
+              eB = hFrame[fIdx + 2];
+              eBVal = hFrame[fIdx + 3];
+              eVis = hFrame[fIdx + 4];
+            } else {
+              continue; // Not enough history yet
+            }
+          }
+
+          if (eVis <= 0) continue;
+
+          const eScaleBase = (minScale + (maxScale - minScale) * eBVal) * eVis;
+          const eScale = eScaleBase * Math.pow(echoDecay, i) * Math.pow(echoScale, i);
+          const eOpacity = Math.pow(echoDecay, i);
+          const eW = cellW * eScale;
+          const eH = cellH * eScale;
+          
+          ctx.save();
+          ctx.translate(posX + echoOffsetX * i, posY + echoOffsetY * i);
+          ctx.globalAlpha = eOpacity;
+          ctx.fillStyle = echoColor;
+          
+          if (shape === 'box') {
+            ctx.fillRect(-eW / 2, -eH / 2, eW, eH);
+          } else if (shape === 'circle') {
+            ctx.beginPath();
+            ctx.arc(0, 0, Math.min(eW, eH) / 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+
+      if (visibility <= 0) continue;
+
+      // Draw Main Shape
+      ctx.save();
+      ctx.translate(posX, posY);
+      ctx.globalAlpha = 1;
+
+      if (colorMode === 'source') {
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+      } else {
+        ctx.fillStyle = fgColor;
+      }
+
+      const scale = (minScale + (maxScale - minScale) * bVal) * visibility;
+      const drawW = cellW * scale;
+      const drawH = cellH * scale;
+
+      if (shape === 'box') {
+        ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+      } else if (shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.min(drawW, drawH) / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+
+    }
+
+    // System Background Wiring
+    if (typeof CanvasRuntimeAPI !== 'undefined') {
+      var __sysBgVal = controls.get('__sys_bg');
+      if (__sysBgVal) CanvasRuntimeAPI.setBackground(__sysBgVal);
+    }
+  </script>
+</body>
+</html>

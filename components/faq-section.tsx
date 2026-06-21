@@ -20,64 +20,49 @@ const FAQS = [
   },
   {
     q: "Are there travel reimbursements?",
-    a: "We offer travel reimbursements on a limited basis for participants traveling from outside the Ann Arbor area. To qualify, you must submit your application before the early deadline (Aug. 7). Apply during registration and we'll follow up with details.",
+    a: "We offer travel reimbursements on a limited basis for participants traveling from outside the Ann Arbor area. To qualify, submit your application before the early deadline (Aug. 7) and we'll follow up with details.",
   },
   {
     q: "How much does MHacks cost?",
-    a: "MHacks is completely free to attend. We cover meals, snacks, and event resources throughout the entire 24-hour event, thanks to our generous sponsors.",
-  },
-  {
-    q: "How do teams work?",
-    a: "Teams can have 1–4 members. You can form a team before the event or find teammates at our team formation session at the start of the hackathon.",
-  },
-  {
-    q: "What if this is my first hackathon?",
-    a: "First-timers are absolutely welcome. We'll have intro workshops, beginner-friendly resources, and dedicated mentors to help you build something great regardless of your experience level.",
+    a: "MHacks is completely free to attend. We cover meals, snacks, and event resources throughout the entire event, thanks to our generous sponsors.",
   },
 ];
 
-function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
+function FaqItem({
+  q,
+  a,
+  isLast,
+}: {
+  q: string;
+  a: string;
+  isLast: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.6, delay: index * 0.04, ease: EASE }}
-      className="border-b"
+    <div
+      className={isLast ? "" : "border-b"}
       style={{ borderColor: "rgba(58,74,38,0.12)" }}
     >
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="font-red-hat flex w-full cursor-pointer items-baseline gap-5 px-2 py-6 text-left transition-colors duration-300 md:px-4"
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.backgroundColor = "rgba(58,74,38,0.04)")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.backgroundColor = "transparent")
-        }
+        className="flex w-full cursor-pointer items-center justify-between gap-5 py-[18px] text-left md:py-5"
       >
         <span
-          className="font-mono text-[11px] tracking-[0.2em]"
-          style={{ color: "rgba(58,74,38,0.4)" }}
-        >
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <span
-          className="flex-1 font-heading italic text-2xl leading-tight md:text-[26px]"
+          className="font-heading italic text-[18px] leading-tight md:text-[20px]"
           style={{ color: "#3A4A26" }}
         >
           {q}
         </span>
         <motion.span
-          animate={{ rotate: open ? 45 : 0 }}
+          animate={{ rotate: open ? 90 : 0 }}
           transition={{ duration: 0.35, ease: EASE }}
-          className="font-mono text-xl"
-          style={{ color: "rgba(58,74,38,0.5)" }}
+          aria-hidden
+          className="shrink-0 text-[15px]"
+          style={{ color: "rgba(58,74,38,0.55)" }}
         >
-          +
+          ›
         </motion.span>
       </button>
 
@@ -87,11 +72,11 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.45, ease: EASE }}
+            transition={{ duration: 0.4, ease: EASE }}
             className="overflow-hidden"
           >
             <p
-              className="font-red-hat max-w-[600px] pb-7 pl-9 text-[15px] font-light leading-relaxed md:pl-12"
+              className="font-red-hat max-w-[620px] pb-6 text-[14px] font-light leading-relaxed"
               style={{ color: "rgba(58,74,38,0.7)" }}
             >
               {a}
@@ -99,41 +84,58 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 
 export default function FaqSection() {
   return (
-    <section id="faqs" className="scroll-mt-20 px-5 py-24 md:px-10">
-      <div className="mx-auto max-w-3xl">
-        <p
-          className="font-red-hat text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
-          style={{ color: "rgba(58,74,38,0.5)" }}
-        >
-          <span>◆</span>Attending MHacks<span>◆</span>
-        </p>
-        <h2
-          className="mt-6 text-center font-sans font-semibold text-4xl tracking-tight md:text-6xl"
-          style={{ color: "#3A4A26" }}
-        >
-          Questions,{" "}
-          <span
-            className="font-heading italic"
-            style={{ color: "rgba(58,74,38,0.6)" }}
-          >
-            answered.
-          </span>
-        </h2>
+    <section id="faqs" className="relative w-full overflow-hidden bg-[#d1f5ff]">
+      {/* Hills band: cream paper → green hills → fades into the sky */}
+      <img
+        src="/hills.png"
+        alt=""
+        aria-hidden
+        className="block w-full select-none"
+      />
 
-        <div
-          className="mt-14 border-t"
-          style={{ borderColor: "rgba(58,74,38,0.12)" }}
-        >
-          {FAQS.map((faq, i) => (
-            <FaqItem key={faq.q} q={faq.q} a={faq.a} index={i} />
-          ))}
+      {/* Sky region holding the FAQ card and the flower garden */}
+      <div className="relative h-[clamp(820px,86vw,1240px)]">
+        {/* Live FAQ card, floating on the sky */}
+        <div className="absolute inset-x-0 top-[40px] flex justify-center px-5">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.7, ease: EASE }}
+            className="w-[58%] min-w-[320px] max-w-[820px] rounded-[28px] bg-white px-7 py-10 shadow-[0_24px_60px_rgba(40,70,90,0.12)] md:px-14 md:py-12"
+          >
+            <h2
+              className="text-center font-heading text-[clamp(2.25rem,4.5vw,3.25rem)] leading-none"
+              style={{ color: "#2f3b1f" }}
+            >
+              FAQs
+            </h2>
+            <div className="mx-auto mt-7 max-w-[640px] md:mt-9">
+              {FAQS.map((faq, i) => (
+                <FaqItem
+                  key={faq.q}
+                  q={faq.q}
+                  a={faq.a}
+                  isLast={i === FAQS.length - 1}
+                />
+              ))}
+            </div>
+          </motion.div>
         </div>
+
+        {/* Flower garden — overlaps in front of the card's lower edge */}
+        <img
+          src="/garden-flowers.png"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 left-0 z-20 w-full select-none"
+        />
       </div>
     </section>
   );

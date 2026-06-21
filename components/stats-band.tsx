@@ -1,10 +1,10 @@
 import Image from "next/image";
 
 const STATS = [
-  { value: "$40k+", caption: "Prize pool across all tracks" },
-  { value: "350+", caption: "Projects shipped in a weekend" },
-  { value: "24 hrs", caption: "Of building, start to demo" },
-  { value: "14", caption: "Editions since 2013" },
+  { value: "$40k+", caption: "Total prize money all tracks" },
+  { value: "200+", caption: "Hackers entered in a session" },
+  { value: "24 hrs", caption: "Of building start to finish" },
+  { value: "14", caption: "Editions since 2012" },
 ];
 
 const PHOTOS = [
@@ -46,7 +46,7 @@ function PhotoCarousel() {
 
 export default function StatsBand() {
   return (
-    <section className="relative overflow-hidden py-28 md:py-36">
+    <section id="stats" className="relative overflow-hidden py-20 md:py-28">
       {/* ASCII background */}
       <Image
         src="/sponsors-ascii.png"
@@ -62,12 +62,6 @@ export default function StatsBand() {
       <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-paper to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-10">
-        <p
-          className="font-red-hat text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
-          style={{ color: "rgba(58,74,38,0.5)" }}
-        >
-          <span>◆</span>By The Numbers<span>◆</span>
-        </p>
         <h2
           className="mt-6 text-center font-sans font-semibold text-4xl md:text-6xl tracking-tight"
           style={{ color: "#3A4A26" }}
@@ -80,22 +74,30 @@ export default function StatsBand() {
             MHacks 2025?
           </span>
         </h2>
+      </div>
 
-        <div className="mt-16 grid grid-cols-2 gap-y-12 md:grid-cols-4">
-          {STATS.map((s) => (
+      <div className="relative mt-12 md:mt-[50px]">
+        <PhotoCarousel />
+      </div>
+
+      <div className="relative mx-auto mt-12 max-w-4xl px-5 md:mt-16 md:px-10">
+        <div className="grid grid-cols-2 gap-y-10 md:grid-cols-4">
+          {STATS.map((s, i) => (
             <div
               key={s.caption}
-              className="border-l px-6 md:px-8"
-              style={{ borderColor: "rgba(31,42,22,0.15)" }}
+              className={`px-6 ${i % 2 === 1 ? "border-l" : ""} md:px-8 ${
+                i > 0 ? "md:border-l" : ""
+              }`}
+              style={{ borderColor: "rgba(31,42,22,0.18)" }}
             >
               <p
-                className="font-red-hat text-4xl font-semibold md:text-5xl"
+                className="font-red-hat text-[30px] font-bold leading-none tracking-[-0.045em] md:text-[36px]"
                 style={{ color: "#3A4A26" }}
               >
                 {s.value}
               </p>
               <p
-                className="font-red-hat mt-3 max-w-[170px] text-[10px] uppercase leading-relaxed tracking-[0.18em]"
+                className="font-red-hat mt-2.5 max-w-[150px] text-[12px] leading-snug"
                 style={{ color: "rgba(58,74,38,0.6)" }}
               >
                 {s.caption}
@@ -105,9 +107,6 @@ export default function StatsBand() {
         </div>
       </div>
 
-      <div className="relative mt-20">
-        <PhotoCarousel />
-      </div>
     </section>
   );
 }
