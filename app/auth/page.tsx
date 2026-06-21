@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,18 +16,6 @@ import {
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { sendOtp, verifyOtp } from "@/lib/actions/auth.server.actions";
-
-const RATE_LIMIT_MS = 60_000;
-const STORAGE_KEY = "mhacks-otp-last-sent";
-
-interface OtpRecord {
-  timestamp: number;
-  email: string;
-}
-
-function formatTime(date: Date) {
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
 
 const emailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -50,51 +38,6 @@ function AuthForm() {
   const [step, setStep] = useState<"email" | "verify">("email");
   const [sentEmail, setSentEmail] = useState("");
 
-  const [lastSent, setLastSent] = useState<OtpRecord | null>(() => {
-    if (typeof window === "undefined") return null;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return null;
-    }
-  });
-  const [timeLeft, setTimeLeft] = useState<number>(() => {
-    if (typeof window === "undefined") return 0;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return 0;
-    try {
-      const record: OtpRecord = JSON.parse(stored);
-      const elapsed = Date.now() - record.timestamp;
-      return elapsed < RATE_LIMIT_MS
-        ? Math.ceil((RATE_LIMIT_MS - elapsed) / 1000)
-        : 0;
-    } catch {
-      return 0;
-    }
-  });
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-    intervalRef.current = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(intervalRef.current!);
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [timeLeft]);
-
   const emailForm = useForm<EmailForm>({
     resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
@@ -108,16 +51,11 @@ function AuthForm() {
   const tokenValue = tokenForm.watch("token");
 
   async function onSendOtp({ email }: EmailForm) {
-    if (timeLeft > 0) return;
     const result = await sendOtp(email);
     if (result?.error) {
       emailForm.setError("email", { message: result.error });
       return;
     }
-    const record: OtpRecord = { timestamp: Date.now(), email };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
-    setLastSent(record);
-    setTimeLeft(60);
     setSentEmail(email);
     setStep("verify");
   }
@@ -133,8 +71,6 @@ function AuthForm() {
     setStep("email");
     tokenForm.reset();
   }
-
-  const inCooldown = timeLeft > 0;
 
   const sharedHeader = (
     <>
@@ -197,41 +133,13 @@ function AuthForm() {
                   )}
                 </div>
 
-                {lastSent && (
-                  <p
-                    className="text-[12px]"
-                    style={{ color: "rgba(58,74,38,0.55)" }}
-                  >
-                    {inCooldown ? (
-                      <>
-                        Code sent to{" "}
-                        <span className="font-medium">{lastSent.email}</span> at{" "}
-                        {formatTime(new Date(lastSent.timestamp))}. Resend in{" "}
-                        <span className="font-medium tabular-nums">
-                          {timeLeft}s
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        Last code sent to{" "}
-                        <span className="font-medium">{lastSent.email}</span> at{" "}
-                        {formatTime(new Date(lastSent.timestamp))}.
-                      </>
-                    )}
-                  </p>
-                )}
-
                 <Button
                   type="submit"
-                  disabled={emailForm.formState.isSubmitting || inCooldown}
+                  disabled={emailForm.formState.isSubmitting}
                   className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
                   style={{ background: "#3A4A26", color: "#fff" }}
                 >
-                  {emailForm.formState.isSubmitting
-                    ? "Sending…"
-                    : inCooldown
-                      ? `Resend in ${timeLeft}s`
-                      : "Send code"}
+                  {emailForm.formState.isSubmitting ? "Sending…" : "Send code"}
                 </Button>
               </form>
             </CardContent>
