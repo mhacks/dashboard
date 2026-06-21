@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -26,15 +29,26 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+const emailSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+const tokenSchema = z.object({
+  token: z.string().length(6, "Code must be 6 digits"),
+});
+
+type EmailForm = z.infer<typeof emailSchema>;
+type TokenForm = z.infer<typeof tokenSchema>;
+
+const SLOT_CLASS =
+  "size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30";
+
 function AuthForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
 
   const [step, setStep] = useState<"email" | "verify">("email");
-  const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [sentEmail, setSentEmail] = useState("");
 
   const [lastSent, setLastSent] = useState<OtpRecord | null>(() => {
     if (typeof window === "undefined") return null;
@@ -81,40 +95,46 @@ function AuthForm() {
     };
   }, [timeLeft]);
 
-  async function handleSendOtp(e: React.SyntheticEvent) {
-    e.preventDefault();
+  const emailForm = useForm<EmailForm>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { email: "" },
+  });
+
+  const tokenForm = useForm<TokenForm>({
+    resolver: zodResolver(tokenSchema),
+    defaultValues: { token: "" },
+  });
+
+  const tokenValue = tokenForm.watch("token");
+
+  async function onSendOtp({ email }: EmailForm) {
     if (timeLeft > 0) return;
-    setError(null);
-    setLoading(true);
     const result = await sendOtp(email);
-    setLoading(false);
     if (result?.error) {
-      setError(result.error);
+      emailForm.setError("email", { message: result.error });
       return;
     }
     const record: OtpRecord = { timestamp: Date.now(), email };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
     setLastSent(record);
     setTimeLeft(60);
+    setSentEmail(email);
     setStep("verify");
   }
 
-  async function handleVerifyOtp(e: React.SyntheticEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    const result = await verifyOtp(email, token, next);
-    setLoading(false);
+  async function onVerifyOtp({ token }: TokenForm) {
+    const result = await verifyOtp(sentEmail, token, next);
     if (result?.error) {
-      setError(result.error);
+      tokenForm.setError("token", { message: result.error });
     }
   }
 
   function goBack() {
     setStep("email");
-    setError(null);
-    setToken("");
+    tokenForm.reset();
   }
+
+  const inCooldown = timeLeft > 0;
 
   const sharedHeader = (
     <>
@@ -150,7 +170,10 @@ function AuthForm() {
             </CardHeader>
 
             <CardContent>
-              <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
+              <form
+                onSubmit={emailForm.handleSubmit(onSendOtp)}
+                className="flex flex-col gap-4"
+              >
                 <div className="flex flex-col gap-1.5">
                   <Label
                     htmlFor="email"
@@ -163,22 +186,23 @@ function AuthForm() {
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
                     autoFocus
                     className="bg-white border-[#c8d4a8] focus-visible:ring-[#3A4A26] text-[14px] h-11"
+                    {...emailForm.register("email")}
                   />
+                  {emailForm.formState.errors.email && (
+                    <p className="text-[13px] text-red-600">
+                      {emailForm.formState.errors.email.message}
+                    </p>
+                  )}
                 </div>
-
-                {error && <p className="text-[13px] text-red-600">{error}</p>}
 
                 {lastSent && (
                   <p
                     className="text-[12px]"
                     style={{ color: "rgba(58,74,38,0.55)" }}
                   >
-                    {timeLeft > 0 ? (
+                    {inCooldown ? (
                       <>
                         Code sent to{" "}
                         <span className="font-medium">{lastSent.email}</span> at{" "}
@@ -199,13 +223,13 @@ function AuthForm() {
 
                 <Button
                   type="submit"
-                  disabled={loading || timeLeft > 0}
+                  disabled={emailForm.formState.isSubmitting || inCooldown}
                   className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
                   style={{ background: "#3A4A26", color: "#fff" }}
                 >
-                  {loading
+                  {emailForm.formState.isSubmitting
                     ? "Sending…"
-                    : timeLeft > 0
+                    : inCooldown
                       ? `Resend in ${timeLeft}s`
                       : "Send code"}
                 </Button>
@@ -228,40 +252,56 @@ function AuthForm() {
               >
                 We sent a 6-digit code to{" "}
                 <span className="font-medium" style={{ color: "#3A4A26" }}>
-                  {email}
+                  {sentEmail}
                 </span>
               </p>
             </CardHeader>
 
             <CardContent>
-              <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
-                <div className="flex flex-col items-center gap-3">
-                  <InputOTP
-                    maxLength={6}
-                    value={token}
-                    onChange={setToken}
-                    autoFocus
-                  >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
-                      <InputOTPSlot index={1} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
-                      <InputOTPSlot index={2} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
-                      <InputOTPSlot index={3} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
-                      <InputOTPSlot index={4} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
-                      <InputOTPSlot index={5} className="size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30" />
-                    </InputOTPGroup>
-                  </InputOTP>
+              <form
+                onSubmit={tokenForm.handleSubmit(onVerifyOtp)}
+                className="flex flex-col gap-4"
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Controller
+                    name="token"
+                    control={tokenForm.control}
+                    render={({ field }) => (
+                      <InputOTP
+                        maxLength={6}
+                        value={field.value}
+                        onChange={field.onChange}
+                        autoFocus
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} className={SLOT_CLASS} />
+                          <InputOTPSlot index={1} className={SLOT_CLASS} />
+                          <InputOTPSlot index={2} className={SLOT_CLASS} />
+                          <InputOTPSlot index={3} className={SLOT_CLASS} />
+                          <InputOTPSlot index={4} className={SLOT_CLASS} />
+                          <InputOTPSlot index={5} className={SLOT_CLASS} />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    )}
+                  />
+                  {tokenForm.formState.errors.token && (
+                    <p className="text-[13px] text-red-600">
+                      {tokenForm.formState.errors.token.message}
+                    </p>
+                  )}
                 </div>
-
-                {error && <p className="text-[13px] text-red-600">{error}</p>}
 
                 <Button
                   type="submit"
-                  disabled={loading || token.length < 6}
+                  disabled={
+                    tokenForm.formState.isSubmitting || tokenValue.length < 6
+                  }
                   className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
                   style={{ background: "#3A4A26", color: "#fff" }}
                 >
-                  {loading ? "Verifying…" : "Verify code"}
+                  {tokenForm.formState.isSubmitting
+                    ? "Verifying…"
+                    : "Verify code"}
                 </Button>
 
                 <Button
