@@ -31,11 +31,11 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublicPath = pathname === "/" || pathname.startsWith("/auth");
+  const isPublicPath = pathname === "/" || pathname.startsWith("/login");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
-    url.pathname = "/auth";
+    url.pathname = "/login";
     url.searchParams.set("next", pathname);
     const redirectResponse = NextResponse.redirect(url);
     supabaseResponse.cookies
@@ -46,7 +46,7 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (user && pathname.startsWith("/auth")) {
+  if (user && pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectResponse = NextResponse.redirect(url);

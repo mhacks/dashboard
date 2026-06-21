@@ -29,6 +29,6 @@ export async function verifyOtp(
 
   // Only allow relative same-origin paths; reject anything else.
   const destination =
-    next && next.startsWith("/") && !next.startsWith("/auth") ? next : "/";
+    next && next.startsWith("/") && !next.startsWith("/login") ? next : "/";
   redirect(destination);
 }
