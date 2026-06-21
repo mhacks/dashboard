@@ -14,6 +14,12 @@ export async function sendOtp(
   if (error) return { error: error.message };
 }
 
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/");
+}
+
 export async function verifyOtp(
   email: string,
   token: string,
