@@ -5,7 +5,7 @@ import Image from "next/image";
 
 const COORDS = "42°17′N 83°43′W · Ann Arbor, MI";
 
-const COLUMNS = [
+const COLUMNS: { title: string; links: { label: string; href: string; muted?: boolean }[] }[] = [
   {
     title: "Get involved",
     links: [
