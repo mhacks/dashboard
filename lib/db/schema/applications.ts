@@ -78,15 +78,6 @@ const applicationColumns = () => ({
 
 export const hackerApplicants = pgTable("hacker_applicants", {
   ...applicationColumns(),
-
-  // Review fields — stored inline since it's a 1-to-1 relationship
-  reviewMotivation: integer("review_motivation"),
-  reviewBuilderMindset: integer("review_builder_mindset"),
-  reviewCollaboration: integer("review_collaboration"),
-  reviewCreativity: integer("review_creativity"),
-  reviewDiversity: integer("review_diversity"),
-  flagForReview: boolean("flag_for_review").notNull().default(false),
-  reviewNotes: text("review_notes"),
 });
 
 export const judgeApplicants = pgTable("judge_applicants", {
