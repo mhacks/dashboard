@@ -3,7 +3,9 @@ import { UserEntry } from "../db/schema/users";
 
 export const baseApplicationSchema = z.object({
   // Personal Information
-  age: z.number().min(18, "You must be at least 18 years old"),
+  age: z
+    .number({ invalid_type_error: "Please enter your age" })
+    .min(18, "You must be at least 18 years old"),
   gender: z.string().min(1, "Please select an option"),
   genderOther: z.string().optional(),
   ethnicity: z.string().min(1, "Please select an option"),
@@ -16,8 +18,12 @@ export const baseApplicationSchema = z.object({
   countryOther: z.string().optional(),
   degree: z.string().min(1, "Please select your degree"),
   degreeOther: z.string().optional(),
-  graduationYear: z.number().min(2026, "Graduation year must be 2026 or later"),
-  previousHackathons: z.number().min(0, "Number cannot be negative"),
+  graduationYear: z
+    .number({ invalid_type_error: "Please select your graduation year" })
+    .min(2026, "Graduation year must be 2026 or later"),
+  previousHackathons: z
+    .number({ invalid_type_error: "Please enter a number (0 if none)" })
+    .min(0, "Number cannot be negative"),
   major: z.string().min(1, "Please select your major"),
   majorOther: z.string().optional(),
   resume: z.string().min(1, "Please upload your resume"),

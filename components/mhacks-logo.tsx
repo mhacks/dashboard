@@ -1,9 +1,15 @@
 import Image from "next/image";
 
-export function MHacksLogo({ size = 52 }: { size?: number }) {
+export function MHacksLogo({
+  size = 52,
+  variant = "default",
+}: {
+  size?: number;
+  variant?: "default" | "green";
+}) {
   return (
     <Image
-      src="/mhacks_logo.png"
+      src={variant === "green" ? "/green_logo.png" : "/mhacks_logo.png"}
       alt="MHacks logo"
       width={size}
       height={size}
