@@ -57,21 +57,13 @@ export default function SiteFooter() {
         <div className="flex flex-wrap items-start justify-between gap-12">
           {/* Brand */}
           <div className="max-w-xs">
-            <div className="flex items-center gap-1">
-              <Image
-                src="/green_logo.png"
-                alt="M"
-                width={36}
-                height={36}
-                className="h-[1.7em] w-[1.7em] opacity-80"
-              />
-              <span
-                className="text-2xl font-semibold leading-none"
-                style={{ color: "#3A4A26" }}
-              >
-                Hacks
-              </span>
-            </div>
+            <Image
+              src="/footer_logo.svg"
+              alt="MHacks"
+              width={577}
+              height={145}
+              className="h-8 w-auto"
+            />
             <p
               className="mt-4 text-xl italic"
               style={{ color: "rgba(58,74,38,0.75)" }}
