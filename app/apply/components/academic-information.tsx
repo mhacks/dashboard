@@ -95,7 +95,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.university && (
-                <p className="font-red-hat text-sm text-destructive">
+                <p className="font-red-hat text-[11px] text-destructive">
                   {errors.university.message}
                 </p>
               )}
@@ -130,7 +130,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.country && (
-                <p className="font-red-hat text-sm text-destructive">
+                <p className="font-red-hat text-[11px] text-destructive">
                   {errors.country.message}
                 </p>
               )}
@@ -165,7 +165,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.degree && (
-                <p className="font-red-hat text-sm text-destructive">
+                <p className="font-red-hat text-[11px] text-destructive">
                   {errors.degree.message}
                 </p>
               )}
@@ -200,7 +200,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.graduationYear && (
-                <p className="font-red-hat text-sm text-destructive">
+                <p className="font-red-hat text-[11px] text-destructive">
                   {errors.graduationYear.message}
                 </p>
               )}
@@ -214,7 +214,7 @@ const AcademicInformation = ({
                 placeholder="0"
               />
               {errors.previousHackathons && (
-                <p className="font-red-hat text-sm text-destructive">
+                <p className="font-red-hat text-[11px] text-destructive">
                   {errors.previousHackathons.message}
                 </p>
               )}
@@ -240,7 +240,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.major && (
-                <p className="font-red-hat text-sm text-destructive">
+                <p className="font-red-hat text-[11px] text-destructive">
                   {errors.major.message}
                 </p>
               )}
@@ -326,7 +326,7 @@ const AcademicInformation = ({
               </p>
             )}
             {errors.resume && (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.resume.message}
               </p>
             )}

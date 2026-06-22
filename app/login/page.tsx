@@ -31,7 +31,7 @@ type EmailForm = z.infer<typeof emailSchema>;
 type TokenForm = z.infer<typeof tokenSchema>;
 
 const SLOT_CLASS =
-  "size-11 text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30";
+  "size-11 font-red-hat text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30";
 
 function AuthForm() {
   const searchParams = useSearchParams();
@@ -142,7 +142,7 @@ function AuthForm() {
                     type="email"
                     placeholder="you@example.com"
                     autoFocus
-                    className="bg-white border-[#c8d4a8] focus-visible:ring-[#3A4A26] text-[14px] h-11"
+                    className="bg-white border-[#c8d4a8] focus-visible:ring-[#3A4A26] font-red-hat text-[14px] h-11"
                     {...emailForm.register("email")}
                   />
                   {emailForm.formState.errors.email && (

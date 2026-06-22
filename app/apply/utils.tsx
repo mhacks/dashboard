@@ -17,7 +17,9 @@ export function FormField({
         {label}
         {required && <span className="text-destructive"> *</span>}
       </Label>
-      {children}
+      {/* font-red-hat so all fill-in fields render in Red Hat Display while
+          the label above keeps its own font. */}
+      <div className="space-y-2 font-red-hat">{children}</div>
     </div>
   );
 }

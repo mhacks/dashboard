@@ -30,7 +30,7 @@ const Socials = ({
             placeholder="https://github.com/username"
           />
           {errors.github && (
-            <p className="font-red-hat text-sm text-destructive">
+            <p className="font-red-hat text-[11px] text-destructive">
               {errors.github.message}
             </p>
           )}
@@ -42,7 +42,7 @@ const Socials = ({
             placeholder="https://linkedin.com/in/username"
           />
           {errors.linkedin && (
-            <p className="font-red-hat text-sm text-destructive">
+            <p className="font-red-hat text-[11px] text-destructive">
               {errors.linkedin.message}
             </p>
           )}
@@ -54,7 +54,7 @@ const Socials = ({
             placeholder="https://yourwebsite.com"
           />
           {errors.personalSite && (
-            <p className="font-red-hat text-sm text-destructive">
+            <p className="font-red-hat text-[11px] text-destructive">
               {errors.personalSite.message}
             </p>
           )}

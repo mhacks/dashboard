@@ -52,7 +52,7 @@ const PersonalInformation = ({
               placeholder="18"
             />
             {errors.age && (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.age.message}
               </p>
             )}
@@ -78,7 +78,7 @@ const PersonalInformation = ({
               )}
             />
             {errors.gender && (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.gender.message}
               </p>
             )}
@@ -116,7 +116,7 @@ const PersonalInformation = ({
               )}
             />
             {errors.ethnicity && (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.ethnicity.message}
               </p>
             )}

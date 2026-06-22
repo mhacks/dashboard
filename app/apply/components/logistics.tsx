@@ -66,7 +66,7 @@ const Logistics = ({
               )}
             />
             {errors.transportationType && (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.transportationType.message}
               </p>
             )}
@@ -75,7 +75,7 @@ const Logistics = ({
           <FormField label="Where Are You Coming From?" required>
             <Input {...register("comingFrom")} placeholder="City, State" />
             {errors.comingFrom && (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.comingFrom.message}
               </p>
             )}
@@ -92,7 +92,7 @@ const Logistics = ({
                 className="uppercase"
               />
               {errors.airportCode && (
-                <p className="font-red-hat text-sm text-destructive">
+                <p className="font-red-hat text-[11px] text-destructive">
                   {errors.airportCode.message}
                 </p>
               )}
@@ -119,7 +119,7 @@ const Logistics = ({
               )}
             />
             {errors.shirtSize && (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.shirtSize.message}
               </p>
             )}

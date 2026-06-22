@@ -59,24 +59,6 @@ const Essays = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <FormField label="What would you do?" required>
-          <Textarea
-            {...register("whatWouldYouDo")}
-            placeholder="Tell us what you'd build or do at MHacks..."
-            rows={4}
-          />
-          <div className="flex items-start justify-between gap-2">
-            {errors.whatWouldYouDo ? (
-              <p className="font-red-hat text-sm text-destructive">
-                {errors.whatWouldYouDo.message}
-              </p>
-            ) : (
-              <span />
-            )}
-            <Counters value={whatWouldYouDo} maxWords={100} maxChars={600} />
-          </div>
-        </FormField>
-
         <FormField label="Why MHacks?" required>
           <Textarea
             {...register("whyMhacks")}
@@ -85,13 +67,31 @@ const Essays = ({
           />
           <div className="flex items-start justify-between gap-2">
             {errors.whyMhacks ? (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.whyMhacks.message}
               </p>
             ) : (
               <span />
             )}
             <Counters value={whyMhacks} maxWords={200} maxChars={1200} />
+          </div>
+        </FormField>
+
+        <FormField label="What would you do?" required>
+          <Textarea
+            {...register("whatWouldYouDo")}
+            placeholder="Tell us what you'd build or do at MHacks..."
+            rows={4}
+          />
+          <div className="flex items-start justify-between gap-2">
+            {errors.whatWouldYouDo ? (
+              <p className="font-red-hat text-[11px] text-destructive">
+                {errors.whatWouldYouDo.message}
+              </p>
+            ) : (
+              <span />
+            )}
+            <Counters value={whatWouldYouDo} maxWords={100} maxChars={600} />
           </div>
         </FormField>
 
@@ -103,7 +103,7 @@ const Essays = ({
           />
           <div className="flex items-start justify-between gap-2">
             {errors.hillToDieOn ? (
-              <p className="font-red-hat text-sm text-destructive">
+              <p className="font-red-hat text-[11px] text-destructive">
                 {errors.hillToDieOn.message}
               </p>
             ) : (

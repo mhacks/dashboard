@@ -449,15 +449,11 @@ export default function ApplyPage({
           transition={{ duration: 0.7, ease: EASE }}
           className={`relative z-10 text-center max-w-md w-full rounded-3xl px-10 py-12 ${GLASS_CARD}`}
         >
-          <MHacksLogo size={48} />
-          <p
-            className="mt-6 font-red-hat text-[11px] font-semibold uppercase tracking-[0.3em]"
-            style={{ color: "rgba(58,74,38,0.55)" }}
-          >
-            MHacks 2026
-          </p>
+          <div className="flex justify-center">
+            <MHacksLogo size={48} variant="green" />
+          </div>
           <h2
-            className="mt-3 font-heading italic text-4xl leading-tight tracking-tight"
+            className="mt-6 font-heading italic text-4xl leading-tight tracking-tight"
             style={{ color: GREEN }}
           >
             {isDuplicate ? "Already Applied!" : "Application Submitted!"}
@@ -790,7 +786,7 @@ export default function ApplyPage({
                 showIncompleteMsg &&
                 !isComplete && (
                   <p
-                    className="mt-3 text-right font-red-hat text-[12px] font-medium"
+                    className="mt-3 text-right font-red-hat text-[7px] font-medium"
                     style={{ color: "rgba(220,38,38,0.9)" }}
                   >
                     {incompleteMessage}
