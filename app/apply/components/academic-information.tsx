@@ -24,9 +24,12 @@ import {
 } from "../form-options";
 import { FormField } from "../utils";
 import { HackerApplicationFormData } from "@/lib/types/applications";
+import { getResumeDownloadUrl } from "@/lib/aws/s3";
 
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
+
+const MAX_RESUME_SIZE = 10 * 1024 * 1024; // 10 MB — mirrors the upload API limit
 
 type UploadState = "idle" | "uploading" | "done" | "error";
 
@@ -48,6 +51,11 @@ const AcademicInformation = ({
   const [uploadState, setUploadState] = useState<UploadState>(
     resume ? "done" : "idle",
   );
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  // URL for a resume just uploaded this session; falls back to the server-rendered
+  // resumeUrl (for resumes already on file at page load).
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const previewUrl = uploadedUrl ?? resumeUrl;
   const university = useWatch({ control, name: "university" });
   const country = useWatch({ control, name: "country" });
   const degree = useWatch({ control, name: "degree" });
@@ -87,7 +95,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.university && (
-                <p className="text-sm text-destructive">
+                <p className="font-red-hat text-sm text-destructive">
                   {errors.university.message}
                 </p>
               )}
@@ -122,7 +130,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.country && (
-                <p className="text-sm text-destructive">
+                <p className="font-red-hat text-sm text-destructive">
                   {errors.country.message}
                 </p>
               )}
@@ -157,7 +165,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.degree && (
-                <p className="text-sm text-destructive">
+                <p className="font-red-hat text-sm text-destructive">
                   {errors.degree.message}
                 </p>
               )}
@@ -192,7 +200,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.graduationYear && (
-                <p className="text-sm text-destructive">
+                <p className="font-red-hat text-sm text-destructive">
                   {errors.graduationYear.message}
                 </p>
               )}
@@ -206,7 +214,7 @@ const AcademicInformation = ({
                 placeholder="0"
               />
               {errors.previousHackathons && (
-                <p className="text-sm text-destructive">
+                <p className="font-red-hat text-sm text-destructive">
                   {errors.previousHackathons.message}
                 </p>
               )}
@@ -232,7 +240,7 @@ const AcademicInformation = ({
                 )}
               />
               {errors.major && (
-                <p className="text-sm text-destructive">
+                <p className="font-red-hat text-sm text-destructive">
                   {errors.major.message}
                 </p>
               )}
@@ -253,6 +261,15 @@ const AcademicInformation = ({
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+                if (file.size > MAX_RESUME_SIZE) {
+                  setUploadError(
+                    "Your resume is larger than 10 MB. Please upload a smaller PDF.",
+                  );
+                  setUploadState("error");
+                  e.target.value = "";
+                  return;
+                }
+                setUploadError(null);
                 setUploadState("uploading");
                 try {
                   const body = new FormData();
@@ -262,67 +279,82 @@ const AcademicInformation = ({
                     body,
                   });
                   if (!res.ok) {
-                    throw new Error(`Upload failed: ${await res.text()}`);
+                    throw new Error(await res.text());
                   }
                   const { key } = await res.json();
                   setValue("resume", key);
                   setJustUploaded(true);
                   setUploadState("done");
+                  // Fetch a viewable URL so the preview renders immediately,
+                  // without waiting for a page reload.
+                  try {
+                    setUploadedUrl(await getResumeDownloadUrl(key));
+                  } catch (urlErr) {
+                    console.error("Resume preview URL error:", urlErr);
+                  }
                 } catch (err) {
                   console.error("Resume upload error:", err);
+                  setUploadError(
+                    err instanceof Error && err.message
+                      ? err.message
+                      : "Upload failed — please try again",
+                  );
                   setUploadState("error");
                 }
               }}
             />
             {uploadState === "idle" && (
-              <p className="text-xs text-muted-foreground">
+              <p className="font-red-hat text-xs text-muted-foreground">
                 Upload your resume as a PDF (max 10 MB)
               </p>
             )}
             {uploadState === "uploading" && (
-              <p className="text-xs text-muted-foreground animate-pulse">
+              <p className="font-red-hat text-xs text-muted-foreground animate-pulse">
                 Uploading…
               </p>
             )}
             {uploadState === "done" && (
-              <p className="text-xs text-green-600">
+              <p className="font-red-hat text-xs text-green-600">
                 {justUploaded
                   ? "Resume uploaded successfully"
                   : "Resume on file — upload a new PDF to replace it"}
               </p>
             )}
             {uploadState === "error" && (
-              <p className="text-xs text-destructive">
-                Upload failed — please try again
+              <p className="font-red-hat text-xs text-destructive">
+                {uploadError ?? "Upload failed — please try again"}
               </p>
             )}
             {errors.resume && (
-              <p className="text-sm text-destructive">
+              <p className="font-red-hat text-sm text-destructive">
                 {errors.resume.message}
               </p>
             )}
           </FormField>
 
-          {resumeUrl && (
+          {previewUrl && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium" style={{ color: "#3A4A26" }}>
+                <p
+                  className="font-red-hat text-sm font-medium"
+                  style={{ color: "#3A4A26" }}
+                >
                   Your Resume
                 </p>
                 <a
-                  href={resumeUrl}
+                  href={previewUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs underline underline-offset-2"
+                  className="pointer-events-auto text-xs underline underline-offset-2"
                   style={{ color: "rgba(58,74,38,0.6)" }}
                 >
                   Open in new tab
                 </a>
               </div>
               <iframe
-                src={resumeUrl}
+                src={previewUrl}
                 title="Your resume"
-                className="w-full rounded-xl border"
+                className="pointer-events-auto w-full rounded-xl border"
                 style={{
                   height: "480px",
                   borderColor: "rgba(58,74,38,0.15)",

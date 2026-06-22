@@ -52,7 +52,9 @@ const PersonalInformation = ({
               placeholder="18"
             />
             {errors.age && (
-              <p className="text-sm text-destructive">{errors.age.message}</p>
+              <p className="font-red-hat text-sm text-destructive">
+                {errors.age.message}
+              </p>
             )}
           </FormField>
 
@@ -76,7 +78,7 @@ const PersonalInformation = ({
               )}
             />
             {errors.gender && (
-              <p className="text-sm text-destructive">
+              <p className="font-red-hat text-sm text-destructive">
                 {errors.gender.message}
               </p>
             )}
@@ -114,7 +116,7 @@ const PersonalInformation = ({
               )}
             />
             {errors.ethnicity && (
-              <p className="text-sm text-destructive">
+              <p className="font-red-hat text-sm text-destructive">
                 {errors.ethnicity.message}
               </p>
             )}

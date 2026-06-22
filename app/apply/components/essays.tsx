@@ -67,7 +67,7 @@ const Essays = ({
           />
           <div className="flex items-start justify-between gap-2">
             {errors.whatWouldYouDo ? (
-              <p className="text-sm text-destructive">
+              <p className="font-red-hat text-sm text-destructive">
                 {errors.whatWouldYouDo.message}
               </p>
             ) : (
@@ -85,7 +85,7 @@ const Essays = ({
           />
           <div className="flex items-start justify-between gap-2">
             {errors.whyMhacks ? (
-              <p className="text-sm text-destructive">
+              <p className="font-red-hat text-sm text-destructive">
                 {errors.whyMhacks.message}
               </p>
             ) : (
@@ -103,7 +103,7 @@ const Essays = ({
           />
           <div className="flex items-start justify-between gap-2">
             {errors.hillToDieOn ? (
-              <p className="text-sm text-destructive">
+              <p className="font-red-hat text-sm text-destructive">
                 {errors.hillToDieOn.message}
               </p>
             ) : (

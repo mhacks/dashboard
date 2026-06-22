@@ -44,7 +44,7 @@ const Agreements = ({
             </Label>
           </div>
           {errors.mlhCodeOfConduct && (
-            <p className="text-sm text-destructive pl-6">
+            <p className="font-red-hat text-sm text-destructive pl-6">
               {errors.mlhCodeOfConduct.message}
             </p>
           )}
@@ -77,7 +77,7 @@ const Agreements = ({
             </Label>
           </div>
           {errors.mlhPrivacyPolicy && (
-            <p className="text-sm text-destructive pl-6">
+            <p className="font-red-hat text-sm text-destructive pl-6">
               {errors.mlhPrivacyPolicy.message}
             </p>
           )}
@@ -107,7 +107,7 @@ const Agreements = ({
             </Label>
           </div>
           {errors.mlhEmails && (
-            <p className="text-sm text-destructive pl-6">
+            <p className="font-red-hat text-sm text-destructive pl-6">
               {errors.mlhEmails.message}
             </p>
           )}
@@ -131,7 +131,7 @@ const Agreements = ({
             className="text-sm leading-normal cursor-pointer"
           >
             I agree to receive emails from event sponsors about relevant
-            opportunities and updates (optional)
+            opportunities and updates
           </Label>
         </div>
       </CardContent>

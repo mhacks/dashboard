@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, Suspense } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -89,19 +90,22 @@ function AuthForm() {
 
   const sharedHeader = (
     <>
-      <MHacksLogo size={48} />
-      <p
-        className="mt-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-center"
-        style={{ color: "rgba(58,74,38,0.5)" }}
-      >
-        MHacks 2026
-      </p>
+      <div className="mt-2">
+        <MHacksLogo size={48} variant="green" />
+      </div>
     </>
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[#f4f2e8]">
-      <Card className="w-full max-w-sm bg-[#faf9f4] border-[#c8d4a8]">
+    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+      <Image
+        src="/mhacks_auth_pink_flower.png"
+        alt=""
+        fill
+        className="object-cover object-center"
+        priority
+      />
+      <Card className="relative z-10 w-full max-w-sm bg-[#faf9f4] border-[#c8d4a8]">
         {step === "email" ? (
           <>
             <CardHeader className="flex flex-col items-center pb-2">
@@ -113,7 +117,7 @@ function AuthForm() {
                 Sign in
               </h1>
               <p
-                className="mt-2 text-[13px] text-center"
+                className="mt-2 font-red-hat text-[13px] text-center"
                 style={{ color: "rgba(58,74,38,0.6)" }}
               >
                 Enter your email to receive a one-time code.
@@ -142,7 +146,7 @@ function AuthForm() {
                     {...emailForm.register("email")}
                   />
                   {emailForm.formState.errors.email && (
-                    <p className="text-[13px] text-red-600">
+                    <p className="font-red-hat text-[13px] text-red-600">
                       {emailForm.formState.errors.email.message}
                     </p>
                   )}
@@ -160,7 +164,7 @@ function AuthForm() {
                 <Button
                   type="submit"
                   disabled={emailForm.formState.isSubmitting || !turnstileToken}
-                  className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
+                  className="h-11 rounded-full font-red-hat text-[14px] font-medium cursor-pointer"
                   style={{ background: "#3A4A26", color: "#fff" }}
                 >
                   {emailForm.formState.isSubmitting ? "Sending…" : "Send code"}
@@ -179,7 +183,7 @@ function AuthForm() {
                 Check your email
               </h1>
               <p
-                className="mt-2 text-[13px] text-center"
+                className="mt-2 font-red-hat text-[13px] text-center"
                 style={{ color: "rgba(58,74,38,0.6)" }}
               >
                 We sent a 6-digit code to{" "}
@@ -217,7 +221,7 @@ function AuthForm() {
                     )}
                   />
                   {tokenForm.formState.errors.token && (
-                    <p className="text-[13px] text-red-600">
+                    <p className="font-red-hat text-[13px] text-red-600">
                       {tokenForm.formState.errors.token.message}
                     </p>
                   )}
@@ -228,7 +232,7 @@ function AuthForm() {
                   disabled={
                     tokenForm.formState.isSubmitting || tokenValue.length < 6
                   }
-                  className="h-11 rounded-full text-[14px] font-medium cursor-pointer"
+                  className="h-11 rounded-full font-red-hat text-[14px] font-medium cursor-pointer"
                   style={{ background: "#3A4A26", color: "#fff" }}
                 >
                   {tokenForm.formState.isSubmitting
@@ -240,7 +244,7 @@ function AuthForm() {
                   type="button"
                   variant="link"
                   onClick={goBack}
-                  className="text-[13px]"
+                  className="font-red-hat text-[13px]"
                   style={{ color: "rgba(58,74,38,0.55)" }}
                 >
                   Use a different email

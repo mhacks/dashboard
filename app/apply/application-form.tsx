@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -353,7 +354,8 @@ export default function ApplyPage({
     if (result.success) return [];
     const sections = new Set<string>();
     for (const issue of result.error.issues) {
-      const section = SECTION_OF_FIELD[issue.path[0] as keyof typeof SECTION_OF_FIELD];
+      const section =
+        SECTION_OF_FIELD[issue.path[0] as keyof typeof SECTION_OF_FIELD];
       if (section) sections.add(section);
     }
     // Report sections in the order they appear in the form.
@@ -551,7 +553,13 @@ export default function ApplyPage({
           <div
             className={`flex items-center gap-3 rounded-full px-5 py-2.5 ${GLASS_PILL}`}
           >
-            <MHacksLogo size={20} />
+            <Link
+              href="/"
+              aria-label="Back to home"
+              className="transition-opacity hover:opacity-80"
+            >
+              <MHacksLogo size={20} />
+            </Link>
             <span className="font-heading italic text-[17px] text-white leading-none">
               MHacks 2026
             </span>
@@ -744,11 +752,14 @@ export default function ApplyPage({
                 ) : readOnly ? (
                   <button
                     type="button"
-                    onClick={() => router.push("/apply")}
+                    onClick={() => {
+                      setDirection(-1);
+                      setStep(0);
+                    }}
                     className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
                     style={{ background: GREEN }}
                   >
-                    View Application
+                    Back to Start
                   </button>
                 ) : (
                   <button
