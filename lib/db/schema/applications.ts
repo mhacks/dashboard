@@ -28,21 +28,15 @@ const applicationColumns = () => ({
   // Personal Information
   age: integer("age").notNull(),
   gender: text("gender").notNull(),
-  genderOther: text("gender_other"),
   ethnicity: text("ethnicity").notNull(),
-  ethnicityOther: text("ethnicity_other"),
 
   // Academic Information
   university: text("university").notNull(),
-  universityOther: text("university_other"),
   country: text("country").notNull(),
-  countryOther: text("country_other"),
   degree: text("degree").notNull(),
-  degreeOther: text("degree_other"),
   graduationYear: integer("graduation_year").notNull(),
   previousHackathons: integer("previous_hackathons").notNull(),
   major: text("major").notNull(),
-  majorOther: text("major_other"),
   resume: text("resume"),
 
   // Essays
@@ -55,7 +49,6 @@ const applicationColumns = () => ({
   comingFrom: text("coming_from").notNull(),
   airportCode: text("airport_code"),
   shirtSize: text("shirt_size").notNull(),
-  hasAllergies: boolean("has_allergies").notNull(),
   allergiesDescription: text("allergies_description"),
   needsTravelReimbursement: boolean("needs_travel_reimbursement").notNull(),
   wouldAttendWithoutReimbursement: boolean(
@@ -71,9 +64,8 @@ const applicationColumns = () => ({
   followsInstagram: boolean("follows_instagram"),
 
   // MLH & Sponsor Agreements
-  mlhCodeOfConduct: boolean("mlh_code_of_conduct").notNull(),
-  mlhPrivacyPolicy: boolean("mlh_privacy_policy").notNull(),
-  mlhEmails: boolean("mlh_emails").notNull(),
+  // The MLH agreement checkboxes are still required in the form, but accepting
+  // them is implied by submitting — so they are not persisted as columns.
   sponsorEmails: boolean("sponsor_emails"),
 
   createdAt: timestamp("created_at", { withTimezone: true })

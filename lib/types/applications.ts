@@ -7,17 +7,12 @@ export const baseApplicationSchema = z.object({
     .number({ invalid_type_error: "Please enter your age" })
     .min(18, "You must be at least 18 years old"),
   gender: z.string().min(1, "Please select an option"),
-  genderOther: z.string().optional(),
   ethnicity: z.string().min(1, "Please select an option"),
-  ethnicityOther: z.string().optional(),
 
   // Academic Information
   university: z.string().min(1, "Please select your university"),
-  universityOther: z.string().optional(),
   country: z.string().min(1, "Please select your country"),
-  countryOther: z.string().optional(),
   degree: z.string().min(1, "Please select your degree"),
-  degreeOther: z.string().optional(),
   graduationYear: z
     .number({ invalid_type_error: "Please select your graduation year" })
     .min(2026, "Graduation year must be 2026 or later"),
@@ -25,7 +20,6 @@ export const baseApplicationSchema = z.object({
     .number({ invalid_type_error: "Please enter a number (0 if none)" })
     .min(0, "Number cannot be negative"),
   major: z.string().min(1, "Please select your major"),
-  majorOther: z.string().optional(),
   resume: z.string().min(1, "Please upload your resume"),
 
   // Essays
@@ -75,7 +69,7 @@ export const baseApplicationSchema = z.object({
     .optional()
     .or(z.literal("")),
   shirtSize: z.string().min(1, "Please select your shirt size"),
-  hasAllergies: z.boolean(),
+  // A non-empty description implies the applicant has allergies/restrictions.
   allergiesDescription: z.string().max(500).optional(),
   needsTravelReimbursement: z.boolean(),
   wouldAttendWithoutReimbursement: z.boolean().optional(),

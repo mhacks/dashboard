@@ -35,7 +35,6 @@ export type ApplicantData = {
   transportationType: string;
   comingFrom: string;
   shirtSize: string;
-  hasAllergies: boolean;
   allergiesDescription?: string;
   needsTravelReimbursement: boolean;
   status: "pending" | "reviewed" | "flagged";
@@ -86,7 +85,6 @@ export const data: ApplicantData[] = [
     transportationType: "Driving",
     comingFrom: "Ann Arbor, MI",
     shirtSize: "S",
-    hasAllergies: false,
     needsTravelReimbursement: false,
     status: "pending",
   },
@@ -121,7 +119,6 @@ export const data: ApplicantData[] = [
     transportationType: "Flying",
     comingFrom: "Atlanta, GA",
     shirtSize: "L",
-    hasAllergies: false,
     needsTravelReimbursement: true,
     status: "pending",
   },
@@ -158,7 +155,6 @@ export const data: ApplicantData[] = [
     transportationType: "Train",
     comingFrom: "Cambridge, MA",
     shirtSize: "XS",
-    hasAllergies: true,
     allergiesDescription: "Tree nuts",
     needsTravelReimbursement: false,
     status: "reviewed",
@@ -192,7 +188,6 @@ export const data: ApplicantData[] = [
     transportationType: "Driving",
     comingFrom: "Champaign, IL",
     shirtSize: "M",
-    hasAllergies: false,
     needsTravelReimbursement: false,
     status: "flagged",
   },
@@ -229,7 +224,6 @@ export const data: ApplicantData[] = [
     transportationType: "Driving",
     comingFrom: "Pittsburgh, PA",
     shirtSize: "M",
-    hasAllergies: false,
     needsTravelReimbursement: false,
     status: "pending",
   },

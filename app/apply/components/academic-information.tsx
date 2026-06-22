@@ -23,6 +23,7 @@ import {
   universities,
 } from "../form-options";
 import { FormField } from "../utils";
+import { SelectWithOther } from "./select-with-other";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 import { getResumeDownloadUrl } from "@/lib/aws/s3";
 
@@ -56,10 +57,6 @@ const AcademicInformation = ({
   // resumeUrl (for resumes already on file at page load).
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const previewUrl = uploadedUrl ?? resumeUrl;
-  const university = useWatch({ control, name: "university" });
-  const country = useWatch({ control, name: "country" });
-  const degree = useWatch({ control, name: "degree" });
-  const major = useWatch({ control, name: "major" });
   return (
     <>
       {" "}
@@ -80,18 +77,14 @@ const AcademicInformation = ({
                 name="university"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select university" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {universities.map((uni) => (
-                        <SelectItem key={uni.value} value={uni.value}>
-                          {uni.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithOther
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={universities}
+                    otherValue="other"
+                    placeholder="Select university"
+                    otherPlaceholder="University name"
+                  />
                 )}
               />
               {errors.university && (
@@ -101,32 +94,19 @@ const AcademicInformation = ({
               )}
             </FormField>
 
-            {university === "other" && (
-              <FormField label="Please specify your university">
-                <Input
-                  {...register("universityOther")}
-                  placeholder="University name"
-                />
-              </FormField>
-            )}
-
             <FormField label="Country" required>
               <Controller
                 name="country"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithOther
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={countries}
+                    otherValue="other"
+                    placeholder="Select country"
+                    otherPlaceholder="Country name"
+                  />
                 )}
               />
               {errors.country && (
@@ -136,32 +116,19 @@ const AcademicInformation = ({
               )}
             </FormField>
 
-            {country === "other" && (
-              <FormField label="Please specify your country">
-                <Input
-                  {...register("countryOther")}
-                  placeholder="Country name"
-                />
-              </FormField>
-            )}
-
             <FormField label="Degree" required>
               <Controller
                 name="degree"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select degree" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {degreeOptions.map((d) => (
-                        <SelectItem key={d.value} value={d.value}>
-                          {d.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithOther
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={degreeOptions}
+                    otherValue="other"
+                    placeholder="Select degree"
+                    otherPlaceholder="Degree name"
+                  />
                 )}
               />
               {errors.degree && (
@@ -170,12 +137,6 @@ const AcademicInformation = ({
                 </p>
               )}
             </FormField>
-
-            {degree === "other" && (
-              <FormField label="Please specify your degree">
-                <Input {...register("degreeOther")} placeholder="Degree name" />
-              </FormField>
-            )}
 
             <FormField label="Graduation Year" required>
               <Controller
@@ -225,18 +186,14 @@ const AcademicInformation = ({
                 name="major"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select major" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {majorOptions.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithOther
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={majorOptions}
+                    otherValue="other"
+                    placeholder="Select major"
+                    otherPlaceholder="Major name"
+                  />
                 )}
               />
               {errors.major && (
@@ -245,12 +202,6 @@ const AcademicInformation = ({
                 </p>
               )}
             </FormField>
-
-            {major === "other" && (
-              <FormField label="Please specify your major">
-                <Input {...register("majorOther")} placeholder="Major name" />
-              </FormField>
-            )}
           </div>
 
           <FormField label="Resume (PDF)" required>

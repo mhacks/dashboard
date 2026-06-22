@@ -1,21 +1,14 @@
 import {
   Controller,
-  useWatch,
   UseFormRegister,
   FieldErrors,
   Control,
 } from "react-hook-form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ethnicityOptions } from "../form-options";
 import { FormField } from "../utils";
+import { SelectWithOther } from "./select-with-other";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
 const genderOptions = [
@@ -33,8 +26,6 @@ const PersonalInformation = ({
   errors: FieldErrors<HackerApplicationFormData>;
   control: Control<HackerApplicationFormData>;
 }) => {
-  const gender = useWatch({ control, name: "gender" });
-  const ethnicity = useWatch({ control, name: "ethnicity" });
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardHeader>
@@ -63,18 +54,14 @@ const PersonalInformation = ({
               name="gender"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {genderOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithOther
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  options={genderOptions}
+                  otherValue="other"
+                  placeholder="Select gender"
+                  otherPlaceholder="Describe your gender"
+                />
               )}
             />
             {errors.gender && (
@@ -84,35 +71,19 @@ const PersonalInformation = ({
             )}
           </FormField>
 
-          {gender === "other" && (
-            <FormField
-              label="Please describe your gender"
-              className="md:col-span-2"
-            >
-              <Input
-                {...register("genderOther")}
-                placeholder="Describe your gender"
-              />
-            </FormField>
-          )}
-
           <FormField label="Ethnicity" required className="md:col-span-2">
             <Controller
               name="ethnicity"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select ethnicity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ethnicityOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithOther
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  options={ethnicityOptions}
+                  otherValue="multiracial"
+                  placeholder="Select ethnicity"
+                  otherPlaceholder="Describe your ethnicity"
+                />
               )}
             />
             {errors.ethnicity && (
@@ -121,18 +92,6 @@ const PersonalInformation = ({
               </p>
             )}
           </FormField>
-
-          {ethnicity === "multiracial" && (
-            <FormField
-              label="Please describe your ethnicity"
-              className="md:col-span-2"
-            >
-              <Input
-                {...register("ethnicityOther")}
-                placeholder="Describe your ethnicity"
-              />
-            </FormField>
-          )}
         </div>
       </CardContent>
     </Card>

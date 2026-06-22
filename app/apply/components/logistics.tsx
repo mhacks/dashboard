@@ -6,7 +6,6 @@ import {
   Control,
 } from "react-hook-form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -17,8 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { shirtSizeOptions, transportationOptions } from "../form-options";
+import {
+  dietaryOptions,
+  shirtSizeOptions,
+  transportationOptions,
+} from "../form-options";
 import { FormField } from "../utils";
+import { SelectWithOther } from "./select-with-other";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
 const Logistics = ({
@@ -30,7 +34,6 @@ const Logistics = ({
   errors: FieldErrors<HackerApplicationFormData>;
   control: Control<HackerApplicationFormData>;
 }) => {
-  const hasAllergies = useWatch({ control, name: "hasAllergies" });
   const needsTravelReimbursement = useWatch({
     control,
     name: "needsTravelReimbursement",
@@ -126,33 +129,27 @@ const Logistics = ({
           </FormField>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Controller
-              name="hasAllergies"
-              control={control}
-              render={({ field }) => (
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  id="hasAllergies"
-                />
-              )}
-            />
-            <Label htmlFor="hasAllergies">
-              Do you have any allergies or dietary restrictions?
-            </Label>
-          </div>
-          {hasAllergies && (
-            <FormField label="Please describe">
-              <Textarea
-                {...register("allergiesDescription")}
-                placeholder="Describe your allergies or dietary restrictions..."
-                rows={2}
+        <FormField label="Dietary Restrictions or Allergies">
+          <Controller
+            name="allergiesDescription"
+            control={control}
+            render={({ field }) => (
+              <SelectWithOther
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                options={dietaryOptions}
+                otherValue="other"
+                placeholder="Select if applicable"
+                otherPlaceholder="Describe your dietary restriction or allergy"
               />
-            </FormField>
+            )}
+          />
+          {errors.allergiesDescription && (
+            <p className="font-red-hat text-[11px] text-destructive">
+              {errors.allergiesDescription.message}
+            </p>
           )}
-        </div>
+        </FormField>
 
         <div className="space-y-2">
           <div className="flex items-center gap-2">

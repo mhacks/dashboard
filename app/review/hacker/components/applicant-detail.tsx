@@ -228,7 +228,7 @@ export function ApplicationDetail({ app }: ApplicationDetailProps) {
             ["Shirt size", app.shirtSize],
             [
               "Allergies",
-              app.hasAllergies ? (app.allergiesDescription ?? "Yes") : "None",
+              app.allergiesDescription || "None",
             ],
             [
               "Travel reimbursement",

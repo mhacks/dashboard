@@ -48,7 +48,6 @@ async function getApplicants(): Promise<ApplicantData[]> {
       transportationType: a.transportationType,
       comingFrom: a.comingFrom,
       shirtSize: a.shirtSize,
-      hasAllergies: a.hasAllergies,
       allergiesDescription: a.allergiesDescription ?? undefined,
       needsTravelReimbursement: a.needsTravelReimbursement,
       status: a.status,

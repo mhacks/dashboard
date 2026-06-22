@@ -8,7 +8,13 @@ import { HackerApplicationFormData } from "@/lib/types/applications";
 
 // stopPropagation so clicking a policy link doesn't toggle the checkbox the
 // surrounding <Label> is bound to.
-const PolicyLink = ({ href, children }: { href: string; children: string }) => (
+const PolicyLink = ({
+  href,
+  children,
+}: {
+  href: string;
+  children: string;
+}) => (
   <a
     href={href}
     target="_blank"
@@ -90,8 +96,8 @@ const Agreements = ({
               <span>
                 I authorize you to share my application/registration information
                 with Major League Hacking for event administration, ranking, and
-                MLH/DEV administration (including the creation of linked
-                accounts on MLH and DEV (dev.to)) in line with the{" "}
+                MLH/DEV administration (including the creation of linked accounts
+                on MLH and DEV (dev.to)) in line with the{" "}
                 <PolicyLink href="https://github.com/MLH/mlh-policies/blob/main/privacy-policy.md">
                   MLH Privacy Policy
                 </PolicyLink>
@@ -132,8 +138,8 @@ const Agreements = ({
               htmlFor="mlhEmails"
               className="text-sm leading-normal cursor-pointer"
             >
-              I authorize MLH to send me occasional emails about relevant
-              events, career opportunities, and community announcements
+              I authorize MLH to send me occasional emails about relevant events,
+              career opportunities, and community announcements
               <span className="text-destructive"> *</span>
             </Label>
           </div>

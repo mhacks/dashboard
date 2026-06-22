@@ -23,6 +23,21 @@ async function getAuthenticatedUserId(): Promise<string> {
   return user.id;
 }
 
+// The MLH agreement checkboxes are validated in the form but not stored —
+// submitting the application implies acceptance — so drop them before writing.
+type ApplicationDbValues = Omit<
+  HackerApplicationFormData,
+  "mlhCodeOfConduct" | "mlhPrivacyPolicy" | "mlhEmails"
+>;
+
+function toDbValues(parsed: HackerApplicationFormData): ApplicationDbValues {
+  const values = { ...parsed };
+  delete (values as Partial<HackerApplicationFormData>).mlhCodeOfConduct;
+  delete (values as Partial<HackerApplicationFormData>).mlhPrivacyPolicy;
+  delete (values as Partial<HackerApplicationFormData>).mlhEmails;
+  return values;
+}
+
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<{ duplicate: boolean }> => {
@@ -32,7 +47,7 @@ export const submitHackerApplication = async (
   try {
     const result = await db
       .insert(hackerApplicants)
-      .values({ ...parsed, userId })
+      .values({ ...toDbValues(parsed), userId })
       .onConflictDoNothing()
       .returning({ id: hackerApplicants.id });
 
@@ -84,7 +99,7 @@ export const updateHackerApplication = async (
   try {
     await db
       .update(hackerApplicants)
-      .set({ ...parsed })
+      .set({ ...toDbValues(parsed) })
       .where(eq(hackerApplicants.userId, userId));
   } catch (error) {
     console.error("Unable to update Hacker Application:", error);
@@ -102,7 +117,7 @@ export const updateJudgeApplications = async (
 
   try {
     await db.insert(judgeApplicants).values({
-      ...parsed,
+      ...toDbValues(parsed),
       userId,
     });
   } catch (error) {

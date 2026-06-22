@@ -172,3 +172,14 @@ export const shirtSizeOptions = [
   { value: "xl", label: "XL" },
   { value: "xxl", label: "XXL" },
 ];
+
+export const dietaryOptions = [
+  { value: "vegetarian", label: "Vegetarian" },
+  { value: "vegan", label: "Vegan" },
+  { value: "kosher", label: "Kosher" },
+  { value: "gluten-free", label: "Gluten-free" },
+  { value: "halal", label: "Halal" },
+  { value: "nut-free", label: "Nut-free" },
+  { value: "dairy-free", label: "Dairy-free" },
+  { value: "other", label: "Other" },
+];
