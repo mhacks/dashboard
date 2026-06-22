@@ -1,14 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import Image from "next/image";
+import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Play } from "lucide-react";
 
 export default function VideoSpotlight() {
   const ref = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -27,13 +23,6 @@ export default function VideoSpotlight() {
     ],
   );
 
-  const handlePlay = () => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {});
-      setPlaying(true);
-    }
-  };
-
   return (
     <>
       <motion.div
@@ -46,44 +35,14 @@ export default function VideoSpotlight() {
         <motion.div style={{ scale }} className="mx-auto max-w-5xl">
           <motion.div
             style={{ boxShadow: shadow }}
-            className="group relative aspect-video overflow-hidden rounded-2xl border border-black/10 bg-black"
+            className="relative aspect-video overflow-hidden rounded-2xl border border-black/10 bg-black"
           >
             <video
-              ref={videoRef}
-              src="/MHacks 2025 Recap Final Draft.mp4"
               className="w-full h-full object-contain"
-              controls={playing}
+              controls
               playsInline
-              onPause={() => setPlaying(false)}
-              onEnded={() => setPlaying(false)}
+              src="https://d1vfxy18qt9x1k.cloudfront.net/MHacks%202025%20Recap%20Final%20Draft.mp4"
             />
-
-            {!playing && (
-              <div
-                className="absolute inset-0 flex items-center justify-center cursor-pointer bg-black/25"
-                onClick={handlePlay}
-              >
-                <div className="rounded-full bg-white/20 backdrop-blur-sm p-5 border border-white/30 transition-transform hover:scale-110">
-                  <Play size={28} className="text-white fill-white" />
-                </div>
-              </div>
-            )}
-
-            {!playing && (
-              <div className="absolute bottom-5 left-6 pointer-events-none">
-                <p className="font-red-hat flex items-center gap-2 whitespace-nowrap text-white text-[11px] font-light tracking-[0.35em] uppercase">
-                  <Image
-                    src="/mhacks25_logo.svg"
-                    alt="MHacks 2025"
-                    width={130}
-                    height={20}
-                    className="h-5 w-auto"
-                  />
-                  <span>·</span>
-                  <span>Recap</span>
-                </p>
-              </div>
-            )}
           </motion.div>
         </motion.div>
       </div>
