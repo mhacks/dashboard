@@ -6,12 +6,17 @@ import { motion } from "framer-motion";
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 
 const KEY_DATES = [
-  { iso: "2026-06-22", date: "Jun. 22", label: "Applications Open" },
+  {
+    iso: "2026-06-22",
+    time: "12:00:00",
+    date: "Jun. 22",
+    label: "Applications Open",
+  },
   { iso: "2026-08-07", date: "Aug. 07", label: "Early Application Deadline" },
   {
-    iso: "2026-08-21",
-    date: "Aug. 21",
-    label: "Early Decisions Released (Rolling)",
+    iso: "2026-08-14",
+    date: "Aug. 14",
+    label: "Early Decisions Released",
   },
   {
     iso: "2026-09-12",
@@ -21,18 +26,28 @@ const KEY_DATES = [
   { iso: "2026-09-19", date: "Sep. 19", label: "Regular Decisions Released" },
 ];
 
-function midnightEastern(iso: string) {
-  return new Date(`${iso}T00:00:00-04:00`).getTime();
+function easternTime(iso: string, time = "00:00:00") {
+  return new Date(`${iso}T${time}-04:00`).getTime();
 }
 
 function countdown(ms: number) {
-  if (ms <= 0) return "T–00:00:00";
+  if (ms <= 0) return "Today";
+
   const d = Math.floor(ms / 86_400_000);
   const h = Math.floor((ms % 86_400_000) / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   const s = Math.floor((ms % 60_000) / 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `T–${d}D ${pad(h)}:${pad(m)}:${pad(s)}`;
+
+  const unit = (n: number, name: string) =>
+    `${n} ${name}${n === 1 ? "" : "s"}`;
+
+  const parts: string[] = [];
+  if (d) parts.push(unit(d, "day"));
+  if (h) parts.push(unit(h, "hour"));
+  if (m) parts.push(unit(m, "minute"));
+  if (s) parts.push(unit(s, "second"));
+
+  return `in ${parts.slice(0, 2).join(", ")}`;
 }
 
 function useNow() {
@@ -57,13 +72,13 @@ export default function KeyDates() {
   const nextIso =
     now === null
       ? undefined
-      : KEY_DATES.find((k) => midnightEastern(k.iso) > now)?.iso;
+      : KEY_DATES.find((k) => easternTime(k.iso, k.time) > now)?.iso;
 
   return (
     <section id="timeline" className="scroll-mt-20 px-5 py-24 md:px-10">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl" style={{ backgroundColor: "#f4f2e8" }}>
         <p
-          className="font-red-hat text-[11px] font-light uppercase tracking-[0.3em] flex items-center gap-2"
+          className="font-red-hat text-sm md:text-base font-light uppercase tracking-[0.3em] flex items-center gap-2"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           <span>◆</span>Applications<span>◆</span>
@@ -72,13 +87,7 @@ export default function KeyDates() {
           className="mt-6 font-sans font-semibold text-4xl tracking-tight md:text-6xl"
           style={{ color: "#3A4A26" }}
         >
-          Mark your{" "}
-          <span
-            className="font-heading italic"
-            style={{ color: "rgba(58,74,38,0.6)" }}
-          >
-            calendar.
-          </span>
+          Timeline
         </h2>
 
         <div
@@ -86,7 +95,7 @@ export default function KeyDates() {
           style={{ borderColor: "rgba(58,74,38,0.12)" }}
         >
           {KEY_DATES.map((item, i) => {
-            const t = midnightEastern(item.iso);
+            const t = easternTime(item.iso, item.time);
             const isPast = now !== null && t <= now;
             const isNext = now !== null && item.iso === nextIso;
             return (
@@ -111,7 +120,7 @@ export default function KeyDates() {
                 }
               >
                 <span
-                  className="w-16 font-mono text-sm tracking-[0.1em]"
+                  className="w-20 font-mono text-base tracking-[0.1em]"
                   style={{ color: "rgba(58,74,38,0.6)" }}
                 >
                   {item.date}
@@ -128,14 +137,14 @@ export default function KeyDates() {
                 />
                 {isNext ? (
                   <span
-                    className="rounded-full px-3 py-1 font-mono text-[11px] tracking-[0.12em] tabular-nums"
+                    className="rounded-full px-3 py-1 font-mono text-xs tracking-[0.12em] tabular-nums"
                     style={{ backgroundColor: "#3A4A26", color: "#f0efe6" }}
                   >
                     {countdown(t - now!)}
                   </span>
                 ) : (
                   <span
-                    className="rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
+                    className="rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-[0.15em]"
                     style={{
                       borderColor: "rgba(58,74,38,0.2)",
                       color: "rgba(58,74,38,0.55)",

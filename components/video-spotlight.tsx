@@ -50,7 +50,7 @@ export default function VideoSpotlight() {
             <video
               ref={videoRef}
               src="/MHacks 2025 Recap Final Draft.mp4"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               controls={playing}
               playsInline
               onPause={() => setPlaying(false)}

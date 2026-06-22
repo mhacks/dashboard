@@ -1,3 +1,4 @@
+import Image from "next/image";
 import HeroSection from "@/components/hero-section";
 import NavBar from "@/components/navbar";
 import AsciiBackground from "@/components/ascii-background";
@@ -11,7 +12,7 @@ import SiteFooter from "@/components/site-footer";
 
 const ribbonItems = [
   "$40k+ In Prizes",
-  "350+ Projects",
+  "800+ Hackers",
   "24 Hours",
   "October 3 - 4, 2026",
   "Ann Arbor, MI",
@@ -59,28 +60,21 @@ export default function Home() {
         style={{ backgroundColor: "rgba(244, 242, 232, 0.55)" }}
       >
         <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
-          <p
-            className="font-red-hat mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-center flex items-center gap-2"
-            style={{ color: "rgba(58,74,38,0.5)" }}
-          >
-            <span>★</span>
-            About MHacks
-            <span>★</span>
-          </p>
           <h2
-            className="text-5xl sm:text-6xl leading-tight tracking-tight text-center"
+            className="flex items-center justify-center gap-4 text-5xl sm:text-6xl leading-tight tracking-tight text-center"
             style={{ color: "#3A4A26" }}
           >
-            <span className="font-sans font-semibold">Calling all</span>{" "}
-            <span
-              className="font-heading font-semibold italic"
-              style={{ color: "rgba(58,74,38,0.62)" }}
-            >
-              hackers.
-            </span>
+            <Image
+              src="/green_logo.png"
+              alt=""
+              width={40}
+              height={40}
+              className="h-8 w-8 sm:h-10 sm:w-10"
+            />
+            <span className="font-sans font-semibold">About MHacks</span>
           </h2>
           <p
-            className="font-red-hat mt-6 max-w-xl text-[14px] leading-7 text-center"
+            className="font-red-hat mt-6 max-w-xl text-[24px] leading-9 text-center"
             style={{ color: "rgba(58,74,38,0.65)" }}
           >
             MHacks is the University of Michigan&apos;s flagship hackathon,
@@ -89,7 +83,7 @@ export default function Home() {
             for over $40,000 in prizes.
           </p>
           <p
-            className="font-red-hat mt-4 max-w-xl text-[14px] leading-7 text-center"
+            className="font-red-hat mt-4 max-w-xl text-[24px] leading-9 text-center"
             style={{ color: "rgba(58,74,38,0.65)" }}
           >
             Whether you&apos;re a seasoned hacker or attending your very first

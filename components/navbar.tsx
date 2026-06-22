@@ -84,7 +84,7 @@ export default function NavBar() {
                 : "pointer-events-none scale-95 opacity-0"
             }`}
           >
-            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-[17px] font-heading italic text-white">
+            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-[17px] font-red-hat italic text-white">
               {links.map((link) => (
                 <a
                   key={link.href}
@@ -129,7 +129,7 @@ export default function NavBar() {
             <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
           </div>
 
-          <div className="flex items-center gap-7 text-[19px] font-heading italic text-white">
+          <div className="flex items-center gap-7 text-[19px] font-red-hat italic text-white">
             {links.map((link) => (
               <a
                 key={link.href}

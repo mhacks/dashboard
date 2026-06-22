@@ -1,12 +1,5 @@
 import Image from "next/image";
 
-const STATS = [
-  { value: "$40k+", caption: "Prize pool across all tracks" },
-  { value: "350+", caption: "Projects shipped in a weekend" },
-  { value: "24 hrs", caption: "Of building, start to demo" },
-  { value: "14", caption: "Editions since 2013" },
-];
-
 const PHOTOS = [
   { src: "/c_pic1.jpg" },
   { src: "/c_pic2.jpg" },
@@ -62,14 +55,8 @@ export default function StatsBand() {
       <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-paper to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-10">
-        <p
-          className="font-red-hat text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
-          style={{ color: "rgba(58,74,38,0.5)" }}
-        >
-          <span>◆</span>By The Numbers<span>◆</span>
-        </p>
         <h2
-          className="mt-6 text-center font-sans font-semibold text-4xl md:text-6xl tracking-tight"
+          className="text-center font-sans font-semibold text-4xl md:text-6xl tracking-tight"
           style={{ color: "#3A4A26" }}
         >
           Remember{" "}
@@ -81,28 +68,6 @@ export default function StatsBand() {
           </span>
         </h2>
 
-        <div className="mt-16 grid grid-cols-2 gap-y-12 md:grid-cols-4">
-          {STATS.map((s) => (
-            <div
-              key={s.caption}
-              className="border-l px-6 md:px-8"
-              style={{ borderColor: "rgba(31,42,22,0.15)" }}
-            >
-              <p
-                className="font-red-hat text-4xl font-semibold md:text-5xl"
-                style={{ color: "#3A4A26" }}
-              >
-                {s.value}
-              </p>
-              <p
-                className="font-red-hat mt-3 max-w-[170px] text-[10px] uppercase leading-relaxed tracking-[0.18em]"
-                style={{ color: "rgba(58,74,38,0.6)" }}
-              >
-                {s.caption}
-              </p>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="relative mt-20">
