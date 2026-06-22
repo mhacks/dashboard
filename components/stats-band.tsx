@@ -56,7 +56,7 @@ export default function StatsBand() {
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-10">
         <h2
-          className="text-center font-sans font-semibold text-4xl md:text-6xl tracking-tight"
+          className="text-center font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
           style={{ color: "#3A4A26" }}
         >
           Remember{" "}

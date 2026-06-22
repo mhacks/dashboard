@@ -69,7 +69,7 @@ export default function KeyDates() {
   const now = useNow();
 
   return (
-    <section id="timeline" className="scroll-mt-20 px-5 py-24 md:px-10">
+    <section id="timeline" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
       <div className="mx-auto max-w-6xl" style={{ backgroundColor: "#f4f2e8" }}>
         <p
           className="font-red-hat text-sm md:text-base font-light uppercase tracking-[0.3em] flex items-center gap-2"
@@ -78,7 +78,7 @@ export default function KeyDates() {
           <span>◆</span>Applications<span>◆</span>
         </p>
         <h2
-          className="mt-6 font-sans font-semibold text-4xl tracking-tight md:text-6xl"
+          className="mt-6 font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
           style={{ color: "#3A4A26" }}
         >
           Timeline
@@ -99,7 +99,7 @@ export default function KeyDates() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.7, delay: i * 0.08, ease: EASE }}
-                className="flex flex-wrap items-baseline gap-x-5 gap-y-2 border-b px-2 py-6 transition-colors duration-300 md:px-4"
+                className="flex flex-wrap items-baseline gap-x-4 gap-y-2 border-b px-2 py-5 transition-colors duration-300 md:px-4"
                 style={{
                   borderColor: "rgba(58,74,38,0.12)",
                   opacity: isPast ? 0.4 : 1,
@@ -114,7 +114,7 @@ export default function KeyDates() {
                 }
               >
                 <span
-                  className="w-28 rounded-full border px-3 py-1 text-center font-mono text-xs uppercase tracking-[0.15em]"
+                  className="w-24 rounded-full border px-2.5 py-0.5 text-center font-mono text-[10px] uppercase tracking-[0.15em] md:w-28 md:px-3 md:py-1 md:text-xs"
                   style={
                     isActive
                       ? {
@@ -131,7 +131,7 @@ export default function KeyDates() {
                   {status}
                 </span>
                 <h3
-                  className="font-heading text-2xl md:text-4xl"
+                  className="font-heading text-base md:text-xl"
                   style={{ color: "#3A4A26" }}
                 >
                   {item.label}
@@ -141,7 +141,7 @@ export default function KeyDates() {
                   style={{ borderColor: "rgba(58,74,38,0.2)" }}
                 />
                 <span
-                  className="w-28 whitespace-nowrap text-right font-mono text-xl font-bold tracking-[0.08em] md:text-2xl"
+                  className="w-24 whitespace-nowrap text-right font-mono text-sm font-semibold tracking-[0.08em] md:w-28 md:text-base"
                   style={{ color: "rgba(58,74,38,0.6)" }}
                 >
                   {item.date}

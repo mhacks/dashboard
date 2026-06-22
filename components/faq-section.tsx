@@ -66,7 +66,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
           {String(index + 1).padStart(2, "0")}
         </span>
         <span
-          className="flex-1 font-heading text-[32px] leading-tight"
+          className="flex-1 font-heading text-2xl leading-tight md:text-[28px]"
           style={{ color: "#3A4A26" }}
         >
           {q}
@@ -91,7 +91,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
             className="overflow-hidden"
           >
             <p
-              className="font-red-hat max-w-[600px] pb-7 pl-9 text-[20px] font-light leading-relaxed md:pl-12 md:text-[22px]"
+              className="font-red-hat max-w-[600px] pb-7 pl-9 text-base font-light leading-relaxed md:pl-12 md:text-lg"
               style={{ color: "rgba(58,74,38,0.7)" }}
             >
               {a}
@@ -105,13 +105,13 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function FaqSection() {
   return (
-    <section id="faqs" className="scroll-mt-20 px-5 py-24 md:px-10">
+    <section id="faqs" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
       <div className="mx-auto max-w-3xl">
         <h2
-          className="text-center font-sans font-semibold text-4xl tracking-tight md:text-6xl"
+          className="text-center font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
           style={{ color: "#3A4A26" }}
         >
-          Frequently Asked Questions
+          FAQs
         </h2>
 
         <div

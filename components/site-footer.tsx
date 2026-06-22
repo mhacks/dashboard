@@ -53,7 +53,7 @@ export default function SiteFooter() {
 
   return (
     <footer className="border-t border-ink/10 bg-haze">
-      <div className="mx-auto max-w-6xl px-5 pb-8 pt-16 md:px-10">
+      <div className="mx-auto max-w-6xl px-8 pb-8 pt-16 sm:px-12 md:px-16 lg:px-24">
         <div className="flex flex-wrap items-start justify-between gap-12">
           {/* Brand */}
           <div className="max-w-xs">
