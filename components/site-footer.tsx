@@ -113,9 +113,10 @@ export default function SiteFooter() {
                         }`}
                         style={{
                           color:
-                            l.muted || (l.label === "Apply" && !applicationsOpen)
-                            ? "rgba(58,74,38,0.35)"
-                            : "rgba(58,74,38,0.7)",
+                            l.muted ||
+                            (l.label === "Apply" && !applicationsOpen)
+                              ? "rgba(58,74,38,0.35)"
+                              : "rgba(58,74,38,0.7)",
                         }}
                         onClick={(e) => {
                           if (l.label === "Apply" && !applicationsOpen) {
@@ -124,15 +125,17 @@ export default function SiteFooter() {
                         }}
                         onMouseEnter={(e) =>
                           (e.currentTarget.style.color =
-                            l.muted || (l.label === "Apply" && !applicationsOpen)
-                            ? "rgba(58,74,38,0.35)"
-                            : "#3A4A26")
+                            l.muted ||
+                            (l.label === "Apply" && !applicationsOpen)
+                              ? "rgba(58,74,38,0.35)"
+                              : "#3A4A26")
                         }
                         onMouseLeave={(e) =>
                           (e.currentTarget.style.color =
-                            l.muted || (l.label === "Apply" && !applicationsOpen)
-                            ? "rgba(58,74,38,0.35)"
-                            : "rgba(58,74,38,0.7)")
+                            l.muted ||
+                            (l.label === "Apply" && !applicationsOpen)
+                              ? "rgba(58,74,38,0.35)"
+                              : "rgba(58,74,38,0.7)")
                         }
                       >
                         {l.label}
