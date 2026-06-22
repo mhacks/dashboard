@@ -60,6 +60,14 @@
         {
           "name": "SUPABASE_SERVICE_ROLE_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SUPABASE_SERVICE_ROLE_KEY"
+        },
+        {
+          "name": "LOGIN_TURNSTILE_SECRET_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/LOGIN_TURNSTILE_SECRET_KEY"
+        },
+        {
+          "name": "NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/LOGIN_TURNSTILE_SITE_KEY"
         }
       ],
       "logConfiguration": {

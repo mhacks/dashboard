@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm dev          # start dev server at localhost:3000
-pnpm build        # production build
+pnpm build        # production build (output: standalone)
+pnpm start        # run production build via node .next/standalone/server.js
 pnpm lint         # run ESLint (next/core-web-vitals + typescript)
 pnpm format       # run Prettier (write mode)
 pnpm prettier --check .  # check formatting without writing
@@ -34,6 +35,25 @@ The `components.json` shadcn config uses:
 - CSS variables: enabled
 - Icon library: `lucide-react`
 - Path aliases: `@/components`, `@/lib`, `@/hooks`
+
+## Database
+
+**Drizzle ORM** (`drizzle-orm` + `postgres`) is the only way to query the database — do not use the Supabase JS data API (`supabase.from(...)`) for data access. The Supabase JS client (`@supabase/ssr`) is used exclusively for **auth** (session management, `getUser()`).
+
+- Schema: `lib/db/schema.ts` — edit this file, then run `pnpm db:generate` to emit a migration.
+- DB client: `lib/db/index.ts` — exports `db` (Drizzle instance) and `schema`.
+- Supabase auth client: `lib/supabase/server.ts` — server-side cookie-based client for auth only.
+- Migrations live in `supabase/migrations/` and are applied by the Supabase CLI (`pnpm db:reset` / `supabase db push`). Raw SQL migrations (FKs to `auth.users`, triggers) sit alongside Drizzle-generated ones — don't overwrite them with `drizzle-kit push`.
+
+Local DB commands:
+
+```bash
+pnpm db:start     # start local Supabase (Docker)
+pnpm db:stop      # stop local Supabase
+pnpm db:reset     # reset and re-apply all migrations
+pnpm db:generate  # generate a new Drizzle migration from schema changes
+pnpm db:studio    # open Drizzle Studio
+```
 
 ## CI
 
