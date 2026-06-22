@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
@@ -107,12 +108,28 @@ export default function FaqSection() {
   return (
     <section id="faqs" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
       <div className="mx-auto max-w-3xl">
-        <h2
-          className="text-center font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
-          style={{ color: "#3A4A26" }}
-        >
-          FAQs
-        </h2>
+        <div className="flex items-center justify-center gap-12 md:gap-16 lg:gap-24">
+          <Image
+            src="/timeline_pointer_oct_3_4.svg"
+            alt=""
+            width={182}
+            height={111}
+            className="pointer-events-none hidden h-auto w-[132px] max-w-none shrink-0 select-none md:block lg:w-[156px]"
+          />
+          <h2
+            className="text-center font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
+            style={{ color: "#3A4A26" }}
+          >
+            FAQs
+          </h2>
+          <Image
+            src="/timeline_pointer_ann_arbor.svg"
+            alt=""
+            width={226}
+            height={130}
+            className="pointer-events-none hidden h-auto w-[152px] max-w-none shrink-0 select-none md:block lg:w-[180px]"
+          />
+        </div>
 
         <div
           className="mt-14 border-t"
