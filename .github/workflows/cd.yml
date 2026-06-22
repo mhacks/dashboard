@@ -39,6 +39,10 @@ jobs:
           image: ${{ env.CONTAINER_NAME }}
           tags: latest ${{ github.sha }}
           containerfiles: ./Dockerfile
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY }}
 
       - name: Push image to ECR
         id: push
