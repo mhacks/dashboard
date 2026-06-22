@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+// import Image from "next/image";
 import { motion } from "framer-motion";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
@@ -70,19 +71,31 @@ export default function KeyDates() {
 
   return (
     <section id="timeline" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
-      <div className="mx-auto max-w-6xl" style={{ backgroundColor: "#f4f2e8" }}>
-        <p
-          className="font-red-hat text-sm md:text-base font-light uppercase tracking-[0.3em] flex items-center gap-2"
-          style={{ color: "rgba(58,74,38,0.5)" }}
-        >
-          <span>◆</span>Applications<span>◆</span>
-        </p>
-        <h2
-          className="mt-6 font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
-          style={{ color: "#3A4A26" }}
-        >
-          Timeline
-        </h2>
+      {/* <Image
+        src="/droopy_flowers.png"
+        alt=""
+        width={1024}
+        height={850}
+        className="pointer-events-none absolute right-0 -top-28 z-24 hidden h-auto w-[min(62vw,400px)] max-w-none select-none md:block md:w-[min(52vw,560px)] lg:w-[min(48vw,680px)]"
+      /> */}
+      <div
+        className="mx-auto max-w-6xl"
+        style={{ backgroundColor: "#f4f2e8" }}
+      >
+        <div>
+          <p
+            className="font-red-hat text-sm md:text-base font-light uppercase tracking-[0.3em] flex items-center gap-2"
+            style={{ color: "rgba(58,74,38,0.5)" }}
+          >
+            <span>◆</span>Applications<span>◆</span>
+          </p>
+          <h2
+            className="mt-6 font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
+            style={{ color: "#3A4A26" }}
+          >
+            Timeline
+          </h2>
+        </div>
 
         <div
           className="mt-14 border-t"

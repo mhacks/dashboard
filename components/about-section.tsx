@@ -1,11 +1,14 @@
+import AboutFlowers from "@/components/about-flowers";
+
 export default function AboutSection() {
   return (
     <section
       id="about"
-      className="relative scroll-mt-20"
+      className="relative scroll-mt-20 overflow-visible"
       style={{ backgroundColor: "rgba(244, 242, 232, 0.55)" }}
     >
-      <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
+      <AboutFlowers />
+      <div className="relative z-10 flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
         <h2
           className="text-3xl sm:text-4xl md:text-5xl leading-tight tracking-tight text-center"
           style={{ color: "#3A4A26" }}
