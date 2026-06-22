@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useApplicationsOpen } from "./use-applications-open";
 
 const COORDS = "42.2911672°N 83.7182928°W · Ann Arbor, MI";
 
@@ -48,6 +49,8 @@ function AnnArborClock() {
 }
 
 export default function SiteFooter() {
+  const applicationsOpen = useApplicationsOpen();
+
   return (
     <footer className="border-t border-ink/10 bg-haze">
       <div className="mx-auto max-w-6xl px-5 pb-8 pt-16 md:px-10">
@@ -97,22 +100,37 @@ export default function SiteFooter() {
                   {col.links.map((l) => (
                     <li key={l.label}>
                       <a
-                        href={l.href}
+                        href={
+                          l.label === "Apply" && !applicationsOpen
+                            ? "#"
+                            : l.href
+                        }
+                        aria-disabled={l.label === "Apply" && !applicationsOpen}
                         className={`text-sm font-light transition-colors ${
-                          l.muted ? "opacity-50" : ""
+                          l.muted || (l.label === "Apply" && !applicationsOpen)
+                            ? "cursor-not-allowed opacity-50"
+                            : ""
                         }`}
                         style={{
-                          color: l.muted
+                          color:
+                            l.muted || (l.label === "Apply" && !applicationsOpen)
                             ? "rgba(58,74,38,0.35)"
                             : "rgba(58,74,38,0.7)",
                         }}
+                        onClick={(e) => {
+                          if (l.label === "Apply" && !applicationsOpen) {
+                            e.preventDefault();
+                          }
+                        }}
                         onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = l.muted
+                          (e.currentTarget.style.color =
+                            l.muted || (l.label === "Apply" && !applicationsOpen)
                             ? "rgba(58,74,38,0.35)"
                             : "#3A4A26")
                         }
                         onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = l.muted
+                          (e.currentTarget.style.color =
+                            l.muted || (l.label === "Apply" && !applicationsOpen)
                             ? "rgba(58,74,38,0.35)"
                             : "rgba(58,74,38,0.7)")
                         }

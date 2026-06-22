@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useApplicationsOpen } from "./use-applications-open";
 
 const BOX_W = 176;
 const BOX_H = 224;
@@ -10,6 +11,7 @@ const LABEL_H = 22;
 const LERP = 0.1;
 
 export default function HeroSection() {
+  const applicationsOpen = useApplicationsOpen();
   const boxRef = useRef<HTMLDivElement>(null);
   const bgRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLParagraphElement>(null);
@@ -175,12 +177,22 @@ export default function HeroSection() {
               />
             </Link>
             <Link
-              href="/apply"
+              href={applicationsOpen ? "/apply" : "#"}
+              aria-disabled={!applicationsOpen}
+              onClick={(e) => {
+                if (!applicationsOpen) e.preventDefault();
+              }}
               className="relative group hidden lg:block"
               onMouseEnter={handleButtonEnter}
               onMouseLeave={handleButtonLeave}
             >
-              <span className="font-red-hat inline-block rounded-full border border-white/60 bg-white/85 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold text-zinc-900 shadow-sm backdrop-blur-md transition-opacity hover:opacity-80">
+              <span
+                className={`font-red-hat inline-block rounded-full border px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold shadow-sm backdrop-blur-md transition-opacity ${
+                  applicationsOpen
+                    ? "border-white/60 bg-white/85 text-zinc-900 hover:opacity-80"
+                    : "cursor-not-allowed border-white/25 bg-white/25 text-white/40"
+                }`}
+              >
                 Apply Now
               </span>
             </Link>

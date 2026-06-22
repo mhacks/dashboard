@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import Image from "next/image";
+import { useApplicationsOpen } from "./use-applications-open";
 
 const links = [
   { href: "#about", label: "About" },
@@ -18,6 +19,7 @@ const pillClass =
 export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [showLogo, setShowLogo] = useState(false);
+  const applicationsOpen = useApplicationsOpen();
 
   useEffect(() => {
     const heroLogo = document.getElementById("hero-logo");
@@ -38,8 +40,16 @@ export default function NavBar() {
       <nav className="fixed top-6 sm:top-8 right-6 sm:right-8 z-50 lg:hidden flex items-center gap-2">
         <div className="relative group">
           <a
-            href="/apply"
-            className={`${pillClass} font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic text-white transition-opacity hover:opacity-80`}
+            href={applicationsOpen ? "/apply" : "#"}
+            aria-disabled={!applicationsOpen}
+            onClick={(e) => {
+              if (!applicationsOpen) e.preventDefault();
+            }}
+            className={`${pillClass} font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic transition-opacity ${
+              applicationsOpen
+                ? "text-white hover:opacity-80"
+                : "cursor-not-allowed text-white/35"
+            }`}
           >
             Apply Now
           </a>

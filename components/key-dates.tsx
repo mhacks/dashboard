@@ -125,7 +125,7 @@ export default function KeyDates() {
                       : {
                           borderColor: "rgba(58,74,38,0.2)",
                           color: "rgba(58,74,38,0.55)",
-                        }
+                      }
                   }
                 >
                   {status}

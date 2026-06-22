@@ -1,10 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useApplicationsOpen } from "./use-applications-open";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 
 export default function CtaSection() {
+  const applicationsOpen = useApplicationsOpen();
+
   return (
     <section className="px-5 py-24 md:px-10 md:py-32">
       <motion.div
@@ -33,9 +36,21 @@ export default function CtaSection() {
         </h2>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <a
-            href="/apply"
-            className="font-red-hat inline-flex items-center rounded-full px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-80"
-            style={{ backgroundColor: "#3A4A26" }}
+            href={applicationsOpen ? "/apply" : "#"}
+            aria-disabled={!applicationsOpen}
+            onClick={(e) => {
+              if (!applicationsOpen) e.preventDefault();
+            }}
+            className={`font-red-hat inline-flex items-center rounded-full px-6 py-2.5 text-sm font-medium transition-opacity ${
+              applicationsOpen
+                ? "text-white hover:opacity-80"
+                : "cursor-not-allowed text-white/45"
+            }`}
+            style={{
+              backgroundColor: applicationsOpen
+                ? "#3A4A26"
+                : "rgba(58,74,38,0.35)",
+            }}
           >
             Apply Now
           </a>

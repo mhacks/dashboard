@@ -1,6 +1,6 @@
 import { UseFormRegister, FieldErrors } from "react-hook-form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { FormField } from "../utils";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
@@ -13,11 +13,6 @@ const Socials = ({
 }) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
-      <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
-          Socials
-        </CardTitle>
-      </CardHeader>
       <CardContent className="space-y-4">
         <FormField label="GitHub">
           <Input

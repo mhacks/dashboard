@@ -13,7 +13,7 @@ export function FormField({
 }) {
   return (
     <div className={`space-y-2${className ? ` ${className}` : ""}`}>
-      <Label>
+      <Label className="font-red-hat">
         {label}
         {required && <span className="text-destructive"> *</span>}
       </Label>

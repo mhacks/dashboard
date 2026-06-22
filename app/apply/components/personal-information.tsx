@@ -5,7 +5,7 @@ import {
   Control,
 } from "react-hook-form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ethnicityOptions } from "../form-options";
 import { FormField } from "../utils";
 import { SelectWithOther } from "./select-with-other";
@@ -28,15 +28,11 @@ const PersonalInformation = ({
 }) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
-      <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
-          Personal Information
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 font-red-hat">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Age" required>
             <Input
+              className="font-red-hat placeholder:font-red-hat"
               type="number"
               min={18}
               {...register("age", { valueAsNumber: true })}
