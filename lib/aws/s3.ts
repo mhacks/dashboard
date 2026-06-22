@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const REGION = process.env.RESUMES_REGION ?? "us-east-1";
+const REGION = process.env.RESUMES_REGION ?? "us-east-2";
 const BUCKET = process.env.RESUMES_BUCKET!;
 
 const s3 = new S3Client({
