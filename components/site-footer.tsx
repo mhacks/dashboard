@@ -52,7 +52,7 @@ export default function SiteFooter() {
   const applicationsOpen = useApplicationsOpen();
 
   return (
-    <footer className="border-t border-ink/10 bg-haze">
+    <footer className="border-t border-ink/10 bg-haze font-red-hat">
       <div className="mx-auto max-w-6xl px-8 pb-8 pt-16 sm:px-12 md:px-16 lg:px-24">
         <div className="flex flex-wrap items-start justify-between gap-12">
           {/* Brand */}
@@ -66,20 +66,20 @@ export default function SiteFooter() {
                 className="h-[1.7em] w-[1.7em] opacity-80"
               />
               <span
-                className="font-sans text-2xl font-semibold leading-none"
+                className="text-2xl font-semibold leading-none"
                 style={{ color: "#3A4A26" }}
               >
                 Hacks
               </span>
             </div>
             <p
-              className="font-red-hat mt-4 text-xl italic"
+              className="mt-4 text-xl italic"
               style={{ color: "rgba(58,74,38,0.75)" }}
             >
               Build something that grows.
             </p>
             <p
-              className="font-red-hat mt-3 text-[10px] uppercase tracking-[0.2em]"
+              className="mt-3 text-[10px] uppercase tracking-[0.2em]"
               style={{ color: "rgba(58,74,38,0.5)" }}
             >
               {COORDS}
@@ -91,7 +91,7 @@ export default function SiteFooter() {
             {COLUMNS.map((col) => (
               <div key={col.title} className="min-w-44">
                 <p
-                  className="font-red-hat text-[10px] uppercase tracking-[0.25em]"
+                  className="text-[10px] uppercase tracking-[0.25em]"
                   style={{ color: "rgba(58,74,38,0.55)" }}
                 >
                   {col.title}

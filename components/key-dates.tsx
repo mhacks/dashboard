@@ -114,7 +114,7 @@ export default function KeyDates() {
                 }
               >
                 <span
-                  className="w-24 rounded-full border px-2.5 py-0.5 text-center font-mono text-[10px] uppercase tracking-[0.15em] md:w-28 md:px-3 md:py-1 md:text-xs"
+                  className="w-24 rounded-full border px-2.5 py-0.5 text-center font-mono text-xs uppercase tracking-[0.15em] md:w-28 md:px-3 md:py-1 md:text-sm"
                   style={
                     isActive
                       ? {
@@ -131,7 +131,7 @@ export default function KeyDates() {
                   {status}
                 </span>
                 <h3
-                  className="font-heading text-base md:text-xl"
+                  className="font-heading text-lg md:text-2xl"
                   style={{ color: "#3A4A26" }}
                 >
                   {item.label}
@@ -141,7 +141,7 @@ export default function KeyDates() {
                   style={{ borderColor: "rgba(58,74,38,0.2)" }}
                 />
                 <span
-                  className="w-24 whitespace-nowrap text-right font-mono text-sm font-semibold tracking-[0.08em] md:w-28 md:text-base"
+                  className="w-24 whitespace-nowrap text-right font-mono text-base font-semibold tracking-[0.08em] md:w-28 md:text-lg"
                   style={{ color: "rgba(58,74,38,0.6)" }}
                 >
                   {item.date}
