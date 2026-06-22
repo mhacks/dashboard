@@ -51,6 +51,8 @@ function AuthForm() {
     defaultValues: { token: "" },
   });
 
+  // react-hook-form's watch() cannot be memoized by React Compiler.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const tokenValue = tokenForm.watch("token");
 
   async function onSendOtp({ email }: EmailForm) {

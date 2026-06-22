@@ -20,7 +20,7 @@ export const baseApplicationSchema = z.object({
   previousHackathons: z.number().min(0, "Number cannot be negative"),
   major: z.string().min(1, "Please select your major"),
   majorOther: z.string().optional(),
-  resume: z.string().optional(), // Will store file info
+  resume: z.string().min(1, "Please upload your resume"),
 
   // Essays
   whatWouldYouDo: z

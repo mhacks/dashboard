@@ -51,6 +51,7 @@ const STEPS: Array<{
       "graduationYear",
       "previousHackathons",
       "major",
+      "resume",
     ],
   },
   {
@@ -67,6 +68,52 @@ const STEPS: Array<{
     fields: ["mlhCodeOfConduct", "mlhPrivacyPolicy", "mlhEmails"],
   },
 ];
+
+// Maps every schema field to the section (step label) it belongs to, so a
+// validation error can be reported as the section that needs completing.
+const SECTION_OF_FIELD: Partial<
+  Record<keyof HackerApplicationFormData, string>
+> = {
+  age: "Personal",
+  gender: "Personal",
+  genderOther: "Personal",
+  ethnicity: "Personal",
+  ethnicityOther: "Personal",
+  university: "Academic",
+  universityOther: "Academic",
+  country: "Academic",
+  countryOther: "Academic",
+  degree: "Academic",
+  degreeOther: "Academic",
+  graduationYear: "Academic",
+  previousHackathons: "Academic",
+  major: "Academic",
+  majorOther: "Academic",
+  resume: "Academic",
+  whatWouldYouDo: "Essays",
+  whyMhacks: "Essays",
+  hillToDieOn: "Essays",
+  transportationType: "Logistics",
+  comingFrom: "Logistics",
+  airportCode: "Logistics",
+  shirtSize: "Logistics",
+  hasAllergies: "Logistics",
+  allergiesDescription: "Logistics",
+  needsTravelReimbursement: "Logistics",
+  wouldAttendWithoutReimbursement: "Logistics",
+  github: "Socials",
+  linkedin: "Socials",
+  personalSite: "Socials",
+  followsInstagram: "Socials",
+  mlhCodeOfConduct: "Agreements",
+  mlhPrivacyPolicy: "Agreements",
+  mlhEmails: "Agreements",
+  sponsorEmails: "Agreements",
+};
+
+// Max number of section names to spell out in the "please complete" message
+// before collapsing the rest into "and N more".
+const MAX_SECTIONS_SHOWN = 3;
 
 function StepBar({ current }: { current: number }) {
   return (
@@ -156,7 +203,7 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
     previousHackathons: row.previousHackathons,
     major: row.major,
     majorOther: row.majorOther ?? "",
-    resume: row.resume ?? undefined,
+    resume: row.resume ?? "",
     whatWouldYouDo: row.whatWouldYouDo,
     whyMhacks: row.whyMhacks,
     hillToDieOn: row.hillToDieOn,
@@ -200,6 +247,7 @@ export default function ApplyPage({
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showIncompleteMsg, setShowIncompleteMsg] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -285,6 +333,8 @@ export default function ApplyPage({
 
   useEffect(() => {
     if (readOnly) return;
+    // react-hook-form's watch() subscription cannot be memoized by React Compiler.
+    // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = watch((data) => {
       scheduleSave(data as Partial<HackerApplicationFormData>);
     });
@@ -294,6 +344,34 @@ export default function ApplyPage({
       if (savedTimer.current) clearTimeout(savedTimer.current);
     };
   }, [watch, scheduleSave, readOnly]);
+
+  // Validate the entire form against the schema on every change so we can both
+  // disable the submit button and tell the user which sections are incomplete.
+  const watchedValues = watch();
+  const incompleteSections = (() => {
+    const result = hackerApplicationSchema.safeParse(watchedValues);
+    if (result.success) return [];
+    const sections = new Set<string>();
+    for (const issue of result.error.issues) {
+      const section = SECTION_OF_FIELD[issue.path[0] as keyof typeof SECTION_OF_FIELD];
+      if (section) sections.add(section);
+    }
+    // Report sections in the order they appear in the form.
+    return STEPS.map((s) => s.label).filter((label) => sections.has(label));
+  })();
+  const isComplete = incompleteSections.length === 0;
+
+  const incompleteMessage = (() => {
+    if (isComplete) return "";
+    const shown = incompleteSections.slice(0, MAX_SECTIONS_SHOWN);
+    const remaining = incompleteSections.length - shown.length;
+    let list = shown.join(", ");
+    if (remaining > 0) {
+      list += `, and ${remaining} more section${remaining === 1 ? "" : "s"}`;
+    }
+    const noun = incompleteSections.length === 1 ? "section" : "sections";
+    return `Please complete the following ${noun} before submitting: ${list}.`;
+  })();
 
   const goNext = async () => {
     if (!readOnly) {
@@ -675,15 +753,38 @@ export default function ApplyPage({
                 ) : (
                   <button
                     type="button"
-                    onClick={handleSubmit(onSubmit)}
-                    disabled={isSubmitting}
-                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:opacity-50"
+                    aria-disabled={!isComplete || isSubmitting}
+                    onClick={() => {
+                      if (isSubmitting) return;
+                      if (!isComplete) {
+                        setShowIncompleteMsg(true);
+                        return;
+                      }
+                      handleSubmit(onSubmit)();
+                    }}
+                    className={`font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity ${
+                      !isComplete || isSubmitting
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:opacity-80"
+                    }`}
                     style={{ background: GREEN }}
                   >
                     {isSubmitting ? "Submitting…" : "Submit Application"}
                   </button>
                 )}
               </div>
+
+              {!readOnly &&
+                step === STEPS.length - 1 &&
+                showIncompleteMsg &&
+                !isComplete && (
+                  <p
+                    className="mt-3 text-right font-red-hat text-[12px] font-medium"
+                    style={{ color: "rgba(220,38,38,0.9)" }}
+                  >
+                    {incompleteMessage}
+                  </p>
+                )}
             </form>
           </div>
         </motion.div>

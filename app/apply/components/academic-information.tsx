@@ -245,7 +245,7 @@ const AcademicInformation = ({
             )}
           </div>
 
-          <FormField label="Resume (PDF)">
+          <FormField label="Resume (PDF)" required>
             <Input
               type="file"
               accept=".pdf"
@@ -294,6 +294,11 @@ const AcademicInformation = ({
             {uploadState === "error" && (
               <p className="text-xs text-destructive">
                 Upload failed — please try again
+              </p>
+            )}
+            {errors.resume && (
+              <p className="text-sm text-destructive">
+                {errors.resume.message}
               </p>
             )}
           </FormField>
