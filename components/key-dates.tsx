@@ -26,8 +26,26 @@ const KEY_DATES = [
   { iso: "2026-09-19", date: "Sep. 19", label: "Regular Decisions Released" },
 ];
 
-function easternTime(iso: string, time = "00:00:00") {
-  return new Date(`${iso}T${time}-04:00`).getTime();
+function easternDateKey(ms: number) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Detroit",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(ms));
+}
+
+function timelineStatus(iso: string, now: number | null) {
+  if (now === null) return "Upcoming";
+
+  const today = easternDateKey(now);
+  const yesterday = easternDateKey(now - 86_400_000);
+  const tomorrow = easternDateKey(now + 86_400_000);
+
+  if (iso === today) return "Today";
+  if (iso === tomorrow) return "Tomorrow";
+  if (iso === yesterday) return "Yesterday";
+  return iso < today ? "Passed" : "Upcoming";
 }
 
 function useNow() {
@@ -71,10 +89,9 @@ export default function KeyDates() {
           style={{ borderColor: "rgba(58,74,38,0.12)" }}
         >
           {KEY_DATES.map((item, i) => {
-            const start = easternTime(item.iso, item.time);
-            const end = easternTime(item.iso, "23:59:59");
-            const isNow = now !== null && start <= now && now <= end;
-            const isPast = now !== null && end < now;
+            const status = timelineStatus(item.iso, now);
+            const isActive = status === "Today";
+            const isPast = status === "Yesterday" || status === "Passed";
             return (
               <motion.div
                 key={item.label}
@@ -99,7 +116,7 @@ export default function KeyDates() {
                 <span
                   className="w-28 rounded-full border px-3 py-1 text-center font-mono text-xs uppercase tracking-[0.15em]"
                   style={
-                    isNow
+                    isActive
                       ? {
                           backgroundColor: "#3A4A26",
                           borderColor: "#3A4A26",
@@ -111,7 +128,7 @@ export default function KeyDates() {
                         }
                   }
                 >
-                  {isNow ? "Now" : isPast ? "Passed" : "Upcoming"}
+                  {status}
                 </span>
                 <h3
                   className="font-heading text-2xl md:text-4xl"

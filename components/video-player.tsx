@@ -10,7 +10,7 @@ export default function VideoPlayer() {
 
   const handlePlay = () => {
     if (videoRef.current) {
-      videoRef.current.play();
+      videoRef.current.play().catch(() => {});
       setPlaying(true);
     }
   };
