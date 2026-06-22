@@ -14,34 +14,26 @@ export default function CtaSection() {
         transition={{ duration: 0.7, ease: EASE }}
         className="mx-auto max-w-3xl text-center"
       >
-        <p
-          className="font-red-hat text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
-          style={{ color: "rgba(58,74,38,0.5)" }}
-        >
-          <span>◆</span>October 3–4, 2026<span>◆</span>
-        </p>
         <h2
-          className="mt-6 font-sans font-semibold text-4xl leading-[1.08] tracking-tight md:text-6xl"
+          className="font-sans font-semibold text-4xl leading-[1.08] tracking-tight md:text-6xl"
           style={{ color: "#3A4A26" }}
         >
-          Come build something{" "}
+          Come{" "}
           <span
-            className="font-heading italic"
-            style={{ color: "rgba(58,74,38,0.6)" }}
+            className="rounded-md px-2"
+            style={{ backgroundColor: "rgba(200,212,168,0.45)" }}
           >
-            that grows.
+            build
+          </span>{" "}
+          something that{" "}
+          <span className="decoration-[#c8d4a8] decoration-4 underline-offset-8 underline">
+            grows
           </span>
+          .
         </h2>
-        <p
-          className="font-red-hat mx-auto mt-6 max-w-xl text-base font-light leading-relaxed"
-          style={{ color: "rgba(58,74,38,0.7)" }}
-        >
-          Applications open June 22. Grab your spot for 24 hours of building,
-          mentorship, and one unforgettable weekend in Ann Arbor.
-        </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <a
-            href="#"
+            href="/apply"
             className="font-red-hat inline-flex items-center rounded-full px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-80"
             style={{ backgroundColor: "#3A4A26" }}
           >

@@ -61,13 +61,12 @@ export default function StatsBand() {
         >
           Remember{" "}
           <span
-            className="font-heading italic"
-            style={{ color: "rgba(58,74,38,0.6)" }}
+            className="font-heading bg-[rgb(58,74,38)] italic"
+            style={{ color: "rgb(255, 255, 255)" }}
           >
-            MHacks 2025?
+            &nbsp;MHacks 2025?&nbsp;
           </span>
         </h2>
-
       </div>
 
       <div className="relative mt-20">

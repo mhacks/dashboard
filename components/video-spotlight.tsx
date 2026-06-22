@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Play } from "lucide-react";
 
@@ -70,8 +71,16 @@ export default function VideoSpotlight() {
 
             {!playing && (
               <div className="absolute bottom-5 left-6 pointer-events-none">
-                <p className="font-red-hat text-white text-[11px] font-light tracking-[0.35em] uppercase">
-                  MHacks 2025&nbsp;·&nbsp;Recap
+                <p className="font-red-hat flex items-center gap-2 whitespace-nowrap text-white text-[11px] font-light tracking-[0.35em] uppercase">
+                  <Image
+                    src="/mhacks25_logo.svg"
+                    alt="MHacks 2025"
+                    width={130}
+                    height={20}
+                    className="h-5 w-auto"
+                  />
+                  <span>·</span>
+                  <span>Recap</span>
                 </p>
               </div>
             )}

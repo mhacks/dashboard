@@ -3,30 +3,15 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const COORDS = "42°17′N 83°44′W · Ann Arbor, MI";
+const COORDS = "42°17′N 83°43′W · Ann Arbor, MI";
 
 const COLUMNS = [
   {
-    title: "Event",
+    title: "Get involved",
     links: [
-      { label: "About", href: "#about" },
-      { label: "Tracks", href: "#tracks" },
-      { label: "Key Dates", href: "#timeline" },
-    ],
-  },
-  {
-    title: "Attend",
-    links: [
-      { label: "Apply", href: "#" },
-      { label: "FAQ", href: "#faqs" },
-      { label: "Contact", href: "mailto:hackathon-org@umich.edu" },
-    ],
-  },
-  {
-    title: "Sponsor",
-    links: [
+      { label: "Apply", href: "/apply" },
+      { label: "Contact", href: "mailto:hackathon@mhacks.org" },
       { label: "Become a sponsor", href: "mailto:sponsorship@mhacks.org" },
-      { label: "Sponsors", href: "#sponsors" },
     ],
   },
 ];
@@ -63,22 +48,22 @@ export default function SiteFooter() {
   return (
     <footer className="border-t border-ink/10 bg-haze">
       <div className="mx-auto max-w-6xl px-5 pb-8 pt-16 md:px-10">
-        <div className="flex flex-wrap justify-between gap-12">
+        <div className="flex flex-wrap items-start justify-between gap-12">
           {/* Brand */}
           <div className="max-w-xs">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
               <Image
                 src="/green_logo.png"
-                alt="MHacks logo"
+                alt="M"
                 width={36}
                 height={36}
-                className="opacity-80"
+                className="h-[1.7em] w-[1.7em] opacity-80"
               />
               <span
-                className="font-sans text-base font-semibold"
+                className="font-sans text-2xl font-semibold leading-none"
                 style={{ color: "#3A4A26" }}
               >
-                MHacks
+                Hacks
               </span>
             </div>
             <p
@@ -96,9 +81,9 @@ export default function SiteFooter() {
           </div>
 
           {/* Link columns */}
-          <div className="flex flex-wrap gap-16">
+          <div className="flex flex-wrap gap-12">
             {COLUMNS.map((col) => (
-              <div key={col.title}>
+              <div key={col.title} className="min-w-44">
                 <p
                   className="font-red-hat text-[10px] uppercase tracking-[0.25em]"
                   style={{ color: "rgba(58,74,38,0.55)" }}
@@ -110,13 +95,23 @@ export default function SiteFooter() {
                     <li key={l.label}>
                       <a
                         href={l.href}
-                        className="text-sm font-light transition-colors"
-                        style={{ color: "rgba(58,74,38,0.7)" }}
+                        className={`text-sm font-light transition-colors ${
+                          l.muted ? "opacity-50" : ""
+                        }`}
+                        style={{
+                          color: l.muted
+                            ? "rgba(58,74,38,0.35)"
+                            : "rgba(58,74,38,0.7)",
+                        }}
                         onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = "#3A4A26")
+                          (e.currentTarget.style.color = l.muted
+                            ? "rgba(58,74,38,0.35)"
+                            : "#3A4A26")
                         }
                         onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = "rgba(58,74,38,0.7)")
+                          (e.currentTarget.style.color = l.muted
+                            ? "rgba(58,74,38,0.35)"
+                            : "rgba(58,74,38,0.7)")
                         }
                       >
                         {l.label}

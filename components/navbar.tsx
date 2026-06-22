@@ -36,16 +36,13 @@ export default function NavBar() {
     <>
       {/* ── Mobile (< lg) ── */}
       <nav className="fixed top-6 sm:top-8 right-6 sm:right-8 z-50 lg:hidden flex items-center gap-2">
-        {/* Disabled Apply Now */}
         <div className="relative group">
-          <span
-            className={`${pillClass} font-red-hat inline-block cursor-not-allowed select-none rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic text-white/35`}
+          <a
+            href="/apply"
+            className={`${pillClass} font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic text-white transition-opacity hover:opacity-80`}
           >
             Apply Now
-          </span>
-          <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/90 px-3 py-1.5 text-[12px] text-zinc-700 shadow-sm backdrop-blur-sm opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            Applications open Jun. 22
-          </div>
+          </a>
         </div>
 
         {/* Hamburger pill + dropdown */}
@@ -84,7 +81,7 @@ export default function NavBar() {
                 : "pointer-events-none scale-95 opacity-0"
             }`}
           >
-            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-[17px] font-red-hat italic text-white">
+            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-[17px] font-red-hat  text-white">
               {links.map((link) => (
                 <a
                   key={link.href}
@@ -129,7 +126,7 @@ export default function NavBar() {
             <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
           </div>
 
-          <div className="flex items-center gap-7 text-[19px] font-red-hat italic text-white">
+          <div className="flex items-center gap-7 text-[19px] font-red-hat text-white">
             {links.map((link) => (
               <a
                 key={link.href}

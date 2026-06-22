@@ -463,14 +463,16 @@ export default function ApplyPage({
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* Background */}
-      <Image
-        src="/hero_bg_w_overlay.png"
-        alt=""
-        fill
-        className="object-cover object-center"
-        priority
-      />
-      <div className="absolute inset-0 bg-black/55" />
+      <div className="fixed inset-0 z-0">
+        <Image
+          src="/hero_bg_w_overlay.png"
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/55" />
+      </div>
 
       {/* Floating flowers */}
       <motion.div

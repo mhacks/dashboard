@@ -30,26 +30,6 @@ function easternTime(iso: string, time = "00:00:00") {
   return new Date(`${iso}T${time}-04:00`).getTime();
 }
 
-function countdown(ms: number) {
-  if (ms <= 0) return "Today";
-
-  const d = Math.floor(ms / 86_400_000);
-  const h = Math.floor((ms % 86_400_000) / 3_600_000);
-  const m = Math.floor((ms % 3_600_000) / 60_000);
-  const s = Math.floor((ms % 60_000) / 1000);
-
-  const unit = (n: number, name: string) =>
-    `${n} ${name}${n === 1 ? "" : "s"}`;
-
-  const parts: string[] = [];
-  if (d) parts.push(unit(d, "day"));
-  if (h) parts.push(unit(h, "hour"));
-  if (m) parts.push(unit(m, "minute"));
-  if (s) parts.push(unit(s, "second"));
-
-  return `in ${parts.slice(0, 2).join(", ")}`;
-}
-
 function useNow() {
   const [now, setNow] = useState<number | null>(null);
 
@@ -69,10 +49,6 @@ function useNow() {
 
 export default function KeyDates() {
   const now = useNow();
-  const nextIso =
-    now === null
-      ? undefined
-      : KEY_DATES.find((k) => easternTime(k.iso, k.time) > now)?.iso;
 
   return (
     <section id="timeline" className="scroll-mt-20 px-5 py-24 md:px-10">
@@ -95,9 +71,10 @@ export default function KeyDates() {
           style={{ borderColor: "rgba(58,74,38,0.12)" }}
         >
           {KEY_DATES.map((item, i) => {
-            const t = easternTime(item.iso, item.time);
-            const isPast = now !== null && t <= now;
-            const isNext = now !== null && item.iso === nextIso;
+            const start = easternTime(item.iso, item.time);
+            const end = easternTime(item.iso, "23:59:59");
+            const isNow = now !== null && start <= now && now <= end;
+            const isPast = now !== null && end < now;
             return (
               <motion.div
                 key={item.label}
@@ -120,13 +97,24 @@ export default function KeyDates() {
                 }
               >
                 <span
-                  className="w-20 font-mono text-base tracking-[0.1em]"
-                  style={{ color: "rgba(58,74,38,0.6)" }}
+                  className="w-28 rounded-full border px-3 py-1 text-center font-mono text-xs uppercase tracking-[0.15em]"
+                  style={
+                    isNow
+                      ? {
+                          backgroundColor: "#3A4A26",
+                          borderColor: "#3A4A26",
+                          color: "#f0efe6",
+                        }
+                      : {
+                          borderColor: "rgba(58,74,38,0.2)",
+                          color: "rgba(58,74,38,0.55)",
+                        }
+                  }
                 >
-                  {item.date}
+                  {isNow ? "Now" : isPast ? "Passed" : "Upcoming"}
                 </span>
                 <h3
-                  className="font-heading text-2xl italic md:text-4xl"
+                  className="font-heading text-2xl md:text-4xl"
                   style={{ color: "#3A4A26" }}
                 >
                   {item.label}
@@ -135,24 +123,12 @@ export default function KeyDates() {
                   className="hidden flex-1 -translate-y-1.5 border-b border-dotted sm:block"
                   style={{ borderColor: "rgba(58,74,38,0.2)" }}
                 />
-                {isNext ? (
-                  <span
-                    className="rounded-full px-3 py-1 font-mono text-xs tracking-[0.12em] tabular-nums"
-                    style={{ backgroundColor: "#3A4A26", color: "#f0efe6" }}
-                  >
-                    {countdown(t - now!)}
-                  </span>
-                ) : (
-                  <span
-                    className="rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-[0.15em]"
-                    style={{
-                      borderColor: "rgba(58,74,38,0.2)",
-                      color: "rgba(58,74,38,0.55)",
-                    }}
-                  >
-                    {isPast ? "Passed" : "Upcoming"}
-                  </span>
-                )}
+                <span
+                  className="w-28 whitespace-nowrap text-right font-mono text-xl font-bold tracking-[0.08em] md:text-2xl"
+                  style={{ color: "rgba(58,74,38,0.6)" }}
+                >
+                  {item.date}
+                </span>
               </motion.div>
             );
           })}

@@ -61,17 +61,18 @@ export default function Home() {
       >
         <div className="relative flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-16 lg:pt-24 pb-16">
           <h2
-            className="flex items-center justify-center gap-4 text-5xl sm:text-6xl leading-tight tracking-tight text-center"
+            className="flex items-center justify-center gap-1 text-5xl sm:text-6xl leading-tight tracking-tight text-center"
             style={{ color: "#3A4A26" }}
           >
+            <span className="font-sans font-semibold">About &nbsp;</span>
             <Image
               src="/green_logo.png"
-              alt=""
-              width={40}
-              height={40}
-              className="h-8 w-8 sm:h-10 sm:w-10"
+              alt="M"
+              width={52}
+              height={52}
+              className="inline-block h-[0.9em] w-[0.9em] translate-y-[0.03em]"
             />
-            <span className="font-sans font-semibold">About MHacks</span>
+            <span className="font-sans font-semibold">Hacks</span>
           </h2>
           <p
             className="font-red-hat mt-6 max-w-xl text-[24px] leading-9 text-center"

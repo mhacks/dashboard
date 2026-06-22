@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { Play } from "lucide-react";
 
 export default function VideoPlayer() {
@@ -39,8 +40,16 @@ export default function VideoPlayer() {
 
       {!playing && (
         <div className="absolute bottom-5 left-6 pointer-events-none">
-          <p className="text-white text-[11px] font-light tracking-[0.35em] uppercase">
-            MHacks 2025&nbsp;·&nbsp;Recap
+          <p className="flex items-center gap-2 whitespace-nowrap text-white text-[11px] font-light tracking-[0.35em] uppercase">
+            <Image
+              src="/mhacks25_logo.svg"
+              alt="MHacks 2025"
+              width={130}
+              height={20}
+              className="h-5 w-auto"
+            />
+            <span>·</span>
+            <span>Recap</span>
           </p>
         </div>
       )}

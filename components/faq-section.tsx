@@ -60,13 +60,13 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
         }
       >
         <span
-          className="font-mono text-[11px] tracking-[0.2em]"
+          className="font-mono text-[16px] tracking-[0.2em]"
           style={{ color: "rgba(58,74,38,0.4)" }}
         >
           {String(index + 1).padStart(2, "0")}
         </span>
         <span
-          className="flex-1 font-heading italic text-2xl leading-tight md:text-[26px]"
+          className="flex-1 font-heading text-[32px] leading-tight"
           style={{ color: "#3A4A26" }}
         >
           {q}
@@ -74,7 +74,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
         <motion.span
           animate={{ rotate: open ? 45 : 0 }}
           transition={{ duration: 0.35, ease: EASE }}
-          className="font-mono text-xl"
+          className="font-mono text-3xl"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           +
@@ -91,7 +91,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
             className="overflow-hidden"
           >
             <p
-              className="font-red-hat max-w-[600px] pb-7 pl-9 text-[15px] font-light leading-relaxed md:pl-12"
+              className="font-red-hat max-w-[600px] pb-7 pl-9 text-[20px] font-light leading-relaxed md:pl-12 md:text-[22px]"
               style={{ color: "rgba(58,74,38,0.7)" }}
             >
               {a}
@@ -107,23 +107,11 @@ export default function FaqSection() {
   return (
     <section id="faqs" className="scroll-mt-20 px-5 py-24 md:px-10">
       <div className="mx-auto max-w-3xl">
-        <p
-          className="font-red-hat text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
-          style={{ color: "rgba(58,74,38,0.5)" }}
-        >
-          <span>◆</span>Attending MHacks<span>◆</span>
-        </p>
         <h2
-          className="mt-6 text-center font-sans font-semibold text-4xl tracking-tight md:text-6xl"
+          className="text-center font-sans font-semibold text-4xl tracking-tight md:text-6xl"
           style={{ color: "#3A4A26" }}
         >
-          Questions,{" "}
-          <span
-            className="font-heading italic"
-            style={{ color: "rgba(58,74,38,0.6)" }}
-          >
-            answered.
-          </span>
+          Frequently Asked Questions
         </h2>
 
         <div

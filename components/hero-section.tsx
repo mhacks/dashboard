@@ -174,18 +174,16 @@ export default function HeroSection() {
                 className="w-10 h-10 sm:w-14 sm:h-14 drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
               />
             </Link>
-            <div
+            <Link
+              href="/apply"
               className="relative group hidden lg:block"
               onMouseEnter={handleButtonEnter}
               onMouseLeave={handleButtonLeave}
             >
-              <span className="font-red-hat inline-block cursor-not-allowed select-none rounded-full border border-white/30 bg-white/30 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-zinc-800/50 backdrop-blur-md">
+              <span className="font-red-hat inline-block rounded-full border border-white/60 bg-white/85 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold text-zinc-900 shadow-sm backdrop-blur-md transition-opacity hover:opacity-80">
                 Apply Now
               </span>
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/90 px-3 py-1.5 text-[12px] text-zinc-700 shadow-sm backdrop-blur-sm opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                Applications open Jun. 22
-              </div>
-            </div>
+            </Link>
           </div>
 
           {/* Bottom: left-aligned title then dates */}

@@ -24,18 +24,18 @@ export default function SponsorsSection() {
     target: ref,
     offset: ["start end", "end start"],
   });
-  const parallaxY = useTransform(scrollYProgress, [0, 1], ["-10%", "10%"]);
+  const parallaxY = useTransform(scrollYProgress, [0, 1], ["-6%", "6%"]);
 
   return (
     <section id="sponsors" className="scroll-mt-20 px-5 py-24 md:px-10">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto w-2/3">
         <motion.div
           ref={ref}
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="relative isolate z-10 flex h-[440px] flex-col items-center justify-center overflow-hidden rounded-3xl border text-center"
+          className="relative isolate z-10 flex h-[60vh] flex-col items-center justify-center overflow-hidden rounded-3xl border text-center"
           style={{
             backgroundColor: "#f4f2e8",
             borderColor: "rgba(58,74,38,0.1)",
@@ -45,7 +45,7 @@ export default function SponsorsSection() {
             src="/sponsors-ascii.png"
             alt=""
             style={{ y: parallaxY }}
-            className="absolute inset-0 h-[120%] w-full object-cover opacity-50"
+            className="pointer-events-none absolute inset-x-0 -inset-y-[12%] h-[124%] w-full object-cover opacity-50"
           />
           <Fiducials />
 
