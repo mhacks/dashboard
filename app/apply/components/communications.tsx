@@ -1,7 +1,7 @@
 import { Controller, Control } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
 const SocialLink = ({ href, children }: { href: string; children: string }) => (
@@ -23,11 +23,6 @@ const Communications = ({
 }) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
-      <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
-          Communications
-        </CardTitle>
-      </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2">
           <Controller

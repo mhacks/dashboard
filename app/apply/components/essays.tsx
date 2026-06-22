@@ -5,7 +5,7 @@ import {
   Control,
 } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { FormField } from "../utils";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
@@ -53,11 +53,6 @@ const Essays = ({
 
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
-      <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
-          Essays
-        </CardTitle>
-      </CardHeader>
       <CardContent className="space-y-4">
         <FormField label="Why MHacks?" required>
           <Textarea

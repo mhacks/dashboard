@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   countries,
   degreeOptions,
@@ -62,14 +62,6 @@ const AcademicInformation = ({
       {" "}
       {/* Academic Information */}
       <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
-        <CardHeader>
-          <CardTitle
-            className="font-heading italic"
-            style={{ color: "#3A4A26" }}
-          >
-            Academic Information
-          </CardTitle>
-        </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="University" required>

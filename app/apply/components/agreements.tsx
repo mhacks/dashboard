@@ -3,7 +3,7 @@
 import { Controller, Control, FieldErrors } from "react-hook-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 
 // stopPropagation so clicking a policy link doesn't toggle the checkbox the
@@ -29,11 +29,6 @@ const Agreements = ({
 }) => {
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
-      <CardHeader>
-        <CardTitle className="font-heading italic" style={{ color: "#3A4A26" }}>
-          MLH & Sponsor Agreements
-        </CardTitle>
-      </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-1">
           <div className="flex items-start gap-3">

@@ -55,7 +55,7 @@ export function SelectWithOther({
           }
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger className="font-red-hat">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -68,6 +68,7 @@ export function SelectWithOther({
       </Select>
       {isOther && (
         <Input
+          className="font-red-hat placeholder:font-red-hat"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={otherPlaceholder}
