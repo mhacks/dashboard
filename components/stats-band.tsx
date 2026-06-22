@@ -2,9 +2,8 @@ import Image from "next/image";
 
 const STATS = [
   { value: "$40k+", caption: "Prize pool across all tracks" },
-  { value: "350+", caption: "Projects shipped in a weekend" },
-  { value: "24 hrs", caption: "Of building, start to demo" },
-  { value: "14", caption: "Editions since 2013" },
+  { value: "100+", caption: "Projects shipped in a weekend" },
+  { value: "24 hrs", caption: "Of building, start to demo" }
 ];
 
 const PHOTOS = [
@@ -62,26 +61,28 @@ export default function StatsBand() {
       <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-paper to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-10">
-        <p
+        {/* <p
           className="font-red-hat text-center text-[11px] font-light uppercase tracking-[0.3em] flex items-center justify-center gap-2"
           style={{ color: "rgba(58,74,38,0.5)" }}
         >
           <span>◆</span>By The Numbers<span>◆</span>
-        </p>
+        </p> */}
         <h2
           className="mt-6 text-center font-sans font-semibold text-4xl md:text-6xl tracking-tight"
           style={{ color: "#3A4A26" }}
         >
           Remember{" "}
-          <span
-            className="font-heading italic"
-            style={{ color: "rgba(58,74,38,0.6)" }}
-          >
-            MHacks 2025?
-          </span>
+          <Image
+            src="/mhacks25_logo.svg"
+            alt="MHacks 2025"
+            width={320}
+            height={90}
+            className="inline-block h-[0.65em] w-auto align-[-0.03em]"
+            priority={false}
+          />
         </h2>
 
-        <div className="mt-16 grid grid-cols-2 gap-y-12 md:grid-cols-4">
+        {/* <div className="mt-16 grid grid-cols-2 gap-y-12 md:grid-cols-4">
           {STATS.map((s) => (
             <div
               key={s.caption}
@@ -102,7 +103,7 @@ export default function StatsBand() {
               </p>
             </div>
           ))}
-        </div>
+        </div> */}
       </div>
 
       <div className="relative mt-20">

@@ -1,169 +1,68 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-const BOX_W = 176;
-const BOX_H = 224;
-const LABEL_H = 22;
-const LERP = 0.1;
-
-export default function HeroSection() {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const bgRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLParagraphElement>(null);
-  const target = useRef({ x: 0, y: 0 });
-  const current = useRef({ x: 0, y: 0 });
-  const heroSize = useRef({ w: 0, h: 0 });
-  const rafId = useRef<number | null>(null);
-  const visible = useRef(false);
-  const overButton = useRef(false);
-
-  useEffect(() => {
-    const tick = () => {
-      current.current.x += (target.current.x - current.current.x) * LERP;
-      current.current.y += (target.current.y - current.current.y) * LERP;
-
-      const imageLeft = current.current.x - BOX_W / 2;
-      const imageTop = current.current.y - BOX_H / 2;
-
-      if (boxRef.current) {
-        boxRef.current.style.left = `${imageLeft}px`;
-        boxRef.current.style.top = `${imageTop - LABEL_H}px`;
-      }
-      if (bgRef.current) {
-        bgRef.current.style.left = `${-imageLeft}px`;
-        bgRef.current.style.top = `${-imageTop}px`;
-        bgRef.current.style.width = `${heroSize.current.w}px`;
-        bgRef.current.style.height = `${heroSize.current.h}px`;
-      }
-      if (labelRef.current && heroSize.current.h > 0) {
-        // Real latitude range centered on Ann Arbor (42.2808°N) ± 1 degree
-        const ty = Math.max(
-          0,
-          Math.min(1, target.current.y / heroSize.current.h),
-        );
-        const lat = (43.2808 - ty * 2).toFixed(4);
-        labelRef.current.textContent = `${lat}°N`;
-      }
-
-      rafId.current = requestAnimationFrame(tick);
-    };
-
-    rafId.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafId.current !== null) cancelAnimationFrame(rafId.current);
-    };
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    heroSize.current = { w: rect.width, h: rect.height };
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    if (!visible.current) {
-      current.current = { x, y };
-      visible.current = true;
-      if (boxRef.current) {
-        const el = boxRef.current;
-        el.classList.remove("lens-pop");
-        void el.offsetWidth; // force reflow so animation restarts
-        el.classList.add("lens-pop");
-        el.addEventListener(
-          "animationend",
-          () => {
-            el.classList.remove("lens-pop");
-            el.style.opacity = "1";
-          },
-          { once: true },
-        );
-      }
-    }
-
-    target.current = { x, y };
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    visible.current = false;
-    if (boxRef.current) boxRef.current.style.opacity = "0";
-  }, []);
-
-  const handleButtonEnter = useCallback(() => {
-    overButton.current = true;
-    if (boxRef.current) boxRef.current.style.opacity = "0";
-  }, []);
-
-  const handleButtonLeave = useCallback(() => {
-    overButton.current = false;
-    if (visible.current && boxRef.current) boxRef.current.style.opacity = "1";
-  }, []);
+function CornerHandles() {
+  const square =
+    "absolute size-[25px] border border-black bg-[#d2e7ff] max-sm:size-4";
 
   return (
+    <>
+      <span className={`${square} -left-[13px] -top-[13px]`} />
+      <span className={`${square} -bottom-[13px] -left-[13px]`} />
+      <span className={`${square} -right-[13px] -top-[13px]`} />
+      <span className={`${square} -bottom-[13px] -right-[13px]`} />
+    </>
+  );
+}
+
+function HeroTitleCard() {
+  return (
+    <div className="mt-auto flex flex-col items-end gap-7 pb-8 lg:absolute lg:right-[64px] lg:top-[75%] lg:mt-0 lg:-translate-y-1/2 lg:pb-0">
+      <div className="relative border border-black bg-[#d2e7ff] px-5 py-4 text-center shadow-[0_4px_2px_rgba(0,0,0,0.18)] sm:px-8 lg:px-10 lg:py-5">
+        <CornerHandles />
+
+        <h1 className="font-red-hat text-[clamp(4.5rem,14vw,8rem)] font-bold leading-[0.88] tracking-[-0.055em] text-[#2a2a2a] lg:text-[128px]">
+          MHACKS
+        </h1>
+
+        <p className="font-red-hat mt-2 text-[clamp(1.2rem,4vw,2rem)] leading-none tracking-[-0.04em] text-[#2a2a2a] lg:text-[32px]">
+          October 3-4 &bull; Ann Arbor, Michigan
+        </p>
+      </div>
+
+      <div className="mr-3 bg-[#d6ff92] px-9 py-1 shadow-[0_4px_2px_rgba(0,0,0,0.18)] lg:mr-2 lg:px-12">
+        <p className="font-heading text-[clamp(4rem,12vw,6rem)] italic leading-none tracking-[-0.08em] text-[#2a2a2a] lg:text-[96px]">
+          2026
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function HeroSection() {
+  return (
     <section>
-      <div
-        className="relative flex min-h-screen flex-col overflow-hidden cursor-crosshair"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-      >
-        {/* Mobile: original portrait bg */}
-        <Image
-          src="/hero_bg_w_overlay_mobile.png"
-          alt="MHacks 2026"
-          fill
-          sizes="(max-width: 1023px) 100vw, 0px"
-          className="block lg:hidden object-cover object-[65%_center] brightness-[0.88] contrast-[1.35] saturate-[1.7]"
-          priority
-        />
-        {/* Desktop: cropped landscape bg aligned with the lens */}
-        <Image
-          src="/hero_bg_w_overlay.png"
-          alt="MHacks 2026"
-          fill
-          sizes="(max-width: 1023px) 0px, 100vw"
-          className="hidden lg:block object-cover object-[65%_center] brightness-[0.88] contrast-[1.35] saturate-[1.7]"
-          priority
-        />
-
-        {/* Cursor-following lens */}
-        <div
-          ref={boxRef}
-          className="pointer-events-none absolute z-[3] hidden lg:block transition-opacity duration-150"
-          style={{ left: 0, top: 0, opacity: 0 }}
+      <div className="relative flex min-h-screen flex-col overflow-hidden">
+        <video
+          ref={(el) => {
+            if (el) el.playbackRate = 1.5;
+          }}
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          poster="/hero_bg_poster.jpg"
+          aria-hidden="true"
         >
-          {/* Ann Arbor latitude — updates live with lens position */}
-          <p
-            ref={labelRef}
-            className="font-red-hat mb-1.5 text-[13px] font-semibold tracking-widest text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
-          >
-            42.28°N
-          </p>
-
-          {/* Lens: overflow:hidden clips the clear bg */}
-          <div
-            className="relative overflow-hidden border border-white/25 shadow-[0_16px_48px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]"
-            style={{ width: BOX_W, height: BOX_H }}
-          >
-            <div
-              ref={bgRef}
-              style={{
-                position: "absolute",
-                backgroundImage: "url('/hero_bg_clear.jpg')",
-                backgroundSize: "cover",
-                backgroundPosition: "65% center",
-                backgroundRepeat: "no-repeat",
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
-          </div>
-        </div>
+          <source src="/hero_bg_trimmed.mp4" type="video/mp4" />
+        </video>
 
         <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/55 to-transparent" />
 
         <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8">
-          {/* Top bar: logo left, apply right */}
           <div className="flex items-start justify-between">
             <Link href="/" id="hero-logo">
               <Image
@@ -171,43 +70,44 @@ export default function HeroSection() {
                 alt="MHacks"
                 width={56}
                 height={56}
-                className="w-10 h-10 sm:w-14 sm:h-14 drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
+                className="h-10 w-10 brightness-[1.4] drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] sm:h-14 sm:w-14"
               />
             </Link>
-            <div
-              className="relative group hidden lg:block"
-              onMouseEnter={handleButtonEnter}
-              onMouseLeave={handleButtonLeave}
-            >
-              <span className="font-red-hat inline-block cursor-not-allowed select-none rounded-full border border-white/30 bg-white/30 px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-medium text-zinc-800/50 backdrop-blur-md">
+
+            <div className="relative hidden group lg:block">
+              <span className="font-red-hat inline-block cursor-not-allowed select-none rounded-full border border-white/30 bg-white/30 px-5 py-2 text-[13px] font-medium text-zinc-800/50 backdrop-blur-md sm:px-6 sm:py-2.5 sm:text-[15px]">
                 Apply Now
               </span>
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/90 px-3 py-1.5 text-[12px] text-zinc-700 shadow-sm backdrop-blur-sm opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/90 px-3 py-1.5 text-[12px] text-zinc-700 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100">
                 Applications open Jun. 22
               </div>
             </div>
           </div>
 
-          {/* Bottom: left-aligned title then dates */}
-          <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10">
+          {/* <div className="mt-auto flex flex-col items-start pb-6 pl-4 sm:pb-10 sm:pl-8"> */}
+{/*             
             <h1
-              className="font-red-hat sm:whitespace-nowrap text-[10vw] sm:text-[8vw] lg:text-[clamp(3rem,9vw,13rem)] leading-[0.9] tracking-tight uppercase"
+              className="font-red-hat text-[10vw] leading-[0.9] tracking-tight uppercase sm:whitespace-nowrap sm:text-[8vw] lg:text-[clamp(3rem,9vw,13rem)]"
               style={{ color: "#ebe4ce" }}
             >
               MHACKS 2026
             </h1>
+
             <p
-              className="mt-3 text-[16px] sm:text-[18px] font-red-hat font-light tracking-[0.2em] uppercase"
+              className="font-red-hat mt-3 text-[16px] font-light tracking-[0.2em] uppercase sm:text-[18px]"
               style={{ color: "#ebe4ce" }}
             >
               October 3 - 4, 2026
               <span className="hidden sm:inline">&nbsp;·&nbsp;</span>
               <br className="sm:hidden" />
               Ann Arbor, Michigan
-            </p>
-          </div>
+            </p> */}
+          {/* </div>  */}
+          <HeroTitleCard />
+          
         </div>
       </div>
     </section>
   );
 }
+
