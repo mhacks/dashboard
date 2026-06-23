@@ -118,20 +118,23 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function FaqSection() {
   return (
-    <section id="faqs" className="relative scroll-mt-20">
-      {/* Background — drives the section height */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/water_faq.png"
-        alt=""
-        className="pointer-events-none block w-full select-none"
-        style={{ height: "auto" }}
-        aria-hidden
-      />
+    <section
+      id="faqs"
+      className="relative scroll-mt-20 overflow-hidden px-6 py-20 sm:px-10 md:py-28 lg:px-16"
+    >
+      {/* Background illustration */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/water_faq.png"
+          alt=""
+          className="absolute inset-0 h-full w-full select-none object-cover object-top"
+          aria-hidden
+        />
+      </div>
 
-      {/* Card — centered over the image */}
-      <div className="absolute inset-0 flex items-center justify-center px-6 sm:px-10 lg:px-16">
-        <div className="w-full max-w-[868px]">
+      {/* Card */}
+      <div className="relative mx-auto w-full max-w-[868px]">
         <div
           style={{
             backgroundColor: "#ffffff",
@@ -166,7 +169,6 @@ export default function FaqSection() {
             ))}
           </div>
         </div>
-      </div>
       </div>
     </section>
   );
