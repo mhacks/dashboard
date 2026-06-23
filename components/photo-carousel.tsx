@@ -70,6 +70,7 @@ export default function PhotoCarousel() {
                   src={IMAGES[imgIdx]}
                   alt={`MHacks photo ${imgIdx + 1}`}
                   fill
+                  sizes="448px"
                   className="object-cover"
                 />
               </div>
