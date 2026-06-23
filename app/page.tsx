@@ -7,7 +7,6 @@ import StatsBand from "@/components/stats-band";
 import KeyDates from "@/components/key-dates";
 import SponsorsSection from "@/components/sponsors-section";
 import FaqSection from "@/components/faq-section";
-import CtaSection from "@/components/cta-section";
 import SiteFooter from "@/components/site-footer";
 
 const ribbonItems = [

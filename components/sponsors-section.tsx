@@ -28,7 +28,10 @@ export default function SponsorsSection() {
   const parallaxY = useTransform(scrollYProgress, [0, 1], ["-6%", "6%"]);
 
   return (
-    <section id="sponsors" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
+    <section
+      id="sponsors"
+      className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24"
+    >
       <div className="relative mx-auto flex max-w-5xl items-start justify-center gap-3 md:gap-6">
         <Image
           src="/ascii_flower_2.png"

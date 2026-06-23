@@ -30,8 +30,9 @@ export default function AboutSection() {
           style={{ color: "rgba(58,74,38,0.65)" }}
         >
           Whether you&apos;re a seasoned hacker or attending your very first
-          hackathon, MHacks is the place to turn your wildest ideas into reality.
-          Join us for a weekend of innovation, mentorship, and community.
+          hackathon, MHacks is the place to turn your wildest ideas into
+          reality. Join us for a weekend of innovation, mentorship, and
+          community.
         </p>
       </div>
     </section>
