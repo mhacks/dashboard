@@ -4,7 +4,7 @@ import { UserEntry } from "../db/schema/users";
 export const baseApplicationSchema = z.object({
   // Personal Information
   age: z
-    .number({ invalid_type_error: "Please enter your age" })
+    .number({ error: "Please enter your age" })
     .int("Age must be a whole number")
     .min(18, "You must be at least 18 years old")
     .max(120, "Please enter a valid age"),
@@ -16,10 +16,10 @@ export const baseApplicationSchema = z.object({
   country: z.string().min(1, "Please select your country"),
   degree: z.string().min(1, "Please select your degree"),
   graduationYear: z
-    .number({ invalid_type_error: "Please select your graduation year" })
+    .number({ error: "Please select your graduation year" })
     .min(2026, "Graduation year must be 2026 or later"),
   previousHackathons: z
-    .number({ invalid_type_error: "Please enter a number (0 if none)" })
+    .number({ error: "Please enter a number (0 if none)" })
     .int("Please enter a whole number")
     .min(0, "Number cannot be negative")
     .max(100, "Please enter a reasonable number of hackathons"),
@@ -68,10 +68,16 @@ export const baseApplicationSchema = z.object({
   transportationType: z.string().min(1, "Please select transportation type"),
   comingFrom: z.string().min(1, "Please enter your location"),
   airportCode: z
-    .string()
-    .regex(/^[A-Z]{3}$/, "Enter a valid 3-letter IATA airport code (e.g. DTW)")
-    .optional()
-    .or(z.literal("")),
+    .union([
+      z
+        .string()
+        .regex(
+          /^[A-Z]{3}$/,
+          "Enter a valid 3-letter IATA airport code (e.g. DTW)",
+        ),
+      z.literal(""),
+    ])
+    .optional(),
   shirtSize: z.string().min(1, "Please select your shirt size"),
   // A non-empty description implies the applicant has allergies/restrictions.
   allergiesDescription: z.string().max(500).optional(),
@@ -80,20 +86,14 @@ export const baseApplicationSchema = z.object({
 
   // Socials
   github: z
-    .string()
-    .url("Please enter a valid URL")
-    .optional()
-    .or(z.literal("")),
+    .union([z.string().url("Please enter a valid URL"), z.literal("")])
+    .optional(),
   linkedin: z
-    .string()
-    .url("Please enter a valid URL")
-    .optional()
-    .or(z.literal("")),
+    .union([z.string().url("Please enter a valid URL"), z.literal("")])
+    .optional(),
   personalSite: z
-    .string()
-    .url("Please enter a valid URL")
-    .optional()
-    .or(z.literal("")),
+    .union([z.string().url("Please enter a valid URL"), z.literal("")])
+    .optional(),
 
   // Communications
   followsInstagram: z.boolean().optional(),
