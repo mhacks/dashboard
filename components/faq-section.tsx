@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
@@ -41,42 +40,51 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.6, delay: index * 0.04, ease: EASE }}
+    <div
       className="border-b"
-      style={{ borderColor: "rgba(58,74,38,0.12)" }}
+      style={{ borderColor: "rgba(31,42,22,0.12)" }}
     >
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="font-red-hat flex w-full cursor-pointer items-baseline gap-5 px-2 py-6 text-left transition-colors duration-300 md:px-4"
+        className="flex w-full cursor-pointer items-center gap-4 py-6 text-left transition-colors duration-200"
         onMouseEnter={(e) =>
-          (e.currentTarget.style.backgroundColor = "rgba(58,74,38,0.04)")
+          (e.currentTarget.style.backgroundColor = "rgba(31,42,22,0.03)")
         }
         onMouseLeave={(e) =>
           (e.currentTarget.style.backgroundColor = "transparent")
         }
       >
         <span
-          className="font-mono text-[16px] tracking-[0.2em]"
-          style={{ color: "rgba(58,74,38,0.4)" }}
+          className="w-[36px] shrink-0 text-[11px] tracking-[2.2px]"
+          style={{
+            fontFamily: "Instrument Sans, sans-serif",
+            fontWeight: 400,
+            color: "rgba(31,42,22,0.4)",
+          }}
         >
           {String(index + 1).padStart(2, "0")}
         </span>
         <span
-          className="flex-1 font-heading text-2xl leading-tight md:text-[28px]"
-          style={{ color: "#3A4A26" }}
+          className="flex-1 text-[26px] not-italic"
+          style={{
+            fontFamily: "var(--font-instrument-serif), serif",
+            fontWeight: 400,
+            lineHeight: "32.5px",
+            color: "#3a4a26",
+          }}
         >
           {q}
         </span>
         <motion.span
           animate={{ rotate: open ? 45 : 0 }}
           transition={{ duration: 0.35, ease: EASE }}
-          className="font-mono text-3xl"
-          style={{ color: "rgba(58,74,38,0.5)" }}
+          className="shrink-0 text-[20px] leading-[28px]"
+          style={{
+            fontFamily: "Instrument Sans, sans-serif",
+            fontWeight: 400,
+            color: "rgba(31,42,22,0.5)",
+          }}
         >
           +
         </motion.span>
@@ -92,53 +100,73 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
             className="overflow-hidden"
           >
             <p
-              className="font-red-hat max-w-[600px] pb-7 pl-9 text-base font-light leading-relaxed md:pl-12 md:text-lg"
-              style={{ color: "rgba(58,74,38,0.7)" }}
+              className="pb-6 text-base leading-relaxed font-light"
+              style={{
+                paddingLeft: "52px",
+                color: "rgba(31,42,22,0.7)",
+                fontFamily: "var(--font-red-hat-display), sans-serif",
+              }}
             >
               {a}
             </p>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 
 export default function FaqSection() {
   return (
-    <section id="faqs" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
-      <div className="mx-auto max-w-3xl">
-        <div className="flex items-center justify-center gap-12 md:gap-16 lg:gap-24">
-          <Image
-            src="/timeline_pointer_oct_3_4.svg"
-            alt=""
-            width={182}
-            height={111}
-            className="pointer-events-none hidden h-auto w-[132px] max-w-none shrink-0 select-none md:block lg:w-[156px]"
-          />
-          <h2
-            className="text-center font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
-            style={{ color: "#3A4A26" }}
-          >
-            FAQs
-          </h2>
-          <Image
-            src="/timeline_pointer_ann_arbor.svg"
-            alt=""
-            width={226}
-            height={130}
-            className="pointer-events-none hidden h-auto w-[152px] max-w-none shrink-0 select-none md:block lg:w-[180px]"
-          />
-        </div>
+    <section id="faqs" className="relative scroll-mt-20">
+      {/* Background — drives the section height */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/water_faq.png"
+        alt=""
+        className="pointer-events-none block w-full select-none"
+        style={{ height: "auto" }}
+        aria-hidden
+      />
 
+      {/* Card — centered over the image */}
+      <div className="absolute inset-0 flex items-center justify-center px-6 sm:px-10 lg:px-16">
+        <div className="w-full max-w-[868px]">
         <div
-          className="mt-14 border-t"
-          style={{ borderColor: "rgba(58,74,38,0.12)" }}
+          style={{
+            backgroundColor: "#ffffff",
+            borderRadius: "30px",
+            boxShadow: "0px 4px 10px rgba(0,0,0,0.15)",
+            padding: "20px 50px",
+          }}
         >
-          {FAQS.map((faq, i) => (
-            <FaqItem key={faq.q} q={faq.q} a={faq.a} index={i} />
-          ))}
+          {/* Heading */}
+          <div className="pt-6 text-center">
+            <h2
+              style={{
+                fontFamily: "var(--font-red-hat-display), sans-serif",
+                fontWeight: 600,
+                fontSize: "60px",
+                lineHeight: "60px",
+                color: "#3a4a26",
+                letterSpacing: "-1.5px",
+              }}
+            >
+              FAQs
+            </h2>
+          </div>
+
+          {/* FAQ list */}
+          <div
+            className="mt-14 border-t"
+            style={{ borderColor: "rgba(31,42,22,0.12)" }}
+          >
+            {FAQS.map((faq, i) => (
+              <FaqItem key={faq.q} q={faq.q} a={faq.a} index={i} />
+            ))}
+          </div>
         </div>
+      </div>
       </div>
     </section>
   );
