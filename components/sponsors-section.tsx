@@ -72,15 +72,15 @@ export default function SponsorsSection() {
             </span>
 
             <div className="relative flex flex-col items-center gap-5">
-              <div>
+              <div className="flex flex-col items-center gap-3">
                 <h3
-                  className="font-heading text-3xl md:text-4xl"
+                  className="font-red-hat font-semibold text-3xl md:text-4xl lg:text-[60px] lg:tracking-[-1.5px] text-center"
                   style={{ color: "#3A4A26" }}
                 >
-                  Our Sponsors
+                  Our <span className="font-heading italic">Sponsors</span>
                 </h3>
                 <p
-                  className="font-red-hat mt-3 text-lg italic md:text-xl"
+                  className="font-red-hat mt-1 text-lg italic md:text-xl"
                   style={{ color: "rgba(58,74,38,0.8)" }}
                 >
                   Coming Soon
@@ -91,14 +91,13 @@ export default function SponsorsSection() {
               </div>
               <a
                 href="mailto:sponsorship@mhacks.org"
-                className="font-red-hat inline-flex items-center rounded-full border px-6 py-2.5 text-sm font-medium transition-all hover:opacity-70"
+                className="font-red-hat inline-flex items-center rounded-full px-10 py-2.5 text-2xl italic tracking-[-1.6px] transition-all hover:opacity-70"
                 style={{
-                  borderColor: "rgba(58,74,38,0.3)",
-                  color: "#3A4A26",
-                  backgroundColor: "rgba(244,242,232,0.7)",
+                  backgroundColor: "#ffbce1",
+                  color: "#2a2a2a",
                 }}
               >
-                Become a sponsor ↗
+                Sponsor Us
               </a>
             </div>
           </motion.div>

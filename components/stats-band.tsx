@@ -56,15 +56,15 @@ export default function StatsBand() {
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-10">
         <h2
-          className="text-center font-sans font-normal text-3xl tracking-tight md:text-4xl lg:text-5xl"
+          className="text-center font-red-hat font-semibold text-3xl tracking-tight md:text-4xl lg:text-[60px] lg:tracking-[-1.5px]"
           style={{ color: "#3A4A26" }}
         >
           Remember{" "}
           <span
-            className="font-heading bg-[rgb(58,74,38)] italic"
-            style={{ color: "rgb(255, 255, 255)" }}
+            className="font-heading italic"
+            style={{ color: "#5d6b3a" }}
           >
-            &nbsp;MHacks 2025?&nbsp;
+            MHacks 2025?
           </span>
         </h2>
       </div>

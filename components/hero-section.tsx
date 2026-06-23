@@ -1,220 +1,195 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useApplicationsOpen } from "./use-applications-open";
 
-const BOX_W = 176;
-const BOX_H = 224;
-const LABEL_H = 22;
-const LERP = 0.1;
+const BOX_W = 210;
+const BOX_H = 270;
+
+/** Corner squares sitting outside the MHACKS title box corners */
+function TitleFiducials() {
+  const sq = "absolute w-2.5 h-2.5 border border-black";
+  const color = { backgroundColor: "#d2e7ff" };
+  return (
+    <>
+      <span className={`${sq} -top-[5px] -left-[5px]`} style={color} />
+      <span className={`${sq} -top-[5px] -right-[5px]`} style={color} />
+      <span className={`${sq} -bottom-[5px] -left-[5px]`} style={color} />
+      <span className={`${sq} -bottom-[5px] -right-[5px]`} style={color} />
+    </>
+  );
+}
 
 export default function HeroSection() {
   const applicationsOpen = useApplicationsOpen();
   const boxRef = useRef<HTMLDivElement>(null);
-  const bgRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLParagraphElement>(null);
-  const target = useRef({ x: 0, y: 0 });
-  const current = useRef({ x: 0, y: 0 });
-  const heroSize = useRef({ w: 0, h: 0 });
-  const rafId = useRef<number | null>(null);
-  const visible = useRef(false);
-  const overButton = useRef(false);
-
-  useEffect(() => {
-    const tick = () => {
-      current.current.x += (target.current.x - current.current.x) * LERP;
-      current.current.y += (target.current.y - current.current.y) * LERP;
-
-      const imageLeft = current.current.x - BOX_W / 2;
-      const imageTop = current.current.y - BOX_H / 2;
-
-      if (boxRef.current) {
-        boxRef.current.style.left = `${imageLeft}px`;
-        boxRef.current.style.top = `${imageTop - LABEL_H}px`;
-      }
-      if (bgRef.current) {
-        bgRef.current.style.left = `${-imageLeft}px`;
-        bgRef.current.style.top = `${-imageTop}px`;
-        bgRef.current.style.width = `${heroSize.current.w}px`;
-        bgRef.current.style.height = `${heroSize.current.h}px`;
-      }
-      if (labelRef.current && heroSize.current.h > 0) {
-        // Real latitude range centered on Ann Arbor (42.2808°N) ± 1 degree
-        const ty = Math.max(
-          0,
-          Math.min(1, target.current.y / heroSize.current.h),
-        );
-        const lat = (43.2808 - ty * 2).toFixed(4);
-        labelRef.current.textContent = `${lat}°N`;
-      }
-
-      rafId.current = requestAnimationFrame(tick);
-    };
-
-    rafId.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafId.current !== null) cancelAnimationFrame(rafId.current);
-    };
-  }, []);
+  const imgRef = useRef<HTMLDivElement>(null);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    heroSize.current = { w: rect.width, h: rect.height };
-
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    const boxLeft = x - BOX_W / 2;
+    const boxTop = y - BOX_H / 2;
 
-    if (!visible.current) {
-      current.current = { x, y };
-      visible.current = true;
-      if (boxRef.current) {
-        const el = boxRef.current;
-        el.classList.remove("lens-pop");
-        void el.offsetWidth; // force reflow so animation restarts
-        el.classList.add("lens-pop");
-        el.addEventListener(
-          "animationend",
-          () => {
-            el.classList.remove("lens-pop");
-            el.style.opacity = "1";
-          },
-          { once: true },
-        );
-      }
+    if (boxRef.current) {
+      boxRef.current.style.opacity = "1";
+      boxRef.current.style.left = `${boxLeft}px`;
+      boxRef.current.style.top = `${boxTop}px`;
     }
-
-    target.current = { x, y };
+    if (imgRef.current) {
+      // offset the full-hero-sized flower so the correct portion shows through the box viewport
+      imgRef.current.style.left = `${-boxLeft}px`;
+      imgRef.current.style.top = `${-boxTop}px`;
+      imgRef.current.style.width = `${rect.width}px`;
+      imgRef.current.style.height = `${rect.height}px`;
+    }
   }, []);
 
   const handleMouseLeave = useCallback(() => {
-    visible.current = false;
     if (boxRef.current) boxRef.current.style.opacity = "0";
-  }, []);
-
-  const handleButtonEnter = useCallback(() => {
-    overButton.current = true;
-    if (boxRef.current) boxRef.current.style.opacity = "0";
-  }, []);
-
-  const handleButtonLeave = useCallback(() => {
-    overButton.current = false;
-    if (visible.current && boxRef.current) boxRef.current.style.opacity = "1";
   }, []);
 
   return (
     <section>
       <div
-        className="relative flex min-h-screen flex-col overflow-hidden cursor-crosshair"
+        className="relative flex min-h-screen flex-col overflow-hidden"
+        style={{ backgroundColor: "#0b0c0a" }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Mobile: original portrait bg */}
+        {/* ASCII flower background */}
         <Image
-          src="/hero_bg_w_overlay_mobile.png"
-          alt="MHacks 2026"
+          src="/hero_ascii_bg.png"
+          alt=""
           fill
-          sizes="(max-width: 1023px) 100vw, 0px"
-          className="block lg:hidden object-cover object-[65%_center] brightness-[0.88] contrast-[1.35] saturate-[1.7]"
-          priority
-        />
-        {/* Desktop: cropped landscape bg aligned with the lens */}
-        <Image
-          src="/hero_bg_w_overlay.png"
-          alt="MHacks 2026"
-          fill
-          sizes="(max-width: 1023px) 0px, 100vw"
-          className="hidden lg:block object-cover object-[65%_center] brightness-[0.88] contrast-[1.35] saturate-[1.7]"
+          sizes="100vw"
+          className="object-cover object-center pointer-events-none select-none"
           priority
         />
 
-        {/* Cursor-following lens */}
+        {/* Cursor-following lens box (desktop only) */}
         <div
           ref={boxRef}
-          className="pointer-events-none absolute z-[3] hidden lg:block transition-opacity duration-150"
-          style={{ left: 0, top: 0, opacity: 0 }}
+          className="pointer-events-none absolute z-[5] hidden lg:block transition-opacity duration-150"
+          style={{ width: BOX_W, height: BOX_H, left: 0, top: 0, opacity: 0, overflow: "hidden", border: "2px solid rgba(255,255,255,0.5)", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}
         >
-          {/* Ann Arbor latitude — updates live with lens position */}
-          <p
-            ref={labelRef}
-            className="font-red-hat mb-1.5 text-[13px] font-semibold tracking-widest text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
-          >
-            42.28°N
-          </p>
-
-          {/* Lens: overflow:hidden clips the clear bg */}
+          {/* Full-hero-sized clear flower photo, offset so the cursor-aligned portion shows */}
           <div
-            className="relative overflow-hidden border border-white/25 shadow-[0_16px_48px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]"
-            style={{ width: BOX_W, height: BOX_H }}
-          >
-            <div
-              ref={bgRef}
-              style={{
-                position: "absolute",
-                backgroundImage: "url('/hero_bg_clear.jpg')",
-                backgroundSize: "cover",
-                backgroundPosition: "65% center",
-                backgroundRepeat: "no-repeat",
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
-          </div>
+            ref={imgRef}
+            style={{
+              position: "absolute",
+              backgroundImage: "url('/hero_flower_portrait.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center center",
+              backgroundRepeat: "no-repeat",
+            }}
+          />
         </div>
 
-        <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/55 to-transparent" />
+        {/* Slight vignette */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/40 pointer-events-none" />
 
-        <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8">
-          {/* Top bar: logo left, apply right */}
-          <div className="flex items-start justify-between">
+        <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8 lg:p-10">
+          {/* Top bar */}
+          <div className="flex items-center justify-between">
             <Link href="/" id="hero-logo">
               <Image
                 src="/mhacks_logo.png"
                 alt="MHacks"
-                width={56}
-                height={56}
-                className="w-10 h-10 sm:w-14 sm:h-14 drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
+                width={40}
+                height={40}
+                className="w-9 h-9 sm:w-10 sm:h-10 brightness-[2] drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
               />
             </Link>
             <Link
               href={applicationsOpen ? "/apply" : "#"}
               aria-disabled={!applicationsOpen}
-              onClick={(e) => {
-                if (!applicationsOpen) e.preventDefault();
-              }}
-              className="relative group hidden lg:block"
-              onMouseEnter={handleButtonEnter}
-              onMouseLeave={handleButtonLeave}
+              onClick={(e) => { if (!applicationsOpen) e.preventDefault(); }}
+              className={`font-red-hat inline-block rounded-full px-6 py-2.5 text-[15px] font-semibold transition-opacity ${
+                applicationsOpen
+                  ? "hover:opacity-80"
+                  : "cursor-not-allowed opacity-50"
+              }`}
+              style={{ backgroundColor: "#ef7daf", color: "#1a0010" }}
             >
-              <span
-                className={`font-red-hat inline-block rounded-full border px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold shadow-sm backdrop-blur-md transition-opacity ${
-                  applicationsOpen
-                    ? "border-white/60 bg-white/85 text-zinc-900 hover:opacity-80"
-                    : "cursor-not-allowed border-white/25 bg-white/25 text-white/40"
-                }`}
-              >
-                Apply Now
-              </span>
+              Apply Here →
             </Link>
           </div>
 
-          {/* Bottom: left-aligned title then dates */}
-          <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10">
-            <h1
-              className="font-red-hat sm:whitespace-nowrap text-[10vw] sm:text-[8vw] lg:text-[clamp(3rem,9vw,13rem)] leading-[0.9] tracking-tight uppercase"
-              style={{ color: "#ebe4ce" }}
-            >
-              MHACKS 2026
-            </h1>
-            <p
-              className="mt-3 text-[16px] sm:text-[18px] font-red-hat font-light tracking-[0.2em] uppercase"
-              style={{ color: "#ebe4ce" }}
-            >
-              October 3 - 4, 2026
-              <span className="hidden sm:inline">&nbsp;·&nbsp;</span>
-              <br className="sm:hidden" />
-              Ann Arbor, Michigan
-            </p>
+          {/* Center content: portrait photo + title box */}
+          <div className="flex-1 flex items-center justify-center px-4 sm:px-8">
+            <div className="flex items-end gap-4 sm:gap-6 lg:gap-8 w-full max-w-5xl">
+              {/* Portrait photo */}
+              <div
+                className="hidden sm:block shrink-0 overflow-hidden"
+                style={{
+                  width: "clamp(120px, 14vw, 200px)",
+                  height: "clamp(160px, 19vw, 280px)",
+                  border: "3px solid rgba(255,255,255,0.7)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                }}
+              >
+                <Image
+                  src="/hero_flower_portrait.png"
+                  alt=""
+                  width={400}
+                  height={560}
+                  className="w-full h-full object-cover object-center pointer-events-none select-none"
+                />
+              </div>
+
+              {/* Title box — #d2e7ff bg, black border */}
+              <div className="flex-1 relative min-w-0">
+                <div
+                  className="relative px-6 py-5 sm:px-8 sm:py-7 lg:px-10 lg:py-8"
+                  style={{ backgroundColor: "#d2e7ff", border: "1px solid black" }}
+                >
+                  <TitleFiducials />
+                  <h1
+                    className="font-red-hat font-bold leading-[0.9] tracking-tight uppercase"
+                    style={{
+                      color: "#2a2a2a",
+                      fontSize: "clamp(3rem, 10vw, 8rem)",
+                    }}
+                  >
+                    MHACKS
+                  </h1>
+                  <p
+                    className="font-red-hat font-normal mt-2 sm:mt-3"
+                    style={{
+                      color: "#2a2a2a",
+                      fontSize: "clamp(0.85rem, 2vw, 1.5rem)",
+                    }}
+                  >
+                    October 3-4&nbsp;•&nbsp;Ann Arbor, Michigan
+                  </p>
+                </div>
+
+                {/* 2026 badge — #d6ff92 bg, black border, drop shadow */}
+                <div
+                  className="mt-0 ml-auto inline-block px-8 py-2 sm:px-10 sm:py-3"
+                  style={{
+                    backgroundColor: "#d6ff92",
+                    border: "1px solid black",
+                    boxShadow: "0px 4px 2px rgba(0,0,0,0.25)",
+                  }}
+                >
+                  <span
+                    className="font-heading italic"
+                    style={{
+                      color: "#2a2a2a",
+                      fontSize: "clamp(2rem, 5vw, 4.5rem)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    2026
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

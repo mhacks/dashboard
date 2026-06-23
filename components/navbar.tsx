@@ -7,14 +7,12 @@ import { useApplicationsOpen } from "./use-applications-open";
 
 const links = [
   { href: "#about", label: "About" },
-  // { href: "#tracks", label: "Tracks" },
-  { href: "#timeline", label: "Dates" },
-  { href: "#sponsors", label: "Sponsors" },
   { href: "#faqs", label: "FAQ" },
+  { href: "#sponsors", label: "Sponsors" },
 ];
 
 const pillClass =
-  "border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl";
+  "border border-white/20 bg-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.15)] backdrop-blur-xl";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
@@ -47,11 +45,11 @@ export default function NavBar() {
             }}
             className={`${pillClass} font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic transition-opacity ${
               applicationsOpen
-                ? "text-white hover:opacity-80"
-                : "cursor-not-allowed text-white/35"
+                ? "text-zinc-900 hover:opacity-80"
+                : "cursor-not-allowed text-zinc-900/35"
             }`}
           >
-            Apply Now
+            Apply
           </a>
         </div>
 
@@ -63,7 +61,7 @@ export default function NavBar() {
             <button
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              className="relative flex items-center justify-center h-[18px] w-[18px] text-white"
+              className="relative flex items-center justify-center h-[18px] w-[18px] text-zinc-900"
             >
               <Menu
                 size={18}
@@ -91,7 +89,7 @@ export default function NavBar() {
                 : "pointer-events-none scale-95 opacity-0"
             }`}
           >
-            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-lg font-heading italic text-white">
+            <div className="flex flex-col gap-3 whitespace-nowrap px-5 py-4 text-lg font-heading italic text-zinc-900">
               {links.map((link) => (
                 <a
                   key={link.href}
@@ -110,7 +108,7 @@ export default function NavBar() {
       {/* ── Desktop (lg+) ── */}
       <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 lg:block">
         <div
-          className={`flex items-center rounded-full ${pillClass} px-6 py-3`}
+          className={`flex items-center rounded-full ${pillClass} px-8 py-[10px]`}
         >
           {/* Logo slides in from the left */}
           <div
@@ -130,13 +128,13 @@ export default function NavBar() {
                 alt="MHacks"
                 width={24}
                 height={24}
-                className="brightness-[1.4] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] block"
+                className="block"
               />
             </a>
-            <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
+            <div className="ml-5 h-[4px] w-[4px] rounded-full bg-zinc-900/50 flex-shrink-0" />
           </div>
 
-          <div className="flex items-center gap-7 text-lg font-heading italic text-white">
+          <div className="flex items-center gap-[50px] text-[22px] font-red-hat font-semibold text-zinc-900">
             {links.map((link) => (
               <a
                 key={link.href}
@@ -146,6 +144,20 @@ export default function NavBar() {
                 {link.label}
               </a>
             ))}
+            <a
+              href={applicationsOpen ? "/apply" : "#"}
+              aria-disabled={!applicationsOpen}
+              onClick={(e) => {
+                if (!applicationsOpen) e.preventDefault();
+              }}
+              className={`transition-opacity ${
+                applicationsOpen
+                  ? "hover:opacity-60"
+                  : "cursor-not-allowed opacity-40"
+              }`}
+            >
+              Apply
+            </a>
           </div>
         </div>
       </nav>
