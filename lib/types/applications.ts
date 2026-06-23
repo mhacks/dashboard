@@ -5,7 +5,9 @@ export const baseApplicationSchema = z.object({
   // Personal Information
   age: z
     .number({ invalid_type_error: "Please enter your age" })
-    .min(18, "You must be at least 18 years old"),
+    .int("Age must be a whole number")
+    .min(18, "You must be at least 18 years old")
+    .max(120, "Please enter a valid age"),
   gender: z.string().min(1, "Please select an option"),
   ethnicity: z.string().min(1, "Please select an option"),
 
@@ -18,7 +20,9 @@ export const baseApplicationSchema = z.object({
     .min(2026, "Graduation year must be 2026 or later"),
   previousHackathons: z
     .number({ invalid_type_error: "Please enter a number (0 if none)" })
-    .min(0, "Number cannot be negative"),
+    .int("Please enter a whole number")
+    .min(0, "Number cannot be negative")
+    .max(100, "Please enter a reasonable number of hackathons"),
   major: z.string().min(1, "Please select your major"),
   resume: z.string().min(1, "Please upload your resume"),
 

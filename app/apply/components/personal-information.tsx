@@ -35,6 +35,8 @@ const PersonalInformation = ({
               className="font-red-hat placeholder:font-red-hat"
               type="number"
               min={18}
+              max={120}
+              step={1}
               {...register("age", { valueAsNumber: true })}
               placeholder="18"
             />
