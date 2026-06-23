@@ -9,11 +9,7 @@ const navLinks = [
   { href: "/#faqs", label: "FAQ" },
 ];
 
-const detailItems = [
-  "October 3 - 4, 2026",
-  "Ann Arbor, MI",
-  "800+ Hackers",
-];
+const detailItems = ["October 3 - 4, 2026", "Ann Arbor, MI", "800+ Hackers"];
 
 const pillClass =
   "border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl";
