@@ -1,16 +1,13 @@
 "use server";
 import {
   HackerApplicationFormData,
-  JudgeApplicationFormData,
   hackerApplicationSchema,
-  judgeApplicationSchema,
 } from "@/lib/types/applications";
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import {
   hackerApplicants,
   hackerApplicationDrafts,
-  judgeApplicants,
 } from "@/lib/db/schema/applications";
 import { createClient } from "@/lib/supabase/server";
 
@@ -79,7 +76,7 @@ export const saveDraft = async (
         target: hackerApplicationDrafts.userId,
         set: {
           data: data as Record<string, unknown>,
-          updatedAt: new Date(),
+          updatedAt: new Date().toISOString(),
         },
       });
   } catch (error) {
@@ -106,22 +103,5 @@ export const updateHackerApplication = async (
     throw new Error(
       error instanceof Error ? error.message : "Failed to update application",
     );
-  }
-};
-
-export const updateJudgeApplications = async (
-  data: JudgeApplicationFormData,
-) => {
-  const userId = await getAuthenticatedUserId();
-  const parsed = judgeApplicationSchema.parse(data);
-
-  try {
-    await db.insert(judgeApplicants).values({
-      ...toDbValues(parsed),
-      userId,
-    });
-  } catch (error) {
-    console.error("Unable to update Judge Applications");
-    throw error;
   }
 };

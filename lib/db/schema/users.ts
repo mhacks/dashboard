@@ -1,12 +1,17 @@
-import { pgTable, uuid, text } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, unique, uuid, text } from "drizzle-orm/pg-core";
 
-export type UserRole = "hacker" | "organizer";
+export const userRole = pgEnum("user_role", ["hacker", "organizer"]);
+export type UserRole = (typeof userRole.enumValues)[number];
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  role: text("role").notNull().default("hacker").$type<UserRole>(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid().primaryKey().notNull(),
+    email: text().notNull(),
+    role: userRole().default("hacker").notNull(),
+  },
+  (table) => [unique("users_email_unique").on(table.email)],
+);
 
 export type UserEntry = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

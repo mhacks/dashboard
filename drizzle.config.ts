@@ -8,6 +8,9 @@ export default defineConfig({
   schema: "./lib/db/schema",
   out: "./supabase/migrations",
   dialect: "postgresql",
+  migrations: {
+    prefix: "timestamp",
+  },
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
