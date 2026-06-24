@@ -8,7 +8,7 @@ export default function AboutSection() {
       style={{ backgroundColor: "rgba(244, 242, 232, 0.55)" }}
     >
       <AboutFlowers />
-      <div className="relative z-10 mx-auto flex w-full max-w-[641px] flex-col items-center gap-10 px-8 pt-16 pb-16 sm:px-12 lg:pt-24">
+      <div className="relative z-10 mx-auto flex w-full max-w-[641px] flex-col items-center gap-10 px-8 pt-16 pb-64 sm:px-12 lg:pt-12 lg:pb-128">
         <div className="flex w-full flex-col items-center gap-1.5">
           <p className="font-red-hat text-lg font-semibold leading-[1.3] text-center text-black/50">
             About MHacks

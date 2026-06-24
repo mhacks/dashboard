@@ -54,7 +54,8 @@ export default function Home() {
       </div>
 
       {/* ── About + gradient blobs ── */}
-      <div className="relative">
+      {/* overflow-hidden keeps the blobs contained so they don't overlap StatsBand */}
+      <div className="relative overflow-hidden">
         <GradientBlobs />
         <AboutSection />
       </div>
