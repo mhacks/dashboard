@@ -43,3 +43,5 @@ next-env.d.ts
 
 # utils
 /agents/
+
+.vscode
