@@ -6,15 +6,13 @@ This will be the form that hackers use to apply.
 - Use React Hook Form for form state management and validation
 - Allow users to save progress locally and return later to complete the application
 - Validate submissions both in the browser and on the server for correctness
-- ** For the resume upload, use a dummy function for now. We will set up S3 later.
+- \*\* For the resume upload, use a dummy function for now. We will set up S3 later.
 
 ## Design
 
 - Any simple form design would suffice
 - Example from shadcn docs https://ui.shadcn.com/docs/forms/react-hook-form#complex-forms
-    
-    ![Screenshot 2026-03-08 at 6.15.35 PM.png](attachment:b798e4b7-33c0-4637-a0c6-d4a815b480d0:Screenshot_2026-03-08_at_6.15.35_PM.png)
-    
+  ![Screenshot 2026-03-08 at 6.15.35 PM.png](attachment:b798e4b7-33c0-4637-a0c6-d4a815b480d0:Screenshot_2026-03-08_at_6.15.35_PM.png)
 - Additional features like partitioning the form into paged sections or fancy UI elements (e.g., map for location input) would be fun, but beyond MVP
 
 ## Questions
@@ -23,45 +21,45 @@ This will be the form that hackers use to apply.
 
 - Age: Number input (min: 18)
 - Gender: Single-select dropdown
-    - Male
-    - Female
-    - Other (please describe)
+  - Male
+  - Female
+  - Other (please describe)
 - Ethnicity: Single-select dropdown
-    - American Indian or Alaska Native
-    - Asian
-    - Black or African American
-    - Hispanic or Latino / Latina / Latinx
-    - Middle Eastern or North African
-    - Native Hawaiian or Pacific Islander
-    - White
-    - Multiracial (please describe)
+  - American Indian or Alaska Native
+  - Asian
+  - Black or African American
+  - Hispanic or Latino / Latina / Latinx
+  - Middle Eastern or North African
+  - Native Hawaiian or Pacific Islander
+  - White
+  - Multiracial (please describe)
 
 **Academic Information**
 
 - University: Single-select dropdown
-    - Find a list of universities
-    - Other (please describe)
+  - Find a list of universities
+  - Other (please describe)
 - Country: Single-select dropdown
-    - Find a list of countries
-    - Other (describe)
+  - Find a list of countries
+  - Other (describe)
 - Degree: Single-select dropdown
-    - High School
-    - Associate's
-    - Bachelor's
-    - Master's
-    - PhD
-    - Other (please describe)
+  - High School
+  - Associate's
+  - Bachelor's
+  - Master's
+  - PhD
+  - Other (please describe)
 - Graduation Year: Number input (min: 2026)
 - Number of Previous Hackathons: Number input
 - Major(s): Single-select dropdown
-    - Computer Science
-    - Computer Engineering
-    - Electrical Engineering
-    - Data Science
-    - Statistics
-    - Mathematics
-    - Business
-    - Other or multiple majors (please describe)
+  - Computer Science
+  - Computer Engineering
+  - Electrical Engineering
+  - Data Science
+  - Statistics
+  - Mathematics
+  - Business
+  - Other or multiple majors (please describe)
 - Resume: PDF File upload
 
 **Essays** (min/max character limits apply)
@@ -74,21 +72,21 @@ This will be the form that hackers use to apply.
 **Logistics**
 
 - Transportation Type: Single-select dropdown
-    - Driving
-    - Flying
-    - Bus
-    - Train
-    - Local
+  - Driving
+  - Flying
+  - Bus
+  - Train
+  - Local
 - Where Are You Coming From?: Text input
 - Shirt Size: Single-select dropdown
-    - XS
-    - S
-    - M
-    - L
-    - XL
-    - XXL
+  - XS
+  - S
+  - M
+  - L
+  - XL
+  - XXL
 - Do you have any allergies or dietary restrictions?: Checkbox
-    - When checked provide textbox with “Please describe”
+  - When checked provide textbox with “Please describe”
 - Will you require travel reimbursement to attend? Yes / No
 - If yes: If travel reimbursement cannot be provided, would you still be interested in attending MHacks?
 
@@ -100,7 +98,7 @@ This will be the form that hackers use to apply.
 
 **Communications**
 
-- Did you follow us on Instagram (@mhacks_)? (optional): Checkbox
+- Did you follow us on Instagram (@mhacks\_)? (optional): Checkbox
 
 **MLH & Sponsor Agreements**
 
