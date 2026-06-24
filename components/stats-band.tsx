@@ -39,7 +39,7 @@ function PhotoCarousel() {
 
 export default function StatsBand() {
   return (
-    <section className="relative overflow-hidden py-28 md:py-36">
+    <section className="relative overflow-hidden pt-20 pb-28 md:pt-28 md:pb-36">
       {/* ASCII background */}
       <Image
         src="/sponsors-ascii.png"

@@ -8,6 +8,7 @@ import KeyDates from "@/components/key-dates";
 import SponsorsSection from "@/components/sponsors-section";
 import FaqSection from "@/components/faq-section";
 import SiteFooter from "@/components/site-footer";
+import GradientBlobs from "@/components/gradient-blobs";
 
 const ribbonItems = [
   "$40k+ In Prizes",
@@ -52,7 +53,12 @@ export default function Home() {
         </div>
       </div>
 
-      <AboutSection />
+      {/* ── About + gradient blobs ── */}
+      {/* overflow-hidden keeps the blobs contained so they don't overlap StatsBand */}
+      <div className="relative overflow-hidden">
+        <GradientBlobs />
+        <AboutSection />
+      </div>
       <StatsBand />
 
       {/* ── MHacks 2025 Recap Video ── */}
