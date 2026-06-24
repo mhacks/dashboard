@@ -14,13 +14,11 @@
     "start": "node --env-file=.env.local .next/standalone/server.js",
     "lint": "eslint",
     "format": "prettier --write .",
-    "db:env": "node scripts/gen-env.ts",
-    "db:local": "supabase start",
-    "db:local:stop": "supabase stop",
-    "db:local:reset": "supabase db reset",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "local:start": "supabase start && node scripts/gen-env-local.ts",
+    "local:stop": "supabase stop",
+    "local:reset": "supabase db reset",
+    "local:stage": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit push",
+    "local:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1073.0",
