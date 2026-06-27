@@ -27,10 +27,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
-import {
-  LIQUID_GLASS_CARD_CLASS,
-  LIQUID_GLASS_PILL_CLASS,
-} from "@/lib/glass";
+import { LIQUID_GLASS_CARD_CLASS, LIQUID_GLASS_PILL_CLASS } from "@/lib/glass";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
