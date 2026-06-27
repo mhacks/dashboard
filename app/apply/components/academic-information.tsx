@@ -16,14 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  countries,
-  degreeOptions,
-  majorOptions,
-  universities,
-} from "../form-options";
+import { countries, degreeOptions, majorOptions } from "../form-options";
 import { FormField } from "../utils";
 import { SelectWithOther } from "./select-with-other";
+import { UniversitySearch } from "./university-search";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 import { getResumeDownloadUrl } from "@/lib/aws/s3";
 
@@ -69,13 +65,10 @@ const AcademicInformation = ({
                 name="university"
                 control={control}
                 render={({ field }) => (
-                  <SelectWithOther
+                  <UniversitySearch
                     value={field.value ?? ""}
                     onChange={field.onChange}
-                    options={universities}
-                    otherValue="other"
-                    placeholder="Select university"
-                    otherPlaceholder="University name"
+                    placeholder="Search university"
                   />
                 )}
               />
