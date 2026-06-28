@@ -92,7 +92,7 @@ const PersonalInformation = ({
                       field.onChange(formatPhoneNumber(e.target.value))
                     }
                     onBlur={field.onBlur}
-                    placeholder="(123) 456-7890"
+                    placeholder="+12345678901"
                   />
                 )}
               />

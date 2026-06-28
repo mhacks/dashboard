@@ -1,13 +1,12 @@
 import { Label } from "@/components/ui/label";
 
-// Formats a US phone number as the user types: (123) 456-7890.
-// Non-digits are stripped and the input is capped at 10 digits.
+// Normalizes input to E.164 as the user types: +12345678901.
+// Non-digits are stripped, a leading "+" is kept, and the result is capped at
+// 15 digits (the E.164 maximum).
 export function formatPhoneNumber(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
+  const digits = value.replace(/\D/g, "").slice(0, 15);
   if (digits.length === 0) return "";
-  if (digits.length < 4) return `(${digits}`;
-  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `+${digits}`;
 }
 
 export function FormField({
