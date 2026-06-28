@@ -42,7 +42,17 @@ const STEPS: Array<{
   label: string;
   fields: (keyof HackerApplicationFormData)[];
 }> = [
-  { label: "Personal", fields: ["age", "gender", "ethnicity"] },
+  {
+    label: "Personal",
+    fields: [
+      "firstName",
+      "lastName",
+      "phoneNumber",
+      "age",
+      "gender",
+      "ethnicity",
+    ],
+  },
   {
     label: "Academic",
     fields: [
@@ -75,6 +85,9 @@ const STEPS: Array<{
 const SECTION_OF_FIELD: Partial<
   Record<keyof HackerApplicationFormData, string>
 > = {
+  firstName: "Personal",
+  lastName: "Personal",
+  phoneNumber: "Personal",
   age: "Personal",
   gender: "Personal",
   ethnicity: "Personal",
@@ -173,6 +186,9 @@ function StepBar({ current }: { current: number }) {
 
 function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
   return {
+    firstName: row.firstName,
+    lastName: row.lastName,
+    phoneNumber: row.phoneNumber,
     age: row.age,
     gender: row.gender,
     ethnicity: row.ethnicity,
@@ -250,6 +266,9 @@ export default function ApplyPage({
     defaultValues: existingData
       ? rowToFormData(existingData)
       : {
+          firstName: draft.firstName ?? "",
+          lastName: draft.lastName ?? "",
+          phoneNumber: draft.phoneNumber ?? "",
           age: (draft.age as number | undefined) ?? undefined,
           gender: draft.gender ?? "",
           ethnicity: draft.ethnicity ?? "",
@@ -653,6 +672,7 @@ export default function ApplyPage({
                       register={register}
                       errors={errors}
                       control={control}
+                      readOnly={readOnly}
                     />
                   )}
                   {step === 1 && (
