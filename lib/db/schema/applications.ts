@@ -26,6 +26,9 @@ const applicationColumns = () => ({
   status: applicationStatus("status").notNull().default("pending"),
 
   // Personal Information
+  firstName: text("first_name").notNull().default(""),
+  lastName: text("last_name").notNull().default(""),
+  phoneNumber: text("phone_number").notNull().default(""),
   age: integer("age").notNull(),
   gender: text("gender").notNull(),
   ethnicity: text("ethnicity").notNull(),

@@ -127,9 +127,11 @@ const Agreements = ({
               htmlFor="mlhEmails"
               className="text-sm leading-normal cursor-pointer"
             >
-              I authorize MLH to send me occasional emails about relevant
-              events, career opportunities, and community announcements
-              <span className="text-destructive"> *</span>
+              <span>
+                I authorize MLH to send me occasional emails about relevant
+                events, career opportunities, and community announcements
+                <span className="text-destructive"> *</span>
+              </span>
             </Label>
           </div>
           {errors.mlhEmails && (
