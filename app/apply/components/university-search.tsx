@@ -1,38 +1,32 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, LoaderCircle, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { searchUniversities } from "@/lib/actions/university-search.server.actions";
 import { cn } from "@/lib/utils";
 
 type UniversitySearchResult = {
   name: string;
   country: string;
-  alphaTwoCode: string;
-  stateProvince: string | null;
   domains: string[];
-  webPages: string[];
 };
 
 type SearchState = "idle" | "loading" | "ready" | "error";
 
 const SEARCH_DELAY_MS = 180;
 
-function formatLocation(university: UniversitySearchResult) {
-  return [university.stateProvince, university.country]
-    .filter(Boolean)
-    .join(", ");
-}
-
 export function UniversitySearch({
   value,
   onChange,
+  onSelectUniversity,
   placeholder = "Search university",
 }: {
   value: string;
   onChange: (value: string) => void;
+  onSelectUniversity?: (university: UniversitySearchResult) => void;
   placeholder?: string;
 }) {
   const listboxId = useId();
@@ -44,11 +38,6 @@ export function UniversitySearch({
 
   const inputValue = value ?? "";
   const trimmedInput = inputValue.trim();
-  const selectedResult = useMemo(
-    () => results.find((result) => result.name === value),
-    [results, value],
-  );
-
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
       if (
@@ -70,25 +59,17 @@ export function UniversitySearch({
       return;
     }
 
-    const controller = new AbortController();
+    let ignore = false;
     const timeout = window.setTimeout(async () => {
       setSearchState("loading");
       try {
-        const response = await fetch(
-          `/api/universities?query=${encodeURIComponent(query)}`,
-          { signal: controller.signal },
-        );
-
-        if (!response.ok) throw new Error("Unable to search universities");
-
-        const payload = (await response.json()) as {
-          results?: UniversitySearchResult[];
-        };
-        setResults(payload.results ?? []);
+        const nextResults = await searchUniversities(query);
+        if (ignore) return;
+        setResults(nextResults);
         setSearchState("ready");
         setActiveIndex(0);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (ignore) return;
         console.error(error);
         setResults([]);
         setSearchState("error");
@@ -96,13 +77,14 @@ export function UniversitySearch({
     }, SEARCH_DELAY_MS);
 
     return () => {
-      controller.abort();
+      ignore = true;
       window.clearTimeout(timeout);
     };
   }, [trimmedInput]);
 
   const selectUniversity = (university: UniversitySearchResult) => {
     onChange(university.name);
+    onSelectUniversity?.(university);
     setIsOpen(false);
   };
 
@@ -183,13 +165,6 @@ export function UniversitySearch({
         )}
       </div>
 
-      {selectedResult && (
-        <p className="mt-1 font-red-hat text-[11px] text-muted-foreground">
-          {formatLocation(selectedResult)}
-          {selectedResult.domains[0] ? ` - ${selectedResult.domains[0]}` : ""}
-        </p>
-      )}
-
       {isOpen && trimmedInput.length >= 2 && (
         <div
           id={listboxId}
@@ -217,7 +192,7 @@ export function UniversitySearch({
 
           {results.map((university, index) => (
             <button
-              key={`${university.name}-${university.alphaTwoCode}-${university.domains[0] ?? index}`}
+              key={`${university.name}-${university.country}-${university.domains[0] ?? index}`}
               type="button"
               role="option"
               aria-selected={university.name === value}
@@ -242,7 +217,7 @@ export function UniversitySearch({
                   {university.name}
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
-                  {formatLocation(university)}
+                  {university.country}
                   {university.domains[0] ? ` - ${university.domains[0]}` : ""}
                 </span>
               </span>

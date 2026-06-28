@@ -1,27 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import "server-only";
 
 import universities from "@/data/world_universities_and_domains.json";
 
 type HipoUniversity = {
   name: string;
   country: string;
-  alpha_two_code: string;
-  "state-province": string | null;
   domains: string[];
-  web_pages: string[];
 };
 
 export type UniversitySearchResult = {
   name: string;
   country: string;
-  alphaTwoCode: string;
-  stateProvince: string | null;
   domains: string[];
-  webPages: string[];
 };
-
-const SOURCE_URL =
-  "https://github.com/Hipo/university-domains-list/blob/master/world_universities_and_domains.json";
 
 const MAX_RESULTS = 20;
 
@@ -125,15 +116,8 @@ const normalize = (value: string) =>
 const rawUniversities = universities as HipoUniversity[];
 
 const searchableUniversities = rawUniversities.map((university) => {
-  const stateProvince = university["state-province"];
   const searchableText = normalize(
-    [
-      university.name,
-      university.country,
-      university.alpha_two_code,
-      stateProvince,
-      ...university.domains,
-    ]
+    [university.name, university.country, ...university.domains]
       .filter(Boolean)
       .join(" "),
   );
@@ -142,10 +126,7 @@ const searchableUniversities = rawUniversities.map((university) => {
     result: {
       name: university.name,
       country: university.country,
-      alphaTwoCode: university.alpha_two_code,
-      stateProvince,
       domains: university.domains,
-      webPages: university.web_pages,
     } satisfies UniversitySearchResult,
     aliases: (universityAliases[university.name] ?? []).map(normalize),
     normalizedName: normalize(university.name),
@@ -190,25 +171,19 @@ function scoreUniversity(
     }
   }
 
-  if (university.result.alphaTwoCode === "US") score += 8;
+  if (university.result.country === "United States") score += 8;
   if (university.result.country === "Canada") score += 4;
 
   return score;
 }
 
-export async function GET(request: NextRequest) {
-  const query = request.nextUrl.searchParams.get("query")?.trim() ?? "";
-  const normalizedQuery = normalize(query);
+export function searchUniversities(query: string): UniversitySearchResult[] {
+  const normalizedQuery = normalize(query.trim());
 
-  if (normalizedQuery.length < 2) {
-    return NextResponse.json({
-      source: SOURCE_URL,
-      results: [] satisfies UniversitySearchResult[],
-    });
-  }
+  if (normalizedQuery.length < 2) return [];
 
   const queryTokens = normalizedQuery.split(" ").filter(Boolean);
-  const results = searchableUniversities
+  return searchableUniversities
     .map((university) => ({
       university,
       score: scoreUniversity(university, normalizedQuery, queryTokens),
@@ -220,13 +195,4 @@ export async function GET(request: NextRequest) {
     })
     .slice(0, MAX_RESULTS)
     .map(({ university }) => university.result);
-
-  return NextResponse.json(
-    { source: SOURCE_URL, results },
-    {
-      headers: {
-        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
-      },
-    },
-  );
 }

@@ -28,6 +28,11 @@ const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
 const MAX_RESUME_SIZE = 10 * 1024 * 1024; // 10 MB — mirrors the upload API limit
 
+const countryValueForUniversity = (country: string) =>
+  countries.find(
+    (option) => option.label.toLowerCase() === country.toLowerCase(),
+  )?.value ?? country;
+
 type UploadState = "idle" | "uploading" | "done" | "error";
 
 const AcademicInformation = ({
@@ -68,6 +73,16 @@ const AcademicInformation = ({
                   <UniversitySearch
                     value={field.value ?? ""}
                     onChange={field.onChange}
+                    onSelectUniversity={(university) => {
+                      setValue(
+                        "country",
+                        countryValueForUniversity(university.country),
+                        {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        },
+                      );
+                    }}
                     placeholder="Search university"
                   />
                 )}

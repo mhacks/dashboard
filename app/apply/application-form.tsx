@@ -27,7 +27,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
-import { normalizeLegacyUniversity } from "./legacy-universities";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -177,7 +176,7 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
     age: row.age,
     gender: row.gender,
     ethnicity: row.ethnicity,
-    university: normalizeLegacyUniversity(row.university),
+    university: row.university,
     country: row.country,
     degree: row.degree,
     graduationYear: row.graduationYear,
@@ -254,7 +253,7 @@ export default function ApplyPage({
           age: (draft.age as number | undefined) ?? undefined,
           gender: draft.gender ?? "",
           ethnicity: draft.ethnicity ?? "",
-          university: normalizeLegacyUniversity(draft.university),
+          university: draft.university ?? "",
           country: draft.country ?? "",
           degree: draft.degree ?? "",
           graduationYear:
