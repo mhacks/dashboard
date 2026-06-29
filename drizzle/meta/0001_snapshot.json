@@ -119,12 +119,8 @@
           "name": "tables_event_id_events_id_fk",
           "tableFrom": "tables",
           "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -132,12 +128,8 @@
           "name": "tables_reserved_by_team_id_teams_id_fk",
           "tableFrom": "tables",
           "tableTo": "teams",
-          "columnsFrom": [
-            "reserved_by_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reserved_by_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -147,10 +139,7 @@
         "tables_event_number_unique": {
           "name": "tables_event_number_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "event_id",
-            "number"
-          ]
+          "columns": ["event_id", "number"]
         }
       },
       "policies": {},
@@ -189,9 +178,7 @@
         "teams_name_unique": {
           "name": "teams_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -227,12 +214,8 @@
           "name": "users_team_id_teams_id_fk",
           "tableFrom": "users",
           "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["team_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -242,9 +225,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
