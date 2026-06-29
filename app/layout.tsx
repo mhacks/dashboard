@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Instrument_Serif,
+  Red_Hat_Display,
+} from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthStateSync } from "@/components/auth-state-sync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,6 +27,13 @@ const instrumentSerif = Instrument_Serif({
   style: ["normal", "italic"],
 });
 
+const redHatDisplay = Red_Hat_Display({
+  variable: "--font-red-hat-display",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: "MHacks 2026",
   description:
@@ -34,9 +48,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${redHatDisplay.variable} antialiased`}
+        suppressHydrationWarning
       >
-        {children}
+        <TooltipProvider>
+          <AuthStateSync />
+          {children}
+        </TooltipProvider>
         <Toaster />
       </body>
     </html>

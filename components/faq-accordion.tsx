@@ -28,10 +28,6 @@ const faqs = [
     a: "Teams can have 1–4 members. You can form a team before the event or find teammates at our team formation session at the start of the hackathon.",
   },
   {
-    q: "What are the tracks and prizes?",
-    a: "We have four tracks: AI, Sustainability, Healthcare, and Fintech. Each track has dedicated prizes and mentors, plus an overall grand prize awarded to the best project across all tracks.",
-  },
-  {
     q: "What if this is my first hackathon?",
     a: "First-timers are absolutely welcome. We'll have intro workshops, beginner-friendly resources, and dedicated mentors to help you build something great regardless of your experience level.",
   },
