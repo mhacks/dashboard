@@ -9,7 +9,6 @@ import SponsorsSection from "@/components/sponsors-section";
 import FaqSection from "@/components/faq-section";
 import SiteFooter from "@/components/site-footer";
 import GradientBlobs from "@/components/gradient-blobs";
-
 const ribbonItems = [
   "$40k+ In Prizes",
   "800+ Hackers",

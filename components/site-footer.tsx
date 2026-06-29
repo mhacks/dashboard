@@ -8,7 +8,7 @@ const COORDS = "42.2911672°N 83.7182928°W · Ann Arbor, MI";
 
 const COLUMNS: {
   title: string;
-  links: { label: string; href: string; muted?: boolean }[];
+  links: { label: string; href: string; muted?: boolean; external?: boolean }[];
 }[] = [
   {
     title: "Get involved",
@@ -16,6 +16,16 @@ const COLUMNS: {
       { label: "Apply", href: "/apply" },
       { label: "Contact", href: "mailto:hackathon@mhacks.org" },
       { label: "Become a sponsor", href: "mailto:sponsorship@mhacks.org" },
+    ],
+  },
+  {
+    title: "Policies",
+    links: [
+      {
+        label: "MLH Code of Conduct",
+        href: "https://github.com/MLH/mlh-policies/blob/main/code-of-conduct.md",
+        external: true,
+      },
     ],
   },
 ];
@@ -97,6 +107,8 @@ export default function SiteFooter() {
                             ? "#"
                             : l.href
                         }
+                        target={l.external ? "_blank" : undefined}
+                        rel={l.external ? "noreferrer" : undefined}
                         aria-disabled={l.label === "Apply" && !applicationsOpen}
                         className={`text-sm font-light transition-colors ${
                           l.muted || (l.label === "Apply" && !applicationsOpen)
