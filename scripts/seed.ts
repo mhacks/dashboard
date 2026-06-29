@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Seed the local database with sample judging events, tables, teams, and a
-// single dev user for testing reservations without auth.
+// single admin user for testing reservations without auth.
 //
 //   pnpm db:seed
 
@@ -35,10 +35,7 @@ const sampleEvents = [
   },
 ];
 
-// Other teams with pre-reserved tables so the map shows mixed availability.
-const otherTeams = ["Team A", "Team B", "Team C"];
-
-const TEST_TEAM_NAME = "Team Test";
+const sampleTeams = ["Team A", "Team B", "Team C"];
 
 const client = postgres(connectionString, { prepare: false });
 const db = drizzle({ client });
@@ -51,21 +48,16 @@ async function main() {
   await db.delete(users);
   await db.delete(teams);
 
-  const [team] = await db
-    .insert(teams)
-    .values({ name: TEST_TEAM_NAME })
-    .returning({ id: teams.id });
-
   await db.insert(users).values({
     id: "00000000-0000-4000-8000-000000000001", // TEMP_SIGNED_IN_USER in queries/reservation.ts
     email: "test@local",
-    teamId: team.id,
+    isAdmin: true,
   });
-  console.log(`  + Test User → team "${TEST_TEAM_NAME}"`);
+  console.log("  + Test User (admin, no team)");
 
-  const insertedOtherTeams = await db
+  const insertedTeams = await db
     .insert(teams)
-    .values(otherTeams.map((name) => ({ name })))
+    .values(sampleTeams.map((name) => ({ name })))
     .returning({ id: teams.id, name: teams.name });
 
   const insertedEvents = await db
@@ -81,19 +73,18 @@ async function main() {
     await db.insert(tables).values(rows);
     console.log(`  + ${TABLES_PER_EVENT} tables for "${event.name}"`);
 
-    // Pre-reserve a few tables for other teams so the map isn't all open.
-    for (let i = 0; i < insertedOtherTeams.length; i++) {
+    for (let i = 0; i < insertedTeams.length; i++) {
       await db
         .update(tables)
         .set({
-          reservedByTeamId: insertedOtherTeams[i].id,
+          reservedByTeamId: insertedTeams[i].id,
           reservedAt: new Date(),
         })
         .where(and(eq(tables.eventId, event.id), eq(tables.number, i + 1)));
     }
   }
 
-  console.log(`  + ${insertedOtherTeams.length} other teams (sample reserved)`);
+  console.log(`  + ${insertedTeams.length} teams (sample reserved)`);
   console.log("Done.");
 }
 

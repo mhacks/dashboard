@@ -26,7 +26,26 @@ async function requireTeamId(): Promise<
   if (!user) {
     return { ok: false, error: "Signed-in user not found. Run pnpm db:seed." };
   }
+  if (user.isAdmin) {
+    return { ok: false, error: "Admins cannot reserve tables." };
+  }
+  if (!user.teamId) {
+    return { ok: false, error: "You're not on a team yet." };
+  }
   return { ok: true, teamId: user.teamId };
+}
+
+async function requireAdmin(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  const user = await getSignedInUser();
+  if (!user) {
+    return { ok: false, error: "Signed-in user not found. Run pnpm db:seed." };
+  }
+  if (!user.isAdmin) {
+    return { ok: false, error: "Admin access required." };
+  }
+  return { ok: true };
 }
 
 async function teamAlreadyReserved(
@@ -139,4 +158,95 @@ export async function randomlyAssignTable({
     }
     return { ok: false, error: "Could not assign a table. Try again." };
   }
+}
+
+export async function adminMoveTeamToTable({
+  teamId,
+  tableId,
+}: {
+  teamId: string;
+  tableId: string;
+}): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const [target] = await db
+    .select({
+      id: tables.id,
+      eventId: tables.eventId,
+      number: tables.number,
+      reservedByTeamId: tables.reservedByTeamId,
+    })
+    .from(tables)
+    .where(eq(tables.id, tableId))
+    .limit(1);
+
+  if (!target) {
+    return { ok: false, error: "That table no longer exists." };
+  }
+
+  if (target.reservedByTeamId === teamId) {
+    return { ok: true, message: `Team is already at table ${target.number}.` };
+  }
+
+  const [current] = await db
+    .select({ id: tables.id, number: tables.number })
+    .from(tables)
+    .where(
+      and(
+        eq(tables.eventId, target.eventId),
+        eq(tables.reservedByTeamId, teamId),
+      ),
+    )
+    .limit(1);
+
+  const displacedTeamId = target.reservedByTeamId;
+  const now = new Date();
+
+  try {
+    await db.transaction(async (tx) => {
+      if (current) {
+        await tx
+          .update(tables)
+          .set({ reservedByTeamId: null, reservedAt: null })
+          .where(eq(tables.id, current.id));
+      }
+      if (displacedTeamId) {
+        await tx
+          .update(tables)
+          .set({ reservedByTeamId: null, reservedAt: null })
+          .where(eq(tables.id, target.id));
+      }
+
+      await tx
+        .update(tables)
+        .set({ reservedByTeamId: teamId, reservedAt: now })
+        .where(eq(tables.id, target.id));
+
+      if (displacedTeamId && current) {
+        await tx
+          .update(tables)
+          .set({ reservedByTeamId: displacedTeamId, reservedAt: now })
+          .where(eq(tables.id, current.id));
+      }
+    });
+  } catch {
+    return { ok: false, error: "Could not move the team. Try again." };
+  }
+
+  revalidatePath("/reserve");
+
+  if (displacedTeamId && current) {
+    return {
+      ok: true,
+      message: `Swapped teams between tables ${current.number} and ${target.number}.`,
+    };
+  }
+  if (displacedTeamId) {
+    return {
+      ok: true,
+      message: `Moved team to table ${target.number}. Previous occupant was unassigned.`,
+    };
+  }
+  return { ok: true, message: `Moved team to table ${target.number}.` };
 }

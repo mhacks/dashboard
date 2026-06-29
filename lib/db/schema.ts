@@ -4,6 +4,7 @@ import {
   text,
   integer,
   timestamp,
+  boolean,
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -22,6 +23,7 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey(),
   email: text("email").notNull().unique(),
   teamId: uuid("team_id").references(() => teams.id, { onDelete: "set null" }),
+  isAdmin: boolean("is_admin").notNull().default(false),
 });
 
 export const events = pgTable("events", {

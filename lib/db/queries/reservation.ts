@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { events, tables, teams, users } from "@/lib/db/schema";
 
 export type Event = typeof events.$inferSelect;
+export type Team = typeof teams.$inferSelect;
 
 export type TableWithTeam = {
   id: string;
@@ -14,8 +15,9 @@ export type TableWithTeam = {
 export type SignedInUser = {
   id: string;
   name: string;
-  teamId: string;
-  teamName: string;
+  teamId: string | null;
+  teamName: string | null;
+  isAdmin: boolean;
 };
 
 const TEMP_SIGNED_IN_USER = {
@@ -30,11 +32,16 @@ export function getEvents(): Promise<Event[]> {
     .orderBy(asc(events.startsAt), asc(events.name));
 }
 
+export function getTeams(): Promise<Team[]> {
+  return db.select().from(teams).orderBy(asc(teams.name));
+}
+
 export async function getSignedInUser(): Promise<SignedInUser | null> {
   const rows = await db
     .select({
       teamId: users.teamId,
       teamName: teams.name,
+      isAdmin: users.isAdmin,
     })
     .from(users)
     .leftJoin(teams, eq(users.teamId, teams.id))
@@ -42,13 +49,14 @@ export async function getSignedInUser(): Promise<SignedInUser | null> {
     .limit(1);
 
   const row = rows[0];
-  if (!row?.teamId || !row.teamName) return null;
+  if (!row) return null;
 
   return {
     id: TEMP_SIGNED_IN_USER.id,
     name: TEMP_SIGNED_IN_USER.name,
     teamId: row.teamId,
     teamName: row.teamName,
+    isAdmin: row.isAdmin,
   };
 }
 

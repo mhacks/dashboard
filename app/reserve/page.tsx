@@ -4,6 +4,7 @@ import {
   getEvents,
   getSignedInUser,
   getTablesForEvent,
+  getTeams,
 } from "@/lib/db/queries/reservation";
 import { ReservationBoard } from "@/components/reservation/reservation-board";
 
@@ -14,9 +15,10 @@ export default async function ReservePage({
 }: {
   searchParams: Promise<{ event?: string }>;
 }) {
-  const [events, user, { event: eventParam }] = await Promise.all([
+  const [events, user, teams, { event: eventParam }] = await Promise.all([
     getEvents(),
     getSignedInUser(),
+    getTeams(),
     searchParams,
   ]);
 
@@ -52,9 +54,6 @@ export default async function ReservePage({
 
       <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10 sm:py-14">
         <div className="mb-8">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-            Judging
-          </p>
           <h1
             className="font-heading text-4xl italic leading-tight tracking-tight sm:text-5xl"
             style={{ color: "#3A4A26" }}
@@ -84,6 +83,7 @@ export default async function ReservePage({
           <ReservationBoard
             events={events}
             user={user}
+            teams={teams}
             tables={tables}
             selectedEventId={selectedEvent!.id}
           />
