@@ -8,7 +8,7 @@ import {
   timestamp,
   jsonb,
 } from "drizzle-orm/pg-core";
-import { users } from "./users";
+import { users } from "./users.ts";
 
 // Mirrors `ApplicationStatus` in lib/types/applications.ts
 export const applicationStatus = pgEnum("application_status", [

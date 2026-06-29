@@ -8,7 +8,8 @@ import "dotenv/config";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { events, tables, teams, users } from "../lib/db/schema.ts";
+import { events, tables, teams } from "../lib/db/schema/reservation.ts";
+import { users } from "../lib/db/schema/users.ts";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -45,14 +46,19 @@ async function main() {
 
   await db.delete(tables);
   await db.delete(events);
-  await db.delete(users);
   await db.delete(teams);
 
-  await db.insert(users).values({
-    id: "00000000-0000-4000-8000-000000000001", // TEMP_SIGNED_IN_USER in queries/reservation.ts
-    email: "test@local",
-    isAdmin: true,
-  });
+  await db
+    .insert(users)
+    .values({
+      id: "00000000-0000-4000-8000-000000000001", // TEMP_SIGNED_IN_USER in queries/reservation.ts
+      email: "test@local",
+      isAdmin: true,
+    })
+    .onConflictDoUpdate({
+      target: users.id,
+      set: { email: "test@local", isAdmin: true, teamId: null },
+    });
   console.log("  + Test User (admin, no team)");
 
   const insertedTeams = await db

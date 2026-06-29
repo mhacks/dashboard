@@ -4,7 +4,6 @@ import {
   text,
   integer,
   timestamp,
-  boolean,
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -15,15 +14,6 @@ export const teams = pgTable("teams", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
-
-// User profile keyed by the Supabase auth user id (auth.users.id).
-// Run `pnpm db:generate` after editing, then `pnpm db:migrate` (or `pnpm db:push`).
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  teamId: uuid("team_id").references(() => teams.id, { onDelete: "set null" }),
-  isAdmin: boolean("is_admin").notNull().default(false),
 });
 
 export const events = pgTable("events", {
@@ -55,3 +45,7 @@ export const tables = pgTable(
     uniqueIndex("tables_event_team_unique").on(t.eventId, t.reservedByTeamId),
   ],
 );
+
+export type Team = typeof teams.$inferSelect;
+export type Event = typeof events.$inferSelect;
+export type Table = typeof tables.$inferSelect;

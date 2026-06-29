@@ -1,6 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { events, tables, teams, users } from "@/lib/db/schema";
+import { events, tables, teams } from "@/lib/db/schema/reservation";
+import { users } from "@/lib/db/schema/users";
 
 export type Event = typeof events.$inferSelect;
 export type Team = typeof teams.$inferSelect;

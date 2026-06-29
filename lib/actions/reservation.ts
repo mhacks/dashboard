@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tables } from "@/lib/db/schema";
+import { tables } from "@/lib/db/schema/reservation";
 import { getSignedInUser } from "@/lib/db/queries/reservation";
 
 export type ActionResult =
