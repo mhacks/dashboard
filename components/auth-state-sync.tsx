@@ -9,8 +9,16 @@ export function AuthStateSync() {
 
   useEffect(() => {
     const supabase = createClient();
-    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+    let prevUserId: string | null | undefined = undefined;
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+      const userId = session?.user?.id ?? null;
+      if (prevUserId === undefined) {
+        prevUserId = userId;
+        return;
+      }
+      if (userId !== prevUserId) {
+        prevUserId = userId;
         router.refresh();
       }
     });

@@ -106,7 +106,10 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function FaqSection() {
   return (
-    <section id="faqs" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
+    <section
+      id="faqs"
+      className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24"
+    >
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center justify-center gap-12 md:gap-16 lg:gap-24">
           <Image

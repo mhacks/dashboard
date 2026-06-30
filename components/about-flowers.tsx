@@ -1,11 +1,13 @@
+import Image from "next/image";
+
 export default function AboutFlowers() {
   return (
     <>
       <div
-        className="pointer-events-none absolute -bottom-32 left-0 z-[1] hidden md:block lg:-bottom-40"
+        className="pointer-events-none absolute top-1/2 left-0 z-[1] hidden -translate-y-1/2 md:block"
         aria-hidden
       >
-        <img
+        <Image
           src="/pixel_flowers_green.svg"
           alt=""
           width={442}
@@ -14,10 +16,10 @@ export default function AboutFlowers() {
         />
       </div>
       <div
-        className="pointer-events-none absolute -bottom-32 right-0 z-[1] hidden md:block lg:-bottom-40"
+        className="pointer-events-none absolute top-1/2 right-0 z-[1] hidden -translate-y-1/2 md:block"
         aria-hidden
       >
-        <img
+        <Image
           src="/pixel_flowers_blue.svg"
           alt=""
           width={412}

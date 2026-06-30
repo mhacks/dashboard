@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  comingFromOptions,
   dietaryOptions,
   shirtSizeOptions,
   transportationOptions,
@@ -71,7 +72,24 @@ const Logistics = ({
           </FormField>
 
           <FormField label="Where Are You Coming From?" required>
-            <Input {...register("comingFrom")} placeholder="City, State" />
+            <Controller
+              name="comingFrom"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state or region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {comingFromOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
             {errors.comingFrom && (
               <p className="font-red-hat text-[11px] text-destructive">
                 {errors.comingFrom.message}
@@ -122,29 +140,29 @@ const Logistics = ({
               </p>
             )}
           </FormField>
-        </div>
 
-        <FormField label="Dietary Restrictions or Allergies">
-          <Controller
-            name="allergiesDescription"
-            control={control}
-            render={({ field }) => (
-              <SelectWithOther
-                value={field.value ?? ""}
-                onChange={field.onChange}
-                options={dietaryOptions}
-                otherValue="other"
-                placeholder="Select if applicable"
-                otherPlaceholder="Describe your dietary restriction or allergy"
-              />
+          <FormField label="Dietary Restrictions or Allergies">
+            <Controller
+              name="allergiesDescription"
+              control={control}
+              render={({ field }) => (
+                <SelectWithOther
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  options={dietaryOptions}
+                  otherValue="other"
+                  placeholder="Select if applicable"
+                  otherPlaceholder="Describe your dietary restriction or allergy"
+                />
+              )}
+            />
+            {errors.allergiesDescription && (
+              <p className="font-red-hat text-[11px] text-destructive">
+                {errors.allergiesDescription.message}
+              </p>
             )}
-          />
-          {errors.allergiesDescription && (
-            <p className="font-red-hat text-[11px] text-destructive">
-              {errors.allergiesDescription.message}
-            </p>
-          )}
-        </FormField>
+          </FormField>
+        </div>
 
         <div className="space-y-2">
           <div className="flex items-center gap-2">

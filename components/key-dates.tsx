@@ -69,7 +69,10 @@ export default function KeyDates() {
   const now = useNow();
 
   return (
-    <section id="timeline" className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24">
+    <section
+      id="timeline"
+      className="scroll-mt-20 px-8 py-24 sm:px-12 md:px-16 lg:px-24"
+    >
       {/* <Image
         src="/droopy_flowers.png"
         alt=""
@@ -77,10 +80,7 @@ export default function KeyDates() {
         height={850}
         className="pointer-events-none absolute right-0 -top-28 z-24 hidden h-auto w-[min(62vw,400px)] max-w-none select-none md:block md:w-[min(52vw,560px)] lg:w-[min(48vw,680px)]"
       /> */}
-      <div
-        className="mx-auto max-w-6xl"
-        style={{ backgroundColor: "#f4f2e8" }}
-      >
+      <div className="mx-auto max-w-6xl" style={{ backgroundColor: "#f4f2e8" }}>
         <div>
           <p
             className="font-red-hat text-sm md:text-base font-light uppercase tracking-[0.3em] flex items-center gap-2"

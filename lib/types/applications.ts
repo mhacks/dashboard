@@ -3,9 +3,14 @@ import { UserEntry } from "../db/schema/users";
 
 export const baseApplicationSchema = z.object({
   // Personal Information
+  firstName: z.string().trim().min(1, "Please enter your first name"),
+  lastName: z.string().trim().min(1, "Please enter your last name"),
+  phoneNumber: z.e164("Please enter a valid phone number"),
   age: z
-    .number({ invalid_type_error: "Please enter your age" })
-    .min(18, "You must be at least 18 years old"),
+    .number({ error: "Please enter your age" })
+    .int("Age must be a whole number")
+    .min(18, "You must be at least 18 years old")
+    .max(120, "Please enter a valid age"),
   gender: z.string().min(1, "Please select an option"),
   ethnicity: z.string().min(1, "Please select an option"),
 
@@ -14,11 +19,13 @@ export const baseApplicationSchema = z.object({
   country: z.string().min(1, "Please select your country"),
   degree: z.string().min(1, "Please select your degree"),
   graduationYear: z
-    .number({ invalid_type_error: "Please select your graduation year" })
+    .number({ error: "Please select your graduation year" })
     .min(2026, "Graduation year must be 2026 or later"),
   previousHackathons: z
-    .number({ invalid_type_error: "Please enter a number (0 if none)" })
-    .min(0, "Number cannot be negative"),
+    .number({ error: "Please enter a number (0 if none)" })
+    .int("Please enter a whole number")
+    .min(0, "Number cannot be negative")
+    .max(100, "Please enter a reasonable number of hackathons"),
   major: z.string().min(1, "Please select your major"),
   resume: z.string().min(1, "Please upload your resume"),
 
@@ -64,10 +71,16 @@ export const baseApplicationSchema = z.object({
   transportationType: z.string().min(1, "Please select transportation type"),
   comingFrom: z.string().min(1, "Please enter your location"),
   airportCode: z
-    .string()
-    .regex(/^[A-Z]{3}$/, "Enter a valid 3-letter IATA airport code (e.g. DTW)")
-    .optional()
-    .or(z.literal("")),
+    .union([
+      z
+        .string()
+        .regex(
+          /^[A-Z]{3}$/,
+          "Enter a valid 3-letter IATA airport code (e.g. DTW)",
+        ),
+      z.literal(""),
+    ])
+    .optional(),
   shirtSize: z.string().min(1, "Please select your shirt size"),
   // A non-empty description implies the applicant has allergies/restrictions.
   allergiesDescription: z.string().max(500).optional(),
@@ -76,20 +89,14 @@ export const baseApplicationSchema = z.object({
 
   // Socials
   github: z
-    .string()
-    .url("Please enter a valid URL")
-    .optional()
-    .or(z.literal("")),
+    .union([z.string().url("Please enter a valid URL"), z.literal("")])
+    .optional(),
   linkedin: z
-    .string()
-    .url("Please enter a valid URL")
-    .optional()
-    .or(z.literal("")),
+    .union([z.string().url("Please enter a valid URL"), z.literal("")])
+    .optional(),
   personalSite: z
-    .string()
-    .url("Please enter a valid URL")
-    .optional()
-    .or(z.literal("")),
+    .union([z.string().url("Please enter a valid URL"), z.literal("")])
+    .optional(),
 
   // Communications
   followsInstagram: z.boolean().optional(),

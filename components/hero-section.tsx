@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useApplicationsOpen } from "./use-applications-open";
+import MlhTrustBadge from "./mlh-trust-badge";
 
 const BOX_W = 176;
 const BOX_H = 224;
@@ -164,6 +165,8 @@ export default function HeroSection() {
 
         <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/55 to-transparent" />
 
+        <MlhTrustBadge />
+
         <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8">
           {/* Top bar: logo left, apply right */}
           <div className="flex items-start justify-between">
@@ -199,7 +202,7 @@ export default function HeroSection() {
           </div>
 
           {/* Bottom: left-aligned title then dates */}
-          <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10">
+          <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10 pr-32">
             <h1
               className="font-red-hat sm:whitespace-nowrap text-[10vw] sm:text-[8vw] lg:text-[clamp(3rem,9vw,13rem)] leading-[0.9] tracking-tight uppercase"
               style={{ color: "#ebe4ce" }}

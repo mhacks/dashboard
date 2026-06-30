@@ -163,6 +163,8 @@ const AcademicInformation = ({
               <Input
                 type="number"
                 min={0}
+                max={100}
+                step={1}
                 {...register("previousHackathons", { valueAsNumber: true })}
                 placeholder="0"
               />

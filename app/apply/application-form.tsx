@@ -42,7 +42,17 @@ const STEPS: Array<{
   label: string;
   fields: (keyof HackerApplicationFormData)[];
 }> = [
-  { label: "Personal", fields: ["age", "gender", "ethnicity"] },
+  {
+    label: "Personal",
+    fields: [
+      "firstName",
+      "lastName",
+      "phoneNumber",
+      "age",
+      "gender",
+      "ethnicity",
+    ],
+  },
   {
     label: "Academic",
     fields: [
@@ -75,6 +85,9 @@ const STEPS: Array<{
 const SECTION_OF_FIELD: Partial<
   Record<keyof HackerApplicationFormData, string>
 > = {
+  firstName: "Personal",
+  lastName: "Personal",
+  phoneNumber: "Personal",
   age: "Personal",
   gender: "Personal",
   ethnicity: "Personal",
@@ -111,17 +124,17 @@ const MAX_SECTIONS_SHOWN = 3;
 
 function StepBar({ current }: { current: number }) {
   return (
-    <div className="w-full">
-      <div className="flex items-center w-full">
-        {STEPS.map((step, i) => {
-          const isDone = i < current;
-          const isActive = i === current;
-          return (
-            <React.Fragment key={i}>
+    <div className="w-full flex items-start">
+      {STEPS.map((step, i) => {
+        const isDone = i < current;
+        const isActive = i === current;
+        return (
+          <React.Fragment key={i}>
+            <div className="flex flex-col items-center shrink-0">
               <motion.div
                 animate={isActive ? { scale: 1.3 } : { scale: 1 }}
                 transition={{ duration: 0.3 }}
-                className="rounded-full shrink-0"
+                className="rounded-full"
                 style={
                   isActive
                     ? {
@@ -140,48 +153,42 @@ function StepBar({ current }: { current: number }) {
                         }
                 }
               />
-              {i < STEPS.length - 1 && (
-                <motion.div
-                  className="flex-1 h-px mx-1"
-                  animate={{
-                    backgroundColor: isDone ? GREEN : "rgba(58,74,38,0.15)",
-                  }}
-                  transition={{ duration: 0.4 }}
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-      <div className="flex w-full mt-2">
-        {STEPS.map((step, i) => {
-          const isDone = i < current;
-          const isActive = i === current;
-          return (
-            <span
-              key={i}
-              className="flex-1 text-center text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat"
-              style={{
-                color: isActive
-                  ? GREEN
-                  : isDone
-                    ? "rgba(58,74,38,0.65)"
-                    : "rgba(58,74,38,0.3)",
-                fontWeight: isActive ? 700 : isDone ? 600 : 400,
-              }}
-            >
-              {isDone ? "✓ " : ""}
-              {step.label}
-            </span>
-          );
-        })}
-      </div>
+              <span
+                className="mt-2 text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat text-center w-14"
+                style={{
+                  color: isActive
+                    ? GREEN
+                    : isDone
+                      ? "rgba(58,74,38,0.65)"
+                      : "rgba(58,74,38,0.3)",
+                  fontWeight: isActive ? 700 : isDone ? 600 : 400,
+                }}
+              >
+                {isDone ? "✓ " : ""}
+                {step.label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <motion.div
+                className="flex-1 h-px mx-1 mt-[4px]"
+                animate={{
+                  backgroundColor: isDone ? GREEN : "rgba(58,74,38,0.15)",
+                }}
+                transition={{ duration: 0.4 }}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
 
 function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
   return {
+    firstName: row.firstName,
+    lastName: row.lastName,
+    phoneNumber: row.phoneNumber,
     age: row.age,
     gender: row.gender,
     ethnicity: row.ethnicity,
@@ -259,6 +266,9 @@ export default function ApplyPage({
     defaultValues: existingData
       ? rowToFormData(existingData)
       : {
+          firstName: draft.firstName ?? "",
+          lastName: draft.lastName ?? "",
+          phoneNumber: draft.phoneNumber ?? "",
           age: (draft.age as number | undefined) ?? undefined,
           gender: draft.gender ?? "",
           ethnicity: draft.ethnicity ?? "",
@@ -662,6 +672,7 @@ export default function ApplyPage({
                       register={register}
                       errors={errors}
                       control={control}
+                      readOnly={readOnly}
                     />
                   )}
                   {step === 1 && (
