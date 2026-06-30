@@ -1,3 +1,9 @@
+overrides:
+  # Dedupe to a single zod 4.x. Otherwise shadcn's MCP SDK pulls zod@3.25.76
+  # (whose embedded v4-core reports minor 0), and @hookform/resolvers resolves
+  # its zod/v4/core types against that copy — clashing with the app's zod@4.4.3
+  # schemas (minor 4) and breaking zodResolver typechecking / the build.
+  zod: 4.4.3
 allowBuilds:
   esbuild: true
   msw: true

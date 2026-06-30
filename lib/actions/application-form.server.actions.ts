@@ -9,10 +9,14 @@ import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import {
   hackerApplicants,
-  hackerApplicationDrafts,
   judgeApplicants,
 } from "@/lib/db/schema/applications";
 import { createClient } from "@/lib/supabase/server";
+import {
+  submitHackerApplicationForUser,
+  saveDraftForUser,
+  toDbValues,
+} from "@/lib/actions/application-form.actions";
 
 async function getAuthenticatedUserId(): Promise<string> {
   const supabase = await createClient();
@@ -23,41 +27,13 @@ async function getAuthenticatedUserId(): Promise<string> {
   return user.id;
 }
 
-// The MLH agreement checkboxes are validated in the form but not stored —
-// submitting the application implies acceptance — so drop them before writing.
-type ApplicationDbValues = Omit<
-  HackerApplicationFormData,
-  "mlhCodeOfConduct" | "mlhPrivacyPolicy" | "mlhEmails"
->;
-
-function toDbValues(parsed: HackerApplicationFormData): ApplicationDbValues {
-  const values = { ...parsed };
-  delete (values as Partial<HackerApplicationFormData>).mlhCodeOfConduct;
-  delete (values as Partial<HackerApplicationFormData>).mlhPrivacyPolicy;
-  delete (values as Partial<HackerApplicationFormData>).mlhEmails;
-  return values;
-}
-
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<{ duplicate: boolean }> => {
   const userId = await getAuthenticatedUserId();
-  const parsed = hackerApplicationSchema.parse(data);
 
   try {
-    const result = await db
-      .insert(hackerApplicants)
-      .values({ ...toDbValues(parsed), userId })
-      .onConflictDoNothing()
-      .returning({ id: hackerApplicants.id });
-
-    if (result.length > 0) {
-      await db
-        .delete(hackerApplicationDrafts)
-        .where(eq(hackerApplicationDrafts.userId, userId));
-    }
-
-    return { duplicate: result.length === 0 };
+    return await submitHackerApplicationForUser(userId, data);
   } catch (error) {
     console.error("Unable to submit Hacker Application:", error);
     throw new Error(
@@ -72,16 +48,7 @@ export const saveDraft = async (
   const userId = await getAuthenticatedUserId();
 
   try {
-    await db
-      .insert(hackerApplicationDrafts)
-      .values({ userId, data: data as Record<string, unknown> })
-      .onConflictDoUpdate({
-        target: hackerApplicationDrafts.userId,
-        set: {
-          data: data as Record<string, unknown>,
-          updatedAt: new Date(),
-        },
-      });
+    await saveDraftForUser(userId, data);
   } catch (error) {
     console.error("Unable to save draft:", error);
     throw new Error(
