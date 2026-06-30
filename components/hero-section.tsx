@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { LIQUID_GLASS_PILL_CLASS } from "@/lib/glass";
 import { useApplicationsOpen } from "./use-applications-open";
 import MlhTrustBadge from "./mlh-trust-badge";
 
@@ -190,10 +191,10 @@ export default function HeroSection() {
               onMouseLeave={handleButtonLeave}
             >
               <span
-                className={`font-red-hat inline-block rounded-full border px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold shadow-sm backdrop-blur-md transition-opacity ${
+                className={`font-red-hat inline-block rounded-full px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold transition-opacity ${
                   applicationsOpen
-                    ? "border-white/60 bg-white/85 text-zinc-900 hover:opacity-80"
-                    : "cursor-not-allowed border-white/25 bg-white/25 text-white/40"
+                    ? `${LIQUID_GLASS_PILL_CLASS} text-white hover:opacity-80`
+                    : `${LIQUID_GLASS_PILL_CLASS} cursor-not-allowed text-white/35 opacity-70`
                 }`}
               >
                 Apply Now

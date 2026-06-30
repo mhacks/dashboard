@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LIQUID_GLASS_CARD_CLASS } from "@/lib/glass";
 
 export default function ApplicationFormSkeleton() {
   return (
@@ -21,7 +22,9 @@ export default function ApplicationFormSkeleton() {
         </div>
 
         {/* Card skeleton */}
-        <div className="w-full max-w-2xl rounded-3xl overflow-hidden border border-white/30 bg-[#f4f2e8]/[0.88] shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+        <div
+          className={`w-full max-w-2xl rounded-3xl overflow-hidden ${LIQUID_GLASS_CARD_CLASS}`}
+        >
           <div className="px-8 pt-8 pb-6">
             <div className="flex items-start justify-between mb-6">
               <div className="space-y-2">

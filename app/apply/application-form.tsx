@@ -27,16 +27,15 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
+import { LIQUID_GLASS_CARD_CLASS, LIQUID_GLASS_PILL_CLASS } from "@/lib/glass";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 const GREEN = "#3A4A26";
 
-const GLASS_CARD =
-  "border border-white/30 bg-[#f4f2e8]/[0.88] shadow-[0_24px_64px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-2xl";
-const GLASS_PILL =
-  "border border-white/20 bg-black/[0.32] shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-xl";
+const GLASS_CARD = LIQUID_GLASS_CARD_CLASS;
+const GLASS_PILL = LIQUID_GLASS_PILL_CLASS;
 
 const STEPS: Array<{
   label: string;
