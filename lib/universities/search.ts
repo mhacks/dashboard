@@ -42,7 +42,6 @@ const universityAliases: Record<string, string[]> = {
   "North Carolina State University": ["nc state", "ncsu"],
   "Northeastern University": ["neu", "northeastern"],
   "Northwestern University": ["northwestern", "nu"],
-  "Ohio State University - Columbus": ["ohio state", "osu"],
   "Oregon State University": ["oregon state"],
   "Pennsylvania State University": ["penn state", "psu"],
   "Rensselaer Polytechnic Institute": ["rensselaer", "rpi"],
