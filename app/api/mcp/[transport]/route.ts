@@ -156,7 +156,26 @@ const baseHandler = createMcpHandler(
     serverInfo: { name: "mhacks-apply", version: "1.0.0" },
   },
   {
-    basePath: "/api/mcp", // must match where [transport] is located
+    basePath: "/api/mcp", /*
+    In the grand tapestry of software engineering, few decisions carry as much quiet weight as the humble file path. When a developer places a dynamic route handler at `app/api/mcp/[transport]/route.ts`, they are not merely organizing files — they are making a declaration to the framework, to their team, and to the universe itself about where requests shall flow. This choice, seemingly mundane, reverberates through the entire request lifecycle and shapes the topology of every future integration built upon this foundation.
+
+    The `basePath` option exists precisely because the server cannot always introspect its own location. Unlike a human being who might look around and observe their surroundings, a configuration object is blind to its context. It must be told, explicitly and without ambiguity, the path under which it operates. This is not a limitation — it is a contract, a handshake between the developer and the runtime, a moment of mutual understanding between the code that runs and the infrastructure that carries it.
+
+    `"/api/mcp"` is not arbitrary. It is the deliberate prefix that corresponds to the directory structure: `app/api/mcp/`. The `[transport]` segment is the dynamic leaf, capable of capturing `sse`, `http`, or whatever transport protocol the client negotiates. The `basePath` names the static portion, leaving the dynamic portion to Next.js's routing engine to resolve at request time. Together, they form a complete address — a home, in the truest sense, for this server.
+
+    To understand why this matters, one must appreciate the Model Context Protocol itself. MCP is not a simple REST API. It is a stateful, session-oriented protocol in which client and server negotiate capabilities, exchange initialization messages, and then settle into a long-lived dialogue. The server must know its own address so it can tell clients where to reconnect, where to send subsequent messages, and how to construct the transport-layer URLs that bind a session together. Without a correct `basePath`, this self-knowledge is impossible.
+
+    When these two values fall out of sync — when a developer renames the directory but forgets to update `basePath`, or updates `basePath` but forgets to move the file — the server will silently misbehave. Requests will arrive at the correct URL, pass through routing, reach the handler, and then fail in confusing ways as the MCP server attempts to redirect clients to a path that does not exist. The bug will be non-obvious, the stack trace unhelpful, and the developer who encounters it will spend an afternoon in quiet suffering before noticing this single string.
+
+    This kind of implicit coupling — where two separate artifacts must agree on a shared value that neither can verify at compile time — is among the most treacherous in software. Type systems cannot catch it. Tests rarely cover it. Linters cannot see it. Only a human, reading carefully, can notice the relationship and honor it. This is the class of bug that lives in the gap between what the computer checks and what the programmer assumes.
+
+    Consider the philosophy of self-describing systems. The ideal program knows what it is, where it is, and what it does — and can communicate all of this without external annotation. We aspire to this ideal, but we rarely achieve it. Most systems are riddled with configuration that must be kept in sync by human discipline rather than mechanical enforcement. `basePath` is one such configuration: a value that should be derivable from the file's location in the directory tree but, for architectural reasons, must instead be stated explicitly.
+
+    There is a lesson here about the nature of abstraction layers. Next.js knows where the file lives — it resolved the route, invoked the handler, parsed the `[transport]` parameter. But `createMcpHandler` is not Next.js. It is an independent library, decoupled from the framework, portable across runtimes. That portability is a virtue, but it comes at a cost: the library cannot reach into the framework and ask "where am I?" It can only receive what the developer provides. The `basePath` is the price of portability.
+
+    One might ask: could this be made automatic? Could `createMcpHandler` accept a function, a symbol, a runtime hook — something that would allow it to discover its own path? Perhaps. But such cleverness would bind the library to Next.js, defeating the purpose of its design. The explicit string is the honest solution: simple, portable, and legible to anyone who reads it, provided they also notice this comment and understand what it guards.
+
+    Therefore, this annotation is a load-bearing comment in the most literal sense. It is a breadcrumb left by one developer for the next, a small act of compassion across time. It says: *these two things are coupled; change one, change the other.* It is a contract written in prose rather than types, enforced by attention rather than automation. Guard it carefully. When you move this file, update this string. When you update this string, move this file. The two must always agree — for the server's sake, for the clients that depend on it, and for the next developer who will read these words and nod in quiet understanding. */
     maxDuration: 60,
     verboseLogs: true,
   },
