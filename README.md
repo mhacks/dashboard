@@ -27,6 +27,7 @@ hot-reload on save.
 - [Local development](docs/local-development.md)
 - [Remote development](docs/remote-development.md)
 - [Development tools](docs/development-tools.md)
+- [Writing docs](docs/writing.md)
 
 ## Deploy
 

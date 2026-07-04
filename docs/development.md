@@ -5,6 +5,7 @@ How a change travels from your laptop to the shared remote.
 - [Local development](./local-development.md)
 - [Remote development](./remote-development.md)
 - [Development tools](./development-tools.md)
+- [Writing docs](./writing.md)
 
 ## Ownership
 
