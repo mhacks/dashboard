@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Append local Supabase env vars to .env.local.
-#   pnpm local:env
+#   pnpm db:env
 
 set -euo pipefail
 
 if ! raw=$(pnpm supabase status -o env 2>/dev/null); then
-  echo "Could not read \`supabase status\`. Is the local stack running? Start it with \`pnpm db:local\`." >&2
+  echo "Could not read \`supabase status\`. Is the local stack running? Start it with \`pnpm db:start\`." >&2
   exit 1
 fi
 

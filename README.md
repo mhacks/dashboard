@@ -13,8 +13,7 @@ the schema.
 
 ```bash
 pnpm install           # deps + the Supabase CLI
-pnpm db:local          # boot the local Supabase stack (Docker)
-pnpm db:env            # generate .env from the running stack
+pnpm db:start          # boot the local Supabase stack (Docker) + write .env.local
 pnpm db:push           # apply the schema to the local db
 pnpm dev               # serve the app
 ```
@@ -24,14 +23,15 @@ hot-reload on save.
 
 ## Docs
 
-- **[docs/development.md](docs/development.md)** — the workflow: what to run and
-  when, from a local change to shipping it to the shared remote.
-- **[docs/supabase.md](docs/supabase.md)** — how Supabase is wired in: the local
-  stack, the auth clients, and the magic-link flow.
+- **[docs/development.md](docs/development.md)** — overview, how Supabase is wired
+  in, and links to the local/remote workflows.
+- **[docs/local-development.md](docs/local-development.md)** — boot the stack,
+  change the schema, generate a migration, open a PR.
+- **[docs/remote-development.md](docs/remote-development.md)** — after merge to
+  `main`, apply migrations and push auth config to the shared remote.
 
 ## Deploy
 
 The app reads `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
 and `DATABASE_URL` from the environment. Set them on your hosting platform and
-redeploy — see [docs/development.md](docs/development.md#4-ship-to-the-remote) for
-the full promotion flow.
+redeploy — see [docs/remote-development.md](docs/remote-development.md).
