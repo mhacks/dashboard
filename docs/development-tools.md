@@ -23,6 +23,48 @@ uses a `.dark` class on an ancestor.
 - **Fonts** — `font-sans`, `font-mono`, `font-heading`, and `font-red-hat` map to
   the fonts loaded in `app/layout.tsx`.
 
+### Shared component classes
+
+**Deduplicate repeated class combos in [`app/globals.css`](../app/globals.css), not
+in TypeScript.** When the same long Tailwind string appears in multiple components,
+define a semantic class in `@layer components` and use `@apply` with existing utilities
+and theme tokens.
+
+Do **not** export styling constants from `lib/` (e.g. `LIQUID_GLASS_PILL_CLASS`).
+Do **not** duplicate the same tint on both a wrapper and its child — one layer is
+enough.
+
+Example (see `.glass-pill` and `.glass-card` in `globals.css`):
+
+```css
+@layer components {
+  .glass-pill {
+    @apply border border-white/20 bg-black/[0.32] shadow-[0_8px_24px] shadow-black/30 inset-shadow-[0_1px_0] inset-shadow-white/15 backdrop-blur-xl;
+  }
+
+  .glass-card {
+    @apply border border-white/30 bg-paper/88 shadow-[0_24px_64px] shadow-black/40 inset-shadow-[0_1px_0] inset-shadow-white/90 backdrop-blur-xl;
+  }
+}
+```
+
+```tsx
+<nav className="glass-pill flex items-center rounded-full px-6 py-3">…</nav>
+<div className="glass-card rounded-3xl overflow-hidden">…</div>
+```
+
+Conventions:
+
+- **Theme tokens over raw values** — use `bg-paper/88`, `bg-moss`, `shadow-black/30`,
+  etc. instead of hex or `rgba()` in `@apply` rules.
+- **Semantic names** — name classes after what they look like or do (`glass-pill`,
+  `glass-card`), not after a single page or component.
+- **React-only config stays in components** — props for third-party UI libraries
+  (e.g. `liquid-glass-react` settings in [`components/navbar.tsx`](../components/navbar.tsx))
+  are not CSS; colocate them with the component that uses them.
+- **Extend with utilities in JSX** — add layout, spacing, and state classes alongside
+  the shared class: `className={cn("glass-pill rounded-full px-5", className)}`.
+
 ## shadcn/ui
 
 **Use shadcn components for UI primitives.** Components live in
