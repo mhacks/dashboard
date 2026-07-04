@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
+import { LIQUID_GLASS_PILL_CLASS } from "@/lib/glass";
 
 const navLinks = [
   { href: "/#about", label: "About" },
@@ -11,8 +12,7 @@ const navLinks = [
 
 const detailItems = ["October 3 - 4, 2026", "Ann Arbor, MI", "800+ Hackers"];
 
-const pillClass =
-  "border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl";
+const pillClass = LIQUID_GLASS_PILL_CLASS;
 
 export default function NotFound() {
   return (
@@ -90,21 +90,21 @@ export default function NotFound() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/"
-              className="font-red-hat inline-flex h-11 items-center gap-2 rounded-full border border-white/60 bg-white/85 px-5 text-sm font-semibold text-zinc-900 shadow-sm backdrop-blur-md transition-opacity hover:opacity-80"
+              className={`font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80 ${LIQUID_GLASS_PILL_CLASS}`}
             >
               <ArrowLeft className="size-4" aria-hidden />
               Back home
             </Link>
             <Link
               href="/apply"
-              className="font-red-hat inline-flex h-11 items-center gap-2 rounded-full border border-white/25 bg-white/12 px-5 text-sm font-semibold text-white shadow-sm backdrop-blur-md transition-opacity hover:bg-white/18"
+              className={`font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80 ${LIQUID_GLASS_PILL_CLASS}`}
             >
               Apply
               <ArrowUpRight className="size-4" aria-hidden />
             </Link>
             <a
               href="mailto:hackathon@mhacks.org"
-              className="font-red-hat inline-flex h-11 items-center gap-2 rounded-full border border-white/25 bg-black/20 px-5 text-sm font-semibold text-white shadow-sm backdrop-blur-md transition-opacity hover:bg-black/30"
+              className={`font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80 ${LIQUID_GLASS_PILL_CLASS}`}
             >
               <Mail className="size-4" aria-hidden />
               Contact

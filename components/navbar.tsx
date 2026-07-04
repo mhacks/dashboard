@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
+import { LIQUID_GLASS_PILL_CLASS, LIQUID_GLASS_PROPS } from "@/lib/glass";
 import { useApplicationsOpen } from "./use-applications-open";
+
+const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
+  ssr: false,
+});
 
 const links = [
   { href: "#about", label: "About" },
@@ -13,8 +19,7 @@ const links = [
   { href: "#faqs", label: "FAQ" },
 ];
 
-const pillClass =
-  "border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl";
+const pillClass = LIQUID_GLASS_PILL_CLASS;
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
@@ -33,6 +38,22 @@ export default function NavBar() {
     observer.observe(heroLogo);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    let rafId = 0;
+    const startedAt = performance.now();
+    const duration = 550;
+
+    const tick = (now: number) => {
+      window.dispatchEvent(new Event("resize"));
+      if (now - startedAt < duration) {
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [showLogo]);
 
   return (
     <>
@@ -108,11 +129,17 @@ export default function NavBar() {
       </nav>
 
       {/* ── Desktop (lg+) ── */}
-      <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 lg:block">
-        <div
-          className={`flex items-center rounded-full ${pillClass} px-6 py-3`}
+      <LiquidGlass
+        className="z-50 hidden lg:block"
+        {...LIQUID_GLASS_PROPS}
+        padding="0"
+        style={{ position: "fixed", top: "2rem", left: "50%" }}
+      >
+        <nav
+          className={`flex items-center rounded-full px-6 py-3 ${LIQUID_GLASS_PILL_CLASS}`}
+          aria-label="Primary navigation"
         >
-          {/* Logo slides in from the left */}
+          {/* Logo slides in from the left. */}
           <div
             className="overflow-hidden flex items-center"
             style={{
@@ -136,7 +163,7 @@ export default function NavBar() {
             <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
           </div>
 
-          <div className="flex items-center gap-7 text-lg font-heading italic text-white">
+          <div className="flex items-center gap-7 text-lg font-heading italic text-white drop-shadow-[0_1px_5px_rgba(0,0,0,0.75)]">
             {links.map((link) => (
               <a
                 key={link.href}
@@ -147,8 +174,8 @@ export default function NavBar() {
               </a>
             ))}
           </div>
-        </div>
-      </nav>
+        </nav>
+      </LiquidGlass>
     </>
   );
 }

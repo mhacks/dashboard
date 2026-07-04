@@ -26,9 +26,12 @@ export const hackerApplicants = pgTable(
     status: applicationStatus().default("pending").notNull(),
 
     // Personal Information
-    age: integer().notNull(),
-    gender: text().notNull(),
-    ethnicity: text().notNull(),
+    firstName: text("first_name").notNull().default(""),
+    lastName: text("last_name").notNull().default(""),
+    phoneNumber: text("phone_number").notNull().default(""),
+    age: integer("age").notNull(),
+    gender: text("gender").notNull(),
+    ethnicity: text("ethnicity").notNull(),
 
     // Academic Information
     university: text().notNull(),

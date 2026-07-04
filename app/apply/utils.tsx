@@ -1,5 +1,14 @@
 import { Label } from "@/components/ui/label";
 
+// Normalizes input to E.164 as the user types: +12345678901.
+// Non-digits are stripped, a leading "+" is kept, and the result is capped at
+// 15 digits (the E.164 maximum).
+export function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 15);
+  if (digits.length === 0) return "";
+  return `+${digits}`;
+}
+
 export function FormField({
   label,
   required,

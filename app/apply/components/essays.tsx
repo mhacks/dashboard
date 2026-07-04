@@ -72,10 +72,13 @@ const Essays = ({
           </div>
         </FormField>
 
-        <FormField label="What would you do?" required>
+        <FormField
+          label="MHacks is funding you for a year to do anything. What what you do?"
+          required
+        >
           <Textarea
             {...register("whatWouldYouDo")}
-            placeholder="Tell us what you'd build or do at MHacks..."
+            placeholder="Tell us what you'd do..."
             rows={4}
           />
           <div className="flex items-start justify-between gap-2">
