@@ -16,7 +16,7 @@ import {
   saveDraftForUser,
   getApplicationStatusForUser,
 } from "@/lib/actions/application-form.actions";
-import { getResumeUploadUrl } from "@/lib/aws/s3";
+import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
 import { verifyToken } from "@/lib/mcp/auth";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool

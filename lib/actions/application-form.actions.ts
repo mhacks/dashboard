@@ -65,7 +65,7 @@ export async function saveDraftForUser(
       target: hackerApplicationDrafts.userId,
       set: {
         data: data as Record<string, unknown>,
-        updatedAt: new Date(),
+        updatedAt: new Date().toISOString(),
       },
     });
 }

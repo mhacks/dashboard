@@ -43,16 +43,7 @@ export const saveDraft = async (
   const userId = await getAuthenticatedUserId();
 
   try {
-    await db
-      .insert(hackerApplicationDrafts)
-      .values({ userId, data: data as Record<string, unknown> })
-      .onConflictDoUpdate({
-        target: hackerApplicationDrafts.userId,
-        set: {
-          data: data as Record<string, unknown>,
-          updatedAt: new Date(),
-        },
-      });
+    await saveDraftForUser(userId, data);
   } catch (error) {
     console.error("Unable to save draft:", error);
     throw new Error(
