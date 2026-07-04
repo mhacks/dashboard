@@ -3,6 +3,9 @@ import { UserEntry } from "../db/schema/users";
 
 export const baseApplicationSchema = z.object({
   // Personal Information
+  firstName: z.string().trim().min(1, "Please enter your first name"),
+  lastName: z.string().trim().min(1, "Please enter your last name"),
+  phoneNumber: z.e164("Please enter a valid phone number"),
   age: z
     .number({ error: "Please enter your age" })
     .int("Age must be a whole number")
@@ -120,16 +123,6 @@ export type HackerApplicationFormData = z.infer<typeof hackerApplicationSchema>;
 export type ApplicationStatus = "pending" | "reviewed" | "flagged";
 
 export type HackerApplicant = HackerApplicationFormData & {
-  id: string;
-  userId: string;
-  status: ApplicationStatus;
-  user: UserEntry;
-};
-
-export const judgeApplicationSchema = baseApplicationSchema;
-export type JudgeApplicationFormData = z.infer<typeof judgeApplicationSchema>;
-
-export type JudgeApplicant = JudgeApplicationFormData & {
   id: string;
   userId: string;
   status: ApplicationStatus;

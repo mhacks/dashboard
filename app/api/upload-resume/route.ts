@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
 import { createClient } from "@/lib/supabase/server";
 
-const REGION = process.env.RESUMES_REGION ?? "us-east-2";
-const BUCKET = process.env.RESUMES_BUCKET!;
-
-const s3 = new S3Client({
-  region: REGION,
-  credentials: {
-    accessKeyId: process.env.RESUMES_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.RESUMES_SECRET_ACCESS_KEY!,
-  },
-  requestChecksumCalculation: "WHEN_REQUIRED",
-  responseChecksumValidation: "WHEN_REQUIRED",
-});
-
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -44,12 +32,11 @@ export async function POST(req: NextRequest) {
   }
 
   const key = `resumes/${user.id}.pdf`;
-
   const buffer = Buffer.from(await file.arrayBuffer());
 
   await s3.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: RESUMES_BUCKET,
       Key: key,
       Body: buffer,
       ContentType: "application/pdf",

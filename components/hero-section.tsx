@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useApplicationsOpen } from "./use-applications-open";
+import MlhTrustBadge from "./mlh-trust-badge";
 
 const BOX_W = 176;
 const BOX_H = 224;
@@ -164,6 +165,8 @@ export default function HeroSection() {
 
         <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/55 to-transparent" />
 
+        <MlhTrustBadge />
+
         <div className="relative z-10 flex flex-1 flex-col p-6 sm:p-8">
           {/* Top bar: logo left, apply right */}
           <div className="flex items-start justify-between">
@@ -173,6 +176,7 @@ export default function HeroSection() {
                 alt="MHacks"
                 width={56}
                 height={56}
+                priority
                 className="w-10 h-10 sm:w-14 sm:h-14 drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
               />
             </Link>
@@ -187,10 +191,10 @@ export default function HeroSection() {
               onMouseLeave={handleButtonLeave}
             >
               <span
-                className={`font-red-hat inline-block rounded-full border px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold shadow-sm backdrop-blur-md transition-opacity ${
+                className={`font-red-hat inline-block rounded-full px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold transition-opacity ${
                   applicationsOpen
-                    ? "border-white/60 bg-white/85 text-zinc-900 hover:opacity-80"
-                    : "cursor-not-allowed border-white/25 bg-white/25 text-white/40"
+                    ? "glass-pill text-white hover:opacity-80"
+                    : "glass-pill cursor-not-allowed text-white/35 opacity-70"
                 }`}
               >
                 Apply Now
@@ -199,7 +203,7 @@ export default function HeroSection() {
           </div>
 
           {/* Bottom: left-aligned title then dates */}
-          <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10">
+          <div className="mt-auto flex flex-col items-start pl-4 sm:pl-8 pb-6 sm:pb-10 pr-32">
             <h1
               className="font-red-hat sm:whitespace-nowrap text-[10vw] sm:text-[8vw] lg:text-[clamp(3rem,9vw,13rem)] leading-[0.9] tracking-tight uppercase"
               style={{ color: "#ebe4ce" }}
