@@ -156,11 +156,7 @@ function StepBar({ current }: { current: number }) {
               <span
                 className="mt-2 text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat text-center w-14"
                 style={{
-                  color: isActive
-                    ? MOSS
-                    : isDone
-                      ? MOSS_65
-                      : MOSS_30,
+                  color: isActive ? MOSS : isDone ? MOSS_65 : MOSS_30,
                   fontWeight: isActive ? 700 : isDone ? 600 : 400,
                 }}
               >
@@ -531,9 +527,7 @@ export default function ApplyPage({
           transition={{ duration: 0.5, ease: EASE }}
           className="flex items-center justify-between w-full max-w-2xl mb-8"
         >
-          <div
-            className="glass-pill flex items-center gap-3 rounded-full px-5 py-2.5"
-          >
+          <div className="glass-pill flex items-center gap-3 rounded-full px-5 py-2.5">
             <Link
               href="/"
               aria-label="Back to home"
@@ -690,9 +684,7 @@ export default function ApplyPage({
               </AnimatePresence>
 
               {/* Navigation */}
-              <div
-                className="flex items-center gap-3 mt-8 pt-6 border-t border-moss/8"
-              >
+              <div className="flex items-center gap-3 mt-8 pt-6 border-t border-moss/8">
                 {step > 0 && (
                   <button
                     type="button"

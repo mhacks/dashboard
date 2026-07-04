@@ -85,9 +85,7 @@ export default function NavBar() {
 
         {/* Hamburger pill + dropdown */}
         <div className="relative">
-          <div
-            className="glass-pill rounded-full flex items-center justify-center p-3"
-          >
+          <div className="glass-pill rounded-full flex items-center justify-center p-3">
             <button
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
