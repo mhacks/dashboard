@@ -41,9 +41,11 @@ doc contains.
 
 ```markdown
 <!-- good -->
+
 - [Remote development](./remote-development.md)
 
 <!-- bad -->
+
 - [Remote development](./remote-development.md) — after merge to `main`, apply
   migrations and push auth config
 ```
@@ -58,9 +60,11 @@ not a tour of what the file does.
 
 ```markdown
 <!-- good -->
+
 Schema lives in [`lib/db/schema.ts`](../lib/db/schema.ts).
 
 <!-- bad -->
+
 See [`lib/db/schema.ts`](../lib/db/schema.ts), which defines all tables and
 columns using Drizzle, exports typed relations, and is the single source of
 truth for...

@@ -55,12 +55,18 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { mySchema, type MyFormData } from "@/lib/types/my-form";
 
-const { register, handleSubmit, control, formState: { errors } } =
-  useForm<MyFormData>({
-    resolver: zodResolver(mySchema),
-    mode: "onChange",
-    defaultValues: { /* ... */ },
-  });
+const {
+  register,
+  handleSubmit,
+  control,
+  formState: { errors },
+} = useForm<MyFormData>({
+  resolver: zodResolver(mySchema),
+  mode: "onChange",
+  defaultValues: {
+    /* ... */
+  },
+});
 ```
 
 ### Field patterns

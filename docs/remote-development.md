@@ -59,9 +59,9 @@ rebuild/redeploy.
 
 ## Command reference
 
-| Command                              | Does                                                     |
-| ------------------------------------ | -------------------------------------------------------- |
-| `DATABASE_URL="..." pnpm drizzle-kit migrate` | apply committed migrations to the **remote** db |
-| `pnpm supabase config push`          | push auth rules + email templates to the remote project  |
+| Command                                       | Does                                                    |
+| --------------------------------------------- | ------------------------------------------------------- |
+| `DATABASE_URL="..." pnpm drizzle-kit migrate` | apply committed migrations to the **remote** db         |
+| `pnpm supabase config push`                   | push auth rules + email templates to the remote project |
 
 There is no `db:*` wrapper for remote migrate yet — pass the pooler URL inline.
