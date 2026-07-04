@@ -50,7 +50,8 @@ Environment-specific values live in two committed layers of `config.toml`:
 
 On push, the CLI deep-merges `[remotes.production]` over the base config when
 `project_id` matches the linked remote. SMTP credentials use `env(...)` and are read
-from workspace root `.env`.
+from workspace root `.env` — copy values from
+[Keys in Notion](https://app.notion.com/p/Keys-38124ca0c81b80ffac62f65acb442613).
 
 ```bash
 pnpm supabase config push
@@ -60,7 +61,8 @@ Update prod URLs in `[remotes.production.auth]` when the production hostname cha
 
 ## 3. App connection → remote
 
-Set these on your hosting platform, then redeploy:
+Set these on your hosting platform, then redeploy. Values are in
+[Keys in Notion](https://app.notion.com/p/Keys-38124ca0c81b80ffac62f65acb442613):
 
 | Variable                               | Value (Dashboard → Settings → API) |
 | -------------------------------------- | ---------------------------------- |

@@ -11,6 +11,8 @@ the schema.
 
 ## Run it
 
+Set up [environment variables](docs/local-development.md#environment-variables) before your first run.
+
 ```bash
 pnpm install           # deps + the Supabase CLI
 pnpm db:start          # boot the local Supabase stack (Docker) + write .env.local
