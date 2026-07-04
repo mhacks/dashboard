@@ -13,11 +13,11 @@ Three layers, three owners. They promote to the remote **independently** — mer
 a PR lands code on `main` but does not update production until each layer is applied
 by hand.
 
-| Layer           | Owner            | Source in repo                             | Promote locally                        | Promote to remote                             |
-| --------------- | ---------------- | ------------------------------------------ | -------------------------------------- | --------------------------------------------- |
-| Database schema | **Drizzle**      | `lib/db/schema.ts`, `supabase/migrations/` | `db:push`, `db:generate`, `db:migrate` | `drizzle-kit migrate` (pooler `DATABASE_URL`) |
+| Layer           | Owner            | Source in repo                                 | Promote locally                        | Promote to remote                                      |
+| --------------- | ---------------- | ---------------------------------------------- | -------------------------------------- | ------------------------------------------------------ |
+| Database schema | **Drizzle**      | `lib/db/schema.ts`, `supabase/migrations/`     | `db:push`, `db:generate`, `db:migrate` | `drizzle-kit migrate` (pooler `DATABASE_URL`)          |
 | Platform config | **Supabase CLI** | `supabase/config.toml` + root `.env` (secrets) | read at `db:start` (base `[auth]`)     | `supabase config push` (merges `[remotes.production]`) |
-| App connection  | **Env vars**     | `.env.local` (generated)                   | `db:env`                               | hosting platform dashboard + redeploy         |
+| App connection  | **Env vars**     | `.env.local` (generated)                       | `db:env`                               | hosting platform dashboard + redeploy                  |
 
 **Drizzle owns schema migrations, not Supabase.** drizzle-kit reads
 `supabase/migrations/` and tracks applied files in `__drizzle_migrations`. The

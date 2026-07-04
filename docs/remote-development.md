@@ -43,9 +43,9 @@ dashboard directly.
 
 Environment-specific values live in two committed layers of `config.toml`:
 
-| Layer | Block | What it holds |
-| ----- | ----- | ------------- |
-| Local | base `[auth]` | `127.0.0.1:3000`, SMTP off (Inbucket/Mailpit) |
+| Layer      | Block                  | What it holds                                 |
+| ---------- | ---------------------- | --------------------------------------------- |
+| Local      | base `[auth]`          | `127.0.0.1:3000`, SMTP off (Inbucket/Mailpit) |
 | Production | `[remotes.production]` | Prod `site_url`, redirect URLs, SMTP settings |
 
 On push, the CLI deep-merges `[remotes.production]` over the base config when
@@ -73,9 +73,9 @@ rebuild/redeploy.
 
 ## Command reference
 
-| Command                                       | Does                                                    |
-| --------------------------------------------- | ------------------------------------------------------- |
-| `DATABASE_URL="..." pnpm drizzle-kit migrate` | apply committed migrations to the **remote** db         |
+| Command                                       | Does                                                         |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| `DATABASE_URL="..." pnpm drizzle-kit migrate` | apply committed migrations to the **remote** db              |
 | `pnpm supabase config push`                   | sync `config.toml` auth/email settings to the remote project |
 
 There is no `db:*` wrapper for remote migrate yet — pass the pooler URL inline.
