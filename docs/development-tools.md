@@ -115,6 +115,8 @@ and a `"use server"` directive at the top of the file:
   OTP login, logout, redirects
 - [`lib/actions/application-form.server.actions.ts`](../lib/actions/application-form.server.actions.ts) —
   submit application, save draft
+- [`lib/actions/resume.server.actions.ts`](../lib/actions/resume.server.actions.ts) —
+  presigned resume upload/download URLs
 
 Conventions:
 

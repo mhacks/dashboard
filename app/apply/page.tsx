@@ -9,7 +9,7 @@ import {
   hackerApplicants,
   hackerApplicationDrafts,
 } from "@/lib/db/schema/applications";
-import { getResumeDownloadUrl } from "@/lib/aws/s3.server.actions";
+import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 
 export default async function ApplicationFormPage() {
   const supabase = await createClient();

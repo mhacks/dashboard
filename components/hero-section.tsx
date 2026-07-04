@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LIQUID_GLASS_PILL_CLASS } from "@/lib/glass";
 import { useApplicationsOpen } from "./use-applications-open";
 import MlhTrustBadge from "./mlh-trust-badge";
 
@@ -193,8 +192,8 @@ export default function HeroSection() {
               <span
                 className={`font-red-hat inline-block rounded-full px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold transition-opacity ${
                   applicationsOpen
-                    ? `${LIQUID_GLASS_PILL_CLASS} text-white hover:opacity-80`
-                    : `${LIQUID_GLASS_PILL_CLASS} cursor-not-allowed text-white/35 opacity-70`
+                    ? "glass-pill text-white hover:opacity-80"
+                    : "glass-pill cursor-not-allowed text-white/35 opacity-70"
                 }`}
               >
                 Apply Now

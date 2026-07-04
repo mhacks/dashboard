@@ -218,3 +218,13 @@
 .lens-pop {
   animation: lens-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+@layer components {
+  .glass-pill {
+    @apply border border-white/20 bg-black/32 shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-xl;
+  }
+
+  .glass-card {
+    @apply border border-white/30 bg-paper/88 shadow-[0_24px_64px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl;
+  }
+}
