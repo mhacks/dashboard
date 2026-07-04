@@ -2,12 +2,9 @@
 
 How a change travels from your laptop to the shared remote.
 
-- **[Local development](./local-development.md)** — boot the stack, change the
-  schema, generate a migration, open a PR.
-- **[Remote development](./remote-development.md)** — after merge to `main`, apply
-  migrations, push auth config, and update env vars on the hosting platform.
-- **[Development tools](./development-tools.md)** — Tailwind, shadcn, React Hook
-  Form, and Server Actions conventions.
+- [Local development](./local-development.md)
+- [Remote development](./remote-development.md)
+- [Development tools](./development-tools.md)
 
 ## Ownership
 
@@ -25,6 +22,3 @@ by hand.
 `supabase/migrations/` and tracks applied files in `__drizzle_migrations`. The
 Supabase CLI runs the local Docker stack (Postgres, Auth API, Studio, Mailpit) and
 pushes auth/email config — it does not apply schema changes.
-
-For step-by-step commands, see [local development](./local-development.md) and
-[remote development](./remote-development.md).

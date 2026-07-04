@@ -8,14 +8,9 @@ alternatives — when building new pages and features.
 **Use Tailwind for all styling.** Do not add CSS modules, styled-components, or
 inline `style` props except where a value is truly dynamic (e.g. a computed color).
 
-### Setup
-
-- Tailwind v4 is imported in [`app/globals.css`](../app/globals.css) via
-  `@import "tailwindcss"`.
-- Theme tokens (colors, radius, fonts) are CSS variables in `globals.css`, surfaced
-  to Tailwind through `@theme inline`.
-- Dark mode uses a `.dark` class on an ancestor
-  (`@custom-variant dark (&:is(.dark *))`).
+Tailwind v4 is imported in [`app/globals.css`](../app/globals.css). Theme tokens
+(colors, radius, fonts) are CSS variables surfaced through `@theme inline`. Dark mode
+uses a `.dark` class on an ancestor.
 
 ### Conventions
 
@@ -28,37 +23,18 @@ inline `style` props except where a value is truly dynamic (e.g. a computed colo
 - **Fonts** — `font-sans`, `font-mono`, `font-heading`, and `font-red-hat` map to
   the fonts loaded in `app/layout.tsx`.
 
-```tsx
-import { cn } from "@/lib/utils";
-
-<button
-  className={cn(
-    "rounded-full px-4 py-2 text-sm font-medium",
-    isDisabled && "opacity-50 pointer-events-none",
-  )}
-/>
-```
-
 ## shadcn/ui
 
 **Use shadcn components for UI primitives.** Components live in
 [`components/ui/`](../components/ui/) and are copied into the repo — they are not
 installed as a runtime package.
 
-### Adding components
-
 ```bash
 pnpm shadcn add <component>   # e.g. pnpm shadcn add dialog
 ```
 
-Configuration is in [`components.json`](../components.json):
-
-- Style: `radix-nova`
-- Base color: `neutral`
-- CSS variables: enabled
-- Icons: `lucide-react`
-
-### Conventions
+Configuration is in [`components.json`](../components.json) (style: `radix-nova`,
+base color: `neutral`, CSS variables enabled, icons: `lucide-react`).
 
 - Import from `@/components/ui/<name>` (e.g. `Button`, `Input`, `Card`, `Label`).
 - Extend shadcn components with Tailwind classes via `className`; avoid forking the
@@ -66,22 +42,11 @@ Configuration is in [`components.json`](../components.json):
 - Compose primitives rather than building custom buttons, inputs, or dialogs from
   scratch.
 
-```tsx
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-```
-
 ## React Hook Form
 
 **Use React Hook Form for all interactive forms.** Pair it with Zod schemas via
-`@hookform/resolvers/zod` for client-side validation.
-
-Client validation is for **UX only** — instant feedback, disabled submit buttons, and
-field-level errors. It is not a security boundary. Every action that writes data must
-re-validate on the server (see [Server-side validation](#server-side-validation)).
-
-### Setup
+`@hookform/resolvers/zod` for client-side validation (UX feedback only — not a
+security boundary).
 
 Define the schema once (e.g. in `lib/types/`) and wire it into `useForm`:
 
@@ -107,65 +72,27 @@ const { register, handleSubmit, control, formState: { errors } } =
 - **Dependent fields** — use `useWatch` or `watch()` to react to other field values.
 - **Errors** — read `errors.fieldName?.message` and render below the input.
 
-Wrap fields in a small layout helper (see [`app/apply/utils.tsx`](../app/apply/utils.tsx)
-`FormField`) that pairs a shadcn `Label` with the control. The repo does not use the
-shadcn `Form` wrapper — keep the same `FormField` + `register` / `Controller` pattern.
+Wrap fields in the `FormField` helper from [`app/apply/utils.tsx`](../app/apply/utils.tsx).
+The repo does not use the shadcn `Form` wrapper — keep the `FormField` +
+`register` / `Controller` pattern.
 
-```tsx
-<FormField label="Email" required>
-  <Input type="email" {...register("email")} />
-  {errors.email && (
-    <p className="text-[11px] text-destructive">{errors.email.message}</p>
-  )}
-</FormField>
-```
-
-### Where it lives
-
-- Client components that own the form state carry `"use client"` and call
-  `useForm` (e.g. [`app/apply/application-form.tsx`](../app/apply/application-form.tsx),
-  [`app/login/page.tsx`](../app/login/page.tsx)).
-- Validation schemas live next to their types, not inside server action files.
-- Share one Zod schema between the form (`zodResolver`) and the server action
-  (`schema.parse`) so rules stay in sync.
+Client form components carry `"use client"` and call `useForm` (see
+[`app/apply/application-form.tsx`](../app/apply/application-form.tsx),
+[`app/login/page.tsx`](../app/login/page.tsx)). Validation schemas live next to
+their types, not inside server action files.
 
 ## Server-side validation
 
-**Always validate on the server before writing data.** Client-side checks can be
-bypassed — treat every server action input as untrusted.
-
-### Rules
+**Always validate on the server before writing data.**
 
 1. **Parse with Zod in every mutation** — call `mySchema.parse(data)` (or
-   `safeParse` when returning field errors) at the start of the action, before any
-   database write. Never insert or update using raw client input.
-2. **One schema, two layers** — define the schema once in `lib/types/` and import it
-   in both the form and the server action. Do not duplicate rules or maintain separate
-   client/server schemas.
-3. **Auth and ownership on the server** — derive `userId` from `getUser()`, not from
-   the request body. Reject unauthenticated callers before parsing or writing.
-4. **Stricter server rules when needed** — the server may apply additional checks the
-   form does not (e.g. uniqueness, rate limits, row ownership). Client validation
-   cannot replace these.
-5. **No unvalidated partial writes** — even drafts and autosave paths should validate
-   what they accept. Use a dedicated partial schema (e.g. `mySchema.partial()`) rather
-   than skipping validation.
-
-```tsx
-// lib/types/my-form.ts — single source of truth
-export const mySchema = z.object({ email: z.string().email(), /* ... */ });
-export type MyFormData = z.infer<typeof mySchema>;
-
-// Client: instant feedback
-useForm({ resolver: zodResolver(mySchema) });
-
-// Server: mandatory gate before any write
-export async function submit(data: MyFormData) {
-  const userId = await getAuthenticatedUserId();
-  const parsed = mySchema.parse(data); // throws on invalid input
-  await db.insert(myTable).values({ ...parsed, userId });
-}
-```
+   `safeParse` when returning field errors) before any database write. Define each
+   schema once in `lib/types/` and import it in both the form and the server action.
+2. **Auth and ownership on the server** — derive `userId` from `getUser()`, not from
+   the request body.
+3. **Stricter server rules when needed** — the server may enforce uniqueness, rate
+   limits, or row ownership. Use a partial schema (e.g. `mySchema.partial()`) for
+   drafts rather than skipping validation.
 
 Reference: [`submitHackerApplication`](../lib/actions/application-form.server.actions.ts)
 calls `hackerApplicationSchema.parse(data)` before inserting.
@@ -175,8 +102,6 @@ calls `hackerApplicationSchema.parse(data)` before inserting.
 **Use Server Actions for mutations and auth flows** — not API route handlers, unless
 you need a public webhook or third-party callback.
 
-### File layout
-
 Actions live in [`lib/actions/`](../lib/actions/) with a `.server.actions.ts` suffix
 and a `"use server"` directive at the top of the file:
 
@@ -185,58 +110,15 @@ and a `"use server"` directive at the top of the file:
 - [`lib/actions/application-form.server.actions.ts`](../lib/actions/application-form.server.actions.ts) —
   submit application, save draft
 
-### Conventions
+Conventions:
 
 - **Auth on the server** — call `createClient()` from `@/lib/supabase/server` and
   `getUser()` inside the action; never trust a client-supplied user id.
 - **Database via Drizzle** — import `db` from `@/lib/db`; do not use
   `supabase.from(...)` for data access.
-- **Validate before write** — always `schema.parse(data)` before touching the database.
-  See [Server-side validation](#server-side-validation).
 - **Return structured results** — return `{ error: string }` or domain-specific
   objects (e.g. `{ duplicate: boolean }`) instead of throwing for expected cases.
-  Reserve `throw` for unexpected failures.
 - **Redirects** — use `redirect()` from `next/navigation` inside the action when the
   success path should navigate (see `verifyOtp`, `logout`).
 
-```tsx
-// lib/actions/example.server.actions.ts
-"use server";
-
-import { db } from "@/lib/db";
-import { createClient } from "@/lib/supabase/server";
-
-export async function doSomething(data: MyFormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
-
-  const parsed = mySchema.parse(data);
-  await db.insert(myTable).values({ ...parsed, userId: user.id });
-}
-```
-
-Call actions directly from client components — no `fetch`, no route handler:
-
-```tsx
-async function onSubmit(data: MyFormData) {
-  const result = await doSomething(data);
-  if (result?.error) {
-    setError(result.error);
-    return;
-  }
-  router.push("/success");
-}
-```
-
-## Putting it together
-
-A typical feature follows this stack:
-
-1. **Tailwind + shadcn** for layout and controls.
-2. **React Hook Form + Zod** in a `"use client"` form component (UX validation).
-3. **Server Actions** in `lib/actions/` that **re-parse with the same Zod schema**,
-   check auth, then write via Drizzle.
-
-Reference implementations: the [application form](../app/apply/application-form.tsx)
-and [login page](../app/login/page.tsx).
+Call actions directly from client components — no `fetch`, no route handler.

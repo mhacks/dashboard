@@ -23,17 +23,11 @@ hot-reload on save.
 
 ## Docs
 
-- **[docs/development.md](docs/development.md)** — overview, how Supabase is wired
-  in, and links to the local/remote workflows.
-- **[docs/local-development.md](docs/local-development.md)** — boot the stack,
-  change the schema, generate a migration, open a PR.
-- **[docs/remote-development.md](docs/remote-development.md)** — after merge to
-  `main`, apply migrations and push auth config to the shared remote.
-- **[docs/development-tools.md](docs/development-tools.md)** — Tailwind, shadcn,
-  React Hook Form, and Server Actions conventions.
+- [Development workflow](docs/development.md)
+- [Local development](docs/local-development.md)
+- [Remote development](docs/remote-development.md)
+- [Development tools](docs/development-tools.md)
 
 ## Deploy
 
-The app reads `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
-and `DATABASE_URL` from the environment. Set them on your hosting platform and
-redeploy — see [docs/remote-development.md](docs/remote-development.md).
+See [Remote development](docs/remote-development.md).

@@ -15,6 +15,7 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "db:start": "supabase start && bash scripts/gen-env-local.sh",
+    "db:env": "bash scripts/gen-env-local.sh",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:push": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit push",

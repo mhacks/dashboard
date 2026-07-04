@@ -26,17 +26,13 @@ pnpm db:push        # apply the current schema to the fresh local db
 pnpm dev            # run the app against localhost
 ```
 
-Supabase Studio is already running once the stack is up — open it to inspect data.
-Everything here is configured by [`supabase/config.toml`](../supabase/config.toml),
-which is read only at boot (restart after editing it).
+Supabase Studio is available once the stack is up. Local auth/email settings live in
+[`supabase/config.toml`](../supabase/config.toml) — restart the stack after editing
+it (`pnpm db:stop` then `pnpm db:start`).
 
-`db:start` runs `supabase start` then
-[`scripts/gen-env-local.sh`](../scripts/gen-env-local.sh), which reads
-`supabase status` and writes `.env.local` (git-ignored). Re-run `pnpm db:env`
-whenever the stack's values change.
-
-> Editing `supabase/config.toml`? It's only read at boot — restart with
-> `pnpm db:stop` then `pnpm db:start`.
+`db:start` runs [`scripts/gen-env-local.sh`](../scripts/gen-env-local.sh), which reads
+`supabase status` and writes `.env.local` (git-ignored). Re-run
+`pnpm db:env` if the stack is already up and you need fresh env values.
 
 ## 2. Change the schema
 
@@ -78,14 +74,3 @@ CI runs Prettier, ESLint, and a production build — it never touches a database
 | `pnpm db:migrate`  | drizzle-kit migrate — apply migrations to the **local** db     |
 
 All `db:*` scripts target `127.0.0.1:54322` directly.
-
-## Gotchas
-
-1. **`db:push` is local-only** — never push straight to the remote.
-2. **Generate migrations on your branch, before the PR** — reviewers should see
-   the exact SQL that will run on the remote.
-3. **Supabase CLI does not apply schema migrations** — drizzle-kit owns
-   `supabase/migrations/`. The Supabase CLI is only used here for the local Docker
-   stack.
-4. **Mailpit is local-only** — magic-link email is caught at
-   `http://127.0.0.1:54324`, not a real inbox.
