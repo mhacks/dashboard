@@ -14,10 +14,10 @@
     "start": "node --env-file=.env.local .next/standalone/server.js",
     "lint": "eslint",
     "format": "prettier --write .",
-    "db:start": "supabase start && bash scripts/gen-env-local.sh",
+    "db:start": "supabase start && supabase seed buckets --yes && bash scripts/gen-env-local.sh",
     "db:env": "bash scripts/gen-env-local.sh",
     "db:stop": "supabase stop",
-    "db:reset": "supabase db reset",
+    "db:reset": "supabase db reset && supabase seed buckets --yes",
     "db:push": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit push",
     "db:generate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit generate",
     "db:migrate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit migrate"

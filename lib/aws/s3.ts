@@ -2,16 +2,18 @@
 
 import {
   S3Client,
-  PutObjectCommand,
   GetObjectCommand,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const REGION = process.env.RESUMES_REGION ?? "us-east-2";
-const BUCKET = process.env.RESUMES_BUCKET!;
+const endpoint = process.env.RESUMES_ENDPOINT;
 
-const s3 = new S3Client({
-  region: REGION,
+export const RESUMES_BUCKET = process.env.RESUMES_BUCKET!;
+
+export const s3 = new S3Client({
+  region: process.env.RESUMES_REGION ?? "us-east-2",
+  ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
   credentials: {
     accessKeyId: process.env.RESUMES_ACCESS_KEY_ID!,
     secretAccessKey: process.env.RESUMES_SECRET_ACCESS_KEY!,
@@ -20,8 +22,6 @@ const s3 = new S3Client({
   responseChecksumValidation: "WHEN_REQUIRED",
 });
 
-// Returns a presigned PUT URL for the browser to upload directly to S3,
-// and the S3 key to store in the database.
 export async function getResumeUploadUrl(
   userId: string,
   fileName: string,
@@ -30,7 +30,7 @@ export async function getResumeUploadUrl(
   const key = `resumes/${userId}/${Date.now()}-${sanitized}`;
 
   const command = new PutObjectCommand({
-    Bucket: BUCKET,
+    Bucket: RESUMES_BUCKET,
     Key: key,
     ContentType: "application/pdf",
   });
@@ -40,10 +40,7 @@ export async function getResumeUploadUrl(
   return { uploadUrl, key };
 }
 
-// Generates a fresh presigned GET URL from a stored S3 key.
-// Called at view time so the URL is always current.
 export async function getResumeDownloadUrl(key: string): Promise<string> {
-  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-  // 7 days is the AWS maximum for presigned URLs with IAM credentials.
+  const command = new GetObjectCommand({ Bucket: RESUMES_BUCKET, Key: key });
   return getSignedUrl(s3, command, { expiresIn: 604800 });
 }

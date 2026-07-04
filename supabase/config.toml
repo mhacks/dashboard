@@ -9,6 +9,11 @@ project_id = "dashboard"
 [auth]
 additional_redirect_urls = ["http://127.0.0.1:3000/**"]
 
+[storage.buckets.resumes]
+public = false
+file_size_limit = "10MiB"
+allowed_mime_types = ["application/pdf"]
+
 # OTP login — signInWithOtp / verifyOtp (app/login/page.tsx)
 [auth.email.template.magic_link]
 subject = "Your login code"
