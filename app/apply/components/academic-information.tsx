@@ -16,14 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  countries,
-  degreeOptions,
-  majorOptions,
-  universities,
-} from "../form-options";
+import { countries, degreeOptions, majorOptions } from "../form-options";
 import { FormField } from "../utils";
 import { SelectWithOther } from "./select-with-other";
+import { UniversitySearch } from "./university-search";
 import { HackerApplicationFormData } from "@/lib/types/applications";
 import { getResumeDownloadUrl } from "@/lib/aws/s3";
 
@@ -31,6 +27,11 @@ const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
 const MAX_RESUME_SIZE = 10 * 1024 * 1024; // 10 MB — mirrors the upload API limit
+
+const countryValueForUniversity = (country: string) =>
+  countries.find(
+    (option) => option.label.toLowerCase() === country.toLowerCase(),
+  )?.value ?? country;
 
 type UploadState = "idle" | "uploading" | "done" | "error";
 
@@ -69,13 +70,20 @@ const AcademicInformation = ({
                 name="university"
                 control={control}
                 render={({ field }) => (
-                  <SelectWithOther
+                  <UniversitySearch
                     value={field.value ?? ""}
                     onChange={field.onChange}
-                    options={universities}
-                    otherValue="other"
-                    placeholder="Select university"
-                    otherPlaceholder="University name"
+                    onSelectUniversity={(university) => {
+                      setValue(
+                        "country",
+                        countryValueForUniversity(university.country),
+                        {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        },
+                      );
+                    }}
+                    placeholder="Search university"
                   />
                 )}
               />
