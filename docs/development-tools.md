@@ -105,9 +105,7 @@ const {
 } = useForm<MyFormData>({
   resolver: zodResolver(mySchema),
   mode: "onChange",
-  defaultValues: {
-    /* ... */
-  },
+  defaultValues: {/* ... */},
 });
 ```
 

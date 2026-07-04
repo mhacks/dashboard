@@ -8,6 +8,7 @@ export default defineConfig({
   schema: "./lib/db/schema",
   out: "./supabase/migrations",
   dialect: "postgresql",
+  schemaFilter: ["public"],
   migrations: {
     prefix: "timestamp",
   },

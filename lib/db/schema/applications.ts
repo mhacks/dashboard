@@ -10,6 +10,7 @@ import {
   jsonb,
   foreignKey,
 } from "drizzle-orm/pg-core";
+import { authUsers } from "drizzle-orm/supabase";
 import { users } from "./users";
 
 export const applicationStatus = pgEnum("application_status", [
@@ -93,7 +94,7 @@ export const hackerApplicants = pgTable(
     }).onDelete("cascade"),
     unique("hacker_applicants_user_id_unique").on(table.userId),
   ],
-);
+).enableRLS();
 
 export const hackerApplicationDrafts = pgTable(
   "hacker_application_drafts",
@@ -110,11 +111,11 @@ export const hackerApplicationDrafts = pgTable(
   (table) => [
     foreignKey({
       columns: [table.userId],
-      foreignColumns: [users.id],
+      foreignColumns: [authUsers.id],
       name: "hacker_application_drafts_user_id_fkey",
     }).onDelete("cascade"),
   ],
-);
+).enableRLS();
 
 export type HackerApplicantRow = typeof hackerApplicants.$inferSelect;
 export type NewHackerApplicant = typeof hackerApplicants.$inferInsert;

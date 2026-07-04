@@ -11,7 +11,7 @@ export const users = pgTable(
     role: userRole().default("hacker").notNull(),
   },
   (table) => [unique("users_email_unique").on(table.email)],
-);
+).enableRLS();
 
 export type UserEntry = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

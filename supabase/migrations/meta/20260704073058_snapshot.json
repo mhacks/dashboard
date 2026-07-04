@@ -1,6 +1,6 @@
 {
-  "id": "75428001-7f1b-4d5c-8f4f-f474442ec610",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "05c7d84e-d6bd-4ab5-9ba9-c93ccba6b76b",
+  "prevId": "0d1cba64-8d63-40d4-9180-e00f823f49b2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -226,30 +226,30 @@
         "hacker_applicants_user_id_users_id_fk": {
           "name": "hacker_applicants_user_id_users_id_fk",
           "tableFrom": "hacker_applicants",
-          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
+          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "hacker_applicants_user_id_unique": {
           "name": "hacker_applicants_user_id_unique",
-          "nullsNotDistinct": false,
           "columns": [
             "user_id"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
+      "isRLSEnabled": true
     },
     "public.hacker_application_drafts": {
       "name": "hacker_application_drafts",
@@ -281,22 +281,23 @@
         "hacker_application_drafts_user_id_fkey": {
           "name": "hacker_application_drafts_user_id_fkey",
           "tableFrom": "hacker_application_drafts",
-          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
+      "isRLSEnabled": true
     },
     "public.users": {
       "name": "users",
@@ -329,15 +330,15 @@
       "uniqueConstraints": {
         "users_email_unique": {
           "name": "users_email_unique",
-          "nullsNotDistinct": false,
           "columns": [
             "email"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
+      "isRLSEnabled": true
     }
   },
   "enums": {
@@ -360,10 +361,10 @@
     }
   },
   "schemas": {},
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},
