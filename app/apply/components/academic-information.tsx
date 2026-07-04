@@ -25,7 +25,7 @@ import {
 import { FormField } from "../utils";
 import { SelectWithOther } from "./select-with-other";
 import { HackerApplicationFormData } from "@/lib/types/applications";
-import { getResumeDownloadUrl } from "@/lib/aws/s3";
+import { getResumeDownloadUrl } from "@/lib/aws/s3.server.actions";
 
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
