@@ -176,6 +176,7 @@ export default function HeroSection() {
                 alt="MHacks"
                 width={56}
                 height={56}
+                priority
                 className="w-10 h-10 sm:w-14 sm:h-14 drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
               />
             </Link>

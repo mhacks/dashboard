@@ -24,6 +24,7 @@ export default function MlhTrustBadge() {
         width={393}
         height={688}
         unoptimized
+        priority
         className="h-auto w-full"
       />
     </a>
