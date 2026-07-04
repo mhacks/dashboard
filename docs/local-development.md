@@ -26,9 +26,14 @@ pnpm db:push        # apply the current schema to the fresh local db
 pnpm dev            # run the app against localhost
 ```
 
-Supabase Studio is available once the stack is up. Local auth/email settings live in
-[`supabase/config.toml`](../supabase/config.toml) — restart the stack after editing
-it (`pnpm db:stop` then `pnpm db:start`).
+Supabase Studio is available once the stack is up. [`supabase/config.toml`](../supabase/config.toml)
+is the source of truth for auth rules, email templates, SMTP, `site_url`, and redirect
+URLs — restart the stack after editing it (`pnpm db:stop` then `pnpm db:start`).
+
+The base `[auth]` block in `config.toml` holds **local** values (e.g.
+`http://127.0.0.1:3000`, SMTP disabled so Inbucket/Mailpit catches email). Production
+overrides live in `[remotes.production]` and are only applied on `pnpm supabase config push` —
+see [Remote development](./remote-development.md).
 
 `db:start` runs [`scripts/gen-env-local.sh`](../scripts/gen-env-local.sh), which reads
 `supabase status` and writes `.env.local` (git-ignored). Re-run

@@ -36,13 +36,27 @@ DATABASE_URL="<remote-pooler-url>" pnpm drizzle-kit migrate
 
 ## 2. Auth config → remote
 
+[`supabase/config.toml`](../supabase/config.toml) is the source of truth for auth
+rules, email templates, SMTP, `site_url`, and redirect URLs. `config push` syncs it
+to the remote project's dashboard settings — don't edit those values in the Supabase
+dashboard directly.
+
+Environment-specific values live in two committed layers of `config.toml`:
+
+| Layer | Block | What it holds |
+| ----- | ----- | ------------- |
+| Local | base `[auth]` | `127.0.0.1:3000`, SMTP off (Inbucket/Mailpit) |
+| Production | `[remotes.production]` | Prod `site_url`, redirect URLs, SMTP settings |
+
+On push, the CLI deep-merges `[remotes.production]` over the base config when
+`project_id` matches the linked remote. SMTP credentials use `env(...)` and are read
+from workspace root `.env`.
+
 ```bash
 pnpm supabase config push
 ```
 
-[`supabase/config.toml`](../supabase/config.toml) (auth rules + the magic-link email
-template) configures only your local stack until pushed. For production, also set a
-real `site_url`, redirect URLs, and an SMTP provider in the Supabase dashboard.
+Update prod URLs in `[remotes.production.auth]` when the production hostname changes.
 
 ## 3. App connection → remote
 
@@ -62,6 +76,6 @@ rebuild/redeploy.
 | Command                                       | Does                                                    |
 | --------------------------------------------- | ------------------------------------------------------- |
 | `DATABASE_URL="..." pnpm drizzle-kit migrate` | apply committed migrations to the **remote** db         |
-| `pnpm supabase config push`                   | push auth rules + email templates to the remote project |
+| `pnpm supabase config push`                   | sync `config.toml` auth/email settings to the remote project |
 
 There is no `db:*` wrapper for remote migrate yet — pass the pooler URL inline.
