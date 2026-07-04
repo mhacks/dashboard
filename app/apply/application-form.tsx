@@ -310,7 +310,7 @@ export default function ApplyPage({
       setSaveStatus("saving");
       saveTimer.current = setTimeout(async () => {
         try {
-          await saveDraft(data);
+          await saveDraft(data, new Date().toISOString());
           setSaveStatus("saved");
           savedTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
         } catch {
@@ -387,7 +387,10 @@ export default function ApplyPage({
     if (savedTimer.current) clearTimeout(savedTimer.current);
     setIsSubmitting(true);
     try {
-      const { duplicate } = await submitHackerApplication(data);
+      const { duplicate } = await submitHackerApplication(
+        data,
+        new Date().toISOString(),
+      );
       if (duplicate) {
         setIsDuplicate(true);
       } else {

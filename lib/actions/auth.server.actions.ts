@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema/users";
 import { createClient } from "@/lib/supabase/server";
 
 export async function sendOtp(
@@ -52,6 +54,16 @@ export async function verifyOtp(
     type: "email",
   });
   if (error) return { error: error.message };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.email) {
+    await db
+      .insert(users)
+      .values({ id: user.id, email: user.email })
+      .onConflictDoNothing();
+  }
 
   // Only allow relative same-origin paths; reject anything else.
   const destination =
