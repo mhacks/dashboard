@@ -6,6 +6,8 @@ How a change travels from your laptop to the shared remote.
   schema, generate a migration, open a PR.
 - **[Remote development](./remote-development.md)** — after merge to `main`, apply
   migrations, push auth config, and update env vars on the hosting platform.
+- **[Development tools](./development-tools.md)** — Tailwind, shadcn, React Hook
+  Form, and Server Actions conventions.
 
 ## Ownership
 

@@ -29,6 +29,8 @@ hot-reload on save.
   change the schema, generate a migration, open a PR.
 - **[docs/remote-development.md](docs/remote-development.md)** — after merge to
   `main`, apply migrations and push auth config to the shared remote.
+- **[docs/development-tools.md](docs/development-tools.md)** — Tailwind, shadcn,
+  React Hook Form, and Server Actions conventions.
 
 ## Deploy
 
