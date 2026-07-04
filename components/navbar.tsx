@@ -4,8 +4,17 @@ import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { LIQUID_GLASS_PILL_CLASS, LIQUID_GLASS_PROPS } from "@/lib/glass";
 import { useApplicationsOpen } from "./use-applications-open";
+
+const LIQUID_GLASS_PROPS = {
+  displacementScale: 34,
+  blurAmount: 0.16,
+  saturation: 120,
+  aberrationIntensity: 1.2,
+  elasticity: 0.12,
+  cornerRadius: 999,
+  mode: "standard" as const,
+};
 
 const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
   ssr: false,
@@ -18,8 +27,6 @@ const links = [
   { href: "#sponsors", label: "Sponsors" },
   { href: "#faqs", label: "FAQ" },
 ];
-
-const pillClass = LIQUID_GLASS_PILL_CLASS;
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
@@ -66,7 +73,7 @@ export default function NavBar() {
             onClick={(e) => {
               if (!applicationsOpen) e.preventDefault();
             }}
-            className={`${pillClass} font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic transition-opacity ${
+            className={`glass-pill font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic transition-opacity ${
               applicationsOpen
                 ? "text-white hover:opacity-80"
                 : "cursor-not-allowed text-white/35"
@@ -78,9 +85,7 @@ export default function NavBar() {
 
         {/* Hamburger pill + dropdown */}
         <div className="relative">
-          <div
-            className={`${pillClass} rounded-full flex items-center justify-center p-3`}
-          >
+          <div className="glass-pill rounded-full flex items-center justify-center p-3">
             <button
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
@@ -106,7 +111,7 @@ export default function NavBar() {
           </div>
 
           <div
-            className={`absolute right-0 mt-2 ${pillClass} rounded-2xl transition-all duration-300 origin-top-right ${
+            className={`absolute right-0 mt-2 glass-pill rounded-2xl transition-all duration-300 origin-top-right ${
               open
                 ? "pointer-events-auto scale-100 opacity-100"
                 : "pointer-events-none scale-95 opacity-0"
@@ -136,7 +141,7 @@ export default function NavBar() {
         style={{ position: "fixed", top: "2rem", left: "50%" }}
       >
         <nav
-          className={`flex items-center rounded-full px-6 py-3 ${LIQUID_GLASS_PILL_CLASS}`}
+          className="glass-pill flex items-center rounded-full px-6 py-3"
           aria-label="Primary navigation"
         >
           {/* Logo slides in from the left. */}

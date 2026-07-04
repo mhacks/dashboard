@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
-import { LIQUID_GLASS_PILL_CLASS } from "@/lib/glass";
 
 const navLinks = [
   { href: "/#about", label: "About" },
@@ -11,8 +10,6 @@ const navLinks = [
 ];
 
 const detailItems = ["October 3 - 4, 2026", "Ann Arbor, MI", "800+ Hackers"];
-
-const pillClass = LIQUID_GLASS_PILL_CLASS;
 
 export default function NotFound() {
   return (
@@ -53,7 +50,7 @@ export default function NotFound() {
 
         <nav
           aria-label="Homepage sections"
-          className={`hidden items-center gap-7 rounded-full px-6 py-3 font-heading text-lg italic text-white lg:flex ${pillClass}`}
+          className="glass-pill hidden items-center gap-7 rounded-full px-6 py-3 font-heading text-lg italic text-white lg:flex"
         >
           {navLinks.map((link) => (
             <Link
@@ -68,7 +65,7 @@ export default function NotFound() {
 
         <Link
           href="/apply"
-          className={`font-red-hat rounded-full px-4 pb-[7px] pt-[9px] text-[17px] italic text-white transition-opacity hover:opacity-80 lg:hidden ${pillClass}`}
+          className="glass-pill font-red-hat rounded-full px-4 pb-[7px] pt-[9px] text-[17px] italic text-white transition-opacity hover:opacity-80 lg:hidden"
         >
           Apply Now
         </Link>
@@ -90,21 +87,21 @@ export default function NotFound() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/"
-              className={`font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80 ${LIQUID_GLASS_PILL_CLASS}`}
+              className="glass-pill font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
             >
               <ArrowLeft className="size-4" aria-hidden />
               Back home
             </Link>
             <Link
               href="/apply"
-              className={`font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80 ${LIQUID_GLASS_PILL_CLASS}`}
+              className="glass-pill font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
             >
               Apply
               <ArrowUpRight className="size-4" aria-hidden />
             </Link>
             <a
               href="mailto:hackathon@mhacks.org"
-              className={`font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80 ${LIQUID_GLASS_PILL_CLASS}`}
+              className="glass-pill font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
             >
               <Mail className="size-4" aria-hidden />
               Contact
