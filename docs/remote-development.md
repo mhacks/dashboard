@@ -67,6 +67,13 @@ Set these on your hosting platform, then redeploy:
 | `NEXT_PUBLIC_SUPABASE_URL`             | remote project URL                 |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | remote publishable key             |
 | `DATABASE_URL`                         | remote Transaction pooler string   |
+| `RESUMES_BUCKET`                       | AWS S3 bucket name (SSM)           |
+| `RESUMES_ACCESS_KEY_ID`                | AWS IAM access key (SSM)           |
+| `RESUMES_SECRET_ACCESS_KEY`            | AWS IAM secret key (SSM)           |
+
+Set `RESUMES_REGION` to `us-east-2` in production (or omit it — that is the default).
+The `[storage.buckets.*]` blocks in `config.toml` and `supabase seed buckets` are for local
+dev only; they do not create resume storage on the remote Supabase project.
 
 `NEXT_PUBLIC_*` vars are **inlined at build time** — changing them requires a
 rebuild/redeploy.
