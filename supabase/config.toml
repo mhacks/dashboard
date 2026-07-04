@@ -6,8 +6,23 @@ project_id = "dashboard"
 
 # Local dev — everything else uses CLI defaults (ports, Inbucket/Mailpit, etc.)
 
+[api]
+schemas = ["public"]
+
 [auth]
+site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://127.0.0.1:3000/**"]
+
+[auth.rate_limit]
+email_sent = 30
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
 
 # Local resume bucket: supabase/seed.sql (runs on start/reset). Do not add
 # [storage.buckets.*] here — seed buckets --linked would provision on remote.
@@ -18,11 +33,11 @@ sql_paths = ["./seed.sql"]
 
 # OTP login — signInWithOtp / verifyOtp (app/login/page.tsx)
 [auth.email.template.magic_link]
-subject = "Your login code"
+subject = "Your MHacks OTP"
 content_path = "./supabase/templates/otp.html"
 
 [auth.email.template.confirmation]
-subject = "Your login code"
+subject = "Your MHacks OTP"
 content_path = "./supabase/templates/otp.html"
 
 # Production — merged on `pnpm supabase config push`
