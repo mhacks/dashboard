@@ -72,8 +72,10 @@ Set these on your hosting platform, then redeploy:
 | `RESUMES_SECRET_ACCESS_KEY`            | AWS IAM secret key (SSM)           |
 
 Set `RESUMES_REGION` to `us-east-2` in production (or omit it — that is the default).
-The `[storage.buckets.*]` blocks in `config.toml` and `supabase seed buckets` are for local
-dev only; they do not create resume storage on the remote Supabase project.
+Local resume storage is seeded by `supabase/seed.sql` only — there are no
+`[storage.buckets.*]` blocks in `config.toml`, so `supabase seed buckets --linked`
+cannot create buckets on the remote Supabase project. Remote schema promotion uses
+drizzle-kit migrate, not `supabase db reset`, so `seed.sql` never runs against production.
 
 `NEXT_PUBLIC_*` vars are **inlined at build time** — changing them requires a
 rebuild/redeploy.

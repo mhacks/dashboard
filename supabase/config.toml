@@ -9,10 +9,12 @@ project_id = "dashboard"
 [auth]
 additional_redirect_urls = ["http://127.0.0.1:3000/**"]
 
-[storage.buckets.resumes]
-public = false
-file_size_limit = "10MiB"
-allowed_mime_types = ["application/pdf"]
+# Local resume bucket: supabase/seed.sql (runs on start/reset). Do not add
+# [storage.buckets.*] here — seed buckets --linked would provision on remote.
+# Production uses AWS S3, not Supabase Storage.
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
 
 # OTP login — signInWithOtp / verifyOtp (app/login/page.tsx)
 [auth.email.template.magic_link]

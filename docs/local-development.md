@@ -10,7 +10,7 @@ during local development.
 
 ## 1. Start the local stack
 
-`pnpm db:start` (= `supabase start` + bucket seeding + env generation) boots a full Supabase stack in
+`pnpm db:start` (= `supabase start` + env generation) boots a full Supabase stack in
 Docker:
 
 | Service  | URL                             | Purpose                                   |
@@ -47,15 +47,13 @@ every environment; `.env.local` sets `RESUMES_REGION=local` so the client uses
 Supabase Storage instead of AWS. Production uses `us-east-2` — see
 [Remote development](./remote-development.md).
 
-**Bucket definition** — the `[storage.buckets.resumes]` block in
-[`supabase/config.toml`](../supabase/config.toml) declares the local bucket name and
-limits (private, PDF only, 10 MiB). This block is for **local seeding only**; it is
-not applied to the remote Supabase project by `config push` or `db push`.
+**Bucket definition** — the local `resumes` bucket is declared in
+[`supabase/seed.sql`](../supabase/seed.sql), **not** in `[storage.buckets.*]` blocks.
+Keeping buckets out of `config.toml` prevents `supabase seed buckets --linked` from
+provisioning them on the remote Supabase project (production uses AWS S3 instead).
 
-**Bucket creation** — declaring a bucket in `config.toml` does not create it by itself.
-`pnpm db:start` runs `supabase seed buckets`, which reads those blocks and creates the
-bucket in local Storage. `pnpm db:reset` wipes Postgres (including storage metadata), so
-it re-runs `supabase seed buckets` afterward.
+**Bucket creation** — Supabase runs `seed.sql` automatically on first `supabase start`
+and every `pnpm db:reset` (after migrations). No separate seed script is needed.
 
 **Env wiring** — [`scripts/gen-env-local.sh`](../scripts/gen-env-local.sh) reads
 `supabase status` and writes `.env.local`:
@@ -64,13 +62,12 @@ it re-runs `supabase seed buckets` afterward.
 | --------------------------- | ---------------------------------------- |
 | `RESUMES_REGION`            | `local` — selects Supabase Storage       |
 | `RESUMES_S3_URL`            | local Storage URL from `supabase status` |
-| `RESUMES_BUCKET`            | `resumes` (matches `config.toml`)        |
+| `RESUMES_BUCKET`            | `resumes` (matches `seed.sql`)           |
 | `RESUMES_ACCESS_KEY_ID`     | local Storage access key                 |
 | `RESUMES_SECRET_ACCESS_KEY` | local Storage secret key                 |
 
-To add another local bucket, add a `[storage.buckets.<name>]` block to `config.toml`,
-restart or re-seed (`pnpm db:start` or `supabase seed buckets --yes`), and update
-`RESUMES_BUCKET` in `.env.local`.
+To add another local bucket, add an `insert into storage.buckets` statement to
+`supabase/seed.sql`, run `pnpm db:reset`, and update `RESUMES_BUCKET` in `.env.local`.
 
 ## 2. Change the schema
 
@@ -103,9 +100,9 @@ CI runs Prettier, ESLint, and a production build — it never touches a database
 
 | Command            | Does                                                           |
 | ------------------ | -------------------------------------------------------------- |
-| `pnpm db:start`    | start Supabase, seed local storage buckets, write `.env.local` |
+| `pnpm db:start`    | start Supabase (seeds on first boot), write `.env.local`       |
 | `pnpm db:stop`     | stop the stack                                                 |
-| `pnpm db:reset`    | wipe local Postgres, then re-seed storage buckets              |
+| `pnpm db:reset`    | wipe local Postgres, re-run migrations + `seed.sql`            |
 | `pnpm db:env`      | (re)generate `.env.local` from the running stack               |
 | `pnpm db:push`     | drizzle-kit push — apply `schema.ts` to the **local** db       |
 | `pnpm db:generate` | drizzle-kit generate — write a migration from the schema delta |
