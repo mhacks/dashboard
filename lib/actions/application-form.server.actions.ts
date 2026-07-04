@@ -37,7 +37,6 @@ function toDbValues(parsed: HackerApplicationFormData): ApplicationDbValues {
 
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
-  updatedAt: string,
 ): Promise<{ duplicate: boolean }> => {
   const userId = await getAuthenticatedUserId();
   const parsed = hackerApplicationSchema.parse(data);
@@ -45,7 +44,7 @@ export const submitHackerApplication = async (
   try {
     const result = await db
       .insert(hackerApplicants)
-      .values({ ...toDbValues(parsed), userId, updatedAt })
+      .values({ ...toDbValues(parsed), userId })
       .onConflictDoNothing()
       .returning({ id: hackerApplicants.id });
 
@@ -66,19 +65,17 @@ export const submitHackerApplication = async (
 
 export const saveDraft = async (
   data: Partial<HackerApplicationFormData>,
-  updatedAt: string,
 ): Promise<void> => {
   const userId = await getAuthenticatedUserId();
 
   try {
     await db
       .insert(hackerApplicationDrafts)
-      .values({ userId, data: data as Record<string, unknown>, updatedAt })
+      .values({ userId, data: data as Record<string, unknown> })
       .onConflictDoUpdate({
         target: hackerApplicationDrafts.userId,
         set: {
           data: data as Record<string, unknown>,
-          updatedAt,
         },
       });
   } catch (error) {
@@ -91,7 +88,6 @@ export const saveDraft = async (
 
 export const updateHackerApplication = async (
   data: HackerApplicationFormData,
-  updatedAt: string,
 ): Promise<void> => {
   const userId = await getAuthenticatedUserId();
   const parsed = hackerApplicationSchema.parse(data);
@@ -99,7 +95,7 @@ export const updateHackerApplication = async (
   try {
     await db
       .update(hackerApplicants)
-      .set({ ...toDbValues(parsed), updatedAt })
+      .set({ ...toDbValues(parsed) })
       .where(eq(hackerApplicants.userId, userId));
   } catch (error) {
     console.error("Unable to update Hacker Application:", error);
