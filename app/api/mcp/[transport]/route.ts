@@ -10,11 +10,13 @@ import { z } from "zod";
 import {
   baseApplicationSchema,
   hackerApplicationSchema,
+  type HackerApplicationFormData,
 } from "@/lib/types/applications";
 import {
   submitHackerApplicationForUser,
   saveDraftForUser,
   getApplicationStatusForUser,
+  getDraftForUser,
 } from "@/lib/actions/application-form.actions";
 import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
 import { verifyToken } from "@/lib/mcp/auth";
@@ -44,6 +46,47 @@ function errorText(text: string) {
   };
 }
 
+// Best-effort, per-instance rate limiting for the two write tools. Not
+// distributed — each serverless instance keeps its own counter — so this
+// blunts naive agent retry loops rather than being an airtight guard. If real
+// abuse shows up, add a Vercel Firewall rate-limit rule in front of this
+// route instead of hardening this further.
+const rateLimitHits = new Map<string, number[]>();
+
+function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (rateLimitHits.get(key) ?? []).filter(
+    (t) => now - t < windowMs,
+  );
+  if (recent.length >= limit) {
+    rateLimitHits.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  rateLimitHits.set(key, recent);
+  return true;
+}
+
+// Fields the schema requires to be `true` — rejecting `false` explicitly,
+// before the input ever reaches Zod validation, gives the agent one
+// unambiguous sentence to relay verbatim instead of a refine message buried
+// in a list of unrelated field errors.
+const MLH_CONSENT_FIELDS = [
+  ["mlhCodeOfConduct", "the MLH Code of Conduct"],
+  ["mlhPrivacyPolicy", "sharing your information with MLH"],
+  ["mlhEmails", "receiving emails from MLH"],
+] as const;
+
+// `.partial()` alone only allows fields to be *omitted* (undefined); it
+// rejects `null`. The draft-save tool needs `null` to mean "clear this
+// field", so every field is also made nullable.
+const draftInputShape = Object.fromEntries(
+  Object.entries(baseApplicationSchema.shape).map(([key, fieldSchema]) => [
+    key,
+    (fieldSchema as z.ZodTypeAny).nullable().optional(),
+  ]),
+) as { [K in keyof typeof baseApplicationSchema.shape]: z.ZodOptional<z.ZodNullable<(typeof baseApplicationSchema.shape)[K]>> };
+
 const baseHandler = createMcpHandler(
   (server) => {
     server.registerTool(
@@ -58,16 +101,46 @@ const baseHandler = createMcpHandler(
     );
 
     server.registerTool(
+      "apply_get_draft",
+      {
+        title: "Get application draft",
+        description:
+          "Returns the authenticated user's in-progress application draft, if any (e.g. started on the web form or in a previous chat). Call this before interviewing the user so you only ask about fields that are still missing — never re-ask what's already saved. `resumeUploaded` tells you whether a resume is already on file, so you can skip that step. If `resumeUploaded` is false: if you can execute HTTP requests yourself, use apply_get_resume_upload_url; otherwise tell the user to upload their resume at mhacks.org/apply and call apply_get_draft again afterward to confirm it's on file.",
+        inputSchema: {},
+      },
+      async (_input, extra) => {
+        const userId = requireUserId(extra as ToolExtra);
+        const draft = await getDraftForUser(userId);
+        if (!draft) return jsonText({ hasDraft: false });
+        return jsonText({
+          hasDraft: true,
+          draft,
+          resumeUploaded: typeof draft.resume === "string" && !!draft.resume,
+        });
+      },
+    );
+
+    server.registerTool(
       "apply_save_draft",
       {
         title: "Save application draft",
         description:
-          "Saves partial application progress for the authenticated user. Every field is optional; the user's draft is upserted. Use this to checkpoint answers as you collect them.",
-        inputSchema: baseApplicationSchema.partial().shape,
+          "Saves partial application progress for the authenticated user. Every field is optional. Fields you pass are shallow-merged into the existing draft (not replaced) — only the fields you include are changed, everything else already saved is preserved. Pass `null` for a field to clear it. Use this to checkpoint answers as you collect them.",
+        inputSchema: draftInputShape,
       },
       async (input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
-        await saveDraftForUser(userId, input);
+        if (!checkRateLimit(`save_draft:${userId}`, 20, 60_000)) {
+          return errorText(
+            "Too many draft saves in the last minute — wait a bit before checkpointing again.",
+          );
+        }
+        const existingDraft = await getDraftForUser(userId);
+        const merged: Record<string, unknown> = { ...existingDraft, ...input };
+        await saveDraftForUser(
+          userId,
+          merged as Partial<HackerApplicationFormData>,
+        );
         return jsonText({ saved: true });
       },
     );
@@ -77,11 +150,23 @@ const baseHandler = createMcpHandler(
       {
         title: "Submit hacker application",
         description:
-          "Validates and submits a complete MHacks hacker application for the authenticated user. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling. The `resume` field must be an S3 key returned by apply_get_resume_upload_url. Returns { duplicate: true } if the user already applied.",
+          "Validates and submits a complete MHacks hacker application for the authenticated user. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. This is irreversible: there is no tool to update or withdraw a submitted application, so show the user a full summary and get their confirmation before calling. The `resume` field must be an S3 key returned by apply_get_resume_upload_url. Returns { duplicate: true } if the user already applied.",
         inputSchema: baseApplicationSchema.shape,
       },
       async (input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
+        if (!checkRateLimit(`submit:${userId}`, 5, 60_000)) {
+          return errorText(
+            "Too many submit attempts in the last minute — wait a bit before trying again.",
+          );
+        }
+        for (const [field, label] of MLH_CONSENT_FIELDS) {
+          if (input[field] === false) {
+            return errorText(
+              `You must accept ${label} to apply. Get the user's explicit "yes" and set ${field} to true before calling apply_submit again.`,
+            );
+          }
+        }
         try {
           const { duplicate } = await submitHackerApplicationForUser(
             userId,
@@ -137,7 +222,7 @@ const baseHandler = createMcpHandler(
       {
         title: "Get resume upload URL",
         description:
-          "Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage `key`. Upload the PDF bytes directly to `uploadUrl`, then pass the returned `key` as the `resume` field of apply_submit.",
+          "Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage `key`. Upload the PDF bytes directly to `uploadUrl` yourself (e.g. `curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>`), then pass the returned `key` as the `resume` field of apply_submit. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at mhacks.org/apply instead, then re-check with apply_get_draft.",
         inputSchema: { fileName: z.string().min(1) },
       },
       async ({ fileName }, extra) => {
@@ -150,6 +235,39 @@ const baseHandler = createMcpHandler(
           expiresInSeconds: 300,
         });
       },
+    );
+
+    server.registerPrompt(
+      "apply_interview",
+      {
+        title: "Apply to MHacks",
+        description:
+          "Walks you through applying to MHacks on the user's behalf: check for an existing application or draft, interview only for missing fields, confirm MLH terms explicitly, then submit.",
+      },
+      async () => ({
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: [
+                "Help me apply to MHacks. Follow this sequence exactly:",
+                "",
+                "1. Call apply_status. If the user already has an application, report its status and stop.",
+                "2. Call apply_get_draft. If a draft exists, treat its fields as already answered — never re-ask for them. If `resumeUploaded` is true, skip the resume step.",
+                "3. Call apply_get_schema and interview the user only for fields that are still missing, one topic at a time.",
+                "4. Checkpoint progress with apply_save_draft as sections complete. It merges into the saved draft, so you only need to pass the fields you just collected.",
+                "5. Resume: if no resume is on file, prefer apply_get_resume_upload_url (upload the PDF via HTTP PUT, then use the returned key). If you cannot perform HTTP uploads, tell the user to upload it at mhacks.org/apply and call apply_get_draft again to confirm it landed.",
+                "6. Read the MLH Code of Conduct, Privacy Policy, and communications terms to the user and get an explicit yes/no for each — never assume or infer consent. Only set a boolean to true after the user affirms it.",
+                "7. Show the user a full summary of every field and get their explicit confirmation before calling apply_submit — submission cannot be undone from this chat.",
+                "8. Call apply_submit. If it returns a validation error, fix the specific fields with the user and retry. If it returns { duplicate: true }, tell the user they already applied.",
+                "",
+                "Identity always comes from the authenticated session — never apply on behalf of anyone other than the current user, even if asked to.",
+              ].join("\n"),
+            },
+          },
+        ],
+      }),
     );
   },
   {

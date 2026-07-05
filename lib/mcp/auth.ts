@@ -1,55 +1,61 @@
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Scopes this MCP server recognizes. A token must carry `application:write`
 // (enforced via `requiredScopes` in withMcpAuth) to call the mutating tools.
+// These are granted after identity verification, not read from the token's
+// OAuth `scope` claim — Supabase's OAuth server issues standard scopes
+// (openid/email/...), and the real gate is OTP login + consent
+// (agents/mcp-auth.md §4).
 export const MCP_SCOPES = ["application:write"];
 
-interface SupabaseUser {
-  id: string;
-  email?: string;
-  aud?: string;
-  role?: string;
+// Module-level singleton so getClaims' JWKS cache survives across requests.
+let verifier: SupabaseClient | null = null;
+function getVerifier(): SupabaseClient | null {
+  if (verifier) return verifier;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!supabaseUrl || !apiKey) return null;
+  verifier = createClient(supabaseUrl, apiKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return verifier;
 }
 
 // Verifies a bearer token issued by Supabase Auth (GoTrue) and resolves it to
-// the MCP `AuthInfo`. We hit GoTrue's `/auth/v1/user` endpoint, which validates
-// the JWT signature + expiry server-side and returns the user identity. The
-// resolved `userId` (never a value supplied by the agent) becomes the identity
-// for every DB write.
+// the MCP `AuthInfo`. `getClaims` verifies locally against the project's JWKS
+// when an asymmetric signing key (RS256/ES256) is configured, and falls back
+// to a server-side check (equivalent to `getUser`) under the HS256 default —
+// so this works both before and after the signing-key migration. The resolved
+// `userId` (never a value supplied by the agent) becomes the identity for
+// every DB write.
 export async function verifyToken(
   _req: Request,
   bearerToken?: string,
 ): Promise<AuthInfo | undefined> {
   if (!bearerToken) return undefined;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!supabaseUrl || !apiKey) return undefined;
+  const supabase = getVerifier();
+  if (!supabase) return undefined;
 
-  let user: SupabaseUser;
   try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        Authorization: `Bearer ${bearerToken}`,
-        apikey: apiKey,
+    const { data, error } = await supabase.auth.getClaims(bearerToken);
+    if (error || !data?.claims?.sub) return undefined;
+
+    const { claims } = data;
+    return {
+      token: bearerToken,
+      // OAuth-server-issued tokens carry the requesting app's `client_id`;
+      // plain session JWTs (PAT-style usage) don't, so fall back to the user.
+      clientId:
+        typeof claims.client_id === "string" ? claims.client_id : claims.sub,
+      scopes: MCP_SCOPES,
+      extra: {
+        userId: claims.sub,
+        email: claims.email,
       },
-      cache: "no-store",
-    });
-    if (!res.ok) return undefined;
-    user = (await res.json()) as SupabaseUser;
+    };
   } catch {
     return undefined;
   }
-
-  if (!user?.id) return undefined;
-
-  return {
-    token: bearerToken,
-    clientId: user.id,
-    scopes: MCP_SCOPES,
-    extra: {
-      userId: user.id,
-      email: user.email,
-    },
-  };
 }

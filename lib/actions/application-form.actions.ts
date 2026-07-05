@@ -81,3 +81,15 @@ export async function getApplicationStatusForUser(
 
   return rows[0] ?? null;
 }
+
+export async function getDraftForUser(
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await db
+    .select()
+    .from(hackerApplicationDrafts)
+    .where(eq(hackerApplicationDrafts.userId, userId))
+    .limit(1);
+
+  return (rows[0]?.data as Record<string, unknown>) ?? null;
+}
