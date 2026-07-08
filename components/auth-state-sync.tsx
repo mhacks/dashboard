@@ -1,13 +1,18 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export function AuthStateSync() {
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
+    if (pathname.startsWith("/live")) {
+      return;
+    }
+
     const supabase = createClient();
     let prevUserId: string | null | undefined = undefined;
 
@@ -23,7 +28,7 @@ export function AuthStateSync() {
       }
     });
     return () => listener.subscription.unsubscribe();
-  }, [router]);
+  }, [pathname, router]);
 
   return null;
 }
