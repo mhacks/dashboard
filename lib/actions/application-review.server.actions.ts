@@ -493,7 +493,8 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
       hackerApplicants,
       eq(hackerApplicationReviewEvents.applicationId, hackerApplicants.id),
     )
-    .orderBy(desc(hackerApplicationReviewEvents.createdAt));
+    .orderBy(desc(hackerApplicationReviewEvents.createdAt))
+    .limit(100);
 
   const rowsByReviewerId = new Map<string, ReviewLeaderboardRow>();
 
