@@ -96,7 +96,7 @@ function emptyReviewDefaults(applicationId: string): ReviewDraftInput {
 }
 
 function toReviewDefaults(item: ReviewListItem | undefined): ReviewDraftInput {
-  if (!item) return emptyReviewDefaults("00000000-0000-0000-0000-000000000000");
+  if (!item) return emptyReviewDefaults("");
 
   return {
     applicationId: item.application.id,
