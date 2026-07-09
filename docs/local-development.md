@@ -36,9 +36,37 @@ Docker:
 
 ```bash
 pnpm db:start       # boot Supabase in Docker + write .env.local
-pnpm db:push        # apply the current schema to the fresh local db
+pnpm db:reset       # rebuild the local db from committed migrations + seed.sql
+pnpm db:env         # refresh .env.local if reset/start changed local values
 pnpm dev            # run the app against localhost
 ```
+
+### Demo application review data
+
+Local reset mirrors the production schema and also seeds local-only demo review
+data through Supabase's normal `seed.sql` flow. The seed includes two organizers
+and several submitted hacker applications for testing the review dashboard,
+presence, and reviewer leaderboard.
+
+```bash
+pnpm db:reset
+pnpm dev
+```
+
+Then sign in at `/login?next=/admin/applications` with
+`organizer@mhacks.test` or `reviewer@mhacks.test` and copy the OTP from Mailpit
+at `http://127.0.0.1:54324`. You should land on `/admin/applications` with
+pending, reviewed, flagged, and draft-review examples ready to click through.
+The review leaderboard and audit log are available at
+`/admin/applications/leaderboard`; aggregate applicant analytics are available
+at `/admin/applications/analytics`.
+
+The demo applications intentionally do not include resume files or fake resume
+URLs. To test resume preview end-to-end, submit a local application with a PDF
+upload so the stored resume key points at local Supabase Storage.
+
+If the browser is already signed in as a different local user, use a private
+window or clear the local Supabase auth cookies before testing another account.
 
 Supabase Studio is available once the stack is up. [`supabase/config.toml`](../supabase/config.toml)
 is the source of truth for auth rules, email templates, SMTP, `site_url`, and redirect

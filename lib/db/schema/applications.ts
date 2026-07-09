@@ -9,6 +9,7 @@ import {
   timestamp,
   jsonb,
   foreignKey,
+  index,
 } from "drizzle-orm/pg-core";
 import { authUsers } from "drizzle-orm/supabase";
 import { users } from "./users";
@@ -18,6 +19,28 @@ export const applicationStatus = pgEnum("application_status", [
   "reviewed",
   "flagged",
 ]);
+
+export const reviewEventType = pgEnum("review_event_type", [
+  "draft_saved",
+  "review_completed",
+]);
+
+export type ReviewEventChanges = Record<
+  string,
+  {
+    from: string | number | boolean | null;
+    to: string | number | boolean | null;
+  }
+>;
+
+export type ReviewEventSnapshot = {
+  effortRating: number | null;
+  builderRating: number | null;
+  flaggedForReview: boolean;
+  reviewComments: string | null;
+  reviewedAt: string | null;
+  applicationStatus: "pending" | "reviewed" | "flagged";
+};
 
 export const hackerApplicants = pgTable(
   "hacker_applicants",
@@ -117,7 +140,99 @@ export const hackerApplicationDrafts = pgTable(
   ],
 ).enableRLS();
 
+export const hackerApplicationReviews = pgTable(
+  "hacker_application_reviews",
+  {
+    id: uuid().defaultRandom().primaryKey().notNull(),
+    applicationId: uuid("application_id").notNull(),
+    reviewerUserId: uuid("reviewer_user_id").notNull(),
+    effortRating: integer("effort_rating"),
+    builderRating: integer("builder_rating"),
+    flaggedForReview: boolean("flagged_for_review").default(false).notNull(),
+    reviewComments: text("review_comments"),
+    reviewedAt: timestamp("reviewed_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.applicationId],
+      foreignColumns: [hackerApplicants.id],
+      name: "hacker_application_reviews_application_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.reviewerUserId],
+      foreignColumns: [users.id],
+      name: "hacker_application_reviews_reviewer_user_id_fkey",
+    }).onDelete("cascade"),
+    unique("hacker_application_reviews_application_id_unique").on(
+      table.applicationId,
+    ),
+  ],
+).enableRLS();
+
+export const hackerApplicationReviewEvents = pgTable(
+  "hacker_application_review_events",
+  {
+    id: uuid().defaultRandom().primaryKey().notNull(),
+    reviewId: uuid("review_id").notNull(),
+    applicationId: uuid("application_id").notNull(),
+    reviewerUserId: uuid("reviewer_user_id").notNull(),
+    eventType: reviewEventType("event_type").notNull(),
+    changes: jsonb().$type<ReviewEventChanges>().notNull(),
+    snapshot: jsonb().$type<ReviewEventSnapshot>().notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.reviewId],
+      foreignColumns: [hackerApplicationReviews.id],
+      name: "hacker_application_review_events_review_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.applicationId],
+      foreignColumns: [hackerApplicants.id],
+      name: "hacker_application_review_events_application_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.reviewerUserId],
+      foreignColumns: [users.id],
+      name: "hacker_application_review_events_reviewer_user_id_fkey",
+    }).onDelete("cascade"),
+    index("hacker_application_review_events_application_id_created_at_idx").on(
+      table.applicationId,
+      table.createdAt,
+    ),
+  ],
+).enableRLS();
+
 export type HackerApplicantRow = typeof hackerApplicants.$inferSelect;
 export type NewHackerApplicant = typeof hackerApplicants.$inferInsert;
 export type HackerApplicationDraftRow =
   typeof hackerApplicationDrafts.$inferSelect;
+export type HackerApplicationReviewRow =
+  typeof hackerApplicationReviews.$inferSelect;
+export type NewHackerApplicationReview =
+  typeof hackerApplicationReviews.$inferInsert;
+export type HackerApplicationReviewEventRow =
+  typeof hackerApplicationReviewEvents.$inferSelect;
+export type NewHackerApplicationReviewEvent =
+  typeof hackerApplicationReviewEvents.$inferInsert;

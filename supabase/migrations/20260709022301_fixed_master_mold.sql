@@ -1,0 +1,1 @@
+CREATE INDEX "hacker_application_review_events_application_id_created_at_idx" ON "hacker_application_review_events" USING btree ("application_id","created_at");

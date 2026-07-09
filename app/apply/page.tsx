@@ -17,7 +17,7 @@ export default async function ApplicationFormPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?next=/apply");
 
   const userId = user.id;
 

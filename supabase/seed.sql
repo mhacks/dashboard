@@ -14,3 +14,399 @@ on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
+
+-- Demo reviewer data for local development. This seed is local-only: production
+-- schema promotion uses drizzle-kit migrate and does not run seed.sql.
+with demo_users(id, email, role) as (
+  values
+    ('00000000-0000-4000-8000-000000000001'::uuid, 'organizer@mhacks.test', 'organizer'::user_role),
+    ('00000000-0000-4000-8000-000000000002'::uuid, 'reviewer@mhacks.test', 'organizer'::user_role),
+    ('00000000-0000-4000-8000-000000000101'::uuid, 'ada@mhacks.test', 'hacker'::user_role),
+    ('00000000-0000-4000-8000-000000000102'::uuid, 'grace@mhacks.test', 'hacker'::user_role),
+    ('00000000-0000-4000-8000-000000000103'::uuid, 'katherine@mhacks.test', 'hacker'::user_role),
+    ('00000000-0000-4000-8000-000000000104'::uuid, 'margaret@mhacks.test', 'hacker'::user_role)
+)
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  confirmation_token,
+  email_change,
+  email_change_token_new,
+  recovery_token
+)
+select
+  '00000000-0000-0000-0000-000000000000',
+  id,
+  'authenticated',
+  'authenticated',
+  email,
+  null,
+  now(),
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now(),
+  '',
+  '',
+  '',
+  ''
+from demo_users
+on conflict (id) do update set
+  email = excluded.email,
+  updated_at = now();
+
+with demo_users(id, email) as (
+  values
+    ('00000000-0000-4000-8000-000000000001'::uuid, 'organizer@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000002'::uuid, 'reviewer@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000101'::uuid, 'ada@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000102'::uuid, 'grace@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000103'::uuid, 'katherine@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000104'::uuid, 'margaret@mhacks.test')
+)
+insert into auth.identities (
+  id,
+  user_id,
+  provider_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+select
+  id,
+  id,
+  id::text,
+  jsonb_build_object('sub', id::text, 'email', email),
+  'email',
+  now(),
+  now(),
+  now()
+from demo_users
+on conflict (id) do update set
+  identity_data = excluded.identity_data,
+  updated_at = now();
+
+insert into public.users (id, email, role)
+values
+  ('00000000-0000-4000-8000-000000000001', 'organizer@mhacks.test', 'organizer'),
+  ('00000000-0000-4000-8000-000000000002', 'reviewer@mhacks.test', 'organizer'),
+  ('00000000-0000-4000-8000-000000000101', 'ada@mhacks.test', 'hacker'),
+  ('00000000-0000-4000-8000-000000000102', 'grace@mhacks.test', 'hacker'),
+  ('00000000-0000-4000-8000-000000000103', 'katherine@mhacks.test', 'hacker'),
+  ('00000000-0000-4000-8000-000000000104', 'margaret@mhacks.test', 'hacker')
+on conflict (id) do update set
+  email = excluded.email,
+  role = excluded.role;
+
+insert into public.hacker_applicants (
+  id,
+  user_id,
+  status,
+  first_name,
+  last_name,
+  phone_number,
+  age,
+  gender,
+  ethnicity,
+  university,
+  country,
+  degree,
+  graduation_year,
+  previous_hackathons,
+  major,
+  resume,
+  what_would_you_do,
+  why_mhacks,
+  hill_to_die_on,
+  anything_else,
+  transportation_type,
+  coming_from,
+  shirt_size,
+  allergies_description,
+  needs_travel_reimbursement,
+  would_attend_without_reimbursement,
+  airport_code,
+  github,
+  linkedin,
+  personal_site,
+  follows_instagram,
+  sponsor_emails
+)
+values
+  (
+    '10000000-0000-4000-8000-000000000101',
+    '00000000-0000-4000-8000-000000000101',
+    'pending',
+    'Ada',
+    'Lovelace',
+    '+14155550101',
+    21,
+    'Female',
+    'White',
+    'University of Michigan',
+    'United States',
+    'Bachelor''s',
+    2027,
+    2,
+    'Computer Science',
+    null,
+    'I would build a beginner-friendly debugging playground that turns confusing runtime errors into visual stories. It would help new hackers learn by changing code and seeing exactly how state moves through a program.',
+    'I want to attend MHacks because I learn best around people who are excited to build strange and useful things quickly. I am especially excited to meet other builders at Michigan, ship a polished demo, and get sharper at scoping ideas under pressure.',
+    'Documentation is product design',
+    'I am happiest on teams where everyone demos early and often.',
+    'Train',
+    'Ann Arbor, MI',
+    'M',
+    null,
+    false,
+    null,
+    null,
+    'https://github.com/ada-local',
+    'https://www.linkedin.com/in/ada-local',
+    'https://ada.example.com',
+    true,
+    true
+  ),
+  (
+    '10000000-0000-4000-8000-000000000102',
+    '00000000-0000-4000-8000-000000000102',
+    'reviewed',
+    'Grace',
+    'Hopper',
+    '+14155550102',
+    24,
+    'Female',
+    'White',
+    'Eastern Michigan University',
+    'United States',
+    'Master''s',
+    2026,
+    5,
+    'Computer Engineering',
+    null,
+    'I would create a tiny compiler lab for high school students where they can write a toy language and watch it become bytecode. The goal would be to make systems feel playful instead of intimidating.',
+    'MHacks feels like the right place to build something ambitious with people who care about craft. I want to attend because the event has a reputation for momentum, strong mentors, and hackers who are willing to teach each other.',
+    'Small tools change big systems',
+    'I enjoy mentoring first-time hackers and would love to help my team keep shipping.',
+    'Driving',
+    'Ypsilanti, MI',
+    'S',
+    'Vegetarian',
+    false,
+    null,
+    null,
+    'https://github.com/grace-local',
+    'https://www.linkedin.com/in/grace-local',
+    null,
+    true,
+    false
+  ),
+  (
+    '10000000-0000-4000-8000-000000000103',
+    '00000000-0000-4000-8000-000000000103',
+    'flagged',
+    'Katherine',
+    'Johnson',
+    '+14155550103',
+    20,
+    'Female',
+    'Black or African American',
+    'Wayne State University',
+    'United States',
+    'Bachelor''s',
+    2028,
+    1,
+    'Mathematics',
+    null,
+    'I would build an accessibility-first route planner for large campuses that combines elevator status, crowding, weather, and class schedules. I want it to work even when data is messy or incomplete.',
+    'I want to attend MHacks to work with a team that can push my prototype beyond a class project. I am interested in civic tech, maps, and accessibility, and I think the hackathon would help me test ideas with real users.',
+    'Maps should tell the truth',
+    'Flagged only to discuss travel reimbursement constraints with the team.',
+    'Bus',
+    'Detroit, MI',
+    'L',
+    null,
+    true,
+    true,
+    null,
+    'https://github.com/katherine-local',
+    null,
+    null,
+    false,
+    true
+  ),
+  (
+    '10000000-0000-4000-8000-000000000104',
+    '00000000-0000-4000-8000-000000000104',
+    'pending',
+    'Margaret',
+    'Hamilton',
+    '+14155550104',
+    22,
+    'Female',
+    'White',
+    'Michigan State University',
+    'United States',
+    'Bachelor''s',
+    2027,
+    3,
+    'Data Science',
+    null,
+    'I would build a reliability dashboard for student organizations that checks forms, payments, schedules, and communication queues before event day. It would catch problems while they are still easy to fix.',
+    'I want to come to MHacks because I like intense build weekends and I want to collaborate with designers and engineers outside my usual circle. My goal is to leave with a project people can actually keep using.',
+    'Reliability is a feature',
+    null,
+    'Flying',
+    'Lansing, MI',
+    'M',
+    'Peanut allergy',
+    true,
+    false,
+    'LAN',
+    'https://github.com/margaret-local',
+    'https://www.linkedin.com/in/margaret-local',
+    'https://margaret.example.com',
+    true,
+    true
+  )
+on conflict (user_id) do update set
+  status = excluded.status,
+  first_name = excluded.first_name,
+  last_name = excluded.last_name,
+  phone_number = excluded.phone_number,
+  age = excluded.age,
+  gender = excluded.gender,
+  ethnicity = excluded.ethnicity,
+  university = excluded.university,
+  country = excluded.country,
+  degree = excluded.degree,
+  graduation_year = excluded.graduation_year,
+  previous_hackathons = excluded.previous_hackathons,
+  major = excluded.major,
+  resume = excluded.resume,
+  what_would_you_do = excluded.what_would_you_do,
+  why_mhacks = excluded.why_mhacks,
+  hill_to_die_on = excluded.hill_to_die_on,
+  anything_else = excluded.anything_else,
+  transportation_type = excluded.transportation_type,
+  coming_from = excluded.coming_from,
+  shirt_size = excluded.shirt_size,
+  allergies_description = excluded.allergies_description,
+  needs_travel_reimbursement = excluded.needs_travel_reimbursement,
+  would_attend_without_reimbursement = excluded.would_attend_without_reimbursement,
+  airport_code = excluded.airport_code,
+  github = excluded.github,
+  linkedin = excluded.linkedin,
+  personal_site = excluded.personal_site,
+  follows_instagram = excluded.follows_instagram,
+  sponsor_emails = excluded.sponsor_emails;
+
+insert into public.hacker_application_reviews (
+  id,
+  application_id,
+  reviewer_user_id,
+  effort_rating,
+  builder_rating,
+  flagged_for_review,
+  review_comments,
+  reviewed_at
+)
+values
+  (
+    '20000000-0000-4000-8000-000000000102',
+    '10000000-0000-4000-8000-000000000102',
+    '00000000-0000-4000-8000-000000000001',
+    4,
+    5,
+    false,
+    null,
+    now()
+  ),
+  (
+    '20000000-0000-4000-8000-000000000103',
+    '10000000-0000-4000-8000-000000000103',
+    '00000000-0000-4000-8000-000000000002',
+    4,
+    3,
+    true,
+    'Good application. Flagged so the team can talk through travel reimbursement constraints.',
+    now()
+  ),
+  (
+    '20000000-0000-4000-8000-000000000104',
+    '10000000-0000-4000-8000-000000000104',
+    '00000000-0000-4000-8000-000000000002',
+    3,
+    null,
+    false,
+    null,
+    null
+  )
+on conflict (application_id) do update set
+  reviewer_user_id = excluded.reviewer_user_id,
+  effort_rating = excluded.effort_rating,
+  builder_rating = excluded.builder_rating,
+  flagged_for_review = excluded.flagged_for_review,
+  review_comments = excluded.review_comments,
+  reviewed_at = excluded.reviewed_at;
+
+insert into public.hacker_application_review_events (
+  id,
+  review_id,
+  application_id,
+  reviewer_user_id,
+  event_type,
+  changes,
+  snapshot,
+  created_at
+)
+values
+  (
+    '30000000-0000-4000-8000-000000000102',
+    '20000000-0000-4000-8000-000000000102',
+    '10000000-0000-4000-8000-000000000102',
+    '00000000-0000-4000-8000-000000000001',
+    'review_completed',
+    '{"effortRating":{"from":null,"to":4},"builderRating":{"from":null,"to":5},"flaggedForReview":{"from":null,"to":false},"reviewedAt":{"from":null,"to":"seeded"}}',
+    '{"effortRating":4,"builderRating":5,"flaggedForReview":false,"reviewComments":null,"reviewedAt":"seeded","applicationStatus":"reviewed"}',
+    now() - interval '20 minutes'
+  ),
+  (
+    '30000000-0000-4000-8000-000000000103',
+    '20000000-0000-4000-8000-000000000103',
+    '10000000-0000-4000-8000-000000000103',
+    '00000000-0000-4000-8000-000000000002',
+    'review_completed',
+    '{"effortRating":{"from":null,"to":4},"builderRating":{"from":null,"to":3},"flaggedForReview":{"from":null,"to":true},"reviewComments":{"from":null,"to":"Good application. Flagged so the team can talk through travel reimbursement constraints."},"reviewedAt":{"from":null,"to":"seeded"}}',
+    '{"effortRating":4,"builderRating":3,"flaggedForReview":true,"reviewComments":"Good application. Flagged so the team can talk through travel reimbursement constraints.","reviewedAt":"seeded","applicationStatus":"flagged"}',
+    now() - interval '15 minutes'
+  ),
+  (
+    '30000000-0000-4000-8000-000000000104',
+    '20000000-0000-4000-8000-000000000104',
+    '10000000-0000-4000-8000-000000000104',
+    '00000000-0000-4000-8000-000000000002',
+    'draft_saved',
+    '{"effortRating":{"from":null,"to":3},"flaggedForReview":{"from":null,"to":false}}',
+    '{"effortRating":3,"builderRating":null,"flaggedForReview":false,"reviewComments":null,"reviewedAt":null,"applicationStatus":"pending"}',
+    now() - interval '10 minutes'
+  )
+on conflict (id) do update set
+  review_id = excluded.review_id,
+  application_id = excluded.application_id,
+  reviewer_user_id = excluded.reviewer_user_id,
+  event_type = excluded.event_type,
+  changes = excluded.changes,
+  snapshot = excluded.snapshot,
+  created_at = excluded.created_at;

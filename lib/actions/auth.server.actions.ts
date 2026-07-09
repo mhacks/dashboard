@@ -1,6 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema/users";
 import { createClient } from "@/lib/supabase/server";
 
 export async function sendOtp(
@@ -40,21 +43,39 @@ export async function logout() {
   redirect("/");
 }
 
+function sanitizeNextPath(next?: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("/login")) return null;
+  if (next.startsWith("//")) return null;
+  return next;
+}
+
+function destinationForRole(role: "hacker" | "organizer", next?: string) {
+  const safeNext = sanitizeNextPath(next);
+
+  if (role === "hacker") {
+    return safeNext?.startsWith("/admin") ? "/apply" : (safeNext ?? "/apply");
+  }
+
+  return safeNext ?? "/admin/applications";
+}
+
 export async function verifyOtp(
   email: string,
   token: string,
   next?: string,
 ): Promise<{ error: string } | undefined> {
   const supabase = await createClient();
-  const { error } = await supabase.auth.verifyOtp({
+  const { data, error } = await supabase.auth.verifyOtp({
     email,
     token,
     type: "email",
   });
   if (error) return { error: error.message };
 
-  // Only allow relative same-origin paths; reject anything else.
-  const destination =
-    next && next.startsWith("/") && !next.startsWith("/login") ? next : "/";
-  redirect(destination);
+  const userId = data.user?.id;
+  const [user] = userId
+    ? await db.select().from(users).where(eq(users.id, userId)).limit(1)
+    : [];
+
+  redirect(destinationForRole(user?.role ?? "hacker", next));
 }

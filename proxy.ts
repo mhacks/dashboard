@@ -36,7 +36,7 @@ export async function proxy(request: NextRequest) {
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     const redirectResponse = NextResponse.redirect(url);
     supabaseResponse.cookies
       .getAll()
@@ -47,8 +47,15 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && pathname.startsWith("/login")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
+    const next = request.nextUrl.searchParams.get("next");
+    const destination =
+      next &&
+      next.startsWith("/") &&
+      !next.startsWith("//") &&
+      !next.startsWith("/login")
+        ? next
+        : "/";
+    const url = new URL(destination, request.url);
     const redirectResponse = NextResponse.redirect(url);
     supabaseResponse.cookies
       .getAll()
