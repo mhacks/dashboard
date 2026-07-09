@@ -15,7 +15,7 @@ const draftRatingSchema = z
   .nullable();
 
 const finalRatingSchema = z
-  .number({ error: "Rating is required" })
+  .number({ message: "Rating is required" })
   .int("Rating must be a whole number")
   .min(1, "Rating must be between 1 and 5")
   .max(5, "Rating must be between 1 and 5");
