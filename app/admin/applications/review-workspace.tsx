@@ -197,8 +197,18 @@ function externalHref(value: string | null | undefined) {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 function MetaItem({ label, value }: { label: string; value: unknown }) {
