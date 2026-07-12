@@ -4,20 +4,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 // Consent-page actions for Supabase's native OAuth 2.1 Server (see
-// agents/mcp-auth.md). All three calls run against the signed-in user's own
+// agents/mcp-auth.md). Both calls run against the signed-in user's own
 // session — Supabase resolves `authorization_id` -> client/scope internally
 // and rejects the call if there's no session, so there's nothing here for us
 // to validate ourselves.
-
-export async function getAuthorizationDetails(authorizationId: string) {
-  const supabase = await createClient();
-  const { data, error } =
-    await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
-  if (error || !data) {
-    throw new Error(error?.message ?? "Failed to load authorization details");
-  }
-  return data;
-}
+//
+// getAuthorizationDetails lives in ./oauth-consent.actions.ts instead (not a
+// Server Action — only called directly from the Server Component page).
 
 export async function approveAuthorization(authorizationId: string) {
   const supabase = await createClient();

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getAuthorizationDetails } from "@/lib/actions/oauth-consent.server.actions";
+import { getAuthorizationDetails } from "@/lib/actions/oauth-consent.actions";
 import { ConsentScreen } from "./consent-screen";
 
 // Supabase's OAuth 2.1 Server (Authentication > OAuth Server in the

@@ -194,7 +194,7 @@ const baseHandler = createMcpHandler(
       {
         title: "Submit hacker application",
         description:
-          "Validates and submits a complete MHacks hacker application for the authenticated user. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. This is irreversible: there is no tool to update or withdraw a submitted application, so show the user a full summary and get their confirmation before calling. The `resume` field must be an S3 key returned by apply_get_resume_upload_url. Returns { duplicate: true } if the user already applied.",
+          "Validates and submits a complete MHacks hacker application for the authenticated user. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. This is irreversible: there is no tool to update or withdraw a submitted application, so show the user a full summary and get their confirmation before calling. The `resume` field must be an S3 key returned by apply_get_resume_upload_url.",
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
@@ -203,6 +203,22 @@ const baseHandler = createMcpHandler(
           return errorText(
             "Too many submit attempts in the last minute — wait a bit before trying again.",
           );
+        }
+        // Check for an existing application before doing anything else — no
+        // point validating input, or walking the user through MLH consent,
+        // for a submission the DB is just going to reject anyway. This is a
+        // pre-flight optimization, not the source of truth: the unique
+        // constraint + onConflictDoNothing in submitHackerApplicationForUser
+        // remains the authoritative duplicate guard against races between
+        // this check and the insert.
+        const existing = await getApplicationStatusForUser(userId);
+        if (existing) {
+          return jsonText({
+            submitted: false,
+            duplicate: true,
+            message:
+              "You have already submitted an application. Applications cannot be edited, withdrawn, or resubmitted from this tool.",
+          });
         }
         for (const [field, label] of MLH_CONSENT_FIELDS) {
           if (input[field] === false) {
