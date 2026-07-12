@@ -161,9 +161,9 @@ export default function HowToMcpPage() {
           <p>Once connected, just talk to your agent normally:</p>
           <ul className="list-disc list-inside flex flex-col gap-1">
             <li>
-              &ldquo;Who am I connected as?&rdquo; — confirms the MHacks
-              account your agent is authenticated as, straight from your
-              login, before you do anything else.
+              &ldquo;Who am I connected as?&rdquo; — confirms the MHacks account
+              your agent is authenticated as, straight from your login, before
+              you do anything else.
             </li>
             <li>
               &ldquo;Check my MHacks application status&rdquo; — see whether
@@ -253,7 +253,9 @@ export default function HowToMcpPage() {
               <strong>PKCE is required</strong> on the authorization code flow.
             </li>
             <li>
-              <strong>Dynamic Client Registration (RFC 7591) is supported.</strong>{" "}
+              <strong>
+                Dynamic Client Registration (RFC 7591) is supported.
+              </strong>{" "}
               Your client can self-register a <code>client_id</code> at
               Supabase&apos;s OAuth server (discoverable via{" "}
               <code>/.well-known/oauth-authorization-server</code>) instead of
