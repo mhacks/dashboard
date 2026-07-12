@@ -33,3 +33,40 @@ jobs:
 
       - name: Build the project
         run: pnpm build
+
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Write local env vars
+        run: bash scripts/gen-env-local.sh
+
+      - name: Export service role key
+        # Deliberately not written to .env.local by gen-env-local.sh (see
+        # scripts/register-mcp-client.ts) — only the test suite needs it,
+        # to create/sign in/delete throwaway auth users against the
+        # ephemeral CI-local Supabase instance.
+        run: |
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '\"')" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: pnpm test
