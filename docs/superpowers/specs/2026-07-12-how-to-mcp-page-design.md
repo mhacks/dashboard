@@ -40,7 +40,7 @@ the homepage:
    - **Claude.ai / Claude Desktop** — Settings → Connectors → Add custom
      connector → paste URL → login (OTP) → approve. (from INSTRUCTIONS.md)
    - **Claude Code** — `claude mcp add --transport http mhacks
-     https://mhacks.org/api/mcp/mcp`, then `/mcp` → select → authenticate.
+https://mhacks.org/api/mcp/mcp`, then `/mcp` → select → authenticate.
      (from INSTRUCTIONS.md)
    - **Codex CLI** (new) — best-effort instructions based on current
      knowledge of Codex's MCP config (`~/.codex/config.toml`,

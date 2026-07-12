@@ -21,9 +21,7 @@ export const getAuthorizationDetails = cache(
     const { data, error } =
       await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
     if (error || !data) {
-      throw new Error(
-        error?.message ?? "Failed to load authorization details",
-      );
+      throw new Error(error?.message ?? "Failed to load authorization details");
     }
     return data;
   },

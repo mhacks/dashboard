@@ -36,7 +36,5 @@ export default async function OAuthConsentPage({
     redirect(details.redirect_url);
   }
 
-  return (
-    <ConsentScreen authorizationId={authorization_id} details={details} />
-  );
+  return <ConsentScreen authorizationId={authorization_id} details={details} />;
 }

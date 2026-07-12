@@ -23,9 +23,11 @@
 ### Task 1: Create the `/how-to-mcp` page
 
 **Files:**
+
 - Create: `app/how-to-mcp/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `NavBar` default export from `@/components/navbar`, `SiteFooter` default export from `@/components/site-footer` (both used with no required props in `app/page.tsx`), `Card`/`CardHeader`/`CardContent` named exports from `@/components/ui/card` (used in `app/account/connections/connections-list.tsx`).
 - Produces: default-exported `HowToMcpPage` React Server Component, rendered at route `/how-to-mcp`. No other file depends on this yet (not linked from nav).
 
@@ -85,7 +87,10 @@ function SubSection({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="font-red-hat font-semibold text-[16px]" style={{ color: GREEN }}>
+      <h3
+        className="font-red-hat font-semibold text-[16px]"
+        style={{ color: GREEN }}
+      >
         {title}
       </h3>
       <div className="flex flex-col gap-2">{children}</div>
@@ -120,11 +125,11 @@ export default function HowToMcpPage() {
             Connect an AI agent to MHacks
           </h1>
           <p className="font-red-hat text-[15px]" style={{ color: GREEN_SOFT }}>
-            MHacks has an MCP server that lets you apply through Claude,
-            Codex, or any other MCP-capable agent instead of filling out the
-            web form by hand. Your agent can read the application schema,
-            save a draft, ask you questions, upload your resume, and submit
-            — all tied to your real, logged-in MHacks account.
+            MHacks has an MCP server that lets you apply through Claude, Codex,
+            or any other MCP-capable agent instead of filling out the web form
+            by hand. Your agent can read the application schema, save a draft,
+            ask you questions, upload your resume, and submit — all tied to your
+            real, logged-in MHacks account.
           </p>
         </div>
 
@@ -141,9 +146,8 @@ export default function HowToMcpPage() {
               <li>Go to Settings → Connectors → Add custom connector.</li>
               <li>Paste the server URL above.</li>
               <li>
-                Claude will open a login page — sign in with your email
-                (MHacks uses a one-time code sent to your inbox, no
-                password).
+                Claude will open a login page — sign in with your email (MHacks
+                uses a one-time code sent to your inbox, no password).
               </li>
               <li>
                 Approve the connection when prompted. You&apos;ll see what
@@ -176,17 +180,17 @@ export default function HowToMcpPage() {
             <Code>{`[mcp_servers.mhacks]\nurl = "${SERVER_URL}"`}</Code>
             <p>
               Codex will open a browser window to log in (same email
-              one-time-code flow) and approve access the first time it
-              calls the server.
+              one-time-code flow) and approve access the first time it calls the
+              server.
             </p>
           </SubSection>
 
           <SubSection title="Other MCP clients">
             <p>
-              Any client that supports the MCP Streamable HTTP transport
-              and OAuth 2.1 can connect using the same server URL.
-              You&apos;ll go through the same email-login-and-approve flow
-              regardless of client.
+              Any client that supports the MCP Streamable HTTP transport and
+              OAuth 2.1 can connect using the same server URL. You&apos;ll go
+              through the same email-login-and-approve flow regardless of
+              client.
             </p>
           </SubSection>
         </Section>
@@ -199,9 +203,9 @@ export default function HowToMcpPage() {
               you&apos;ve already applied, and if so, its current status.
             </li>
             <li>
-              &ldquo;Help me fill out my MHacks application&rdquo; — your
-              agent can walk you through each field, save your progress as
-              a draft, and come back to it later.
+              &ldquo;Help me fill out my MHacks application&rdquo; — your agent
+              can walk you through each field, save your progress as a draft,
+              and come back to it later.
             </li>
             <li>
               &ldquo;Submit my MHacks application&rdquo; — once
@@ -213,31 +217,35 @@ export default function HowToMcpPage() {
         <Section title="How auth works">
           <ul className="list-disc list-inside flex flex-col gap-2">
             <li>
-              <strong>Your identity comes from your login, not from
-              anything you tell the agent.</strong> Whatever email you
-              authenticate with is the account the application is tied to
-              — an agent can&apos;t submit on someone else&apos;s behalf.
+              <strong>
+                Your identity comes from your login, not from anything you tell
+                the agent.
+              </strong>{" "}
+              Whatever email you authenticate with is the account the
+              application is tied to — an agent can&apos;t submit on someone
+              else&apos;s behalf.
             </li>
             <li>
-              <strong>Submission is final.</strong> There&apos;s currently
-              no MCP tool to edit or withdraw a submitted application, so
-              review it with your agent before confirming.
+              <strong>Submission is final.</strong> There&apos;s currently no
+              MCP tool to edit or withdraw a submitted application, so review it
+              with your agent before confirming.
             </li>
             <li>
-              <strong>You&apos;ll be asked to explicitly agree</strong> to
-              the MLH Code of Conduct, Privacy Policy, and communications
-              terms before submission — your agent should read these to
-              you and ask for a clear yes/no, not assume.
+              <strong>You&apos;ll be asked to explicitly agree</strong> to the
+              MLH Code of Conduct, Privacy Policy, and communications terms
+              before submission — your agent should read these to you and ask
+              for a clear yes/no, not assume.
             </li>
             <li>
-              <strong>Resume upload usually won&apos;t happen through the
-              agent.</strong> Uploading requires the agent to make its own
-              HTTP request with the file&apos;s raw bytes — attaching a
-              PDF to the chat only lets the agent read it. Coding-agent
-              clients with their own network access (Claude Code, Codex,
-              Cursor) can do this; standard Claude.ai / Claude Desktop chat
-              can&apos;t, so expect your agent to tell you to upload your
-              resume yourself at{" "}
+              <strong>
+                Resume upload usually won&apos;t happen through the agent.
+              </strong>{" "}
+              Uploading requires the agent to make its own HTTP request with the
+              file&apos;s raw bytes — attaching a PDF to the chat only lets the
+              agent read it. Coding-agent clients with their own network access
+              (Claude Code, Codex, Cursor) can do this; standard Claude.ai /
+              Claude Desktop chat can&apos;t, so expect your agent to tell you
+              to upload your resume yourself at{" "}
               <a href="/apply" className="underline">
                 mhacks.org/apply
               </a>
@@ -256,49 +264,47 @@ export default function HowToMcpPage() {
 
         <Section title="Building a custom integration">
           <p>
-            Any developer can build their own client against this server.
-            A few things to know:
+            Any developer can build their own client against this server. A few
+            things to know:
           </p>
           <ul className="list-disc list-inside flex flex-col gap-2">
             <li>
-              <strong>Transport:</strong> MCP Streamable HTTP at the server
-              URL above.
+              <strong>Transport:</strong> MCP Streamable HTTP at the server URL
+              above.
             </li>
             <li>
               <strong>Auth:</strong> OAuth 2.1, with Supabase Auth as the
-              Authorization Server — not this app. An unauthenticated
-              request gets a <code>401</code> with a{" "}
-              <code>WWW-Authenticate</code> header pointing at{" "}
-              <code>/.well-known/oauth-protected-resource</code>, which in
-              turn points at Supabase&apos;s own{" "}
+              Authorization Server — not this app. An unauthenticated request
+              gets a <code>401</code> with a <code>WWW-Authenticate</code>{" "}
+              header pointing at{" "}
+              <code>/.well-known/oauth-protected-resource</code>, which in turn
+              points at Supabase&apos;s own{" "}
               <code>/.well-known/oauth-authorization-server</code> for the
               standard discovery, authorize, and token endpoints.
             </li>
             <li>
-              <strong>PKCE is required</strong> on the authorization code
-              flow.
+              <strong>PKCE is required</strong> on the authorization code flow.
             </li>
             <li>
               <strong>Dynamic Client Registration is off.</strong> A{" "}
-              <code>client_id</code> and exact <code>redirect_uri</code>{" "}
-              must be registered manually — contact the MHacks team to
-              register a client for your integration.
+              <code>client_id</code> and exact <code>redirect_uri</code> must be
+              registered manually — contact the MHacks team to register a client
+              for your integration.
             </li>
             <li>
-              Access tokens are scoped to <code>application:write</code>{" "}
-              and identity always comes from the verified token — never
-              from a value the client supplies.
+              Access tokens are scoped to <code>application:write</code> and
+              identity always comes from the verified token — never from a value
+              the client supplies.
             </li>
           </ul>
         </Section>
 
         <Section title="Trouble connecting?">
           <p>
-            Make sure you&apos;re using the exact URL above. If your
-            client asks for a &ldquo;Client ID&rdquo; and can&apos;t
-            register automatically, that means it doesn&apos;t support
-            dynamic registration — contact the MHacks team for a manual
-            client ID.
+            Make sure you&apos;re using the exact URL above. If your client asks
+            for a &ldquo;Client ID&rdquo; and can&apos;t register automatically,
+            that means it doesn&apos;t support dynamic registration — contact
+            the MHacks team for a manual client ID.
           </p>
         </Section>
       </div>
@@ -328,6 +334,7 @@ Expected: build succeeds, and the route list printed by Next.js includes `/how-t
 
 Run: `pnpm dev`, then open `http://localhost:3000/how-to-mcp` in a browser.
 Expected:
+
 - Page renders with NavBar at top and SiteFooter at bottom, matching the homepage's chrome.
 - All 7 sections are present: Server URL, Connect your client (4 subsections: Claude.ai/Desktop, Claude Code, Codex CLI, Other clients), What you can do, How auth works, Building a custom integration, Trouble connecting.
 - No layout overflow on mobile width (~375px) — check via browser devtools responsive mode.
