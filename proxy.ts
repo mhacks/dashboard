@@ -31,18 +31,23 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+  // Exact match or a real path segment underneath — plain `.startsWith`
+  // would also match unintended siblings like `/api/mcp-evil` or
+  // `/loginx` if such a route ever gets added.
+  const isPathOrChild = (base: string) =>
+    pathname === base || pathname.startsWith(`${base}/`);
   const isPublicPath =
     pathname === "/" ||
-    pathname.startsWith("/login") ||
+    isPathOrChild("/login") ||
     // MCP endpoints authenticate via bearer token (withMcpAuth), not cookies —
     // they must return their own 401 + WWW-Authenticate challenge instead of
     // this middleware's HTML redirect, or OAuth discovery can never start.
-    pathname.startsWith("/api/mcp") ||
-    pathname.startsWith("/.well-known") ||
+    isPathOrChild("/api/mcp") ||
+    isPathOrChild("/.well-known") ||
     // /oauth/consent does its own auth check and redirects to /login with the
     // full query string (authorization_id) preserved; this middleware's
     // redirect below only forwards `pathname`, which would drop it.
-    pathname.startsWith("/oauth/consent");
+    isPathOrChild("/oauth/consent");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
@@ -57,7 +62,7 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (user && pathname.startsWith("/login")) {
+  if (user && isPathOrChild("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     const redirectResponse = NextResponse.redirect(url);

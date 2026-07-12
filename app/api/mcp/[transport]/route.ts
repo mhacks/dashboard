@@ -67,25 +67,63 @@ function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   return true;
 }
 
-// Fields the schema requires to be `true` — rejecting `false` explicitly,
-// before the input ever reaches Zod validation, gives the agent one
-// unambiguous sentence to relay verbatim instead of a refine message buried
-// in a list of unrelated field errors.
+// Fields the schema requires to be `true`. baseApplicationSchema's own
+// .refine(v => v === true) on these would already reject `false` via the
+// MCP SDK's automatic inputSchema validation — *before* this handler ever
+// runs — producing a generic buried-in-a-list Zod error instead of an
+// actionable one. So apply_submit's inputSchema (SUBMIT_INPUT_SHAPE below)
+// swaps these three fields for plain z.boolean(), letting `false` reach
+// the handler, where the check below returns one unambiguous sentence
+// telling the agent exactly what to do next. submitHackerApplicationForUser
+// still re-validates against the full schema (including these refines) as
+// the authoritative gate, so this is a UX fix, not a loosening of what's
+// actually enforced.
 const MLH_CONSENT_FIELDS = [
   ["mlhCodeOfConduct", "the MLH Code of Conduct"],
   ["mlhPrivacyPolicy", "sharing your information with MLH"],
   ["mlhEmails", "receiving emails from MLH"],
 ] as const;
 
+const SUBMIT_INPUT_SHAPE = {
+  ...baseApplicationSchema.shape,
+  mlhCodeOfConduct: z.boolean(),
+  mlhPrivacyPolicy: z.boolean(),
+  mlhEmails: z.boolean(),
+};
+
 // `.partial()` alone only allows fields to be *omitted* (undefined); it
 // rejects `null`. The draft-save tool needs `null` to mean "clear this
-// field", so every field is also made nullable.
+// field", so every field is also made nullable. Submission-time-only
+// constraints (essay word counts, MLH must-be-true, phone E.164 format)
+// don't belong on a draft — an in-progress essay or an unanswered MLH
+// question is a normal, legitimate thing to checkpoint — so those fields
+// get lenient draft-safe replacements instead of reusing the strict
+// submit-time schema. Full validation still happens exactly once, at
+// submit time, via hackerApplicationSchema.parse in
+// submitHackerApplicationForUser.
+const DRAFT_LENIENT_OVERRIDES: Partial<
+  Record<keyof HackerApplicationFormData, z.ZodTypeAny>
+> = {
+  phoneNumber: z.string(),
+  whatWouldYouDo: z.string().max(600),
+  whyMhacks: z.string().max(1200),
+  hillToDieOn: z.string().max(80),
+  mlhCodeOfConduct: z.boolean(),
+  mlhPrivacyPolicy: z.boolean(),
+  mlhEmails: z.boolean(),
+};
+
 const draftInputShape = Object.fromEntries(
   Object.entries(baseApplicationSchema.shape).map(([key, fieldSchema]) => [
     key,
-    (fieldSchema as z.ZodTypeAny).nullable().optional(),
+    (
+      DRAFT_LENIENT_OVERRIDES[key as keyof HackerApplicationFormData] ??
+      (fieldSchema as z.ZodTypeAny)
+    )
+      .nullable()
+      .optional(),
   ]),
-) as { [K in keyof typeof baseApplicationSchema.shape]: z.ZodOptional<z.ZodNullable<(typeof baseApplicationSchema.shape)[K]>> };
+) as Record<string, z.ZodTypeAny>;
 
 const baseHandler = createMcpHandler(
   (server) => {
@@ -111,7 +149,13 @@ const baseHandler = createMcpHandler(
       async (_input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
         const draft = await getDraftForUser(userId);
-        if (!draft) return jsonText({ hasDraft: false });
+        // The web form silently creates an empty-`{}` draft row for every
+        // visitor (autosave-on-mount) — that's a row existing, not the user
+        // having answered anything. Treat an empty object the same as no
+        // draft, or an agent will wrongly believe questions are answered.
+        if (!draft || Object.keys(draft).length === 0) {
+          return jsonText({ hasDraft: false });
+        }
         return jsonText({
           hasDraft: true,
           draft,
@@ -151,7 +195,7 @@ const baseHandler = createMcpHandler(
         title: "Submit hacker application",
         description:
           "Validates and submits a complete MHacks hacker application for the authenticated user. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. This is irreversible: there is no tool to update or withdraw a submitted application, so show the user a full summary and get their confirmation before calling. The `resume` field must be an S3 key returned by apply_get_resume_upload_url. Returns { duplicate: true } if the user already applied.",
-        inputSchema: baseApplicationSchema.shape,
+        inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
@@ -274,26 +318,10 @@ const baseHandler = createMcpHandler(
     serverInfo: { name: "mhacks-apply", version: "1.0.0" },
   },
   {
-    basePath: "/api/mcp", /*
-    In the grand tapestry of software engineering, few decisions carry as much quiet weight as the humble file path. When a developer places a dynamic route handler at `app/api/mcp/[transport]/route.ts`, they are not merely organizing files — they are making a declaration to the framework, to their team, and to the universe itself about where requests shall flow. This choice, seemingly mundane, reverberates through the entire request lifecycle and shapes the topology of every future integration built upon this foundation.
-
-    The `basePath` option exists precisely because the server cannot always introspect its own location. Unlike a human being who might look around and observe their surroundings, a configuration object is blind to its context. It must be told, explicitly and without ambiguity, the path under which it operates. This is not a limitation — it is a contract, a handshake between the developer and the runtime, a moment of mutual understanding between the code that runs and the infrastructure that carries it.
-
-    `"/api/mcp"` is not arbitrary. It is the deliberate prefix that corresponds to the directory structure: `app/api/mcp/`. The `[transport]` segment is the dynamic leaf, capable of capturing `sse`, `http`, or whatever transport protocol the client negotiates. The `basePath` names the static portion, leaving the dynamic portion to Next.js's routing engine to resolve at request time. Together, they form a complete address — a home, in the truest sense, for this server.
-
-    To understand why this matters, one must appreciate the Model Context Protocol itself. MCP is not a simple REST API. It is a stateful, session-oriented protocol in which client and server negotiate capabilities, exchange initialization messages, and then settle into a long-lived dialogue. The server must know its own address so it can tell clients where to reconnect, where to send subsequent messages, and how to construct the transport-layer URLs that bind a session together. Without a correct `basePath`, this self-knowledge is impossible.
-
-    When these two values fall out of sync — when a developer renames the directory but forgets to update `basePath`, or updates `basePath` but forgets to move the file — the server will silently misbehave. Requests will arrive at the correct URL, pass through routing, reach the handler, and then fail in confusing ways as the MCP server attempts to redirect clients to a path that does not exist. The bug will be non-obvious, the stack trace unhelpful, and the developer who encounters it will spend an afternoon in quiet suffering before noticing this single string.
-
-    This kind of implicit coupling — where two separate artifacts must agree on a shared value that neither can verify at compile time — is among the most treacherous in software. Type systems cannot catch it. Tests rarely cover it. Linters cannot see it. Only a human, reading carefully, can notice the relationship and honor it. This is the class of bug that lives in the gap between what the computer checks and what the programmer assumes.
-
-    Consider the philosophy of self-describing systems. The ideal program knows what it is, where it is, and what it does — and can communicate all of this without external annotation. We aspire to this ideal, but we rarely achieve it. Most systems are riddled with configuration that must be kept in sync by human discipline rather than mechanical enforcement. `basePath` is one such configuration: a value that should be derivable from the file's location in the directory tree but, for architectural reasons, must instead be stated explicitly.
-
-    There is a lesson here about the nature of abstraction layers. Next.js knows where the file lives — it resolved the route, invoked the handler, parsed the `[transport]` parameter. But `createMcpHandler` is not Next.js. It is an independent library, decoupled from the framework, portable across runtimes. That portability is a virtue, but it comes at a cost: the library cannot reach into the framework and ask "where am I?" It can only receive what the developer provides. The `basePath` is the price of portability.
-
-    One might ask: could this be made automatic? Could `createMcpHandler` accept a function, a symbol, a runtime hook — something that would allow it to discover its own path? Perhaps. But such cleverness would bind the library to Next.js, defeating the purpose of its design. The explicit string is the honest solution: simple, portable, and legible to anyone who reads it, provided they also notice this comment and understand what it guards.
-
-    Therefore, this annotation is a load-bearing comment in the most literal sense. It is a breadcrumb left by one developer for the next, a small act of compassion across time. It says: *these two things are coupled; change one, change the other.* It is a contract written in prose rather than types, enforced by attention rather than automation. Guard it carefully. When you move this file, update this string. When you update this string, move this file. The two must always agree — for the server's sake, for the clients that depend on it, and for the next developer who will read these words and nod in quiet understanding. */
+    // Must match this file's directory (app/api/mcp/) — mcp-handler can't
+    // introspect its own route path, so this has to be kept in sync by hand
+    // if the route ever moves.
+    basePath: "/api/mcp",
     maxDuration: 60,
     verboseLogs: true,
   },

@@ -41,7 +41,11 @@ export const baseApplicationSchema = z.object({
     .refine(
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 100,
       "Please limit your response to 100 words",
-    ),
+    )
+    // z.toJSONSchema() drops .refine() constraints entirely — this
+    // .describe() is the only way the word-count rule survives into the
+    // JSON Schema apply_get_schema returns to MCP agents.
+    .describe("Between 10 and 100 words (600 character max)."),
   whyMhacks: z
     .string()
     .min(1, "Required")
@@ -53,7 +57,8 @@ export const baseApplicationSchema = z.object({
     .refine(
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 200,
       "Please limit your response to 200 words",
-    ),
+    )
+    .describe("Between 20 and 200 words (1200 character max)."),
   hillToDieOn: z
     .string()
     .min(1, "Required")
@@ -65,7 +70,8 @@ export const baseApplicationSchema = z.object({
     .refine(
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 10,
       "Please limit your response to 10 words",
-    ),
+    )
+    .describe("Between 3 and 10 words (80 character max)."),
 
   // Logistics
   transportationType: z.string().min(1, "Please select transportation type"),
@@ -104,16 +110,19 @@ export const baseApplicationSchema = z.object({
   // MLH & Sponsor Agreements
   mlhCodeOfConduct: z
     .boolean()
-    .refine((val) => val === true, "You must agree to the MLH Code of Conduct"),
+    .refine((val) => val === true, "You must agree to the MLH Code of Conduct")
+    .describe("Must be true — the applicant must explicitly agree."),
   mlhPrivacyPolicy: z
     .boolean()
     .refine(
       (val) => val === true,
       "You must agree to share your information with MLH",
-    ),
+    )
+    .describe("Must be true — the applicant must explicitly agree."),
   mlhEmails: z
     .boolean()
-    .refine((val) => val === true, "You must agree to receive emails from MLH"),
+    .refine((val) => val === true, "You must agree to receive emails from MLH")
+    .describe("Must be true — the applicant must explicitly agree."),
   sponsorEmails: z.boolean().optional(),
 });
 
