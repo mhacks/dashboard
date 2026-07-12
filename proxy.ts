@@ -31,7 +31,18 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublicPath = pathname === "/" || pathname.startsWith("/login");
+  const isPublicPath =
+    pathname === "/" ||
+    pathname.startsWith("/login") ||
+    // MCP endpoints authenticate via bearer token (withMcpAuth), not cookies —
+    // they must return their own 401 + WWW-Authenticate challenge instead of
+    // this middleware's HTML redirect, or OAuth discovery can never start.
+    pathname.startsWith("/api/mcp") ||
+    pathname.startsWith("/.well-known") ||
+    // /oauth/consent does its own auth check and redirects to /login with the
+    // full query string (authorization_id) preserved; this middleware's
+    // redirect below only forwards `pathname`, which would drop it.
+    pathname.startsWith("/oauth/consent");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
