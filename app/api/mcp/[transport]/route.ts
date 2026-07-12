@@ -23,7 +23,13 @@ import { verifyToken } from "@/lib/mcp/auth";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
-type ToolExtra = { authInfo?: { extra?: Record<string, unknown> } };
+type ToolExtra = {
+  authInfo?: {
+    clientId?: string;
+    scopes?: string[];
+    extra?: Record<string, unknown>;
+  };
+};
 
 function requireUserId(extra: ToolExtra): string {
   const userId = extra?.authInfo?.extra?.userId;
@@ -127,6 +133,25 @@ const draftInputShape = Object.fromEntries(
 
 const baseHandler = createMcpHandler(
   (server) => {
+    server.registerTool(
+      "whoami",
+      {
+        title: "Get authenticated identity",
+        description:
+          "Returns the identity of the currently authenticated MHacks account — user ID, email, and the OAuth client this session authenticated through. Call this to confirm which account you're connected as, e.g. before applying on the user's behalf.",
+        inputSchema: {},
+      },
+      async (_input, extra) => {
+        const authInfo = (extra as ToolExtra)?.authInfo;
+        const userId = requireUserId(extra as ToolExtra);
+        return jsonText({
+          userId,
+          email: authInfo?.extra?.email,
+          clientId: authInfo?.clientId,
+        });
+      },
+    );
+
     server.registerTool(
       "apply_get_schema",
       {

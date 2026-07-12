@@ -161,6 +161,11 @@ export default function HowToMcpPage() {
           <p>Once connected, just talk to your agent normally:</p>
           <ul className="list-disc list-inside flex flex-col gap-1">
             <li>
+              &ldquo;Who am I connected as?&rdquo; — confirms the MHacks
+              account your agent is authenticated as, straight from your
+              login, before you do anything else.
+            </li>
+            <li>
               &ldquo;Check my MHacks application status&rdquo; — see whether
               you&apos;ve already applied, and if so, its current status.
             </li>
