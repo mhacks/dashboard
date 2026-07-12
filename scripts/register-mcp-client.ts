@@ -1,7 +1,10 @@
-// Registers a manual OAuth client for local testing (DCR is off — see
-// supabase/config.toml's [auth.oauth_server]). Local only: refuses to run
-// against a non-local NEXT_PUBLIC_SUPABASE_URL so a service-role key never
-// gets pointed at prod from this script.
+// Registers a manual OAuth client for local testing with MCP Inspector.
+// Dynamic Client Registration is on server-side (supabase/config.toml's
+// [auth.oauth_server]), but Inspector's own UI has no self-registration flow
+// of its own — it always needs a client_id supplied manually, regardless of
+// whether the server supports DCR. Local only: refuses to run against a
+// non-local NEXT_PUBLIC_SUPABASE_URL so a service-role key never gets
+// pointed at prod from this script.
 //
 // Usage:
 //   SUPABASE_SERVICE_ROLE_KEY=<from `pnpm supabase status`> \

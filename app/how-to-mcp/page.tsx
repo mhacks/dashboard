@@ -248,10 +248,12 @@ export default function HowToMcpPage() {
               <strong>PKCE is required</strong> on the authorization code flow.
             </li>
             <li>
-              <strong>Dynamic Client Registration is off.</strong> A{" "}
-              <code>client_id</code> and exact <code>redirect_uri</code> must be
-              registered manually — contact the MHacks team to register a client
-              for your integration.
+              <strong>Dynamic Client Registration (RFC 7591) is supported.</strong>{" "}
+              Your client can self-register a <code>client_id</code> at
+              Supabase&apos;s OAuth server (discoverable via{" "}
+              <code>/.well-known/oauth-authorization-server</code>) instead of
+              needing one issued manually — most MCP clients (Claude.ai, Claude
+              Code, etc.) do this automatically.
             </li>
             <li>
               Access tokens are scoped to <code>application:write</code> and
@@ -263,10 +265,12 @@ export default function HowToMcpPage() {
 
         <Section title="Trouble connecting?">
           <p>
-            Make sure you&apos;re using the exact URL above. If your client asks
-            for a &ldquo;Client ID&rdquo; and can&apos;t register automatically,
-            that means it doesn&apos;t support dynamic registration — contact
-            the MHacks team for a manual client ID.
+            Make sure you&apos;re using the exact URL above. Most clients
+            self-register automatically via Dynamic Client Registration. If
+            yours specifically asks you to supply a &ldquo;Client ID&rdquo;,
+            that means the client itself doesn&apos;t implement dynamic
+            registration (not something on our end) — contact the MHacks team
+            for a manually-issued client ID in that case.
           </p>
         </Section>
       </div>
