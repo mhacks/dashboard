@@ -16,6 +16,11 @@ interface ConsentDetails {
   client: { name: string };
   user: { email: string };
   scope: string;
+  // The client's registered callback — unlike `client.name` (free text set
+  // at registration, not shown-and-validated anywhere else) this is the
+  // actual destination the auth code is delivered to, so it's what a user
+  // should check if a client's name looks impersonated.
+  redirect_uri: string;
 }
 
 export function ConsentScreen({
@@ -60,6 +65,24 @@ export function ConsentScreen({
               <li key={scope}>{scope}</li>
             ))}
           </ul>
+
+          <div
+            className="rounded-md border px-3 py-2"
+            style={{ borderColor: "#c8d4a8" }}
+          >
+            <p
+              className="font-red-hat text-[11px] uppercase tracking-wide"
+              style={{ color: "rgba(58,74,38,0.55)" }}
+            >
+              You&apos;ll be redirected to
+            </p>
+            <p
+              className="font-mono text-[12px] break-all"
+              style={{ color: "#3A4A26" }}
+            >
+              {details.redirect_uri}
+            </p>
+          </div>
 
           <Button
             disabled={isPending}
