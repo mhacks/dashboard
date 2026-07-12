@@ -61,7 +61,7 @@ Once connected, just talk to your agent normally:
 - **Resume upload usually won't happen through the agent.** Uploading
   requires the agent to make its own HTTP request with the file's raw
   bytes — attaching a PDF to the chat is not the same thing as that, since
-  it just lets the agent *read* it. Coding-agent-style clients with their
+  it just lets the agent _read_ it. Coding-agent-style clients with their
   own terminal/network access (Claude Code, Cursor) can genuinely do this.
   **Standard Claude.ai and Claude Desktop chat can't** — expect your
   agent to tell you to upload your resume yourself at

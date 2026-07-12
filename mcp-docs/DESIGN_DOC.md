@@ -46,7 +46,7 @@ reject.
 ```
 
 **Key architectural decision**: Supabase Auth's native OAuth 2.1 Server
-(public beta, shipped late 2025) *is* the Authorization Server. This repo
+(public beta, shipped late 2025) _is_ the Authorization Server. This repo
 does not implement `/authorize`, `/token`, `/register`, PKCE validation,
 or refresh rotation — all of that is Supabase's. What this repo owns:
 
@@ -72,24 +72,25 @@ kicks off OAuth discovery in any MCP client.
 **Tools registered** (`server.registerTool`), all requiring a verified
 token and deriving `userId` from it (never from a tool argument):
 
-| Tool | Input | Behavior |
-|---|---|---|
-| `apply_get_schema` | — | Returns `z.toJSONSchema(hackerApplicationSchema)` — the real source-of-truth schema, not a hand-maintained copy. |
-| `apply_get_draft` | — | Returns the user's in-progress draft (if any), plus `resumeUploaded`, so an agent doesn't re-ask for fields already saved. |
-| `apply_save_draft` | `baseApplicationSchema.partial().shape` | Upserts into `hacker_application_drafts`, merging into the existing draft. Rate-limited: 20/min per user. |
-| `apply_submit` | `baseApplicationSchema.shape` | Validates + inserts into `hacker_applicants`. Requires all MLH agreement booleans explicitly true (the tool description instructs the agent to get explicit user confirmation first — never assume consent). Irreversible: no update/withdraw tool exists. Returns `{ duplicate: true }` if already applied. Rate-limited: 5/min per user. |
-| `apply_status` | — | Returns `{ hasApplication, status, application }` for the authenticated user. |
-| `apply_get_resume_upload_url` | `{ fileName }` | Presigned S3 PUT URL (short-lived) + the storage `key` to pass to `apply_submit`. The agent must be able to execute its own HTTP request to actually upload — the tool description explicitly says to fall back to "tell the user to upload at mhacks.org/apply" if the agent can't (many chat-only clients can't; see §6). |
+| Tool                          | Input                                   | Behavior                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apply_get_schema`            | —                                       | Returns `z.toJSONSchema(hackerApplicationSchema)` — the real source-of-truth schema, not a hand-maintained copy.                                                                                                                                                                                                                           |
+| `apply_get_draft`             | —                                       | Returns the user's in-progress draft (if any), plus `resumeUploaded`, so an agent doesn't re-ask for fields already saved.                                                                                                                                                                                                                 |
+| `apply_save_draft`            | `baseApplicationSchema.partial().shape` | Upserts into `hacker_application_drafts`, merging into the existing draft. Rate-limited: 20/min per user.                                                                                                                                                                                                                                  |
+| `apply_submit`                | `baseApplicationSchema.shape`           | Validates + inserts into `hacker_applicants`. Requires all MLH agreement booleans explicitly true (the tool description instructs the agent to get explicit user confirmation first — never assume consent). Irreversible: no update/withdraw tool exists. Returns `{ duplicate: true }` if already applied. Rate-limited: 5/min per user. |
+| `apply_status`                | —                                       | Returns `{ hasApplication, status, application }` for the authenticated user.                                                                                                                                                                                                                                                              |
+| `apply_get_resume_upload_url` | `{ fileName }`                          | Presigned S3 PUT URL (short-lived) + the storage `key` to pass to `apply_submit`. The agent must be able to execute its own HTTP request to actually upload — the tool description explicitly says to fall back to "tell the user to upload at mhacks.org/apply" if the agent can't (many chat-only clients can't; see §6).                |
 
 **Prompt registered** (`server.registerPrompt`): `apply_interview` — a
 reusable "Apply to MHacks" prompt template that walks an agent through
 the full interview flow step by step (check draft → get schema →
 interview only for missing fields → checkpoint with save_draft →
 resume → read MLH terms and get explicit consent → summarize → submit).
-This is where the *process* is encoded, separately from the tools
+This is where the _process_ is encoded, separately from the tools
 themselves being unopinionated.
 
 **Security properties baked into every tool:**
+
 - Identity always comes from `requireUserId(extra.authInfo)` — the
   verified token's `sub` claim — never a tool argument. An agent cannot
   apply on behalf of anyone but the authenticated user.
@@ -122,7 +123,7 @@ persistence — this is a stateless verifier, not a logged-in client).
 
 **Important, non-obvious property**: access tokens are self-contained
 JWTs, verified statelessly. Revoking a grant at `/account/connections`
-invalidates the *refresh token* — it does not retroactively invalidate
+invalidates the _refresh token_ — it does not retroactively invalidate
 an already-issued access token, which stays valid until its own `exp`
 (Supabase default: 1 hour, no override set in `supabase/config.toml`).
 See §7.
@@ -131,7 +132,7 @@ See §7.
 
 RFC 9728 endpoint via `mcp-handler`'s `protectedResourceHandler`,
 pointing `authServerUrls` at Supabase (`${SUPABASE_URL}/auth/v1`). This
-is how a client discovers *which* server handles authorization for this
+is how a client discovers _which_ server handles authorization for this
 resource, after getting the `401`. Exports CORS-enabled `OPTIONS` too,
 since browser-based MCP clients call this cross-origin.
 
@@ -153,7 +154,7 @@ since browser-based MCP clients call this cross-origin.
   requested scopes; Approve/Deny call server actions via `useTransition`.
 - **`lib/actions/oauth-consent.server.actions.ts`** — thin wrappers
   around `supabase.auth.oauth.{getAuthorizationDetails,
-  approveAuthorization, denyAuthorization}`, using the existing
+approveAuthorization, denyAuthorization}`, using the existing
   cookie-based `createClient()`. Server Actions have no `window`, so
   unlike the SDK's browser-only auto-redirect, these explicitly call
   `redirect(data.redirect_url)` themselves.
