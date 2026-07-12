@@ -47,7 +47,10 @@ export async function proxy(request: NextRequest) {
     // /oauth/consent does its own auth check and redirects to /login with the
     // full query string (authorization_id) preserved; this middleware's
     // redirect below only forwards `pathname`, which would drop it.
-    isPathOrChild("/oauth/consent");
+    isPathOrChild("/oauth/consent") ||
+    // Public docs page explaining how to connect an AI agent to the MCP
+    // server — needs to be readable before/without logging in.
+    isPathOrChild("/how-to-mcp");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
