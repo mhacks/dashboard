@@ -1,10 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema/users";
 import { destinationForRole } from "@/lib/auth/redirects";
+import { getSessionUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 export async function sendOtp(
@@ -57,10 +55,6 @@ export async function verifyOtp(
   });
   if (error) return { error: error.message };
 
-  const userId = data.user?.id;
-  const [user] = userId
-    ? await db.select().from(users).where(eq(users.id, userId)).limit(1)
-    : [];
-
+  const user = await getSessionUser();
   redirect(destinationForRole(user?.role ?? "hacker", next));
 }

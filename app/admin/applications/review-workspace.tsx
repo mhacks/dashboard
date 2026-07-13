@@ -25,12 +25,11 @@ import {
 import { toast } from "sonner";
 import {
   getApplicationReviewEvents,
-  getApplicationReviewResumeUrl,
   markApplicationReviewed,
   saveApplicationReviewDraft,
 } from "@/lib/actions/application-review.server.actions";
+import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 import { createClient } from "@/lib/supabase/client";
-import type { UserEntry } from "@/lib/db/schema/users";
 import {
   reviewCompleteSchema,
   reviewDraftSchema,
@@ -60,6 +59,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "./theme-toggle";
+
+type Organizer = { id: string; email: string };
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type StatusFilter = "all" | "pending" | "reviewed" | "flagged";
@@ -483,10 +484,8 @@ function QuickLink({
 }
 
 export default function ApplicationReviewWorkspace({
-  organizer,
   initialData,
 }: {
-  organizer: Pick<UserEntry, "id" | "email">;
   initialData: ReviewWorkspaceData;
 }) {
   const initialSelectedItem =
@@ -508,6 +507,7 @@ export default function ApplicationReviewWorkspace({
   const [resumeLoading, setResumeLoading] = useState(false);
   const [reviewEvents, setReviewEvents] = useState<ReviewEventRecord[]>([]);
   const [reviewEventsLoading, setReviewEventsLoading] = useState(false);
+  const [organizer, setOrganizer] = useState<Organizer | null>(null);
   const selectedIdRef = useRef(selectedId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -528,6 +528,15 @@ export default function ApplicationReviewWorkspace({
   const effortRating = form.watch("effortRating");
   const builderRating = form.watch("builderRating");
   const flaggedForReview = form.watch("flaggedForReview");
+
+  useEffect(() => {
+    createClient()
+      .auth.getUser()
+      .then(({ data: { user } }) => {
+        if (!user) return;
+        setOrganizer({ id: user.id, email: user.email ?? "" });
+      });
+  }, []);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -661,7 +670,7 @@ export default function ApplicationReviewWorkspace({
     setResumeLoading(true);
     setResumeUrl(null);
 
-    getApplicationReviewResumeUrl(selectedItem.application.id)
+    getResumeDownloadUrl(selectedItem.application.resume)
       .then((url) => {
         if (!ignore) setResumeUrl(url);
       })
@@ -707,7 +716,7 @@ export default function ApplicationReviewWorkspace({
   }, [selectedId]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || !organizer) return;
 
     const supabase = createClient();
     const channel = supabase.channel(`application-review:${selectedId}`, {
@@ -738,7 +747,7 @@ export default function ApplicationReviewWorkspace({
       channel.untrack();
       supabase.removeChannel(channel);
     };
-  }, [organizer.email, organizer.id, selectedId]);
+  }, [organizer, selectedId]);
 
   async function handleMarkReviewed() {
     const values = normalizeReviewValues(form.getValues());
@@ -1194,7 +1203,7 @@ export default function ApplicationReviewWorkspace({
                   reviewEvents={reviewEvents}
                   reviewEventsLoading={reviewEventsLoading}
                   activeReviewers={activeReviewers}
-                  organizerEmail={organizer.email}
+                  organizerEmail={organizer?.email}
                   isCompleting={isCompleting}
                   onMarkReviewed={handleMarkReviewed}
                 />
@@ -1228,7 +1237,7 @@ export default function ApplicationReviewWorkspace({
                     reviewEvents={reviewEvents}
                     reviewEventsLoading={reviewEventsLoading}
                     activeReviewers={activeReviewers}
-                    organizerEmail={organizer.email}
+                    organizerEmail={organizer?.email}
                     isCompleting={isCompleting}
                     onMarkReviewed={handleMarkReviewed}
                     compact
@@ -1267,7 +1276,7 @@ function ScorecardForm({
   reviewEvents: ReviewEventRecord[];
   reviewEventsLoading: boolean;
   activeReviewers: PresenceMeta[];
-  organizerEmail: string;
+  organizerEmail?: string;
   isCompleting: boolean;
   onMarkReviewed: () => void;
   compact?: boolean;
@@ -1446,7 +1455,7 @@ function ScorecardForm({
 
       <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
         <UserRoundIcon className="size-4" />
-        Signed in as {organizerEmail}
+        Signed in as {organizerEmail ?? "organizer"}
       </div>
     </form>
   );

@@ -24,7 +24,6 @@ import {
   type ReviewListItem,
   type ReviewRecord,
 } from "@/lib/types/application-reviews";
-import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 
 const MAX_REVIEW_EVENTS_PER_APPLICATION = 50;
 
@@ -280,20 +279,4 @@ export async function getApplicationReviewEvents(
   return events.map(({ event, reviewerEmail }) =>
     withReviewEventEmail(event, reviewerEmail),
   );
-}
-
-export async function getApplicationReviewResumeUrl(
-  applicationId: string,
-): Promise<string | null> {
-  await requireOrganizer();
-  const parsed = parseActionInput(reviewEventsInputSchema, { applicationId });
-
-  const [application] = await db
-    .select({ resume: hackerApplicants.resume })
-    .from(hackerApplicants)
-    .where(eq(hackerApplicants.id, parsed.applicationId))
-    .limit(1);
-
-  if (!application?.resume) return null;
-  return getResumeDownloadUrl(application.resume);
 }
