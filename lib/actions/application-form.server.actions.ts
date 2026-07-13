@@ -29,7 +29,7 @@ function toDbValues(parsed: HackerApplicationFormData): ApplicationDbValues {
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<{ duplicate: boolean }> => {
-  const userId = (await requireSessionUser()).id;
+  const { id: userId } = await requireSessionUser();
   const parsed = hackerApplicationSchema.parse(data);
 
   try {
@@ -57,7 +57,7 @@ export const submitHackerApplication = async (
 export const saveDraft = async (
   data: Partial<HackerApplicationFormData>,
 ): Promise<void> => {
-  const userId = (await requireSessionUser()).id;
+  const { id: userId } = await requireSessionUser();
 
   try {
     await db
@@ -80,7 +80,7 @@ export const saveDraft = async (
 export const updateHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<void> => {
-  const userId = (await requireSessionUser()).id;
+  const { id: userId } = await requireSessionUser();
   const parsed = hackerApplicationSchema.parse(data);
 
   try {

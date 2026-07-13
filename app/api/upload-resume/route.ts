@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
-import { getSessionUser } from "@/lib/auth/session";
+import { requireSessionUser } from "@/lib/auth/guards";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { id: userId } = await requireSessionUser();
 
   const formData = await req.formData();
   const file = formData.get("file");
@@ -28,7 +24,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const key = `resumes/${user.id}.pdf`;
+  const key = `resumes/${userId}.pdf`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   await s3.send(

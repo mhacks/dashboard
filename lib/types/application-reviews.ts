@@ -69,12 +69,12 @@ export type ReviewAuditEventRecord = ReviewEventRecord & {
   applicationStatus: ReviewApplication["status"];
 };
 
+export type ReviewWorkspaceData = {
+  items: ReviewListItem[];
+  counts: ReviewCounts;
+};
+
 export type ReviewLeaderboardData = {
-  currentUser: {
-    id: string;
-    email: string;
-    role: "hacker" | "organizer";
-  };
   rows: ReviewLeaderboardRow[];
   recentEvents: ReviewAuditEventRecord[];
   totals: {
@@ -100,11 +100,6 @@ export type ScoreAnalytics = {
 };
 
 export type ApplicationAnalyticsData = {
-  currentUser: {
-    id: string;
-    email: string;
-    role: "hacker" | "organizer";
-  };
   totals: {
     applicants: number;
     pending: number;

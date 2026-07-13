@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import ApplyPage from "./application-form";
 import ApplicationFormSkeleton from "./application-form-skeleton";
-import { getSessionUser } from "@/lib/auth/session";
+import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
   hackerApplicants,
@@ -12,11 +11,7 @@ import {
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 
 export default async function ApplicationFormPage() {
-  const user = await getSessionUser();
-
-  if (!user) redirect("/login?next=/apply");
-
-  const userId = user.id;
+  const { id: userId } = await requireSessionUser();
 
   let existingApp = null;
   try {

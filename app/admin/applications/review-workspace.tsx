@@ -30,10 +30,12 @@ import {
   saveApplicationReviewDraft,
 } from "@/lib/actions/application-review.server.actions";
 import { createClient } from "@/lib/supabase/client";
+import type { UserEntry } from "@/lib/db/schema/users";
 import {
   reviewCompleteSchema,
   reviewDraftSchema,
   type ReviewCounts,
+  type ReviewWorkspaceData,
   type ReviewDraftInput,
   type ReviewEventRecord,
   type ReviewListItem,
@@ -58,16 +60,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "./theme-toggle";
-
-type DashboardData = {
-  currentUser: {
-    id: string;
-    email: string;
-    role: "hacker" | "organizer";
-  };
-  items: ReviewListItem[];
-  counts: ReviewCounts;
-};
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type StatusFilter = "all" | "pending" | "reviewed" | "flagged";
@@ -491,9 +483,11 @@ function QuickLink({
 }
 
 export default function ApplicationReviewWorkspace({
+  organizer,
   initialData,
 }: {
-  initialData: DashboardData;
+  organizer: Pick<UserEntry, "id" | "email">;
+  initialData: ReviewWorkspaceData;
 }) {
   const initialSelectedItem =
     initialData.items.find((item) => item.application.status === "pending") ??
@@ -717,14 +711,14 @@ export default function ApplicationReviewWorkspace({
 
     const supabase = createClient();
     const channel = supabase.channel(`application-review:${selectedId}`, {
-      config: { presence: { key: initialData.currentUser.id } },
+      config: { presence: { key: organizer.id } },
     });
 
     const syncPresence = () => {
       const state = channel.presenceState() as Record<string, PresenceMeta[]>;
       const reviewers = Object.values(state)
         .flat()
-        .filter((meta) => meta.userId !== initialData.currentUser.id);
+        .filter((meta) => meta.userId !== organizer.id);
       setActiveReviewers(reviewers);
     };
 
@@ -732,8 +726,8 @@ export default function ApplicationReviewWorkspace({
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         await channel.track({
-          userId: initialData.currentUser.id,
-          email: initialData.currentUser.email,
+          userId: organizer.id,
+          email: organizer.email,
           onlineAt: new Date().toISOString(),
         });
       }
@@ -744,7 +738,7 @@ export default function ApplicationReviewWorkspace({
       channel.untrack();
       supabase.removeChannel(channel);
     };
-  }, [initialData.currentUser.email, initialData.currentUser.id, selectedId]);
+  }, [organizer.email, organizer.id, selectedId]);
 
   async function handleMarkReviewed() {
     const values = normalizeReviewValues(form.getValues());
@@ -1200,7 +1194,7 @@ export default function ApplicationReviewWorkspace({
                   reviewEvents={reviewEvents}
                   reviewEventsLoading={reviewEventsLoading}
                   activeReviewers={activeReviewers}
-                  currentUserEmail={initialData.currentUser.email}
+                  organizerEmail={organizer.email}
                   isCompleting={isCompleting}
                   onMarkReviewed={handleMarkReviewed}
                 />
@@ -1234,7 +1228,7 @@ export default function ApplicationReviewWorkspace({
                     reviewEvents={reviewEvents}
                     reviewEventsLoading={reviewEventsLoading}
                     activeReviewers={activeReviewers}
-                    currentUserEmail={initialData.currentUser.email}
+                    organizerEmail={organizer.email}
                     isCompleting={isCompleting}
                     onMarkReviewed={handleMarkReviewed}
                     compact
@@ -1259,7 +1253,7 @@ function ScorecardForm({
   reviewEvents,
   reviewEventsLoading,
   activeReviewers,
-  currentUserEmail,
+  organizerEmail,
   isCompleting,
   onMarkReviewed,
   compact = false,
@@ -1273,7 +1267,7 @@ function ScorecardForm({
   reviewEvents: ReviewEventRecord[];
   reviewEventsLoading: boolean;
   activeReviewers: PresenceMeta[];
-  currentUserEmail: string;
+  organizerEmail: string;
   isCompleting: boolean;
   onMarkReviewed: () => void;
   compact?: boolean;
@@ -1452,7 +1446,7 @@ function ScorecardForm({
 
       <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
         <UserRoundIcon className="size-4" />
-        Signed in as {currentUserEmail}
+        Signed in as {organizerEmail}
       </div>
     </form>
   );

@@ -1,16 +1,6 @@
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth/session";
 import type { UserEntry } from "@/lib/db/schema/users";
-
-export type CurrentUserSummary = Pick<UserEntry, "id" | "email" | "role">;
-
-export function toCurrentUserSummary(user: UserEntry): CurrentUserSummary {
-  return {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-  };
-}
+import { getSessionUser } from "@/lib/auth/session";
 
 export async function requireSessionUser(): Promise<UserEntry> {
   const user = await getSessionUser();
@@ -24,13 +14,8 @@ export async function requireOrganizer(): Promise<UserEntry> {
   return user;
 }
 
-export async function requireOrganizerPage(
-  nextPath: string,
-): Promise<UserEntry> {
-  const user = await getSessionUser();
-
-  if (!user) redirect(`/login?next=${encodeURIComponent(nextPath)}`);
+export async function requireOrganizerPage(): Promise<UserEntry> {
+  const user = await requireSessionUser();
   if (user.role !== "organizer") redirect("/apply");
-
   return user;
 }

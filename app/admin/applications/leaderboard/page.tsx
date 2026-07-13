@@ -6,7 +6,7 @@ import {
   MedalIcon,
   TrophyIcon,
 } from "lucide-react";
-import { getApplicationReviewLeaderboard } from "@/lib/actions/application-review.server.actions";
+import { getApplicationReviewLeaderboard } from "@/lib/queries/application-review";
 import type { ReviewAuditEventRecord } from "@/lib/types/application-reviews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

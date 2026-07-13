@@ -1,8 +1,15 @@
-import { getApplicationReviewDashboard } from "@/lib/actions/application-review.server.actions";
+import { requireSessionUser } from "@/lib/auth/guards";
+import { getApplicationReviewDashboard } from "@/lib/queries/application-review";
 import ApplicationReviewWorkspace from "./review-workspace";
 
 export default async function AdminApplicationsPage() {
-  const dashboard = await getApplicationReviewDashboard();
+  const organizer = await requireSessionUser();
+  const initialData = await getApplicationReviewDashboard();
 
-  return <ApplicationReviewWorkspace initialData={dashboard} />;
+  return (
+    <ApplicationReviewWorkspace
+      organizer={organizer}
+      initialData={initialData}
+    />
+  );
 }

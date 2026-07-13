@@ -1,4 +1,4 @@
-import { getApplicationAnalytics } from "@/lib/actions/application-review.server.actions";
+import { getApplicationAnalytics } from "@/lib/queries/application-review";
 import ApplicationAnalyticsDashboard from "./analytics-dashboard";
 
 export default async function ApplicationAnalyticsPage() {
