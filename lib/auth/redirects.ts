@@ -1,8 +1,9 @@
 import type { UserRole } from "@/lib/db/schema/users";
 
 export function sanitizeNextPath(next?: string | null) {
-  if (!next || !next.startsWith("/") || next.startsWith("/login")) return null;
-  if (next.startsWith("//")) return null;
+  if (!next) return null;
+  if (next.includes("\\") || next.includes("\n") || next.includes("\r")) return null;
+  if (!next.startsWith("/") || next.startsWith("/login") || next.startsWith("//")) return null;
   return next;
 }
 
