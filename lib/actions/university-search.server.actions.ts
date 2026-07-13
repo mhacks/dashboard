@@ -1,5 +1,6 @@
 "use server";
 
+import { requireSessionUser } from "@/lib/auth/guards";
 import {
   searchUniversities as searchUniversityDataset,
   type UniversitySearchResult,
@@ -8,5 +9,6 @@ import {
 export async function searchUniversities(
   query: string,
 ): Promise<UniversitySearchResult[]> {
+  await requireSessionUser();
   return searchUniversityDataset(query);
 }
