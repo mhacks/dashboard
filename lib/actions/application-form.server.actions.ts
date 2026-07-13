@@ -9,16 +9,7 @@ import {
   hackerApplicants,
   hackerApplicationDrafts,
 } from "@/lib/db/schema/applications";
-import { createClient } from "@/lib/supabase/server";
-
-async function getAuthenticatedUserId(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
-  return user.id;
-}
+import { requireSessionUser } from "@/lib/auth/guards";
 
 // The MLH agreement checkboxes are validated in the form but not stored —
 // submitting the application implies acceptance — so drop them before writing.
@@ -38,7 +29,7 @@ function toDbValues(parsed: HackerApplicationFormData): ApplicationDbValues {
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<{ duplicate: boolean }> => {
-  const userId = await getAuthenticatedUserId();
+  const userId = (await requireSessionUser()).id;
   const parsed = hackerApplicationSchema.parse(data);
 
   try {
@@ -66,7 +57,7 @@ export const submitHackerApplication = async (
 export const saveDraft = async (
   data: Partial<HackerApplicationFormData>,
 ): Promise<void> => {
-  const userId = await getAuthenticatedUserId();
+  const userId = (await requireSessionUser()).id;
 
   try {
     await db
@@ -89,7 +80,7 @@ export const saveDraft = async (
 export const updateHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<void> => {
-  const userId = await getAuthenticatedUserId();
+  const userId = (await requireSessionUser()).id;
   const parsed = hackerApplicationSchema.parse(data);
 
   try {

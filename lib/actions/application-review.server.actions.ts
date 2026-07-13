@@ -13,7 +13,10 @@ import {
   type ReviewEventSnapshot,
 } from "@/lib/db/schema/applications";
 import { users, type UserEntry } from "@/lib/db/schema/users";
-import { getSessionUser } from "@/lib/auth/session";
+import {
+  requireOrganizer,
+  toCurrentUserSummary,
+} from "@/lib/auth/guards";
 import {
   reviewCompleteSchema,
   reviewDraftSchema,
@@ -33,13 +36,6 @@ import {
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 
 const MAX_REVIEW_EVENTS_PER_APPLICATION = 50;
-
-async function requireOrganizer(): Promise<UserEntry> {
-  const user = await getSessionUser();
-  if (!user) throw new Error("Unauthorized");
-  if (user.role !== "organizer") throw new Error("Forbidden");
-  return user;
-}
 
 function parseActionInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const parsed = schema.safeParse(input);
@@ -337,11 +333,7 @@ export async function getApplicationReviewDashboard(): Promise<{
   }));
 
   return {
-    currentUser: {
-      id: currentUser.id,
-      email: currentUser.email,
-      role: currentUser.role,
-    },
+    currentUser: toCurrentUserSummary(currentUser),
     items,
     counts: countStatuses(items),
   };
@@ -605,11 +597,7 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
   });
 
   return {
-    currentUser: {
-      id: currentUser.id,
-      email: currentUser.email,
-      role: currentUser.role,
-    },
+    currentUser: toCurrentUserSummary(currentUser),
     rows,
     recentEvents,
     totals: {
@@ -675,11 +663,7 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
     .filter((state): state is string => Boolean(state));
 
   return {
-    currentUser: {
-      id: currentUser.id,
-      email: currentUser.email,
-      role: currentUser.role,
-    },
+    currentUser: toCurrentUserSummary(currentUser),
     totals: {
       applicants: total,
       pending: counts.pending,

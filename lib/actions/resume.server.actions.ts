@@ -4,7 +4,8 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { eq, sql } from "drizzle-orm";
 import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
-import { createClient } from "@/lib/supabase/server";
+import { requireSessionUser } from "@/lib/auth/guards";
+import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   hackerApplicants,
@@ -16,11 +17,8 @@ export async function getResumeUploadUrl(
   userId: string,
   fileName: string,
 ): Promise<{ uploadUrl: string; key: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || user.id !== userId) throw new Error("Forbidden");
+  const user = await requireSessionUser();
+  if (user.id !== userId) throw new Error("Forbidden");
 
   const sanitized = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
   const key = `resumes/${userId}/${Date.now()}-${sanitized}`;
@@ -37,18 +35,10 @@ export async function getResumeUploadUrl(
 }
 
 async function canDownloadResume(key: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return false;
 
-  const [sessionUser] = await db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.id, user.id))
-    .limit(1);
-  if (sessionUser?.role === "organizer") return true;
+  if (user.role === "organizer") return true;
 
   const [ownedResume] = await db
     .select({

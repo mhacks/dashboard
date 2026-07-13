@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth/session";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

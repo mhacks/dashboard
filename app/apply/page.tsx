@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import ApplyPage from "./application-form";
 import ApplicationFormSkeleton from "./application-form-skeleton";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   hackerApplicants,
@@ -12,10 +12,7 @@ import {
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 
 export default async function ApplicationFormPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   if (!user) redirect("/login?next=/apply");
 
