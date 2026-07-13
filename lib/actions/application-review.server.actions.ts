@@ -621,8 +621,28 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
 export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsData> {
   const currentUser = await requireOrganizer();
 
-  const applications = await db.select().from(hackerApplicants);
-  const reviews = await db.select().from(hackerApplicationReviews);
+  const applications = await db
+    .select({
+      status: hackerApplicants.status,
+      age: hackerApplicants.age,
+      gender: hackerApplicants.gender,
+      ethnicity: hackerApplicants.ethnicity,
+      degree: hackerApplicants.degree,
+      major: hackerApplicants.major,
+      graduationYear: hackerApplicants.graduationYear,
+      previousHackathons: hackerApplicants.previousHackathons,
+      university: hackerApplicants.university,
+      country: hackerApplicants.country,
+      comingFrom: hackerApplicants.comingFrom,
+    })
+    .from(hackerApplicants);
+  const reviews = await db
+    .select({
+      reviewedAt: hackerApplicationReviews.reviewedAt,
+      effortRating: hackerApplicationReviews.effortRating,
+      builderRating: hackerApplicationReviews.builderRating,
+    })
+    .from(hackerApplicationReviews);
   const total = applications.length;
 
   const reviewedScores = reviews.filter(
