@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangleIcon,
+  ArrowLeftIcon,
   BarChart3Icon,
   CheckCircle2Icon,
+  ClipboardCheckIcon,
   DownloadIcon,
   ExternalLinkIcon,
   EyeIcon,
@@ -40,6 +42,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -62,6 +71,26 @@ type DashboardData = {
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type StatusFilter = "all" | "pending" | "reviewed" | "flagged";
+type MobileView = "list" | "detail";
+
+const DESKTOP_BREAKPOINT = 1024;
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(
+    () =>
+      typeof window !== "undefined" && window.innerWidth >= DESKTOP_BREAKPOINT,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
+    const onChange = () => setIsDesktop(media.matches);
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  return isDesktop;
+}
 
 type PresenceMeta = {
   userId: string;
@@ -475,8 +504,11 @@ export default function ApplicationReviewWorkspace({
   );
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+  const [mobileView, setMobileView] = useState<MobileView>("list");
+  const [scorecardOpen, setScorecardOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isCompleting, setIsCompleting] = useState(false);
+  const isDesktop = useIsDesktop();
   const [activeReviewers, setActiveReviewers] = useState<PresenceMeta[]>([]);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
@@ -506,6 +538,10 @@ export default function ApplicationReviewWorkspace({
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+
+  useEffect(() => {
+    if (isDesktop) setScorecardOpen(false);
+  }, [isDesktop]);
 
   const filteredItems = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -569,6 +605,8 @@ export default function ApplicationReviewWorkspace({
     if (savedTimer.current) clearTimeout(savedTimer.current);
     skipNextAutosave.current = true;
     setSelectedId(item.application.id);
+    setMobileView("detail");
+    setScorecardOpen(false);
     setSaveStatus("idle");
     setResumeUrl(null);
     form.reset(toReviewDefaults(item));
@@ -728,6 +766,7 @@ export default function ApplicationReviewWorkspace({
       const result = await markApplicationReviewed(parsed.data);
       updateReviewItem(parsed.data.applicationId, result.review, result.status);
       appendReviewEvent(result.event);
+      setScorecardOpen(false);
       toast.success("Application marked reviewed.");
     } catch (error) {
       console.error("Unable to complete review:", error);
@@ -738,20 +777,37 @@ export default function ApplicationReviewWorkspace({
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-background text-foreground">
+    <main className="h-dvh overflow-hidden bg-background text-foreground">
       <div className="flex h-full flex-col">
         <header className="shrink-0 border-b bg-card/80 px-4 py-3 backdrop-blur md:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
-                MHacks Organizer
-              </p>
-              <h1 className="font-heading text-3xl italic tracking-tight text-moss dark:text-sage">
-                Application Review
-              </h1>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
+                  MHacks Organizer
+                </p>
+                <h1 className="font-heading text-2xl italic tracking-tight text-moss sm:text-3xl dark:text-sage">
+                  Application Review
+                </h1>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 lg:hidden">
+                <Button asChild variant="outline" size="sm" className="bg-card">
+                  <Link href="/admin/applications/leaderboard">
+                    <TrophyIcon className="size-4" />
+                    <span className="sr-only">Leaderboard</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="bg-card">
+                  <Link href="/admin/applications/analytics">
+                    <BarChart3Icon className="size-4" />
+                    <span className="sr-only">Analytics</span>
+                  </Link>
+                </Button>
+                <ThemeToggle />
+              </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="grid gap-2 sm:grid-cols-4 lg:min-w-[520px]">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
                 <Stat
                   label="Done"
                   value={`${completedCount}/${counts.total}`}
@@ -760,19 +816,21 @@ export default function ApplicationReviewWorkspace({
                 <Stat label="Reviewed" value={counts.reviewed} />
                 <Stat label="Flagged" value={counts.flagged} />
               </div>
-              <Button asChild variant="outline" size="sm" className="bg-card">
-                <Link href="/admin/applications/leaderboard">
-                  <TrophyIcon className="size-4" />
-                  Leaderboard
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="bg-card">
-                <Link href="/admin/applications/analytics">
-                  <BarChart3Icon className="size-4" />
-                  Analytics
-                </Link>
-              </Button>
-              <ThemeToggle />
+              <div className="hidden items-center gap-2 lg:flex">
+                <Button asChild variant="outline" size="sm" className="bg-card">
+                  <Link href="/admin/applications/leaderboard">
+                    <TrophyIcon className="size-4" />
+                    Leaderboard
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="bg-card">
+                  <Link href="/admin/applications/analytics">
+                    <BarChart3Icon className="size-4" />
+                    Analytics
+                  </Link>
+                </Button>
+                <ThemeToggle />
+              </div>
             </div>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-moss/10 dark:bg-sage/10">
@@ -783,8 +841,14 @@ export default function ApplicationReviewWorkspace({
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)_360px] overflow-hidden border-t bg-card">
-          <aside className="flex min-h-0 min-w-0 flex-col border-r bg-card">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)_minmax(300px,360px)]">
+          <aside
+            className={cn(
+              "min-h-0 min-w-0 flex-col border-r bg-card",
+              mobileView === "list" ? "flex" : "hidden",
+              "lg:flex",
+            )}
+          >
             <div className="flex h-14 items-center justify-between border-b px-4">
               <div className="flex items-center gap-2">
                 <InboxIcon className="size-4 text-moss dark:text-sage" />
@@ -875,10 +939,29 @@ export default function ApplicationReviewWorkspace({
             </ScrollArea>
           </aside>
 
-          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
-            <div className="flex h-14 items-center justify-between border-b bg-card px-4">
-              <div className="flex min-w-0 items-center gap-2">
-                <ListFilterIcon className="size-4 text-muted-foreground" />
+          <section
+            className={cn(
+              "min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30",
+              mobileView === "detail" ? "flex" : "hidden",
+              "lg:flex",
+            )}
+          >
+            <div className="flex h-14 items-center justify-between gap-2 border-b bg-card px-3 sm:px-4">
+              <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="shrink-0 lg:hidden"
+                  onClick={() => {
+                    setScorecardOpen(false);
+                    setMobileView("list");
+                  }}
+                  aria-label="Back to applications"
+                >
+                  <ArrowLeftIcon className="size-4" />
+                </Button>
+                <ListFilterIcon className="hidden size-4 shrink-0 text-muted-foreground lg:block" />
                 <span className="truncate text-sm font-medium">
                   {selectedItem
                     ? `${applicantName(selectedItem)} application`
@@ -900,11 +983,11 @@ export default function ApplicationReviewWorkspace({
                   Select an application to review.
                 </div>
               ) : (
-                <div className="mx-auto w-full max-w-3xl space-y-7 p-5 md:p-6">
+                <div className="mx-auto w-full max-w-3xl space-y-7 p-4 pb-28 sm:p-5 md:p-6 lg:pb-6">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="font-heading text-4xl italic tracking-tight text-moss dark:text-sage">
+                        <h2 className="font-heading text-3xl italic tracking-tight text-moss sm:text-4xl dark:text-sage">
                           {applicantName(selectedItem)}
                         </h2>
                         <Badge
@@ -1075,202 +1158,303 @@ export default function ApplicationReviewWorkspace({
                 </div>
               )}
             </div>
-          </section>
 
-          <aside className="min-h-0 min-w-0 bg-card">
-            <ScrollArea className="h-full">
-              <form
-                className="space-y-5 p-5"
-                onSubmit={(event) => event.preventDefault()}
-              >
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
-                    Review
-                  </p>
-                  <h2 className="font-heading text-3xl italic text-moss dark:text-sage">
-                    Scorecard
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Autosaves while you work. Use Mark reviewed when the review
-                    is complete.
-                  </p>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <Label htmlFor="effortRating">
-                    Effort / Motivation / Interest
-                  </Label>
-                  <Controller
-                    control={form.control}
-                    name="effortRating"
-                    render={({ field }) => (
-                      <RatingPicker
-                        value={field.value}
-                        onChange={field.onChange}
-                        invalid={!!form.formState.errors.effortRating}
-                        label="Effort / Motivation / Interest"
-                      />
-                    )}
-                  />
-                  {form.formState.errors.effortRating && (
-                    <p className="text-xs text-destructive">
-                      {form.formState.errors.effortRating.message}
-                    </p>
-                  )}
-                  <RatingDescription
-                    value={effortRating}
-                    descriptions={EFFORT_DESCRIPTIONS}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="builderRating">
-                    Builder Mindset / Initiative / Vibe
-                  </Label>
-                  <Controller
-                    control={form.control}
-                    name="builderRating"
-                    render={({ field }) => (
-                      <RatingPicker
-                        value={field.value}
-                        onChange={field.onChange}
-                        invalid={!!form.formState.errors.builderRating}
-                        label="Builder Mindset / Initiative / Vibe"
-                      />
-                    )}
-                  />
-                  {form.formState.errors.builderRating && (
-                    <p className="text-xs text-destructive">
-                      {form.formState.errors.builderRating.message}
-                    </p>
-                  )}
-                  <RatingDescription
-                    value={builderRating}
-                    descriptions={BUILDER_DESCRIPTIONS}
-                  />
-                </div>
-
-                <Controller
-                  control={form.control}
-                  name="flaggedForReview"
-                  render={({ field }) => (
-                    <label className="flex cursor-pointer items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={(value) => {
-                          const checked = value === true;
-                          field.onChange(checked);
-                          if (!checked) {
-                            form.setValue("reviewComments", null, {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                            });
-                          }
-                        }}
-                      />
-                      <span className="flex items-center gap-2">
-                        <FlagIcon className="size-4 text-amber-600 dark:text-amber-300" />
-                        Flag for review
-                      </span>
-                    </label>
-                  )}
-                />
-
-                {flaggedForReview && (
-                  <div className="space-y-2">
-                    <Label htmlFor="reviewComments">Flag comments</Label>
-                    <Controller
-                      control={form.control}
-                      name="reviewComments"
-                      render={({ field }) => (
-                        <Textarea
-                          id="reviewComments"
-                          rows={6}
-                          value={field.value ?? ""}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          placeholder="Why should this application get another look?"
-                        />
-                      )}
-                    />
-                  </div>
-                )}
-
-                <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-muted-foreground">Save status</span>
-                    <span
-                      className={cn(
-                        "font-medium",
-                        saveStatus === "error" && "text-destructive",
-                        saveStatus === "saved" &&
-                          "text-green-700 dark:text-green-300",
-                        saveStatus === "saving" && "text-moss dark:text-sage",
-                      )}
-                    >
-                      {saveStatus === "idle" && "Idle"}
+            {selectedItem && (
+              <div className="shrink-0 border-t bg-card/95 px-3 pt-3 backdrop-blur supports-backdrop-filter:bg-card/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">
                       {saveStatus === "saving" && "Saving..."}
                       {saveStatus === "saved" && "Saved"}
                       {saveStatus === "error" && "Check ratings"}
-                    </span>
-                  </div>
-                  {selectedItem?.review?.reviewedAt && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                      <CheckCircle2Icon className="size-4 text-green-600 dark:text-green-300" />
-                      Reviewed{" "}
-                      {new Date(
-                        selectedItem.review.reviewedAt,
-                      ).toLocaleString()}{" "}
-                      by {selectedItem.review.reviewerEmail ?? "organizer"}
-                    </div>
-                  )}
-                </div>
-
-                <ReviewHistory
-                  events={reviewEvents}
-                  loading={reviewEventsLoading}
-                />
-
-                {activeReviewers.length > 0 && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-                    <div className="flex items-center gap-2 font-medium">
-                      <AlertTriangleIcon className="size-4" />
-                      Another organizer is here
-                    </div>
-                    <p className="mt-1 text-xs">
-                      {activeReviewers
-                        .map((reviewer) => reviewer.email)
-                        .join(", ")}
+                      {saveStatus === "idle" && "Autosaves as you score"}
+                    </p>
+                    <p className="truncate text-sm font-medium">
+                      {effortRating ?? "—"} · {builderRating ?? "—"}
+                      {flaggedForReview ? " · Flagged" : ""}
                     </p>
                   </div>
-                )}
-
-                <Button
-                  type="button"
-                  onClick={handleMarkReviewed}
-                  disabled={!selectedItem || isCompleting}
-                  className="h-10 w-full bg-moss text-white hover:bg-moss/90 dark:bg-sage dark:text-night dark:hover:bg-sage/90"
-                >
-                  {isCompleting
-                    ? "Marking reviewed..."
-                    : selectedItem?.review?.reviewedAt
-                      ? "Update reviewed"
-                      : "Mark reviewed"}
-                </Button>
-
-                <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
-                  <UserRoundIcon className="size-4" />
-                  Signed in as {initialData.currentUser.email}
+                  <Button
+                    type="button"
+                    className="h-11 shrink-0 bg-moss px-5 text-white hover:bg-moss/90 dark:bg-sage dark:text-night dark:hover:bg-sage/90"
+                    onClick={() => setScorecardOpen(true)}
+                  >
+                    <ClipboardCheckIcon className="size-4" />
+                    Score
+                  </Button>
                 </div>
-              </form>
-            </ScrollArea>
+              </div>
+            )}
+          </section>
+
+          <aside className="hidden min-h-0 min-w-0 flex-col bg-card lg:flex">
+            {isDesktop ? (
+              <ScrollArea className="min-h-0 flex-1">
+                <ScorecardForm
+                  form={form}
+                  effortRating={effortRating}
+                  builderRating={builderRating}
+                  flaggedForReview={flaggedForReview}
+                  saveStatus={saveStatus}
+                  selectedItem={selectedItem}
+                  reviewEvents={reviewEvents}
+                  reviewEventsLoading={reviewEventsLoading}
+                  activeReviewers={activeReviewers}
+                  currentUserEmail={initialData.currentUser.email}
+                  isCompleting={isCompleting}
+                  onMarkReviewed={handleMarkReviewed}
+                />
+              </ScrollArea>
+            ) : null}
           </aside>
         </div>
+
+        {!isDesktop && (
+          <Drawer open={scorecardOpen} onOpenChange={setScorecardOpen}>
+            <DrawerContent className="max-h-[92vh]">
+              <DrawerHeader className="border-b text-left">
+                <DrawerTitle className="font-heading text-2xl italic text-moss dark:text-sage">
+                  Scorecard
+                </DrawerTitle>
+                <DrawerDescription>
+                  {selectedItem
+                    ? `Reviewing ${applicantName(selectedItem)}`
+                    : "Autosaves while you work."}
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+                {scorecardOpen ? (
+                  <ScorecardForm
+                    form={form}
+                    effortRating={effortRating}
+                    builderRating={builderRating}
+                    flaggedForReview={flaggedForReview}
+                    saveStatus={saveStatus}
+                    selectedItem={selectedItem}
+                    reviewEvents={reviewEvents}
+                    reviewEventsLoading={reviewEventsLoading}
+                    activeReviewers={activeReviewers}
+                    currentUserEmail={initialData.currentUser.email}
+                    isCompleting={isCompleting}
+                    onMarkReviewed={handleMarkReviewed}
+                    compact
+                  />
+                ) : null}
+              </div>
+            </DrawerContent>
+          </Drawer>
+        )}
       </div>
     </main>
+  );
+}
+
+function ScorecardForm({
+  form,
+  effortRating,
+  builderRating,
+  flaggedForReview,
+  saveStatus,
+  selectedItem,
+  reviewEvents,
+  reviewEventsLoading,
+  activeReviewers,
+  currentUserEmail,
+  isCompleting,
+  onMarkReviewed,
+  compact = false,
+}: {
+  form: UseFormReturn<ReviewDraftInput>;
+  effortRating: number | null;
+  builderRating: number | null;
+  flaggedForReview: boolean;
+  saveStatus: SaveStatus;
+  selectedItem: ReviewListItem | undefined;
+  reviewEvents: ReviewEventRecord[];
+  reviewEventsLoading: boolean;
+  activeReviewers: PresenceMeta[];
+  currentUserEmail: string;
+  isCompleting: boolean;
+  onMarkReviewed: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <form
+      className={cn("space-y-5", compact ? "p-4" : "p-5")}
+      onSubmit={(event) => event.preventDefault()}
+    >
+      {!compact && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
+            Review
+          </p>
+          <h2 className="font-heading text-3xl italic text-moss dark:text-sage">
+            Scorecard
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Autosaves while you work. Use Mark reviewed when the review is
+            complete.
+          </p>
+        </div>
+      )}
+
+      {!compact && <Separator />}
+
+      <div className="space-y-2">
+        <Label htmlFor="effortRating">Effort / Motivation / Interest</Label>
+        <Controller
+          control={form.control}
+          name="effortRating"
+          render={({ field }) => (
+            <RatingPicker
+              value={field.value}
+              onChange={field.onChange}
+              invalid={!!form.formState.errors.effortRating}
+              label="Effort / Motivation / Interest"
+            />
+          )}
+        />
+        {form.formState.errors.effortRating && (
+          <p className="text-xs text-destructive">
+            {form.formState.errors.effortRating.message}
+          </p>
+        )}
+        <RatingDescription
+          value={effortRating}
+          descriptions={EFFORT_DESCRIPTIONS}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="builderRating">
+          Builder Mindset / Initiative / Vibe
+        </Label>
+        <Controller
+          control={form.control}
+          name="builderRating"
+          render={({ field }) => (
+            <RatingPicker
+              value={field.value}
+              onChange={field.onChange}
+              invalid={!!form.formState.errors.builderRating}
+              label="Builder Mindset / Initiative / Vibe"
+            />
+          )}
+        />
+        {form.formState.errors.builderRating && (
+          <p className="text-xs text-destructive">
+            {form.formState.errors.builderRating.message}
+          </p>
+        )}
+        <RatingDescription
+          value={builderRating}
+          descriptions={BUILDER_DESCRIPTIONS}
+        />
+      </div>
+
+      <Controller
+        control={form.control}
+        name="flaggedForReview"
+        render={({ field }) => (
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+            <Checkbox
+              checked={field.value}
+              onCheckedChange={(value) => {
+                const checked = value === true;
+                field.onChange(checked);
+                if (!checked) {
+                  form.setValue("reviewComments", null, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }
+              }}
+            />
+            <span className="flex items-center gap-2">
+              <FlagIcon className="size-4 text-amber-600 dark:text-amber-300" />
+              Flag for review
+            </span>
+          </label>
+        )}
+      />
+
+      {flaggedForReview && (
+        <div className="space-y-2">
+          <Label htmlFor="reviewComments">Flag comments</Label>
+          <Controller
+            control={form.control}
+            name="reviewComments"
+            render={({ field }) => (
+              <Textarea
+                id="reviewComments"
+                rows={compact ? 4 : 6}
+                value={field.value ?? ""}
+                onChange={(event) => field.onChange(event.target.value)}
+                placeholder="Why should this application get another look?"
+              />
+            )}
+          />
+        </div>
+      )}
+
+      <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground">Save status</span>
+          <span
+            className={cn(
+              "font-medium",
+              saveStatus === "error" && "text-destructive",
+              saveStatus === "saved" && "text-green-700 dark:text-green-300",
+              saveStatus === "saving" && "text-moss dark:text-sage",
+            )}
+          >
+            {saveStatus === "idle" && "Idle"}
+            {saveStatus === "saving" && "Saving..."}
+            {saveStatus === "saved" && "Saved"}
+            {saveStatus === "error" && "Check ratings"}
+          </span>
+        </div>
+        {selectedItem?.review?.reviewedAt && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <CheckCircle2Icon className="size-4 text-green-600 dark:text-green-300" />
+            Reviewed {new Date(selectedItem.review.reviewedAt).toLocaleString()}{" "}
+            by {selectedItem.review.reviewerEmail ?? "organizer"}
+          </div>
+        )}
+      </div>
+
+      <ReviewHistory events={reviewEvents} loading={reviewEventsLoading} />
+
+      {activeReviewers.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangleIcon className="size-4" />
+            Another organizer is here
+          </div>
+          <p className="mt-1 text-xs">
+            {activeReviewers.map((reviewer) => reviewer.email).join(", ")}
+          </p>
+        </div>
+      )}
+
+      <Button
+        type="button"
+        onClick={onMarkReviewed}
+        disabled={!selectedItem || isCompleting}
+        className="h-11 w-full bg-moss text-white hover:bg-moss/90 dark:bg-sage dark:text-night dark:hover:bg-sage/90"
+      >
+        {isCompleting
+          ? "Marking reviewed..."
+          : selectedItem?.review?.reviewedAt
+            ? "Update reviewed"
+            : "Mark reviewed"}
+      </Button>
+
+      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
+        <UserRoundIcon className="size-4" />
+        Signed in as {currentUserEmail}
+      </div>
+    </form>
   );
 }
 
