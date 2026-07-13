@@ -1,4 +1,5 @@
 import { desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
   hackerApplicants,
@@ -174,6 +175,8 @@ function applicantName(firstName: string | null, lastName: string | null) {
 }
 
 export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceData> {
+  await requireOrganizer();
+
   const applications = await db
     .select({
       application: hackerApplicants,
@@ -220,6 +223,8 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
 }
 
 export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboardData> {
+  await requireOrganizer();
+
   const organizers = await db
     .select({
       id: users.id,
@@ -346,6 +351,8 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
 }
 
 export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsData> {
+  await requireOrganizer();
+
   const applications = await db
     .select({
       status: hackerApplicants.status,
