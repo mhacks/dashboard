@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -65,6 +65,8 @@ type Organizer = { id: string; email: string };
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type StatusFilter = "all" | "pending" | "reviewed" | "flagged";
 type MobileView = "list" | "detail";
+type SupabaseBrowserClient = ReturnType<typeof createClient>;
+type ReviewSyncChannel = ReturnType<SupabaseBrowserClient["channel"]>;
 
 const DESKTOP_BREAKPOINT = 1024;
 
@@ -90,6 +92,17 @@ type PresenceMeta = {
   email: string;
   onlineAt: string;
 };
+
+type ReviewSyncPayload = {
+  sourceUserId: string;
+  applicationId: string;
+  review: ReviewRecord;
+  status?: ReviewListItem["application"]["status"];
+  event: ReviewEventRecord | null;
+};
+
+const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
+const REVIEW_SYNC_EVENT = "review_updated";
 
 const EFFORT_DESCRIPTIONS: Record<number, string> = {
   1: "Generic answer, unclear why they want to attend",
@@ -513,6 +526,7 @@ export default function ApplicationReviewWorkspace({
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosave = useRef(false);
   const saveSequence = useRef(0);
+  const reviewSyncChannel = useRef<ReviewSyncChannel | null>(null);
 
   const selectedItem = useMemo(
     () => items.find((item) => item.application.id === selectedId),
@@ -574,34 +588,51 @@ export default function ApplicationReviewWorkspace({
   const completionPercent =
     counts.total === 0 ? 0 : Math.round((completedCount / counts.total) * 100);
 
-  function updateReviewItem(
-    applicationId: string,
-    review: ReviewRecord,
-    status?: ReviewListItem["application"]["status"],
-  ) {
-    setItems((current) =>
-      current.map((item) =>
-        item.application.id === applicationId
-          ? {
-              ...item,
-              application: {
-                ...item.application,
-                status: status ?? item.application.status,
-              },
-              review,
-            }
-          : item,
-      ),
-    );
-  }
+  const updateReviewItem = useCallback(
+    (
+      applicationId: string,
+      review: ReviewRecord,
+      status?: ReviewListItem["application"]["status"],
+    ) => {
+      setItems((current) =>
+        current.map((item) =>
+          item.application.id === applicationId
+            ? {
+                ...item,
+                application: {
+                  ...item.application,
+                  status: status ?? item.application.status,
+                },
+                review,
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
 
-  function appendReviewEvent(event: ReviewEventRecord | null) {
+  const appendReviewEvent = useCallback((event: ReviewEventRecord | null) => {
     if (!event || event.applicationId !== selectedIdRef.current) return;
     setReviewEvents((current) => [
       event,
       ...current.filter((item) => item.id !== event.id),
     ]);
-  }
+  }, []);
+
+  const broadcastReviewUpdate = useCallback(
+    async (payload: Omit<ReviewSyncPayload, "sourceUserId">) => {
+      await reviewSyncChannel.current?.send({
+        type: "broadcast",
+        event: REVIEW_SYNC_EVENT,
+        payload: {
+          ...payload,
+          sourceUserId: organizer?.id ?? "",
+        },
+      });
+    },
+    [organizer?.id],
+  );
 
   function selectApplication(item: ReviewListItem) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -643,6 +674,11 @@ export default function ApplicationReviewWorkspace({
           if (saveSequence.current !== sequence) return;
           updateReviewItem(parsed.data.applicationId, result.review);
           appendReviewEvent(result.event);
+          void broadcastReviewUpdate({
+            applicationId: parsed.data.applicationId,
+            review: result.review,
+            event: result.event,
+          });
           setSaveStatus("saved");
           savedTimer.current = setTimeout(() => setSaveStatus("idle"), 2500);
         } catch (error) {
@@ -657,7 +693,28 @@ export default function ApplicationReviewWorkspace({
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (savedTimer.current) clearTimeout(savedTimer.current);
     };
-  }, [form]);
+  }, [appendReviewEvent, broadcastReviewUpdate, form, updateReviewItem]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase.channel(REVIEW_SYNC_CHANNEL);
+    reviewSyncChannel.current = channel;
+
+    channel.on("broadcast", { event: REVIEW_SYNC_EVENT }, ({ payload }) => {
+      const update = payload as ReviewSyncPayload;
+      if (update.sourceUserId && update.sourceUserId === organizer?.id) return;
+
+      updateReviewItem(update.applicationId, update.review, update.status);
+      appendReviewEvent(update.event);
+    });
+
+    channel.subscribe();
+
+    return () => {
+      reviewSyncChannel.current = null;
+      supabase.removeChannel(channel);
+    };
+  }, [appendReviewEvent, organizer?.id, updateReviewItem]);
 
   useEffect(() => {
     if (!selectedItem?.application.resume) {
@@ -769,6 +826,12 @@ export default function ApplicationReviewWorkspace({
       const result = await markApplicationReviewed(parsed.data);
       updateReviewItem(parsed.data.applicationId, result.review, result.status);
       appendReviewEvent(result.event);
+      void broadcastReviewUpdate({
+        applicationId: parsed.data.applicationId,
+        review: result.review,
+        status: result.status,
+        event: result.event,
+      });
       setScorecardOpen(false);
       toast.success("Application marked reviewed.");
     } catch (error) {
