@@ -529,10 +529,8 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
 
   const [auditTotals] = await db
     .select({
-      draftEvents:
-        sql<number>`count(*) filter (where ${hackerApplicationReviewEvents.eventType} = 'draft_saved')::int`,
-      completionEvents:
-        sql<number>`count(*) filter (where ${hackerApplicationReviewEvents.eventType} = 'review_completed')::int`,
+      draftEvents: sql<number>`count(*) filter (where ${hackerApplicationReviewEvents.eventType} = 'draft_saved')::int`,
+      completionEvents: sql<number>`count(*) filter (where ${hackerApplicationReviewEvents.eventType} = 'review_completed')::int`,
       totalEvents: sql<number>`count(*)::int`,
     })
     .from(hackerApplicationReviewEvents);
