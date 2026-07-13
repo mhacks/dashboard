@@ -12,25 +12,38 @@ import {
 } from "@/lib/db/schema/applications";
 import { users } from "@/lib/db/schema/users";
 
-export async function getResumeUploadUrl(
-  userId: string,
-  fileName: string,
-): Promise<{ uploadUrl: string; key: string }> {
-  const user = await requireSessionUser();
-  if (user.id !== userId) throw new Error("Forbidden");
+const MAX_RESUME_SIZE = 10 * 1024 * 1024;
 
-  const sanitized = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-  const key = `resumes/${userId}/${Date.now()}-${sanitized}`;
+export async function uploadResume(
+  formData: FormData,
+): Promise<{ error: string } | { key: string }> {
+  const { id: userId } = await requireSessionUser();
+  const file = formData.get("file");
 
-  const command = new PutObjectCommand({
-    Bucket: RESUMES_BUCKET,
-    Key: key,
-    ContentType: "application/pdf",
-  });
+  if (!(file instanceof File)) {
+    return { error: "No file provided" };
+  }
+  if (file.type !== "application/pdf") {
+    return { error: "File must be a PDF" };
+  }
+  if (file.size > MAX_RESUME_SIZE) {
+    return { error: "File exceeds 10 MB limit" };
+  }
 
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
+  const key = `resumes/${userId}.pdf`;
+  const buffer = Buffer.from(await file.arrayBuffer());
 
-  return { uploadUrl, key };
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: RESUMES_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: "application/pdf",
+      ContentLength: buffer.length,
+    }),
+  );
+
+  return { key };
 }
 
 async function canDownloadResume(key: string) {
