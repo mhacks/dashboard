@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   ArrowLeftIcon,
   BarChart3Icon,
@@ -8,7 +7,6 @@ import {
   TrophyIcon,
 } from "lucide-react";
 import { getApplicationReviewLeaderboard } from "@/lib/actions/application-review.server.actions";
-import { getSessionUser } from "@/lib/auth/session";
 import type { ReviewAuditEventRecord } from "@/lib/types/application-reviews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,11 +103,6 @@ function StatCard({
 }
 
 export default async function ApplicationReviewLeaderboardPage() {
-  const user = await getSessionUser();
-
-  if (!user) redirect("/login?next=/admin/applications/leaderboard");
-  if (user.role !== "organizer") redirect("/apply");
-
   const data = await getApplicationReviewLeaderboard();
   const topReviewer = data.rows[0];
 

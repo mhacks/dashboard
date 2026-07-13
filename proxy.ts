@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { sanitizeNextPath } from "@/lib/auth/redirects";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -48,13 +49,7 @@ export async function proxy(request: NextRequest) {
 
   if (user && pathname.startsWith("/login")) {
     const next = request.nextUrl.searchParams.get("next");
-    const destination =
-      next &&
-      next.startsWith("/") &&
-      !next.startsWith("//") &&
-      !next.startsWith("/login")
-        ? next
-        : "/";
+    const destination = sanitizeNextPath(next) ?? "/";
     const url = new URL(destination, request.url);
     const redirectResponse = NextResponse.redirect(url);
     supabaseResponse.cookies

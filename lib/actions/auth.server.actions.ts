@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
+import { destinationForRole } from "@/lib/auth/redirects";
 import { createClient } from "@/lib/supabase/server";
 
 export async function sendOtp(
@@ -41,22 +42,6 @@ export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/");
-}
-
-function sanitizeNextPath(next?: string) {
-  if (!next || !next.startsWith("/") || next.startsWith("/login")) return null;
-  if (next.startsWith("//")) return null;
-  return next;
-}
-
-function destinationForRole(role: "hacker" | "organizer", next?: string) {
-  const safeNext = sanitizeNextPath(next);
-
-  if (role === "hacker") {
-    return safeNext?.startsWith("/admin") ? "/apply" : (safeNext ?? "/apply");
-  }
-
-  return safeNext ?? "/admin/applications";
 }
 
 export async function verifyOtp(

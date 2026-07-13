@@ -1,6 +1,7 @@
 "use server";
 
-import { desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import type { z } from "zod";
 import { db } from "@/lib/db";
 import {
   hackerApplicants,
@@ -31,11 +32,19 @@ import {
 } from "@/lib/types/application-reviews";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 
+const MAX_REVIEW_EVENTS_PER_APPLICATION = 50;
+
 async function requireOrganizer(): Promise<UserEntry> {
   const user = await getSessionUser();
   if (!user) throw new Error("Unauthorized");
   if (user.role !== "organizer") throw new Error("Forbidden");
   return user;
+}
+
+function parseActionInput<T>(schema: z.ZodType<T>, input: unknown): T {
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) throw new Error("Invalid input");
+  return parsed.data;
 }
 
 function countStatuses(items: ReviewListItem[]): ReviewCounts {
@@ -256,7 +265,29 @@ async function recordReviewEvent({
     })
     .returning();
 
+  await pruneReviewEvents(review.applicationId);
+
   return withReviewEventEmail(event, reviewer.email);
+}
+
+async function pruneReviewEvents(applicationId: string) {
+  await db.execute(sql`
+    delete from ${hackerApplicationReviewEvents}
+    where ${hackerApplicationReviewEvents.id} in (
+      select id
+      from (
+        select
+          id,
+          row_number() over (
+            partition by application_id
+            order by created_at desc, id desc
+          ) as event_rank
+        from ${hackerApplicationReviewEvents}
+        where ${hackerApplicationReviewEvents.applicationId} = ${applicationId}
+      ) ranked_events
+      where event_rank > ${MAX_REVIEW_EVENTS_PER_APPLICATION}
+    )
+  `);
 }
 
 export async function getApplicationReviewDashboard(): Promise<{
@@ -320,7 +351,7 @@ export async function saveApplicationReviewDraft(
   input: ReviewDraftInput,
 ): Promise<{ review: ReviewRecord; event: ReviewEventRecord | null }> {
   const currentUser = await requireOrganizer();
-  const parsed = reviewDraftSchema.parse(input);
+  const parsed = parseActionInput(reviewDraftSchema, input);
   const now = new Date().toISOString();
   const reviewComments = parsed.flaggedForReview ? parsed.reviewComments : null;
 
@@ -378,7 +409,7 @@ export async function markApplicationReviewed(
   status: "reviewed" | "flagged";
 }> {
   const currentUser = await requireOrganizer();
-  const parsed = reviewCompleteSchema.parse(input);
+  const parsed = parseActionInput(reviewCompleteSchema, input);
   const now = new Date().toISOString();
   const status = parsed.flaggedForReview ? "flagged" : "reviewed";
   const reviewComments = parsed.flaggedForReview ? parsed.reviewComments : null;
@@ -440,7 +471,7 @@ export async function getApplicationReviewEvents(
   applicationId: string,
 ): Promise<ReviewEventRecord[]> {
   await requireOrganizer();
-  const parsed = reviewEventsInputSchema.parse({ applicationId });
+  const parsed = parseActionInput(reviewEventsInputSchema, { applicationId });
 
   const events = await db
     .select({
@@ -703,11 +734,12 @@ export async function getApplicationReviewResumeUrl(
   applicationId: string,
 ): Promise<string | null> {
   await requireOrganizer();
+  const parsed = parseActionInput(reviewEventsInputSchema, { applicationId });
 
   const [application] = await db
     .select({ resume: hackerApplicants.resume })
     .from(hackerApplicants)
-    .where(eq(hackerApplicants.id, applicationId))
+    .where(eq(hackerApplicants.id, parsed.applicationId))
     .limit(1);
 
   if (!application?.resume) return null;
