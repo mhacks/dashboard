@@ -1,12 +1,12 @@
 -- Demo reviewer data for local development.
-with demo_users(id, email, role) as (
+with demo_users(id, email) as (
   values
-    ('00000000-0000-4000-8000-000000000001'::uuid, 'organizer@mhacks.test', 'organizer'::user_role),
-    ('00000000-0000-4000-8000-000000000002'::uuid, 'reviewer@mhacks.test', 'organizer'::user_role),
-    ('00000000-0000-4000-8000-000000000101'::uuid, 'ada@mhacks.test', 'hacker'::user_role),
-    ('00000000-0000-4000-8000-000000000102'::uuid, 'grace@mhacks.test', 'hacker'::user_role),
-    ('00000000-0000-4000-8000-000000000103'::uuid, 'katherine@mhacks.test', 'hacker'::user_role),
-    ('00000000-0000-4000-8000-000000000104'::uuid, 'margaret@mhacks.test', 'hacker'::user_role)
+    ('00000000-0000-4000-8000-000000000001'::uuid, 'organizer@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000002'::uuid, 'reviewer@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000101'::uuid, 'ada@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000102'::uuid, 'grace@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000103'::uuid, 'katherine@mhacks.test'),
+    ('00000000-0000-4000-8000-000000000104'::uuid, 'margaret@mhacks.test')
 )
 insert into auth.users (
   instance_id,
