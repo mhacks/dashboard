@@ -524,7 +524,18 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
       hackerApplicants,
       eq(hackerApplicationReviewEvents.applicationId, hackerApplicants.id),
     )
-    .orderBy(desc(hackerApplicationReviewEvents.createdAt));
+    .orderBy(desc(hackerApplicationReviewEvents.createdAt))
+    .limit(100);
+
+  const [auditTotals] = await db
+    .select({
+      draftEvents:
+        sql<number>`count(*) filter (where ${hackerApplicationReviewEvents.eventType} = 'draft_saved')::int`,
+      completionEvents:
+        sql<number>`count(*) filter (where ${hackerApplicationReviewEvents.eventType} = 'review_completed')::int`,
+      totalEvents: sql<number>`count(*)::int`,
+    })
+    .from(hackerApplicationReviewEvents);
 
   const rowsByReviewerId = new Map<string, ReviewLeaderboardRow>();
 
@@ -605,13 +616,9 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
     recentEvents,
     totals: {
       completedApplications: completedReviews.length,
-      draftEvents: auditEvents.filter(
-        ({ event }) => event.eventType === "draft_saved",
-      ).length,
-      completionEvents: auditEvents.filter(
-        ({ event }) => event.eventType === "review_completed",
-      ).length,
-      totalEvents: auditEvents.length,
+      draftEvents: auditTotals?.draftEvents ?? 0,
+      completionEvents: auditTotals?.completionEvents ?? 0,
+      totalEvents: auditTotals?.totalEvents ?? 0,
       activeReviewers: rows.filter((row) => row.completedApplications > 0)
         .length,
     },
