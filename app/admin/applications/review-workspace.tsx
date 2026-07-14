@@ -19,6 +19,7 @@ import {
   InboxIcon,
   ListFilterIcon,
   SearchIcon,
+  SmartphoneIcon,
   TrophyIcon,
   UserRoundIcon,
 } from "lucide-react";
@@ -69,6 +70,8 @@ type SupabaseBrowserClient = ReturnType<typeof createClient>;
 type ReviewSyncChannel = ReturnType<SupabaseBrowserClient["channel"]>;
 
 const DESKTOP_BREAKPOINT = 1024;
+const PHONE_LANDSCAPE_QUERY =
+  "(orientation: landscape) and (max-height: 520px) and (max-width: 950px) and (pointer: coarse)";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(
@@ -85,6 +88,20 @@ function useIsDesktop() {
   }, []);
 
   return isDesktop;
+}
+
+function useIsPhoneLandscape() {
+  const [isPhoneLandscape, setIsPhoneLandscape] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(PHONE_LANDSCAPE_QUERY);
+    const onChange = () => setIsPhoneLandscape(media.matches);
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  return isPhoneLandscape;
 }
 
 type PresenceMeta = {
@@ -542,6 +559,7 @@ export default function ApplicationReviewWorkspace({
   const effortRating = form.watch("effortRating");
   const builderRating = form.watch("builderRating");
   const flaggedForReview = form.watch("flaggedForReview");
+  const isPhoneLandscape = useIsPhoneLandscape();
 
   useEffect(() => {
     createClient()
@@ -840,6 +858,24 @@ export default function ApplicationReviewWorkspace({
     } finally {
       setIsCompleting(false);
     }
+  }
+
+  if (isPhoneLandscape) {
+    return (
+      <main className="flex h-dvh items-center justify-center bg-background px-6 text-center text-foreground">
+        <div className="flex max-w-sm flex-col items-center gap-3">
+          <div className="flex size-12 items-center justify-center rounded-full border bg-card text-moss dark:text-sage">
+            <SmartphoneIcon className="size-6" />
+          </div>
+          <h1 className="font-heading text-3xl italic tracking-tight text-moss dark:text-sage">
+            Rotate your phone
+          </h1>
+          <p className="text-sm leading-6 text-muted-foreground">
+            The review workspace works best in portrait on mobile.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
