@@ -55,10 +55,7 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -521,7 +518,8 @@ export default function ApplicationReviewWorkspace({
   }, [query, statusFilter]);
 
   const paginatedItems = useMemo(
-    () => paginateSlice(filteredItems, applicationsPage, APPLICATIONS_PAGE_SIZE),
+    () =>
+      paginateSlice(filteredItems, applicationsPage, APPLICATIONS_PAGE_SIZE),
     [filteredItems, applicationsPage],
   );
 
@@ -1010,7 +1008,9 @@ export default function ApplicationReviewWorkspace({
                   </h2>
                   <Badge
                     variant="outline"
-                    className={statusClassName(selectedDetail.application.status)}
+                    className={statusClassName(
+                      selectedDetail.application.status,
+                    )}
                   >
                     {applicationStatusLabel(selectedDetail.application.status)}
                   </Badge>
@@ -1074,7 +1074,10 @@ export default function ApplicationReviewWorkspace({
 
             <Section title="Applicant Snapshot">
               <MetaItem label="Age" value={selectedDetail.application.age} />
-              <MetaItem label="Gender" value={selectedDetail.application.gender} />
+              <MetaItem
+                label="Gender"
+                value={selectedDetail.application.gender}
+              />
               <MetaItem
                 label="Ethnicity"
                 value={selectedDetail.application.ethnicity}
@@ -1090,8 +1093,14 @@ export default function ApplicationReviewWorkspace({
                 label="University"
                 value={selectedDetail.application.university}
               />
-              <MetaItem label="Major" value={selectedDetail.application.major} />
-              <MetaItem label="Degree" value={selectedDetail.application.degree} />
+              <MetaItem
+                label="Major"
+                value={selectedDetail.application.major}
+              />
+              <MetaItem
+                label="Degree"
+                value={selectedDetail.application.degree}
+              />
               <MetaItem
                 label="Graduation year"
                 value={selectedDetail.application.graduationYear}

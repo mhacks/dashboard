@@ -11,7 +11,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3Icon, MapPinnedIcon, TrophyIcon, UsersRoundIcon } from "lucide-react";
+import {
+  BarChart3Icon,
+  MapPinnedIcon,
+  TrophyIcon,
+  UsersRoundIcon,
+} from "lucide-react";
 import type {
   AnalyticsBucket,
   ApplicationAnalyticsData,
