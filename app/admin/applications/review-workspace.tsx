@@ -21,6 +21,7 @@ import {
   SmartphoneIcon,
   TrophyIcon,
   UserRoundIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -859,64 +860,47 @@ export default function ApplicationReviewWorkspace({
     <main className="h-dvh overflow-hidden bg-background text-foreground">
       <div className="flex h-full flex-col">
         <header className="shrink-0 border-b bg-card/80 px-4 py-3 backdrop-blur md:px-6">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
-                  MHacks Organizer
-                </p>
-                <h1 className="font-heading text-2xl italic tracking-tight text-moss sm:text-3xl dark:text-sage">
-                  Application Review
-                </h1>
-              </div>
-              <div className="flex shrink-0 items-center gap-2 lg:hidden">
-                <Button asChild variant="outline" size="sm" className="bg-card">
-                  <Link href="/admin/applications/leaderboard">
-                    <TrophyIcon className="size-4" />
-                    <span className="sr-only">Leaderboard</span>
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="bg-card">
-                  <Link href="/admin/applications/analytics">
-                    <BarChart3Icon className="size-4" />
-                    <span className="sr-only">Analytics</span>
-                  </Link>
-                </Button>
-                <ThemeToggle />
-              </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
+                MHacks Organizer
+              </p>
+              <h1 className="font-heading text-2xl italic tracking-tight text-moss sm:text-3xl dark:text-sage">
+                Application Review
+              </h1>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
-                <Stat
-                  label="Done"
-                  value={`${completedCount}/${counts.total}`}
-                />
-                <Stat label="Pending" value={counts.pending} />
-                <Stat label="Reviewed" value={counts.reviewed} />
-                <Stat label="Flagged" value={counts.flagged} />
-              </div>
-              <div className="hidden items-center gap-2 lg:flex">
-                <Button asChild variant="outline" size="sm" className="bg-card">
-                  <Link href="/admin/applications/leaderboard">
-                    <TrophyIcon className="size-4" />
-                    Leaderboard
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="bg-card">
-                  <Link href="/admin/applications/analytics">
-                    <BarChart3Icon className="size-4" />
-                    Analytics
-                  </Link>
-                </Button>
-                <ThemeToggle />
-              </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button asChild variant="outline" size="sm" className="bg-card">
+                <Link
+                  href="/admin/applications/leaderboard"
+                  aria-label="Leaderboard"
+                >
+                  <TrophyIcon className="size-4" />
+                  <span className="hidden sm:inline">Leaderboard</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="bg-card">
+                <Link
+                  href="/admin/applications/analytics"
+                  aria-label="Analytics"
+                >
+                  <BarChart3Icon className="size-4" />
+                  <span className="hidden sm:inline">Analytics</span>
+                </Link>
+              </Button>
+              <ThemeToggle />
             </div>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-moss/10 dark:bg-sage/10">
-            <div
-              className="h-full rounded-full bg-moss transition-all dark:bg-sage"
-              style={{ width: `${completionPercent}%` }}
-            />
+          <div className="mt-3 flex items-center gap-3">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-moss/10 dark:bg-sage/10">
+              <div
+                className="h-full rounded-full bg-moss transition-all dark:bg-sage"
+                style={{ width: `${completionPercent}%` }}
+              />
+            </div>
+            <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {completedCount} of {counts.total} complete
+            </p>
           </div>
         </header>
 
@@ -942,11 +926,11 @@ export default function ApplicationReviewWorkspace({
                   setStatusFilter(value as StatusFilter)
                 }
               >
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="pending">Pending</TabsTrigger>
-                  <TabsTrigger value="reviewed">Done</TabsTrigger>
-                  <TabsTrigger value="flagged">Flagged</TabsTrigger>
+                <TabsList className="grid h-auto w-full min-w-0 grid-cols-4 overflow-hidden p-1 group-data-horizontal/tabs:!h-auto [&>*]:min-w-0">
+                  <StatusFilterTab value="all" count={counts.total} />
+                  <StatusFilterTab value="pending" count={counts.pending} />
+                  <StatusFilterTab value="reviewed" count={counts.reviewed} />
+                  <StatusFilterTab value="flagged" count={counts.flagged} />
                 </TabsList>
               </Tabs>
               <div className="relative">
@@ -1553,11 +1537,79 @@ function ScorecardForm({
   );
 }
 
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+const STATUS_FILTER_META: Record<
+  StatusFilter,
+  { label: string; shortLabel: string; icon: LucideIcon; colorClass: string }
+> = {
+  all: {
+    label: "All",
+    shortLabel: "All",
+    icon: ListFilterIcon,
+    colorClass: "text-moss dark:text-sage",
+  },
+  pending: {
+    label: "Pending",
+    shortLabel: "Pend",
+    icon: InboxIcon,
+    colorClass: "text-slate-600 dark:text-slate-400",
+  },
+  reviewed: {
+    label: "Done",
+    shortLabel: "Done",
+    icon: CheckCircle2Icon,
+    colorClass: "text-green-700 dark:text-green-300",
+  },
+  flagged: {
+    label: "Flagged",
+    shortLabel: "Flag",
+    icon: FlagIcon,
+    colorClass: "text-amber-700 dark:text-amber-300",
+  },
+};
+
+function StatusFilterTab({
+  value,
+  count,
+}: {
+  value: StatusFilter;
+  count: number;
+}) {
+  const {
+    label,
+    shortLabel,
+    icon: Icon,
+    colorClass,
+  } = STATUS_FILTER_META[value];
+
   return (
-    <div className="rounded-lg border bg-card px-3 py-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-lg font-semibold text-moss dark:text-sage">{value}</p>
-    </div>
+    <TabsTrigger
+      value={value}
+      title={label}
+      aria-label={`${label} (${count})`}
+      className={cn(
+        "box-border flex !h-auto w-full min-w-0 max-w-full flex-col items-center gap-0.5 overflow-hidden px-0.5 py-1.5 whitespace-normal after:hidden",
+        "data-active:[&_[data-slot=filter-label]]:opacity-100",
+        "data-active:[&_[data-slot=filter-count]]:opacity-100",
+      )}
+    >
+      <span
+        data-slot="filter-label"
+        className="flex w-full min-w-0 items-center justify-center gap-1 opacity-70"
+      >
+        <Icon className={cn("size-3 shrink-0", colorClass)} aria-hidden />
+        <span className={cn("truncate text-[10px] leading-none", colorClass)}>
+          {shortLabel}
+        </span>
+      </span>
+      <span
+        data-slot="filter-count"
+        className={cn(
+          "block w-full min-w-0 truncate text-center text-xs leading-none italic tabular-nums opacity-80",
+          colorClass,
+        )}
+      >
+        {count}
+      </span>
+    </TabsTrigger>
   );
 }
