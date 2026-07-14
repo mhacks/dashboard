@@ -450,6 +450,7 @@ export default function ApplicationReviewWorkspace({
   const selectedIdRef = useRef(selectedId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlightSave = useRef<Promise<void> | null>(null);
   const skipNextAutosave = useRef(false);
   const saveSequence = useRef(0);
   const reviewSyncChannel = useRef<ReviewSyncChannel | null>(null);
@@ -586,11 +587,72 @@ export default function ApplicationReviewWorkspace({
     [organizer?.id],
   );
 
-  function selectApplication(item: ReviewListSummaryItem) {
+  const persistReviewDraft = useCallback(
+    async (data: ReviewDraftInput, sequence: number) => {
+      try {
+        const result = await saveApplicationReviewDraft(data);
+        if (saveSequence.current !== sequence) return;
+        updateReviewItem(data.applicationId, result.review);
+        appendReviewEvent(result.event);
+        void broadcastReviewUpdate({
+          applicationId: data.applicationId,
+          review: result.review,
+          event: result.event,
+        });
+        setSaveStatus("saved");
+        savedTimer.current = setTimeout(() => setSaveStatus("idle"), 2500);
+      } catch (error) {
+        console.error("Review autosave failed:", error);
+        if (saveSequence.current === sequence) setSaveStatus("error");
+      }
+    },
+    [appendReviewEvent, broadcastReviewUpdate, updateReviewItem],
+  );
+
+  const flushAutosave = useCallback(async () => {
+    if (skipNextAutosave.current) return;
+
+    const hadPendingTimer = saveTimer.current !== null;
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    if (savedTimer.current) {
+      clearTimeout(savedTimer.current);
+      savedTimer.current = null;
+    }
+
+    if (inFlightSave.current) {
+      await inFlightSave.current;
+    }
+
+    if (!hadPendingTimer && !form.formState.isDirty) return;
+
+    const values = normalizeReviewValues(form.getValues());
+    const parsed = reviewDraftSchema.safeParse(values);
+    if (!parsed.success) return;
+    if (parsed.data.applicationId !== selectedIdRef.current) return;
+
+    const sequence = saveSequence.current + 1;
+    saveSequence.current = sequence;
+    setSaveStatus("saving");
+
+    const savePromise = persistReviewDraft(parsed.data, sequence);
+    inFlightSave.current = savePromise;
+    try {
+      await savePromise;
+    } finally {
+      if (inFlightSave.current === savePromise) {
+        inFlightSave.current = null;
+      }
+    }
+  }, [form, persistReviewDraft]);
+
+  async function selectApplication(item: ReviewListSummaryItem) {
     if (item.application.id === selectedId) return;
 
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (savedTimer.current) clearTimeout(savedTimer.current);
+    await flushAutosave();
+    saveSequence.current += 1;
     skipNextAutosave.current = true;
     setSelectedId(item.application.id);
     setSelectedDetail(undefined);
@@ -657,23 +719,14 @@ export default function ApplicationReviewWorkspace({
       saveSequence.current = sequence;
       setSaveStatus("saving");
 
-      saveTimer.current = setTimeout(async () => {
-        try {
-          const result = await saveApplicationReviewDraft(parsed.data);
-          if (saveSequence.current !== sequence) return;
-          updateReviewItem(parsed.data.applicationId, result.review);
-          appendReviewEvent(result.event);
-          void broadcastReviewUpdate({
-            applicationId: parsed.data.applicationId,
-            review: result.review,
-            event: result.event,
-          });
-          setSaveStatus("saved");
-          savedTimer.current = setTimeout(() => setSaveStatus("idle"), 2500);
-        } catch (error) {
-          console.error("Review autosave failed:", error);
-          setSaveStatus("error");
-        }
+      saveTimer.current = setTimeout(() => {
+        const savePromise = persistReviewDraft(parsed.data, sequence);
+        inFlightSave.current = savePromise;
+        void savePromise.finally(() => {
+          if (inFlightSave.current === savePromise) {
+            inFlightSave.current = null;
+          }
+        });
       }, 900);
     });
 
@@ -682,7 +735,7 @@ export default function ApplicationReviewWorkspace({
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (savedTimer.current) clearTimeout(savedTimer.current);
     };
-  }, [appendReviewEvent, broadcastReviewUpdate, form, updateReviewItem]);
+  }, [form, persistReviewDraft]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -902,7 +955,7 @@ export default function ApplicationReviewWorkspace({
                 <button
                   key={item.application.id}
                   type="button"
-                  onClick={() => selectApplication(item)}
+                  onClick={() => void selectApplication(item)}
                   className={cn(
                     "block w-full px-4 py-3 text-left transition-colors hover:bg-muted/60",
                     active && "bg-muted hover:bg-muted",
