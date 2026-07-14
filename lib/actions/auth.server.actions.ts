@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function sendOtp(
   email: string,
@@ -46,12 +47,22 @@ export async function verifyOtp(
   next?: string,
 ): Promise<{ error: string } | undefined> {
   const supabase = await createClient();
-  const { error } = await supabase.auth.verifyOtp({
+  const { data, error } = await supabase.auth.verifyOtp({
     email,
     token,
     type: "email",
   });
   if (error) return { error: error.message };
+
+  if (data.user) {
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: data.user.id,
+      event: "user_signed_in",
+      properties: { method: "otp" },
+    });
+    await posthog.flush();
+  }
 
   // Only allow relative same-origin paths; reject anything else.
   const destination =

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useApplicationsOpen } from "./use-applications-open";
 import MlhTrustBadge from "./mlh-trust-badge";
+import posthog from "posthog-js";
 
 const BOX_W = 176;
 const BOX_H = 224;
@@ -185,6 +186,7 @@ export default function HeroSection() {
               aria-disabled={!applicationsOpen}
               onClick={(e) => {
                 if (!applicationsOpen) e.preventDefault();
+                else posthog.capture("apply_now_clicked", { location: "hero" });
               }}
               className="relative group hidden lg:block"
               onMouseEnter={handleButtonEnter}

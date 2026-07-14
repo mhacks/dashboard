@@ -5,6 +5,7 @@ overrides:
   # schemas (minor 4) and breaking zodResolver typechecking / the build.
   zod: 4.4.3
 allowBuilds:
+  core-js: true
   esbuild: true
   msw: true
   sharp: true
