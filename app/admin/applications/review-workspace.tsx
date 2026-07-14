@@ -59,8 +59,10 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { ApplicationReviewHeader } from "./components/application-review-header";
+import { ListPagination } from "./components/list-pagination";
 import { Meter } from "./components/meter";
 import {
   applicationStatusLabel,
@@ -77,6 +79,7 @@ type SupabaseBrowserClient = ReturnType<typeof createClient>;
 type ReviewSyncChannel = ReturnType<SupabaseBrowserClient["channel"]>;
 
 const DESKTOP_BREAKPOINT = 1024;
+const APPLICATIONS_PAGE_SIZE = 25;
 const PHONE_LANDSCAPE_QUERY =
   "(orientation: landscape) and (max-height: 520px) and (max-width: 950px) and (pointer: coarse)";
 
@@ -425,6 +428,7 @@ export default function ApplicationReviewWorkspace({
   const [detailLoading, setDetailLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+  const [applicationsPage, setApplicationsPage] = useState(0);
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -497,6 +501,15 @@ export default function ApplicationReviewWorkspace({
       return haystack.includes(needle);
     });
   }, [items, query, statusFilter]);
+
+  useEffect(() => {
+    setApplicationsPage(0);
+  }, [query, statusFilter]);
+
+  const paginatedItems = useMemo(
+    () => paginateSlice(filteredItems, applicationsPage, APPLICATIONS_PAGE_SIZE),
+    [filteredItems, applicationsPage],
+  );
 
   const counts = useMemo(() => getCounts(items), [items]);
   const completedCount = counts.reviewed + counts.flagged;
@@ -913,7 +926,7 @@ export default function ApplicationReviewWorkspace({
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredItems.map((item) => {
+                  {paginatedItems.map((item) => {
                     const active = item.application.id === selectedId;
                     return (
                       <button
@@ -963,6 +976,12 @@ export default function ApplicationReviewWorkspace({
                 </div>
               )}
             </ScrollArea>
+            <ListPagination
+              pageIndex={applicationsPage}
+              totalItems={filteredItems.length}
+              pageSize={APPLICATIONS_PAGE_SIZE}
+              onPageChange={setApplicationsPage}
+            />
           </aside>
 
           <section

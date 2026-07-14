@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { ApplicationReviewHeader } from "../components/application-review-header";
 import { Meter } from "../components/meter";
 import { SummaryBar } from "../components/summary-bar";
-import { ReviewEventRow } from "../review-event-timeline";
+import { AuditActivityFeed } from "./audit-activity-feed";
 
 function formatDate(value: string | null) {
   if (!value) return "No activity yet";
@@ -196,22 +196,7 @@ export default async function ApplicationReviewLeaderboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0 pb-0">
-            {data.recentEvents.length === 0 ? (
-              <div className="px-4 pb-4">
-                <div className="flex h-36 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
-                  No review activity yet. Edits will show up here as organizers
-                  save drafts or complete scorecards.
-                </div>
-              </div>
-            ) : (
-              <ScrollArea className="max-h-[480px]">
-                <div className="divide-y divide-border/60">
-                  {data.recentEvents.map((event) => (
-                    <ReviewEventRow key={event.id} event={event} />
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
+            <AuditActivityFeed events={data.recentEvents} />
           </CardContent>
         </Card>
       </div>

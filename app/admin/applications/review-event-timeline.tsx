@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { HistoryIcon } from "lucide-react";
 import type {
   ReviewAuditEventRecord,
@@ -7,7 +8,9 @@ import type {
 } from "@/lib/types/application-reviews";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
+import { ListPagination } from "./components/list-pagination";
 import {
   applicationStatusLabel,
   formatReviewEventValue,
@@ -252,6 +255,7 @@ export function ReviewEventTimeline({
   emptyMessage = "No review edits logged yet.",
   maxHeight = "480px",
   compact = false,
+  pageSize = compact ? 5 : 10,
   className,
 }: {
   events: TimelineEvent[];
@@ -261,8 +265,20 @@ export function ReviewEventTimeline({
   emptyMessage?: string;
   maxHeight?: string;
   compact?: boolean;
+  pageSize?: number;
   className?: string;
 }) {
+  const [pageIndex, setPageIndex] = useState(0);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [events]);
+
+  const paginatedEvents = useMemo(
+    () => paginateSlice(events, pageIndex, pageSize),
+    [events, pageIndex, pageSize],
+  );
+
   return (
     <div
       className={cn(
@@ -293,20 +309,29 @@ export function ReviewEventTimeline({
             {emptyMessage}
           </div>
         ) : (
-          <ScrollArea
-            className="w-full min-w-0 overflow-x-hidden"
-            style={{ maxHeight }}
-          >
-            <div className="min-w-0 divide-y divide-border/60 overflow-x-hidden pr-2">
-              {events.map((event) => (
-                <ReviewEventRow
-                  key={event.id}
-                  event={event}
-                  compact={compact}
-                />
-              ))}
-            </div>
-          </ScrollArea>
+          <>
+            <ScrollArea
+              className="w-full min-w-0 overflow-x-hidden"
+              style={{ maxHeight }}
+            >
+              <div className="min-w-0 divide-y divide-border/60 overflow-x-hidden pr-2">
+                {paginatedEvents.map((event) => (
+                  <ReviewEventRow
+                    key={event.id}
+                    event={event}
+                    compact={compact}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+            <ListPagination
+              pageIndex={pageIndex}
+              totalItems={events.length}
+              pageSize={pageSize}
+              onPageChange={setPageIndex}
+              className="mt-2 rounded-md border-t-0 bg-transparent px-0 py-1.5"
+            />
+          </>
         )}
       </div>
     </div>
