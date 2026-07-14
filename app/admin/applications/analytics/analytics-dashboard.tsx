@@ -41,7 +41,6 @@ import {
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "../theme-toggle";
-
 const CHART_COLORS = [
   "var(--color-moss)",
   "var(--color-sage)",

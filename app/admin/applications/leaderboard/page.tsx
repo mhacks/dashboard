@@ -26,7 +26,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import ThemeToggle from "../theme-toggle";
-
 const REVIEW_EVENT_FIELD_LABELS: Record<string, string> = {
   effortRating: "Effort",
   builderRating: "Builder",

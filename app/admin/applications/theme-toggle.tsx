@@ -13,9 +13,11 @@ export default function ThemeToggle() {
       type="button"
       variant="outline"
       size="sm"
+      disabled
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className="gap-2 bg-card"
       aria-label="Toggle dark mode"
+      title="Theme switching is temporarily disabled"
     >
       {isDark ? (
         <SunIcon className="size-4" />
