@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDefaultLayout } from "react-resizable-panels";
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -54,6 +55,10 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -117,6 +122,11 @@ type PresenceMeta = {
   onlineAt: string;
 };
 
+const REVIEW_WORKSPACE_PANEL_IDS = [
+  "applications-list",
+  "application-detail",
+  "scorecard",
+] as const;
 const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
 const REVIEW_SYNC_EVENT = "review_updated";
 
@@ -460,6 +470,10 @@ export default function ApplicationReviewWorkspace({
   const builderRating = form.watch("builderRating");
   const flaggedForReview = form.watch("flaggedForReview");
   const isPhoneLandscape = useIsPhoneLandscape();
+  const panelLayout = useDefaultLayout({
+    id: "application-review-workspace",
+    panelIds: [...REVIEW_WORKSPACE_PANEL_IDS],
+  });
 
   useEffect(() => {
     createClient()
@@ -846,6 +860,355 @@ export default function ApplicationReviewWorkspace({
     }
   }
 
+  const applicationsListBody = (
+    <>
+      <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-2">
+          <InboxIcon className="size-4 text-moss dark:text-sage" />
+          <h2 className="text-sm font-semibold">Applications</h2>
+        </div>
+        <Badge variant="outline">{filteredItems.length}</Badge>
+      </div>
+      <div className="shrink-0 space-y-3 border-b p-3">
+        <Tabs
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+        >
+          <TabsList className="grid h-auto w-full min-w-0 grid-cols-4 overflow-hidden p-1 group-data-horizontal/tabs:!h-auto [&>*]:min-w-0">
+            <StatusFilterTab value="all" count={counts.total} />
+            <StatusFilterTab value="pending" count={counts.pending} />
+            <StatusFilterTab value="reviewed" count={counts.reviewed} />
+            <StatusFilterTab value="flagged" count={counts.flagged} />
+          </TabsList>
+        </Tabs>
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search applications"
+            className="pl-8"
+          />
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {filteredItems.length === 0 ? (
+          <div className="p-6 text-sm text-muted-foreground">
+            No applications match this view.
+          </div>
+        ) : (
+          <div className="divide-y">
+            {paginatedItems.map((item) => {
+              const active = item.application.id === selectedId;
+              return (
+                <button
+                  key={item.application.id}
+                  type="button"
+                  onClick={() => selectApplication(item)}
+                  className={cn(
+                    "block w-full px-4 py-3 text-left transition-colors hover:bg-muted/60",
+                    active && "bg-muted hover:bg-muted",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="truncate text-sm font-semibold">
+                      {applicantName(item)}
+                    </p>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {new Date(item.application.createdAt).toLocaleDateString(
+                        undefined,
+                        {
+                          month: "short",
+                          day: "numeric",
+                        },
+                      )}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={statusClassName(item.application.status)}
+                    >
+                      {applicationStatusLabel(item.application.status)}
+                    </Badge>
+                    {item.review?.flaggedForReview && (
+                      <FlagIcon className="size-3.5 text-amber-600" />
+                    )}
+                    <ReviewBadge review={item.review} />
+                  </div>
+                  <p className="mt-2 truncate text-xs font-medium">
+                    {item.application.university} · {item.application.major}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                    {item.application.whyMhacksPreview}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <ListPagination
+        pageIndex={applicationsPage}
+        totalItems={filteredItems.length}
+        pageSize={APPLICATIONS_PAGE_SIZE}
+        onPageChange={setApplicationsPage}
+        className="shrink-0"
+      />
+    </>
+  );
+
+  const applicationDetailBody = (
+    <>
+      <div className="flex h-14 items-center justify-between gap-2 border-b bg-card px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 lg:hidden"
+            onClick={() => {
+              setScorecardOpen(false);
+              setMobileView("list");
+            }}
+            aria-label="Back to applications"
+          >
+            <ArrowLeftIcon className="size-4" />
+          </Button>
+          <ListFilterIcon className="hidden size-4 shrink-0 text-muted-foreground lg:block" />
+          <span className="truncate text-sm font-medium">
+            {selectedDetail
+              ? `${applicantName(selectedDetail)} application`
+              : "Select an application"}
+          </span>
+        </div>
+        {selectedDetail && (
+          <Badge
+            variant="outline"
+            className={statusClassName(selectedDetail.application.status)}
+          >
+            {applicationStatusLabel(selectedDetail.application.status)}
+          </Badge>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {detailLoading && !selectedDetail ? (
+          <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
+            Loading application…
+          </div>
+        ) : !selectedDetail ? (
+          <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
+            Select an application to review.
+          </div>
+        ) : (
+          <div className="mx-auto w-full max-w-3xl space-y-7 p-4 pb-28 sm:p-5 md:p-6 lg:pb-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-heading text-3xl italic tracking-tight text-moss sm:text-4xl dark:text-sage">
+                    {applicantName(selectedDetail)}
+                  </h2>
+                  <Badge
+                    variant="outline"
+                    className={statusClassName(selectedDetail.application.status)}
+                  >
+                    {applicationStatusLabel(selectedDetail.application.status)}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {selectedDetail.application.applicantEmail ??
+                    "No applicant email"}{" "}
+                  · submitted{" "}
+                  {new Date(
+                    selectedDetail.application.createdAt,
+                  ).toLocaleDateString()}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <QuickLink
+                    href={
+                      selectedDetail.application.applicantEmail
+                        ? `mailto:${selectedDetail.application.applicantEmail}`
+                        : null
+                    }
+                    label="Email"
+                  />
+                  <QuickLink
+                    href={resumeUrl}
+                    label="Resume"
+                    icon={<FileTextIcon className="size-3.5" />}
+                  />
+                  <QuickLink
+                    href={externalHref(selectedDetail.application.github)}
+                    label="GitHub"
+                  />
+                  <QuickLink
+                    href={externalHref(selectedDetail.application.linkedin)}
+                    label="LinkedIn"
+                  />
+                  <QuickLink
+                    href={externalHref(selectedDetail.application.personalSite)}
+                    label="Website"
+                  />
+                </div>
+              </div>
+              {activeReviewers.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
+                  <div className="flex items-center gap-2 font-medium">
+                    <EyeIcon className="size-4" />
+                    Currently viewing
+                  </div>
+                  <p className="mt-1 text-xs">
+                    {activeReviewers
+                      .map((reviewer) => reviewer.email)
+                      .join(", ")}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <ResumePreview
+              resumeKey={selectedDetail.application.resume}
+              resumeUrl={resumeUrl}
+              loading={resumeLoading}
+            />
+
+            <Section title="Applicant Snapshot">
+              <MetaItem label="Age" value={selectedDetail.application.age} />
+              <MetaItem label="Gender" value={selectedDetail.application.gender} />
+              <MetaItem
+                label="Ethnicity"
+                value={selectedDetail.application.ethnicity}
+              />
+              <MetaItem
+                label="Phone"
+                value={selectedDetail.application.phoneNumber}
+              />
+            </Section>
+
+            <Section title="Academic Snapshot">
+              <MetaItem
+                label="University"
+                value={selectedDetail.application.university}
+              />
+              <MetaItem label="Major" value={selectedDetail.application.major} />
+              <MetaItem label="Degree" value={selectedDetail.application.degree} />
+              <MetaItem
+                label="Graduation year"
+                value={selectedDetail.application.graduationYear}
+              />
+              <MetaItem
+                label="Previous hackathons"
+                value={selectedDetail.application.previousHackathons}
+              />
+              <MetaItem
+                label="Country"
+                value={selectedDetail.application.country}
+              />
+            </Section>
+
+            <Section title="Essays">
+              <EssayBlock
+                label="Why MHacks?"
+                value={selectedDetail.application.whyMhacks}
+              />
+              <EssayBlock
+                label="Funding prompt"
+                value={selectedDetail.application.whatWouldYouDo}
+              />
+              <EssayBlock
+                label="Hill to die on"
+                value={selectedDetail.application.hillToDieOn}
+              />
+              <EssayBlock
+                label="Anything else"
+                value={selectedDetail.application.anythingElse}
+              />
+            </Section>
+
+            <Section title="Logistics">
+              <MetaItem
+                label="Transportation"
+                value={selectedDetail.application.transportationType}
+              />
+              <MetaItem
+                label="Coming from"
+                value={selectedDetail.application.comingFrom}
+              />
+              <MetaItem
+                label="Airport"
+                value={selectedDetail.application.airportCode}
+              />
+              <MetaItem
+                label="Shirt size"
+                value={selectedDetail.application.shirtSize}
+              />
+              <MetaItem
+                label="Allergies/restrictions"
+                value={selectedDetail.application.allergiesDescription}
+              />
+              <MetaItem
+                label="Needs reimbursement"
+                value={selectedDetail.application.needsTravelReimbursement}
+              />
+              <MetaItem
+                label="Would attend without reimbursement"
+                value={
+                  selectedDetail.application.wouldAttendWithoutReimbursement
+                }
+              />
+            </Section>
+          </div>
+        )}
+      </div>
+
+      {selectedDetail && (
+        <div className="shrink-0 border-t bg-card/95 px-3 pt-3 backdrop-blur supports-backdrop-filter:bg-card/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">
+                {saveStatus === "saving" && "Saving..."}
+                {saveStatus === "saved" && "Saved"}
+                {saveStatus === "error" && "Check ratings"}
+                {saveStatus === "idle" && "Autosaves as you score"}
+              </p>
+              <p className="truncate text-sm font-medium">
+                {effortRating ?? "—"} · {builderRating ?? "—"}
+                {flaggedForReview ? " · Flagged" : ""}
+              </p>
+            </div>
+            <Button
+              type="button"
+              className="h-11 shrink-0 bg-moss px-5 text-white hover:bg-moss/90 dark:bg-sage dark:text-night dark:hover:bg-sage/90"
+              onClick={() => setScorecardOpen(true)}
+            >
+              <ClipboardCheckIcon className="size-4" />
+              Score
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const scorecardBody = (
+    <ScrollArea className="min-h-0 flex-1">
+      <ScorecardForm
+        form={form}
+        effortRating={effortRating}
+        builderRating={builderRating}
+        flaggedForReview={flaggedForReview}
+        saveStatus={saveStatus}
+        selectedDetail={selectedDetail}
+        reviewEvents={reviewEvents}
+        reviewEventsLoading={reviewEventsLoading}
+        activeReviewers={activeReviewers}
+        organizerEmail={organizer?.email}
+        isCompleting={isCompleting}
+        onMarkReviewed={handleMarkReviewed}
+      />
+    </ScrollArea>
+  );
+
   if (isPhoneLandscape) {
     return (
       <main className="flex h-dvh items-center justify-center bg-background px-6 text-center text-foreground">
@@ -880,388 +1243,68 @@ export default function ApplicationReviewWorkspace({
           }
         />
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)_minmax(300px,360px)]">
-          <aside
-            className={cn(
-              "min-h-0 min-w-0 flex-col border-r bg-card",
-              mobileView === "list" ? "flex" : "hidden",
-              "lg:flex",
-            )}
+        {isDesktop ? (
+          <ResizablePanelGroup
+            id="application-review-workspace"
+            orientation="horizontal"
+            defaultLayout={panelLayout.defaultLayout}
+            onLayoutChanged={panelLayout.onLayoutChanged}
+            resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
+            className="min-h-0 flex-1 overflow-hidden border-t bg-card"
           >
-            <div className="flex h-14 items-center justify-between border-b px-4">
-              <div className="flex items-center gap-2">
-                <InboxIcon className="size-4 text-moss dark:text-sage" />
-                <h2 className="text-sm font-semibold">Applications</h2>
-              </div>
-              <Badge variant="outline">{filteredItems.length}</Badge>
-            </div>
-            <div className="space-y-3 border-b p-3">
-              <Tabs
-                value={statusFilter}
-                onValueChange={(value) =>
-                  setStatusFilter(value as StatusFilter)
-                }
-              >
-                <TabsList className="grid h-auto w-full min-w-0 grid-cols-4 overflow-hidden p-1 group-data-horizontal/tabs:!h-auto [&>*]:min-w-0">
-                  <StatusFilterTab value="all" count={counts.total} />
-                  <StatusFilterTab value="pending" count={counts.pending} />
-                  <StatusFilterTab value="reviewed" count={counts.reviewed} />
-                  <StatusFilterTab value="flagged" count={counts.flagged} />
-                </TabsList>
-              </Tabs>
-              <div className="relative">
-                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search applications"
-                  className="pl-8"
-                />
-              </div>
-            </div>
-            <ScrollArea className="min-h-0 flex-1">
-              {filteredItems.length === 0 ? (
-                <div className="p-6 text-sm text-muted-foreground">
-                  No applications match this view.
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {paginatedItems.map((item) => {
-                    const active = item.application.id === selectedId;
-                    return (
-                      <button
-                        key={item.application.id}
-                        type="button"
-                        onClick={() => selectApplication(item)}
-                        className={cn(
-                          "block w-full px-4 py-3 text-left transition-colors hover:bg-muted/60",
-                          active && "bg-muted hover:bg-muted",
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-semibold">
-                            {applicantName(item)}
-                          </p>
-                          <span className="shrink-0 text-[11px] text-muted-foreground">
-                            {new Date(
-                              item.application.createdAt,
-                            ).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={statusClassName(item.application.status)}
-                          >
-                            {applicationStatusLabel(item.application.status)}
-                          </Badge>
-                          {item.review?.flaggedForReview && (
-                            <FlagIcon className="size-3.5 text-amber-600" />
-                          )}
-                          <ReviewBadge review={item.review} />
-                        </div>
-                        <p className="mt-2 truncate text-xs font-medium">
-                          {item.application.university} ·{" "}
-                          {item.application.major}
-                        </p>
-                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                          {item.application.whyMhacksPreview}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
+            <ResizablePanel
+              id="applications-list"
+              defaultSize={300}
+              minSize={280}
+              className="min-h-0 min-w-0"
+            >
+              <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+                {applicationsListBody}
+              </aside>
+            </ResizablePanel>
+
+            <ResizablePanel
+              id="application-detail"
+              minSize={320}
+              className="min-h-0 min-w-0"
+            >
+              <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
+                {applicationDetailBody}
+              </section>
+            </ResizablePanel>
+
+            <ResizablePanel
+              id="scorecard"
+              defaultSize={330}
+              minSize={300}
+              className="min-h-0 min-w-0"
+            >
+              <aside className="flex h-full min-h-0 min-w-0 flex-col bg-card">
+                {scorecardBody}
+              </aside>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card">
+            <aside
+              className={cn(
+                "min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card",
+                mobileView === "list" ? "flex" : "hidden",
               )}
-            </ScrollArea>
-            <ListPagination
-              pageIndex={applicationsPage}
-              totalItems={filteredItems.length}
-              pageSize={APPLICATIONS_PAGE_SIZE}
-              onPageChange={setApplicationsPage}
-            />
-          </aside>
+            >
+              {applicationsListBody}
+            </aside>
 
-          <section
-            className={cn(
-              "min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30",
-              mobileView === "detail" ? "flex" : "hidden",
-              "lg:flex",
-            )}
-          >
-            <div className="flex h-14 items-center justify-between gap-2 border-b bg-card px-3 sm:px-4">
-              <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="shrink-0 lg:hidden"
-                  onClick={() => {
-                    setScorecardOpen(false);
-                    setMobileView("list");
-                  }}
-                  aria-label="Back to applications"
-                >
-                  <ArrowLeftIcon className="size-4" />
-                </Button>
-                <ListFilterIcon className="hidden size-4 shrink-0 text-muted-foreground lg:block" />
-                <span className="truncate text-sm font-medium">
-                  {selectedDetail
-                    ? `${applicantName(selectedDetail)} application`
-                    : "Select an application"}
-                </span>
-              </div>
-              {selectedDetail && (
-                <Badge
-                  variant="outline"
-                  className={statusClassName(selectedDetail.application.status)}
-                >
-                  {applicationStatusLabel(selectedDetail.application.status)}
-                </Badge>
+            <section
+              className={cn(
+                "min-h-0 min-w-0 flex-col overflow-hidden bg-muted/30",
+                mobileView === "detail" ? "flex" : "hidden",
               )}
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {detailLoading && !selectedDetail ? (
-                <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
-                  Loading application…
-                </div>
-              ) : !selectedDetail ? (
-                <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
-                  Select an application to review.
-                </div>
-              ) : (
-                <div className="mx-auto w-full max-w-3xl space-y-7 p-4 pb-28 sm:p-5 md:p-6 lg:pb-6">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="font-heading text-3xl italic tracking-tight text-moss sm:text-4xl dark:text-sage">
-                          {applicantName(selectedDetail)}
-                        </h2>
-                        <Badge
-                          variant="outline"
-                          className={statusClassName(
-                            selectedDetail.application.status,
-                          )}
-                        >
-                          {applicationStatusLabel(selectedDetail.application.status)}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {selectedDetail.application.applicantEmail ??
-                          "No applicant email"}{" "}
-                        · submitted{" "}
-                        {new Date(
-                          selectedDetail.application.createdAt,
-                        ).toLocaleDateString()}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <QuickLink
-                          href={
-                            selectedDetail.application.applicantEmail
-                              ? `mailto:${selectedDetail.application.applicantEmail}`
-                              : null
-                          }
-                          label="Email"
-                        />
-                        <QuickLink
-                          href={resumeUrl}
-                          label="Resume"
-                          icon={<FileTextIcon className="size-3.5" />}
-                        />
-                        <QuickLink
-                          href={externalHref(selectedDetail.application.github)}
-                          label="GitHub"
-                        />
-                        <QuickLink
-                          href={externalHref(
-                            selectedDetail.application.linkedin,
-                          )}
-                          label="LinkedIn"
-                        />
-                        <QuickLink
-                          href={externalHref(
-                            selectedDetail.application.personalSite,
-                          )}
-                          label="Website"
-                        />
-                      </div>
-                    </div>
-                    {activeReviewers.length > 0 && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-                        <div className="flex items-center gap-2 font-medium">
-                          <EyeIcon className="size-4" />
-                          Currently viewing
-                        </div>
-                        <p className="mt-1 text-xs">
-                          {activeReviewers
-                            .map((reviewer) => reviewer.email)
-                            .join(", ")}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <ResumePreview
-                    resumeKey={selectedDetail.application.resume}
-                    resumeUrl={resumeUrl}
-                    loading={resumeLoading}
-                  />
-
-                  <Section title="Applicant Snapshot">
-                    <MetaItem
-                      label="Age"
-                      value={selectedDetail.application.age}
-                    />
-                    <MetaItem
-                      label="Gender"
-                      value={selectedDetail.application.gender}
-                    />
-                    <MetaItem
-                      label="Ethnicity"
-                      value={selectedDetail.application.ethnicity}
-                    />
-                    <MetaItem
-                      label="Phone"
-                      value={selectedDetail.application.phoneNumber}
-                    />
-                  </Section>
-
-                  <Section title="Academic Snapshot">
-                    <MetaItem
-                      label="University"
-                      value={selectedDetail.application.university}
-                    />
-                    <MetaItem
-                      label="Major"
-                      value={selectedDetail.application.major}
-                    />
-                    <MetaItem
-                      label="Degree"
-                      value={selectedDetail.application.degree}
-                    />
-                    <MetaItem
-                      label="Graduation year"
-                      value={selectedDetail.application.graduationYear}
-                    />
-                    <MetaItem
-                      label="Previous hackathons"
-                      value={selectedDetail.application.previousHackathons}
-                    />
-                    <MetaItem
-                      label="Country"
-                      value={selectedDetail.application.country}
-                    />
-                  </Section>
-
-                  <Section title="Essays">
-                    <EssayBlock
-                      label="Why MHacks?"
-                      value={selectedDetail.application.whyMhacks}
-                    />
-                    <EssayBlock
-                      label="Funding prompt"
-                      value={selectedDetail.application.whatWouldYouDo}
-                    />
-                    <EssayBlock
-                      label="Hill to die on"
-                      value={selectedDetail.application.hillToDieOn}
-                    />
-                    <EssayBlock
-                      label="Anything else"
-                      value={selectedDetail.application.anythingElse}
-                    />
-                  </Section>
-
-                  <Section title="Logistics">
-                    <MetaItem
-                      label="Transportation"
-                      value={selectedDetail.application.transportationType}
-                    />
-                    <MetaItem
-                      label="Coming from"
-                      value={selectedDetail.application.comingFrom}
-                    />
-                    <MetaItem
-                      label="Airport"
-                      value={selectedDetail.application.airportCode}
-                    />
-                    <MetaItem
-                      label="Shirt size"
-                      value={selectedDetail.application.shirtSize}
-                    />
-                    <MetaItem
-                      label="Allergies/restrictions"
-                      value={selectedDetail.application.allergiesDescription}
-                    />
-                    <MetaItem
-                      label="Needs reimbursement"
-                      value={
-                        selectedDetail.application.needsTravelReimbursement
-                      }
-                    />
-                    <MetaItem
-                      label="Would attend without reimbursement"
-                      value={
-                        selectedDetail.application
-                          .wouldAttendWithoutReimbursement
-                      }
-                    />
-                  </Section>
-                </div>
-              )}
-            </div>
-
-            {selectedDetail && (
-              <div className="shrink-0 border-t bg-card/95 px-3 pt-3 backdrop-blur supports-backdrop-filter:bg-card/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground">
-                      {saveStatus === "saving" && "Saving..."}
-                      {saveStatus === "saved" && "Saved"}
-                      {saveStatus === "error" && "Check ratings"}
-                      {saveStatus === "idle" && "Autosaves as you score"}
-                    </p>
-                    <p className="truncate text-sm font-medium">
-                      {effortRating ?? "—"} · {builderRating ?? "—"}
-                      {flaggedForReview ? " · Flagged" : ""}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    className="h-11 shrink-0 bg-moss px-5 text-white hover:bg-moss/90 dark:bg-sage dark:text-night dark:hover:bg-sage/90"
-                    onClick={() => setScorecardOpen(true)}
-                  >
-                    <ClipboardCheckIcon className="size-4" />
-                    Score
-                  </Button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <aside className="hidden min-h-0 min-w-0 flex-col bg-card lg:flex">
-            {isDesktop ? (
-              <ScrollArea className="min-h-0 flex-1">
-                <ScorecardForm
-                  form={form}
-                  effortRating={effortRating}
-                  builderRating={builderRating}
-                  flaggedForReview={flaggedForReview}
-                  saveStatus={saveStatus}
-                  selectedDetail={selectedDetail}
-                  reviewEvents={reviewEvents}
-                  reviewEventsLoading={reviewEventsLoading}
-                  activeReviewers={activeReviewers}
-                  organizerEmail={organizer?.email}
-                  isCompleting={isCompleting}
-                  onMarkReviewed={handleMarkReviewed}
-                />
-              </ScrollArea>
-            ) : null}
-          </aside>
-        </div>
+            >
+              {applicationDetailBody}
+            </section>
+          </div>
+        )}
 
         {!isDesktop && (
           <Drawer open={scorecardOpen} onOpenChange={setScorecardOpen}>
