@@ -10,6 +10,7 @@ import {
   hackerApplicationDrafts,
 } from "@/lib/db/schema/applications";
 import { createClient } from "@/lib/supabase/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 async function getAuthenticatedUserId(): Promise<string> {
   const supabase = await createClient();
@@ -52,6 +53,20 @@ export const submitHackerApplication = async (
       await db
         .delete(hackerApplicationDrafts)
         .where(eq(hackerApplicationDrafts.userId, userId));
+
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: userId,
+        event: "application_submitted",
+        properties: {
+          university: parsed.university,
+          degree: parsed.degree,
+          graduation_year: parsed.graduationYear,
+          transportation_type: parsed.transportationType,
+          needs_travel_reimbursement: parsed.needsTravelReimbursement,
+        },
+      });
+      await posthog.flush();
     }
 
     return { duplicate: result.length === 0 };
