@@ -260,24 +260,18 @@ function externalHref(value: string | null | undefined) {
 
 function MetaItem({ label, value }: { label: string; value: unknown }) {
   return (
-    <div className="min-w-0 rounded-lg border bg-card px-3 py-2">
-      <dt className="font-red-hat text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 truncate font-red-hat text-sm font-medium text-foreground">
-        {displayValue(value)}
-      </dd>
+    <div className="grid gap-x-4 gap-y-0.5 py-3 sm:grid-cols-[minmax(9rem,34%)_1fr]">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="break-words text-sm text-foreground">{displayValue(value)}</dd>
     </div>
   );
 }
 
 function EssayBlock({ label, value }: { label: string; value: unknown }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <dt className="font-red-hat text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-2 whitespace-pre-wrap font-red-hat text-sm leading-6 text-foreground">
+    <div className="py-4">
+      <dt className="text-sm font-medium text-foreground">{label}</dt>
+      <dd className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
         {displayValue(value)}
       </dd>
     </div>
@@ -287,22 +281,16 @@ function EssayBlock({ label, value }: { label: string; value: unknown }) {
 function Section({
   title,
   children,
-  dense = false,
 }: {
   title: string;
   children: React.ReactNode;
-  dense?: boolean;
 }) {
   return (
-    <section className="space-y-3">
-      <h2 className="font-red-hat text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+    <section>
+      <h2 className="mb-3 font-red-hat text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </h2>
-      <dl
-        className={
-          dense ? "grid gap-2 sm:grid-cols-2 xl:grid-cols-3" : "space-y-2"
-        }
-      >
+      <dl className="divide-y divide-border/60 rounded-lg border bg-card px-4 py-1">
         {children}
       </dl>
     </section>
@@ -398,34 +386,38 @@ function ReviewHistory({
         )}
       </div>
 
-      {!loading && events.length === 0 && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          No review edits logged yet.
-        </p>
-      )}
+      <ScrollArea className="mt-2 h-48">
+        <div className="pr-3">
+          {!loading && events.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No review edits logged yet.
+            </p>
+          )}
 
-      {events.length > 0 && (
-        <ol className="mt-3 space-y-3">
-          {events.slice(0, 8).map((event) => (
-            <li key={event.id} className="border-l pl-3">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                <span className="font-medium text-foreground">
-                  {reviewEventLabel(event.eventType)}
-                </span>
-                <span className="text-muted-foreground">
-                  {new Date(event.createdAt).toLocaleString()}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                by {event.reviewerEmail ?? "organizer"}
-              </p>
-              <p className="mt-1 line-clamp-3 text-xs leading-5 text-foreground">
-                {describeReviewEventChanges(event)}
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
+          {events.length > 0 && (
+            <ol className="space-y-3">
+              {events.map((event) => (
+                <li key={event.id} className="border-l pl-3">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                    <span className="font-medium text-foreground">
+                      {reviewEventLabel(event.eventType)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {new Date(event.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    by {event.reviewerEmail ?? "organizer"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-foreground">
+                    {describeReviewEventChanges(event)}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
@@ -1238,7 +1230,7 @@ export default function ApplicationReviewWorkspace({
                     loading={resumeLoading}
                   />
 
-                  <Section title="Applicant Snapshot" dense>
+                  <Section title="Applicant Snapshot">
                     <MetaItem
                       label="Age"
                       value={selectedDetail.application.age}
@@ -1257,7 +1249,7 @@ export default function ApplicationReviewWorkspace({
                     />
                   </Section>
 
-                  <Section title="Academic Snapshot" dense>
+                  <Section title="Academic Snapshot">
                     <MetaItem
                       label="University"
                       value={selectedDetail.application.university}
@@ -1303,7 +1295,7 @@ export default function ApplicationReviewWorkspace({
                     />
                   </Section>
 
-                  <Section title="Logistics" dense>
+                  <Section title="Logistics">
                     <MetaItem
                       label="Transportation"
                       value={selectedDetail.application.transportationType}
