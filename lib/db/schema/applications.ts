@@ -1,6 +1,7 @@
 import {
   pgTable,
   pgEnum,
+  pgPolicy,
   unique,
   uuid,
   text,
@@ -11,7 +12,9 @@ import {
   foreignKey,
   index,
 } from "drizzle-orm/pg-core";
-import { authUsers } from "drizzle-orm/supabase";
+import { sql } from "drizzle-orm";
+import { authUid, authenticatedRole, authUsers } from "drizzle-orm/supabase";
+import { isOrganizer } from "./rls";
 import { users } from "./users";
 
 export const applicationStatus = pgEnum("application_status", [
@@ -116,6 +119,22 @@ export const hackerApplicants = pgTable(
       name: "hacker_applicants_user_id_users_id_fk",
     }).onDelete("cascade"),
     unique("hacker_applicants_user_id_unique").on(table.userId),
+    pgPolicy("hacker_applicants_select_own_or_organizer", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
+    }),
+    pgPolicy("hacker_applicants_insert_own", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("hacker_applicants_update_own_or_organizer", {
+      for: "update",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
+      withCheck: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
+    }),
   ],
 ).enableRLS();
 
@@ -137,6 +156,27 @@ export const hackerApplicationDrafts = pgTable(
       foreignColumns: [authUsers.id],
       name: "hacker_application_drafts_user_id_fkey",
     }).onDelete("cascade"),
+    pgPolicy("hacker_application_drafts_select_own", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("hacker_application_drafts_insert_own", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("hacker_application_drafts_update_own", {
+      for: "update",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid}`,
+      withCheck: sql`${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("hacker_application_drafts_delete_own", {
+      for: "delete",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid}`,
+    }),
   ],
 ).enableRLS();
 
@@ -181,6 +221,12 @@ export const hackerApplicationReviews = pgTable(
     unique("hacker_application_reviews_application_id_unique").on(
       table.applicationId,
     ),
+    pgPolicy("hacker_application_reviews_organizer_all", {
+      for: "all",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
+    }),
   ],
 ).enableRLS();
 
@@ -221,6 +267,12 @@ export const hackerApplicationReviewEvents = pgTable(
       table.applicationId,
       table.createdAt,
     ),
+    pgPolicy("hacker_application_review_events_organizer_all", {
+      for: "all",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
+    }),
   ],
 ).enableRLS();
 

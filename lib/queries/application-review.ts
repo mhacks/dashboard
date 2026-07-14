@@ -17,12 +17,14 @@ import {
   type ReviewEventRecord,
   type ReviewLeaderboardData,
   type ReviewLeaderboardRow,
-  type ReviewListItem,
+  type ReviewListSummaryItem,
   type ReviewRecord,
   type ReviewWorkspaceData,
 } from "@/lib/types/application-reviews";
 
-function countStatuses(items: ReviewListItem[]): ReviewCounts {
+const WHY_MHACKS_PREVIEW_LENGTH = 160;
+
+function countStatuses(items: ReviewListSummaryItem[]): ReviewCounts {
   return items.reduce<ReviewCounts>(
     (counts, item) => {
       counts.total += 1;
@@ -179,14 +181,22 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
 
   const applications = await db
     .select({
-      application: hackerApplicants,
+      id: hackerApplicants.id,
+      userId: hackerApplicants.userId,
+      status: hackerApplicants.status,
+      firstName: hackerApplicants.firstName,
+      lastName: hackerApplicants.lastName,
+      university: hackerApplicants.university,
+      major: hackerApplicants.major,
+      whyMhacks: hackerApplicants.whyMhacks,
+      createdAt: hackerApplicants.createdAt,
       applicantEmail: users.email,
     })
     .from(hackerApplicants)
     .leftJoin(users, eq(hackerApplicants.userId, users.id))
     .orderBy(desc(hackerApplicants.createdAt));
 
-  const applicationIds = applications.map(({ application }) => application.id);
+  const applicationIds = applications.map((application) => application.id);
   const reviews =
     applicationIds.length === 0
       ? []
@@ -211,10 +221,29 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
     ]),
   );
 
-  const items = applications.map(({ application, applicantEmail }) => ({
-    application: { ...application, applicantEmail },
-    review: reviewsByApplicationId.get(application.id) ?? null,
-  }));
+  const items: ReviewListSummaryItem[] = applications.map((application) => {
+    const trimmed = application.whyMhacks.trim();
+    const whyMhacksPreview =
+      trimmed.length <= WHY_MHACKS_PREVIEW_LENGTH
+        ? trimmed
+        : `${trimmed.slice(0, WHY_MHACKS_PREVIEW_LENGTH).trimEnd()}…`;
+
+    return {
+      application: {
+        id: application.id,
+        userId: application.userId,
+        status: application.status,
+        firstName: application.firstName,
+        lastName: application.lastName,
+        applicantEmail: application.applicantEmail,
+        university: application.university,
+        major: application.major,
+        whyMhacksPreview,
+        createdAt: application.createdAt,
+      },
+      review: reviewsByApplicationId.get(application.id) ?? null,
+    };
+  });
 
   return {
     items,

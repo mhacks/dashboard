@@ -28,10 +28,20 @@ export const reviewDraftSchema = z.object({
   reviewComments: z.string().max(3000, "Comments are too long").nullable(),
 });
 
-export const reviewCompleteSchema = reviewDraftSchema.extend({
-  effortRating: finalRatingSchema,
-  builderRating: finalRatingSchema,
-});
+export const reviewCompleteSchema = reviewDraftSchema
+  .extend({
+    effortRating: finalRatingSchema,
+    builderRating: finalRatingSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.flaggedForReview && !data.reviewComments?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Please explain why this application is flagged",
+        path: ["reviewComments"],
+      });
+    }
+  });
 
 export const reviewEventsInputSchema = z.object({
   applicationId: z.uuid(),
@@ -69,8 +79,26 @@ export type ReviewAuditEventRecord = ReviewEventRecord & {
   applicationStatus: ReviewApplication["status"];
 };
 
+export type ReviewApplicationSummary = {
+  id: string;
+  userId: string;
+  status: ReviewApplication["status"];
+  firstName: string;
+  lastName: string;
+  applicantEmail: string | null;
+  university: string;
+  major: string;
+  whyMhacksPreview: string;
+  createdAt: string;
+};
+
+export type ReviewListSummaryItem = {
+  application: ReviewApplicationSummary;
+  review: ReviewRecord | null;
+};
+
 export type ReviewWorkspaceData = {
-  items: ReviewListItem[];
+  items: ReviewListSummaryItem[];
   counts: ReviewCounts;
 };
 

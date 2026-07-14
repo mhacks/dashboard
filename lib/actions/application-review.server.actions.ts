@@ -280,3 +280,42 @@ export async function getApplicationReviewEvents(
     withReviewEventEmail(event, reviewerEmail),
   );
 }
+
+export async function getApplicationReviewDetail(
+  applicationId: string,
+): Promise<ReviewListItem> {
+  await requireOrganizer();
+  const parsed = parseActionInput(reviewEventsInputSchema, { applicationId });
+
+  const [application] = await db
+    .select({
+      application: hackerApplicants,
+      applicantEmail: users.email,
+    })
+    .from(hackerApplicants)
+    .leftJoin(users, eq(hackerApplicants.userId, users.id))
+    .where(eq(hackerApplicants.id, parsed.applicationId))
+    .limit(1);
+
+  if (!application) throw new Error("Application not found");
+
+  const [review] = await db
+    .select({
+      review: hackerApplicationReviews,
+      reviewerEmail: users.email,
+    })
+    .from(hackerApplicationReviews)
+    .leftJoin(users, eq(hackerApplicationReviews.reviewerUserId, users.id))
+    .where(eq(hackerApplicationReviews.applicationId, parsed.applicationId))
+    .limit(1);
+
+  return {
+    application: {
+      ...application.application,
+      applicantEmail: application.applicantEmail,
+    },
+    review: review
+      ? withReviewerEmail(review.review, review.reviewerEmail)
+      : null,
+  };
+}

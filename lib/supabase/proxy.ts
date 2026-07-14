@@ -79,6 +79,16 @@ export async function updateSession(request: NextRequest) {
     );
   }
 
+  if (user && pathname.startsWith("/admin")) {
+    const sessionUser = await getSessionUser();
+    if (sessionUser?.role !== "organizer") {
+      return redirectWithSessionCookies(
+        new URL("/apply", request.url),
+        supabaseResponse,
+      );
+    }
+  }
+
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
   // creating a new response object with NextResponse.next() make sure to:
   // 1. Pass the request in it, like so:

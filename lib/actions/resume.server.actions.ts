@@ -2,15 +2,8 @@
 
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { eq, sql } from "drizzle-orm";
 import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { db } from "@/lib/db";
-import {
-  hackerApplicants,
-  hackerApplicationDrafts,
-} from "@/lib/db/schema/applications";
-import { users } from "@/lib/db/schema/users";
 
 const MAX_RESUME_SIZE = 10 * 1024 * 1024;
 
@@ -51,24 +44,7 @@ async function canDownloadResume(key: string) {
 
   if (user.role === "organizer") return true;
 
-  const [ownedResume] = await db
-    .select({
-      applicationId: hackerApplicants.id,
-      draftUserId: hackerApplicationDrafts.userId,
-    })
-    .from(users)
-    .leftJoin(
-      hackerApplicants,
-      sql`${hackerApplicants.userId} = ${users.id} and ${hackerApplicants.resume} = ${key}`,
-    )
-    .leftJoin(
-      hackerApplicationDrafts,
-      sql`${hackerApplicationDrafts.userId} = ${users.id} and ${hackerApplicationDrafts.data}->>'resume' = ${key}`,
-    )
-    .where(eq(users.id, user.id))
-    .limit(1);
-
-  return Boolean(ownedResume?.applicationId || ownedResume?.draftUserId);
+  return key === `resumes/${user.id}.pdf`;
 }
 
 export async function getResumeDownloadUrl(key: string): Promise<string> {

@@ -31,6 +31,9 @@ export const submitHackerApplication = async (
 ): Promise<{ duplicate: boolean }> => {
   const { id: userId } = await requireSessionUser();
   const parsed = hackerApplicationSchema.parse(data);
+  if (parsed.resume !== `resumes/${userId}.pdf`) {
+    throw new Error("Invalid resume");
+  }
 
   try {
     const result = await db
@@ -59,6 +62,10 @@ export const saveDraft = async (
 ): Promise<void> => {
   const { id: userId } = await requireSessionUser();
 
+  if (data.resume !== undefined && data.resume !== `resumes/${userId}.pdf`) {
+    throw new Error("Invalid resume");
+  }
+
   try {
     await db
       .insert(hackerApplicationDrafts)
@@ -82,6 +89,9 @@ export const updateHackerApplication = async (
 ): Promise<void> => {
   const { id: userId } = await requireSessionUser();
   const parsed = hackerApplicationSchema.parse(data);
+  if (parsed.resume !== `resumes/${userId}.pdf`) {
+    throw new Error("Invalid resume");
+  }
 
   try {
     await db

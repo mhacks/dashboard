@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import {
   getApplicationReviewEvents,
+  getApplicationReviewDetail,
   markApplicationReviewed,
   saveApplicationReviewDraft,
 } from "@/lib/actions/application-review.server.actions";
@@ -39,6 +40,7 @@ import {
   type ReviewDraftInput,
   type ReviewEventRecord,
   type ReviewListItem,
+  type ReviewListSummaryItem,
   type ReviewRecord,
 } from "@/lib/types/application-reviews";
 import { Badge } from "@/components/ui/badge";
@@ -147,7 +149,9 @@ function emptyReviewDefaults(applicationId: string): ReviewDraftInput {
   };
 }
 
-function toReviewDefaults(item: ReviewListItem | undefined): ReviewDraftInput {
+function toReviewDefaults(
+  item: ReviewListItem | ReviewListSummaryItem | undefined,
+): ReviewDraftInput {
   if (!item) return emptyReviewDefaults("");
 
   return {
@@ -171,7 +175,7 @@ function normalizeReviewValues(values: ReviewDraftInput): ReviewDraftInput {
   };
 }
 
-function getCounts(items: ReviewListItem[]): ReviewCounts {
+function getCounts(items: ReviewListSummaryItem[]): ReviewCounts {
   return items.reduce<ReviewCounts>(
     (counts, item) => {
       counts.total += 1;
@@ -182,7 +186,7 @@ function getCounts(items: ReviewListItem[]): ReviewCounts {
   );
 }
 
-function applicantName(item: ReviewListItem) {
+function applicantName(item: ReviewListSummaryItem | ReviewListItem) {
   const name =
     `${item.application.firstName} ${item.application.lastName}`.trim();
   return name || item.application.applicantEmail || "Unnamed applicant";
@@ -525,6 +529,10 @@ export default function ApplicationReviewWorkspace({
   const [selectedId, setSelectedId] = useState(
     initialSelectedItem?.application.id ?? "",
   );
+  const [selectedDetail, setSelectedDetail] = useState<
+    ReviewListItem | undefined
+  >(undefined);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [mobileView, setMobileView] = useState<MobileView>("list");
@@ -545,15 +553,12 @@ export default function ApplicationReviewWorkspace({
   const saveSequence = useRef(0);
   const reviewSyncChannel = useRef<ReviewSyncChannel | null>(null);
 
-  const selectedItem = useMemo(
-    () => items.find((item) => item.application.id === selectedId),
-    [items, selectedId],
-  );
-
   const form = useForm<ReviewDraftInput>({
     resolver: zodResolver(reviewDraftSchema),
     mode: "onChange",
-    defaultValues: toReviewDefaults(initialSelectedItem),
+    defaultValues: emptyReviewDefaults(
+      initialSelectedItem?.application.id ?? "",
+    ),
   });
 
   const effortRating = form.watch("effortRating");
@@ -592,6 +597,7 @@ export default function ApplicationReviewWorkspace({
         item.application.applicantEmail,
         item.application.university,
         item.application.major,
+        item.application.whyMhacksPreview,
         item.application.status,
       ]
         .filter(Boolean)
@@ -626,6 +632,18 @@ export default function ApplicationReviewWorkspace({
             : item,
         ),
       );
+      setSelectedDetail((current) =>
+        current?.application.id === applicationId
+          ? {
+              ...current,
+              application: {
+                ...current.application,
+                status: status ?? current.application.status,
+              },
+              review,
+            }
+          : current,
+      );
     },
     [],
   );
@@ -652,20 +670,55 @@ export default function ApplicationReviewWorkspace({
     [organizer?.id],
   );
 
-  function selectApplication(item: ReviewListItem) {
+  function selectApplication(item: ReviewListSummaryItem) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     skipNextAutosave.current = true;
     setSelectedId(item.application.id);
+    setSelectedDetail(undefined);
     setMobileView("detail");
     setScorecardOpen(false);
     setSaveStatus("idle");
     setResumeUrl(null);
-    form.reset(toReviewDefaults(item));
+    form.reset(
+      toReviewDefaults({ application: item.application, review: item.review }),
+    );
     window.setTimeout(() => {
       skipNextAutosave.current = false;
     }, 0);
   }
+
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedDetail(undefined);
+      setDetailLoading(false);
+      return;
+    }
+
+    let ignore = false;
+    setDetailLoading(true);
+
+    getApplicationReviewDetail(selectedId)
+      .then((detail) => {
+        if (!ignore) {
+          setSelectedDetail(detail);
+          if (!skipNextAutosave.current) {
+            form.reset(toReviewDefaults(detail));
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Unable to load application detail:", error);
+        if (!ignore) setSelectedDetail(undefined);
+      })
+      .finally(() => {
+        if (!ignore) setDetailLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedId]);
 
   useEffect(() => {
     // react-hook-form's watch() subscription cannot be memoized by React Compiler.
@@ -715,7 +768,9 @@ export default function ApplicationReviewWorkspace({
 
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase.channel(REVIEW_SYNC_CHANNEL);
+    const channel = supabase.channel(REVIEW_SYNC_CHANNEL, {
+      config: { private: true },
+    });
     reviewSyncChannel.current = channel;
 
     channel.on("broadcast", { event: REVIEW_SYNC_EVENT }, ({ payload }) => {
@@ -735,7 +790,7 @@ export default function ApplicationReviewWorkspace({
   }, [appendReviewEvent, organizer?.id, updateReviewItem]);
 
   useEffect(() => {
-    if (!selectedItem?.application.resume) {
+    if (!selectedDetail?.application.resume) {
       setResumeUrl(null);
       setResumeLoading(false);
       return;
@@ -745,7 +800,7 @@ export default function ApplicationReviewWorkspace({
     setResumeLoading(true);
     setResumeUrl(null);
 
-    getResumeDownloadUrl(selectedItem.application.resume)
+    getResumeDownloadUrl(selectedDetail.application.resume)
       .then((url) => {
         if (!ignore) setResumeUrl(url);
       })
@@ -760,7 +815,7 @@ export default function ApplicationReviewWorkspace({
     return () => {
       ignore = true;
     };
-  }, [selectedItem?.application.id, selectedItem?.application.resume]);
+  }, [selectedDetail?.application.id, selectedDetail?.application.resume]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -795,7 +850,7 @@ export default function ApplicationReviewWorkspace({
 
     const supabase = createClient();
     const channel = supabase.channel(`application-review:${selectedId}`, {
-      config: { presence: { key: organizer.id } },
+      config: { private: true, presence: { key: organizer.id } },
     });
 
     const syncPresence = () => {
@@ -1031,7 +1086,7 @@ export default function ApplicationReviewWorkspace({
                           {item.application.major}
                         </p>
                         <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                          {item.application.whyMhacks}
+                          {item.application.whyMhacksPreview}
                         </p>
                       </button>
                     );
@@ -1065,22 +1120,26 @@ export default function ApplicationReviewWorkspace({
                 </Button>
                 <ListFilterIcon className="hidden size-4 shrink-0 text-muted-foreground lg:block" />
                 <span className="truncate text-sm font-medium">
-                  {selectedItem
-                    ? `${applicantName(selectedItem)} application`
+                  {selectedDetail
+                    ? `${applicantName(selectedDetail)} application`
                     : "Select an application"}
                 </span>
               </div>
-              {selectedItem && (
+              {selectedDetail && (
                 <Badge
                   variant="outline"
-                  className={statusClassName(selectedItem.application.status)}
+                  className={statusClassName(selectedDetail.application.status)}
                 >
-                  {statusLabel(selectedItem.application.status)}
+                  {statusLabel(selectedDetail.application.status)}
                 </Badge>
               )}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {!selectedItem ? (
+              {detailLoading && !selectedDetail ? (
+                <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
+                  Loading application…
+                </div>
+              ) : !selectedDetail ? (
                 <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
                   Select an application to review.
                 </div>
@@ -1090,30 +1149,30 @@ export default function ApplicationReviewWorkspace({
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="font-heading text-3xl italic tracking-tight text-moss sm:text-4xl dark:text-sage">
-                          {applicantName(selectedItem)}
+                          {applicantName(selectedDetail)}
                         </h2>
                         <Badge
                           variant="outline"
                           className={statusClassName(
-                            selectedItem.application.status,
+                            selectedDetail.application.status,
                           )}
                         >
-                          {statusLabel(selectedItem.application.status)}
+                          {statusLabel(selectedDetail.application.status)}
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {selectedItem.application.applicantEmail ??
+                        {selectedDetail.application.applicantEmail ??
                           "No applicant email"}{" "}
                         · submitted{" "}
                         {new Date(
-                          selectedItem.application.createdAt,
+                          selectedDetail.application.createdAt,
                         ).toLocaleDateString()}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <QuickLink
                           href={
-                            selectedItem.application.applicantEmail
-                              ? `mailto:${selectedItem.application.applicantEmail}`
+                            selectedDetail.application.applicantEmail
+                              ? `mailto:${selectedDetail.application.applicantEmail}`
                               : null
                           }
                           label="Email"
@@ -1124,16 +1183,18 @@ export default function ApplicationReviewWorkspace({
                           icon={<FileTextIcon className="size-3.5" />}
                         />
                         <QuickLink
-                          href={externalHref(selectedItem.application.github)}
+                          href={externalHref(selectedDetail.application.github)}
                           label="GitHub"
                         />
                         <QuickLink
-                          href={externalHref(selectedItem.application.linkedin)}
+                          href={externalHref(
+                            selectedDetail.application.linkedin,
+                          )}
                           label="LinkedIn"
                         />
                         <QuickLink
                           href={externalHref(
-                            selectedItem.application.personalSite,
+                            selectedDetail.application.personalSite,
                           )}
                           label="Website"
                         />
@@ -1155,7 +1216,7 @@ export default function ApplicationReviewWorkspace({
                   </div>
 
                   <ResumePreview
-                    resumeKey={selectedItem.application.resume}
+                    resumeKey={selectedDetail.application.resume}
                     resumeUrl={resumeUrl}
                     loading={resumeLoading}
                   />
@@ -1163,97 +1224,100 @@ export default function ApplicationReviewWorkspace({
                   <Section title="Applicant Snapshot" dense>
                     <MetaItem
                       label="Age"
-                      value={selectedItem.application.age}
+                      value={selectedDetail.application.age}
                     />
                     <MetaItem
                       label="Gender"
-                      value={selectedItem.application.gender}
+                      value={selectedDetail.application.gender}
                     />
                     <MetaItem
                       label="Ethnicity"
-                      value={selectedItem.application.ethnicity}
+                      value={selectedDetail.application.ethnicity}
                     />
                     <MetaItem
                       label="Phone"
-                      value={selectedItem.application.phoneNumber}
+                      value={selectedDetail.application.phoneNumber}
                     />
                   </Section>
 
                   <Section title="Academic Snapshot" dense>
                     <MetaItem
                       label="University"
-                      value={selectedItem.application.university}
+                      value={selectedDetail.application.university}
                     />
                     <MetaItem
                       label="Major"
-                      value={selectedItem.application.major}
+                      value={selectedDetail.application.major}
                     />
                     <MetaItem
                       label="Degree"
-                      value={selectedItem.application.degree}
+                      value={selectedDetail.application.degree}
                     />
                     <MetaItem
                       label="Graduation year"
-                      value={selectedItem.application.graduationYear}
+                      value={selectedDetail.application.graduationYear}
                     />
                     <MetaItem
                       label="Previous hackathons"
-                      value={selectedItem.application.previousHackathons}
+                      value={selectedDetail.application.previousHackathons}
                     />
                     <MetaItem
                       label="Country"
-                      value={selectedItem.application.country}
+                      value={selectedDetail.application.country}
                     />
                   </Section>
 
                   <Section title="Essays">
                     <EssayBlock
                       label="Why MHacks?"
-                      value={selectedItem.application.whyMhacks}
+                      value={selectedDetail.application.whyMhacks}
                     />
                     <EssayBlock
                       label="Funding prompt"
-                      value={selectedItem.application.whatWouldYouDo}
+                      value={selectedDetail.application.whatWouldYouDo}
                     />
                     <EssayBlock
                       label="Hill to die on"
-                      value={selectedItem.application.hillToDieOn}
+                      value={selectedDetail.application.hillToDieOn}
                     />
                     <EssayBlock
                       label="Anything else"
-                      value={selectedItem.application.anythingElse}
+                      value={selectedDetail.application.anythingElse}
                     />
                   </Section>
 
                   <Section title="Logistics" dense>
                     <MetaItem
                       label="Transportation"
-                      value={selectedItem.application.transportationType}
+                      value={selectedDetail.application.transportationType}
                     />
                     <MetaItem
                       label="Coming from"
-                      value={selectedItem.application.comingFrom}
+                      value={selectedDetail.application.comingFrom}
                     />
                     <MetaItem
                       label="Airport"
-                      value={selectedItem.application.airportCode}
+                      value={selectedDetail.application.airportCode}
                     />
                     <MetaItem
                       label="Shirt size"
-                      value={selectedItem.application.shirtSize}
+                      value={selectedDetail.application.shirtSize}
                     />
                     <MetaItem
                       label="Allergies/restrictions"
-                      value={selectedItem.application.allergiesDescription}
+                      value={selectedDetail.application.allergiesDescription}
                     />
                     <MetaItem
                       label="Needs reimbursement"
-                      value={selectedItem.application.needsTravelReimbursement}
+                      value={
+                        selectedDetail.application.needsTravelReimbursement
+                      }
                     />
                     <MetaItem
                       label="Would attend without reimbursement"
                       value={
-                        selectedItem.application.wouldAttendWithoutReimbursement
+                        selectedDetail.application
+                          .wouldAttendWithoutReimbursement
                       }
                     />
                   </Section>
@@ -1261,7 +1325,7 @@ export default function ApplicationReviewWorkspace({
               )}
             </div>
 
-            {selectedItem && (
+            {selectedDetail && (
               <div className="shrink-0 border-t bg-card/95 px-3 pt-3 backdrop-blur supports-backdrop-filter:bg-card/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
@@ -1298,7 +1362,7 @@ export default function ApplicationReviewWorkspace({
                   builderRating={builderRating}
                   flaggedForReview={flaggedForReview}
                   saveStatus={saveStatus}
-                  selectedItem={selectedItem}
+                  selectedDetail={selectedDetail}
                   reviewEvents={reviewEvents}
                   reviewEventsLoading={reviewEventsLoading}
                   activeReviewers={activeReviewers}
@@ -1319,8 +1383,8 @@ export default function ApplicationReviewWorkspace({
                   Scorecard
                 </DrawerTitle>
                 <DrawerDescription>
-                  {selectedItem
-                    ? `Reviewing ${applicantName(selectedItem)}`
+                  {selectedDetail
+                    ? `Reviewing ${applicantName(selectedDetail)}`
                     : "Autosaves while you work."}
                 </DrawerDescription>
               </DrawerHeader>
@@ -1332,7 +1396,7 @@ export default function ApplicationReviewWorkspace({
                     builderRating={builderRating}
                     flaggedForReview={flaggedForReview}
                     saveStatus={saveStatus}
-                    selectedItem={selectedItem}
+                    selectedDetail={selectedDetail}
                     reviewEvents={reviewEvents}
                     reviewEventsLoading={reviewEventsLoading}
                     activeReviewers={activeReviewers}
@@ -1357,7 +1421,7 @@ function ScorecardForm({
   builderRating,
   flaggedForReview,
   saveStatus,
-  selectedItem,
+  selectedDetail,
   reviewEvents,
   reviewEventsLoading,
   activeReviewers,
@@ -1371,7 +1435,7 @@ function ScorecardForm({
   builderRating: number | null;
   flaggedForReview: boolean;
   saveStatus: SaveStatus;
-  selectedItem: ReviewListItem | undefined;
+  selectedDetail: ReviewListItem | undefined;
   reviewEvents: ReviewEventRecord[];
   reviewEventsLoading: boolean;
   activeReviewers: PresenceMeta[];
@@ -1516,11 +1580,12 @@ function ScorecardForm({
             {saveStatus === "error" && "Check ratings"}
           </span>
         </div>
-        {selectedItem?.review?.reviewedAt && (
+        {selectedDetail?.review?.reviewedAt && (
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
             <CheckCircle2Icon className="size-4 text-green-600 dark:text-green-300" />
-            Reviewed {new Date(selectedItem.review.reviewedAt).toLocaleString()}{" "}
-            by {selectedItem.review.reviewerEmail ?? "organizer"}
+            Reviewed{" "}
+            {new Date(selectedDetail.review.reviewedAt).toLocaleString()} by{" "}
+            {selectedDetail.review.reviewerEmail ?? "organizer"}
           </div>
         )}
       </div>
@@ -1542,12 +1607,12 @@ function ScorecardForm({
       <Button
         type="button"
         onClick={onMarkReviewed}
-        disabled={!selectedItem || isCompleting}
+        disabled={!selectedDetail || isCompleting}
         className="h-11 w-full bg-moss text-white hover:bg-moss/90 dark:bg-sage dark:text-night dark:hover:bg-sage/90"
       >
         {isCompleting
           ? "Marking reviewed..."
-          : selectedItem?.review?.reviewedAt
+          : selectedDetail?.review?.reviewedAt
             ? "Update reviewed"
             : "Mark reviewed"}
       </Button>
