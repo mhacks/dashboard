@@ -78,6 +78,77 @@ function bucketize(
     .slice(0, limit);
 }
 
+function bucketizeOrdered(
+  values: string[],
+  total: number,
+  order: string[],
+): AnalyticsBucket[] {
+  const counts = new Map<string, number>();
+
+  for (const rawValue of values) {
+    const value = rawValue.trim() || "Not provided";
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  const buckets = order.map((label) => ({
+    label,
+    count: counts.get(label) ?? 0,
+    percentage: percent(counts.get(label) ?? 0, total),
+  }));
+
+  for (const [label, count] of counts.entries()) {
+    if (!order.includes(label)) {
+      buckets.push({
+        label,
+        count,
+        percentage: percent(count, total),
+      });
+    }
+  }
+
+  return buckets;
+}
+
+function sortGraduationYearBuckets(
+  buckets: AnalyticsBucket[],
+): AnalyticsBucket[] {
+  return [...buckets].sort((left, right) => {
+    if (left.label === "Not provided") return 1;
+    if (right.label === "Not provided") return -1;
+
+    const leftYear = Number.parseInt(left.label, 10);
+    const rightYear = Number.parseInt(right.label, 10);
+
+    if (Number.isNaN(leftYear) && Number.isNaN(rightYear)) {
+      return left.label.localeCompare(right.label);
+    }
+    if (Number.isNaN(leftYear)) return 1;
+    if (Number.isNaN(rightYear)) return -1;
+    return leftYear - rightYear;
+  });
+}
+
+function ratingHistogram(
+  ratings: Array<number | null | undefined>,
+): AnalyticsBucket[] {
+  const counts = new Map([1, 2, 3, 4, 5].map((rating) => [rating, 0]));
+  let total = 0;
+
+  for (const rating of ratings) {
+    if (typeof rating !== "number" || rating < 1 || rating > 5) continue;
+    counts.set(rating, (counts.get(rating) ?? 0) + 1);
+    total += 1;
+  }
+
+  if (total === 0) return [];
+
+  return [1, 2, 3, 4, 5].map((rating) => ({
+    label: String(rating),
+    count: counts.get(rating) ?? 0,
+    percentage: percent(counts.get(rating) ?? 0, total),
+  }));
+}
+
 function ageBucket(age: number) {
   if (age <= 19) return "18-19";
   if (age <= 21) return "20-21";
@@ -412,9 +483,6 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
       typeof review.effortRating === "number" &&
       typeof review.builderRating === "number",
   );
-  const overallScores = reviewedScores.map(
-    (review) => ((review.effortRating ?? 0) + (review.builderRating ?? 0)) / 2,
-  );
 
   const counts = applications.reduce<ReviewCounts>(
     (statusCounts, application) => {
@@ -440,15 +508,31 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
       youngestAge: ages.length ? Math.min(...ages) : null,
       oldestAge: ages.length ? Math.max(...ages) : null,
     },
+    statusBreakdown: [
+      {
+        label: "Pending",
+        count: counts.pending,
+        percentage: percent(counts.pending, total),
+      },
+      {
+        label: "Reviewed",
+        count: counts.reviewed,
+        percentage: percent(counts.reviewed, total),
+      },
+      {
+        label: "Flagged",
+        count: counts.flagged,
+        percentage: percent(counts.flagged, total),
+      },
+    ],
     scores: {
       reviewedApplications: reviewedScores.length,
-      effortAverage: average(
+      effortRatings: ratingHistogram(
         reviewedScores.map((review) => review.effortRating),
       ),
-      builderAverage: average(
+      builderRatings: ratingHistogram(
         reviewedScores.map((review) => review.builderRating),
       ),
-      overallAverage: average(overallScores),
     },
     demographics: {
       gender: bucketize(
@@ -468,13 +552,16 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
         total,
         10,
       ),
-      graduationYear: bucketize(
-        applications.map((application) => String(application.graduationYear)),
-        total,
+      graduationYear: sortGraduationYearBuckets(
+        bucketize(
+          applications.map((application) => String(application.graduationYear)),
+          total,
+        ),
       ),
-      ageBuckets: bucketize(
+      ageBuckets: bucketizeOrdered(
         applications.map((application) => ageBucket(application.age)),
         total,
+        ["18-19", "20-21", "22-24", "25+"],
       ),
     },
     locations: {
@@ -495,11 +582,12 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
         total,
         10,
       ),
-      previousHackathonBuckets: bucketize(
+      previousHackathonBuckets: bucketizeOrdered(
         applications.map((application) =>
           previousHackathonBucket(application.previousHackathons),
         ),
         total,
+        ["0", "1-2", "3-5", "6+"],
       ),
     },
   };

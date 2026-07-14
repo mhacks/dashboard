@@ -262,7 +262,9 @@ function MetaItem({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="grid gap-x-4 gap-y-0.5 py-3 sm:grid-cols-[minmax(9rem,34%)_1fr]">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="break-words text-sm text-foreground">{displayValue(value)}</dd>
+      <dd className="break-words text-sm text-foreground">
+        {displayValue(value)}
+      </dd>
     </div>
   );
 }

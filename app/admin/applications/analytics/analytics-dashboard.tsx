@@ -24,7 +24,6 @@ import type {
   AnalyticsBucket,
   ApplicationAnalyticsData,
 } from "@/lib/types/application-reviews";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,8 +38,11 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "../theme-toggle";
+
 const CHART_COLORS = [
   "var(--color-moss)",
   "var(--color-sage)",
@@ -66,38 +68,33 @@ function withFills(items: AnalyticsBucket[]) {
   }));
 }
 
-function formatScore(value: number | null) {
-  return value === null ? "N/A" : value.toFixed(1);
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  icon,
+function SummaryBar({
+  items,
 }: {
-  label: string;
-  value: string | number;
-  hint: string;
-  icon: ReactNode;
+  items: Array<{
+    label: string;
+    value: string | number;
+    hint: string;
+    icon: ReactNode;
+  }>;
 }) {
   return (
-    <Card size="sm">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <CardDescription className="font-red-hat text-xs font-semibold uppercase tracking-wide">
-            {label}
-          </CardDescription>
-          <div className="text-moss dark:text-sage">{icon}</div>
+    <section className="overflow-hidden rounded-lg border bg-card md:flex md:divide-x md:divide-border/60">
+      {items.map((item) => (
+        <div key={item.label} className="flex min-w-0 flex-1 gap-3 px-4 py-4">
+          <div className="shrink-0 text-moss dark:text-sage">{item.icon}</div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{item.label}</p>
+            <p className="font-heading text-2xl italic text-moss dark:text-sage">
+              {item.value}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {item.hint}
+            </p>
+          </div>
         </div>
-        <CardTitle className="font-heading text-3xl italic text-moss dark:text-sage">
-          {value}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      </CardContent>
-    </Card>
+      ))}
+    </section>
   );
 }
 
@@ -117,34 +114,38 @@ function Meter({ value, className }: { value: number; className?: string }) {
   );
 }
 
-function ScoreCard({
-  label,
-  value,
-  reviewedApplications,
-}: {
-  label: string;
-  value: number | null;
-  reviewedApplications: number;
-}) {
-  const percent = value === null ? 0 : (value / 5) * 100;
-
+function EmptyState() {
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardDescription className="font-red-hat text-xs font-semibold uppercase tracking-wide">
-          {label}
-        </CardDescription>
-        <CardTitle className="font-heading text-3xl italic text-moss dark:text-sage">
-          {formatScore(value)}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <Meter value={percent} className="h-2" />
-        <p className="text-xs text-muted-foreground">
-          Average out of 5 across {reviewedApplications} completed scorecards.
-        </p>
-      </CardContent>
-    </Card>
+    <div className="flex h-40 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
+      No data yet.
+    </div>
+  );
+}
+
+function BucketList({ data }: { data: AnalyticsBucket[] }) {
+  return (
+    <div className="divide-y divide-border/60">
+      {data.map((item, index) => (
+        <div
+          key={item.label}
+          className="flex items-center justify-between gap-3 py-2.5 text-sm"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className="size-2.5 shrink-0 rounded-sm"
+              style={{
+                backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+              }}
+            />
+            <span className="truncate">{item.label}</span>
+          </div>
+          <div className="shrink-0 text-right text-muted-foreground">
+            <div>{item.count}</div>
+            <div className="text-xs">{item.percentage}%</div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -245,6 +246,9 @@ function BarPanel({
   horizontal?: boolean;
 }) {
   const chartData = withFills(data);
+  const chartHeight = horizontal
+    ? Math.max(260, chartData.length * 36 + 48)
+    : 260;
 
   return (
     <Card>
@@ -258,7 +262,8 @@ function BarPanel({
         ) : (
           <ChartContainer
             config={countConfig}
-            className={cn("h-[260px] w-full", horizontal && "h-[320px]")}
+            className="w-full"
+            style={{ height: chartHeight }}
           >
             <BarChart
               data={chartData}
@@ -312,32 +317,6 @@ function BarPanel({
   );
 }
 
-function BucketList({ data }: { data: AnalyticsBucket[] }) {
-  return (
-    <div className="space-y-2">
-      {data.map((item, index) => (
-        <div key={item.label} className="rounded-lg border bg-muted/20 p-2.5">
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <div className="flex min-w-0 items-center gap-2">
-              <span
-                className="size-2.5 shrink-0 rounded-sm"
-                style={{
-                  backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
-                }}
-              />
-              <span className="truncate font-medium">{item.label}</span>
-            </div>
-            <span className="shrink-0 text-muted-foreground">{item.count}</span>
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {item.percentage}% of applicants
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function RankedList({
   title,
   description,
@@ -353,39 +332,255 @@ function RankedList({
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0 pb-0">
         {data.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-3">
-            {data.map((item, index) => (
-              <div key={item.label} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Badge variant="outline" className="w-8 justify-center">
-                      {index + 1}
-                    </Badge>
-                    <span className="truncate font-medium">{item.label}</span>
-                  </div>
-                  <span className="shrink-0 text-muted-foreground">
-                    {item.count} · {item.percentage}%
-                  </span>
-                </div>
-                <Meter value={item.percentage} className="h-1.5" />
-              </div>
-            ))}
+          <div className="px-4 pb-4">
+            <EmptyState />
           </div>
+        ) : (
+          <ScrollArea className="max-h-[360px]">
+            <div className="divide-y divide-border/60">
+              {data.map((item, index) => (
+                <div key={item.label} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="w-5 shrink-0 text-xs text-muted-foreground">
+                        {index + 1}
+                      </span>
+                      <span className="truncate font-medium">{item.label}</span>
+                    </div>
+                    <span className="shrink-0 text-muted-foreground">
+                      {item.count} · {item.percentage}%
+                    </span>
+                  </div>
+                  <Meter value={item.percentage} className="mt-2 h-1" />
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function EmptyState() {
+function StatusBreakdownCard({
+  data,
+  totalApplicants,
+}: {
+  data: AnalyticsBucket[];
+  totalApplicants: number;
+}) {
   return (
-    <div className="flex h-40 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
-      No data yet.
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>Review Pipeline</CardTitle>
+        <CardDescription>
+          How {totalApplicants} submitted applications are distributed across
+          review states.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {data.length === 0 ? (
+          <EmptyState />
+        ) : (
+          data.map((item) => (
+            <div key={item.label}>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium">{item.label}</span>
+                <span className="text-muted-foreground">
+                  {item.count} · {item.percentage}%
+                </span>
+              </div>
+              <Meter value={item.percentage} className="mt-2 h-2" />
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReviewProgressCard({ data }: { data: ApplicationAnalyticsData }) {
+  const completionRate =
+    data.totals.applicants === 0
+      ? 0
+      : Math.round(
+          (data.scores.reviewedApplications / data.totals.applicants) * 1000,
+        ) / 10;
+
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>Scorecard Completion</CardTitle>
+        <CardDescription>
+          Applications with both effort and builder ratings submitted.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-end justify-between gap-3">
+          <p className="font-heading text-4xl italic text-moss dark:text-sage">
+            {data.scores.reviewedApplications}
+          </p>
+          <p className="pb-1 text-sm text-muted-foreground">
+            of {data.totals.applicants} applicants
+          </p>
+        </div>
+        <Meter value={completionRate} className="mt-4 h-2" />
+        <p className="mt-2 text-xs text-muted-foreground">
+          {completionRate}% completion rate across all applications.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function OverviewTab({ data }: { data: ApplicationAnalyticsData }) {
+  const topCountries = data.locations.countries.slice(0, 5);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="grid gap-5 xl:grid-cols-2">
+        <PiePanel
+          title="Application Status"
+          description="Current review status of submitted applications."
+          data={data.statusBreakdown}
+        />
+        <StatusBreakdownCard
+          data={data.statusBreakdown}
+          totalApplicants={data.totals.applicants}
+        />
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-3">
+        <PiePanel
+          title="Gender Snapshot"
+          description="Self-reported gender distribution across applicants."
+          data={data.demographics.gender}
+        />
+        <BarPanel
+          title="Age Snapshot"
+          description="Applicant ages grouped into review-friendly buckets."
+          data={data.demographics.ageBuckets}
+        />
+        <RankedList
+          title="Top Countries"
+          description="Most represented countries on applications."
+          data={topCountries}
+        />
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-2">
+        <ReviewProgressCard data={data} />
+        <BarPanel
+          title="Hackathon Experience"
+          description="Prior hackathon participation across applicants."
+          data={data.academics.previousHackathonBuckets}
+        />
+      </section>
     </div>
+  );
+}
+
+function ReviewsTab({ data }: { data: ApplicationAnalyticsData }) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-2">
+      <BarPanel
+        title="Effort / Motivation Ratings"
+        description={`1-5 rating distribution across ${data.scores.reviewedApplications} completed scorecards.`}
+        data={data.scores.effortRatings}
+      />
+      <BarPanel
+        title="Builder Mindset Ratings"
+        description={`1-5 rating distribution across ${data.scores.reviewedApplications} completed scorecards.`}
+        data={data.scores.builderRatings}
+      />
+    </section>
+  );
+}
+
+function DemographicsTab({ data }: { data: ApplicationAnalyticsData }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="grid gap-5 xl:grid-cols-2">
+        <PiePanel
+          title="Gender Ratio"
+          description="Self-reported gender distribution across applicants."
+          data={data.demographics.gender}
+        />
+        <BarPanel
+          title="Age Distribution"
+          description="Applicant ages grouped into review-friendly buckets."
+          data={data.demographics.ageBuckets}
+        />
+      </section>
+      <BarPanel
+        title="Ethnicity"
+        description="Self-reported applicant ethnicity distribution."
+        data={data.demographics.ethnicity}
+        horizontal
+      />
+      <BarPanel
+        title="Degree Mix"
+        description="Academic level reported by applicants."
+        data={data.demographics.degree}
+        horizontal
+      />
+    </div>
+  );
+}
+
+function AcademicsTab({ data }: { data: ApplicationAnalyticsData }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="grid gap-5 xl:grid-cols-2">
+        <BarPanel
+          title="Previous Hackathons"
+          description="Experience level from the application form."
+          data={data.academics.previousHackathonBuckets}
+        />
+        <BarPanel
+          title="Graduation Year"
+          description="Applicant graduation year distribution in chronological order."
+          data={data.demographics.graduationYear}
+          horizontal
+        />
+      </section>
+      <section className="grid gap-5 xl:grid-cols-2">
+        <RankedList
+          title="Universities"
+          description="Most represented schools."
+          data={data.academics.universities}
+        />
+        <RankedList
+          title="Majors"
+          description="Most common academic interests."
+          data={data.demographics.major}
+        />
+      </section>
+    </div>
+  );
+}
+
+function LocationsTab({ data }: { data: ApplicationAnalyticsData }) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-3">
+      <RankedList
+        title="Top Countries"
+        description="Country selected on the application."
+        data={data.locations.countries}
+      />
+      <RankedList
+        title="Top US States"
+        description="Parsed from “coming from” when a state code is present."
+        data={data.locations.usStates}
+      />
+      <RankedList
+        title="Coming From"
+        description="Most common free-text origin responses."
+        data={data.locations.comingFrom}
+      />
+    </section>
   );
 }
 
@@ -407,7 +602,7 @@ export default function ApplicationAnalyticsDashboard({
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
               Overall applicant demographics, location signals, academic mix,
-              and average review scores.
+              and review score distributions.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -427,151 +622,63 @@ export default function ApplicationAnalyticsDashboard({
           </div>
         </header>
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Applicants"
-            value={data.totals.applicants}
-            hint={`${data.totals.pending} pending, ${data.totals.reviewed} reviewed, ${data.totals.flagged} flagged.`}
-            icon={<UsersRoundIcon className="size-5" />}
-          />
-          <StatCard
-            label="Average age"
-            value={data.totals.averageAge ?? "N/A"}
-            hint={
-              data.totals.youngestAge === null
-                ? "No applicant age data yet."
-                : `Range ${data.totals.youngestAge}-${data.totals.oldestAge}.`
-            }
-            icon={<BarChart3Icon className="size-5" />}
-          />
-          <StatCard
-            label="Overall score"
-            value={formatScore(data.scores.overallAverage)}
-            hint={`Across ${data.scores.reviewedApplications} completed scorecards.`}
-            icon={<TrophyIcon className="size-5" />}
-          />
-          <StatCard
-            label="Countries"
-            value={data.locations.countries.length}
-            hint="Distinct countries represented in applications."
-            icon={<MapPinnedIcon className="size-5" />}
-          />
-        </section>
+        <SummaryBar
+          items={[
+            {
+              label: "Applicants",
+              value: data.totals.applicants,
+              hint: `${data.totals.pending} pending, ${data.totals.reviewed} reviewed, ${data.totals.flagged} flagged.`,
+              icon: <UsersRoundIcon className="size-5" />,
+            },
+            {
+              label: "Average age",
+              value: data.totals.averageAge ?? "N/A",
+              hint:
+                data.totals.youngestAge === null
+                  ? "No applicant age data yet."
+                  : `Range ${data.totals.youngestAge}-${data.totals.oldestAge}.`,
+              icon: <BarChart3Icon className="size-5" />,
+            },
+            {
+              label: "Completed scorecards",
+              value: data.scores.reviewedApplications,
+              hint: "Applications with both effort and builder ratings.",
+              icon: <TrophyIcon className="size-5" />,
+            },
+            {
+              label: "Countries",
+              value: data.locations.countries.length,
+              hint: "Distinct countries represented in applications.",
+              icon: <MapPinnedIcon className="size-5" />,
+            },
+          ]}
+        />
 
-        <section className="grid gap-3 md:grid-cols-3">
-          <ScoreCard
-            label="Effort / Motivation"
-            value={data.scores.effortAverage}
-            reviewedApplications={data.scores.reviewedApplications}
-          />
-          <ScoreCard
-            label="Builder Mindset"
-            value={data.scores.builderAverage}
-            reviewedApplications={data.scores.reviewedApplications}
-          />
-          <ScoreCard
-            label="Overall"
-            value={data.scores.overallAverage}
-            reviewedApplications={data.scores.reviewedApplications}
-          />
-        </section>
+        <Tabs defaultValue="overview">
+          <TabsList variant="line" className="w-full justify-start">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            <TabsTrigger value="demographics">Demographics</TabsTrigger>
+            <TabsTrigger value="academics">Academics</TabsTrigger>
+            <TabsTrigger value="locations">Locations</TabsTrigger>
+          </TabsList>
 
-        <section className="grid gap-5 xl:grid-cols-2">
-          <PiePanel
-            title="Gender Ratio"
-            description="Self-reported gender distribution across applicants."
-            data={data.demographics.gender}
-          />
-          <PiePanel
-            title="Application Status"
-            description="Current review status of submitted applications."
-            data={[
-              {
-                label: "Pending",
-                count: data.totals.pending,
-                percentage:
-                  data.totals.applicants === 0
-                    ? 0
-                    : Math.round(
-                        (data.totals.pending / data.totals.applicants) * 1000,
-                      ) / 10,
-              },
-              {
-                label: "Reviewed",
-                count: data.totals.reviewed,
-                percentage:
-                  data.totals.applicants === 0
-                    ? 0
-                    : Math.round(
-                        (data.totals.reviewed / data.totals.applicants) * 1000,
-                      ) / 10,
-              },
-              {
-                label: "Flagged",
-                count: data.totals.flagged,
-                percentage:
-                  data.totals.applicants === 0
-                    ? 0
-                    : Math.round(
-                        (data.totals.flagged / data.totals.applicants) * 1000,
-                      ) / 10,
-              },
-            ]}
-          />
-          <BarPanel
-            title="Age Distribution"
-            description="Applicant ages grouped into review-friendly buckets."
-            data={data.demographics.ageBuckets}
-          />
-          <BarPanel
-            title="Degree Mix"
-            description="Academic level reported by applicants."
-            data={data.demographics.degree}
-          />
-          <BarPanel
-            title="Previous Hackathons"
-            description="Experience level from the application form."
-            data={data.academics.previousHackathonBuckets}
-          />
-          <BarPanel
-            title="Graduation Year"
-            description="Applicant graduation year distribution."
-            data={data.demographics.graduationYear}
-          />
-        </section>
-
-        <section className="grid gap-5 xl:grid-cols-3">
-          <RankedList
-            title="Top Countries"
-            description="Country selected on the application."
-            data={data.locations.countries}
-          />
-          <RankedList
-            title="Top US States"
-            description="Parsed from “coming from” when a state code is present."
-            data={data.locations.usStates}
-          />
-          <RankedList
-            title="Coming From"
-            description="Most common free-text origin responses."
-            data={data.locations.comingFrom}
-          />
-          <RankedList
-            title="Universities"
-            description="Most represented schools."
-            data={data.academics.universities}
-          />
-          <RankedList
-            title="Majors"
-            description="Most common academic interests."
-            data={data.demographics.major}
-          />
-          <RankedList
-            title="Ethnicity"
-            description="Self-reported applicant ethnicity distribution."
-            data={data.demographics.ethnicity}
-          />
-        </section>
+          <TabsContent value="overview" className="mt-5">
+            <OverviewTab data={data} />
+          </TabsContent>
+          <TabsContent value="reviews" className="mt-5">
+            <ReviewsTab data={data} />
+          </TabsContent>
+          <TabsContent value="demographics" className="mt-5">
+            <DemographicsTab data={data} />
+          </TabsContent>
+          <TabsContent value="academics" className="mt-5">
+            <AcademicsTab data={data} />
+          </TabsContent>
+          <TabsContent value="locations" className="mt-5">
+            <LocationsTab data={data} />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );

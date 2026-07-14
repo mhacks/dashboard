@@ -171,9 +171,8 @@ export type AnalyticsBucket = {
 
 export type ScoreAnalytics = {
   reviewedApplications: number;
-  effortAverage: number | null;
-  builderAverage: number | null;
-  overallAverage: number | null;
+  effortRatings: AnalyticsBucket[];
+  builderRatings: AnalyticsBucket[];
 };
 
 export type ApplicationAnalyticsData = {
@@ -186,6 +185,7 @@ export type ApplicationAnalyticsData = {
     youngestAge: number | null;
     oldestAge: number | null;
   };
+  statusBreakdown: AnalyticsBucket[];
   scores: ScoreAnalytics;
   demographics: {
     gender: AnalyticsBucket[];
