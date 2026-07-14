@@ -12,7 +12,6 @@ import {
   saveDraftForUser,
   toDbValues,
 } from "@/lib/actions/application-form.actions";
-import { getPostHogClient } from "@/lib/posthog-server";
 
 async function getAuthenticatedUserId(): Promise<string> {
   const supabase = await createClient();
@@ -29,34 +28,7 @@ export const submitHackerApplication = async (
   const userId = await getAuthenticatedUserId();
 
   try {
-    return await submitHackerApplicationForUser(userId, data);
-    const result = await db
-      .insert(hackerApplicants)
-      .values({ ...toDbValues(parsed), userId })
-      .onConflictDoNothing()
-      .returning({ id: hackerApplicants.id });
-
-    if (result.length > 0) {
-      await db
-        .delete(hackerApplicationDrafts)
-        .where(eq(hackerApplicationDrafts.userId, userId));
-
-      const posthog = getPostHogClient();
-      posthog.capture({
-        distinctId: userId,
-        event: "application_submitted",
-        properties: {
-          university: parsed.university,
-          degree: parsed.degree,
-          graduation_year: parsed.graduationYear,
-          transportation_type: parsed.transportationType,
-          needs_travel_reimbursement: parsed.needsTravelReimbursement,
-        },
-      });
-      await posthog.flush();
-    }
-
-    return { duplicate: result.length === 0 };
+    return await submitHackerApplicationForUser(userId, data, "web");
   } catch (error) {
     console.error("Unable to submit Hacker Application:", error);
     throw new Error(

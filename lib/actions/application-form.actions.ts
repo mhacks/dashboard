@@ -9,6 +9,7 @@ import {
   hackerApplicationDrafts,
   type HackerApplicantRow,
 } from "@/lib/db/schema/applications";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 // Core application logic, parameterized by `userId`, shared by both the web
 // form (cookie-authenticated server actions) and the MCP server (OAuth
@@ -36,6 +37,7 @@ export function toDbValues(
 export async function submitHackerApplicationForUser(
   userId: string,
   data: HackerApplicationFormData,
+  source: "web" | "mcp",
 ): Promise<{ duplicate: boolean }> {
   const parsed = hackerApplicationSchema.parse(data);
 
@@ -49,6 +51,21 @@ export async function submitHackerApplicationForUser(
     await db
       .delete(hackerApplicationDrafts)
       .where(eq(hackerApplicationDrafts.userId, userId));
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: userId,
+      event: "application_submitted",
+      properties: {
+        source,
+        university: parsed.university,
+        degree: parsed.degree,
+        graduation_year: parsed.graduationYear,
+        transportation_type: parsed.transportationType,
+        needs_travel_reimbursement: parsed.needsTravelReimbursement,
+      },
+    });
+    await posthog.flush();
   }
 
   return { duplicate: result.length === 0 };

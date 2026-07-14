@@ -256,6 +256,7 @@ const baseHandler = createMcpHandler(
           const { duplicate } = await submitHackerApplicationForUser(
             userId,
             input,
+            "mcp",
           );
           return jsonText(
             duplicate
