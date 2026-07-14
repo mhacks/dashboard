@@ -14,15 +14,15 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, _headers) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
           } catch {
-            // `setAll` was called from a Server Component, where setting cookies
-            // is not allowed. This can be ignored when the proxy refreshes the
-            // session (see lib/supabase/proxy.ts).
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have proxy refreshing
+            // user sessions.
           }
         },
       },
