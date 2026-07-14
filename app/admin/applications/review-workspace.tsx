@@ -78,10 +78,7 @@ const PHONE_LANDSCAPE_QUERY =
   "(orientation: landscape) and (max-height: 520px) and (max-width: 950px) and (pointer: coarse)";
 
 function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(
-    () =>
-      typeof window !== "undefined" && window.innerWidth >= DESKTOP_BREAKPOINT,
-  );
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
@@ -554,6 +551,7 @@ export default function ApplicationReviewWorkspace({
       initialSelectedItem?.application.id ?? "",
     ),
   });
+  const { reset: resetReviewForm } = form;
 
   const effortRating = form.watch("effortRating");
   const builderRating = form.watch("builderRating");
@@ -697,7 +695,7 @@ export default function ApplicationReviewWorkspace({
         if (!ignore) {
           setSelectedDetail(detail);
           if (!skipNextAutosave.current) {
-            form.reset(toReviewDefaults(detail));
+            resetReviewForm(toReviewDefaults(detail));
           }
         }
       })
@@ -712,7 +710,7 @@ export default function ApplicationReviewWorkspace({
     return () => {
       ignore = true;
     };
-  }, [selectedId]);
+  }, [selectedId, resetReviewForm]);
 
   useEffect(() => {
     // react-hook-form's watch() subscription cannot be memoized by React Compiler.
