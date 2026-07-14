@@ -134,8 +134,11 @@ their types, not inside server action files.
 1. **Parse with Zod in every mutation** — call `mySchema.parse(data)` (or
    `safeParse` when returning field errors) before any database write. Define each
    schema once in `lib/types/` and import it in both the form and the server action.
-2. **Auth and ownership on the server** — derive `userId` from `getUser()`, not from
-   the request body.
+2. **Auth and ownership on the server** — call `requireSessionUser()` or
+   `requireOrganizer()` from [`lib/auth/guards.ts`](../lib/auth/guards.ts) at the
+   top of mutations and queries; never trust a client-supplied user id. Use
+   `getSessionUser()` from [`lib/auth/session.ts`](../lib/auth/session.ts) only when
+   the user may be absent (e.g. post-login redirect).
 3. **Stricter server rules when needed** — the server may enforce uniqueness, rate
    limits, or row ownership. Use a partial schema (e.g. `mySchema.partial()`) for
    drafts rather than skipping validation.
@@ -160,8 +163,11 @@ and a `"use server"` directive at the top of the file:
 
 Conventions:
 
-- **Auth on the server** — call `createClient()` from `@/lib/supabase/server` and
-  `getUser()` inside the action; never trust a client-supplied user id.
+- **Auth on the server** — use guards from [`lib/auth/guards.ts`](../lib/auth/guards.ts):
+  `requireSessionUser()` for authenticated hacker flows, `requireOrganizer()` for
+  admin mutations and queries, `requireOrganizerPage()` in admin layouts (redirects
+  non-organizers to `/apply`). For resource-level checks (e.g. resume download),
+  use `isOrganizer()` or ownership logic after `requireSessionUser()`.
 - **Database via Drizzle** — import `db` from `@/lib/db`; do not use
   `supabase.from(...)` for data access.
 - **Return structured results** — return `{ error: string }` or domain-specific
