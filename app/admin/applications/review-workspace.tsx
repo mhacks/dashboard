@@ -62,6 +62,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { ApplicationReviewHeader } from "./components/application-review-header";
 import { Meter } from "./components/meter";
+import {
+  applicationStatusLabel,
+  formatReviewDisplayValue,
+} from "./display-formatters";
 import { ReviewEventTimeline } from "./review-event-timeline";
 
 type Organizer = { id: string; email: string };
@@ -182,12 +186,6 @@ function applicantName(item: ReviewListSummaryItem | ReviewListItem) {
   return name || item.application.applicantEmail || "Unnamed applicant";
 }
 
-function statusLabel(status: ReviewListItem["application"]["status"]) {
-  if (status === "reviewed") return "Reviewed";
-  if (status === "flagged") return "Flagged";
-  return "Pending";
-}
-
 function statusClassName(status: ReviewListItem["application"]["status"]) {
   if (status === "reviewed") {
     return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/70 dark:bg-green-950/50 dark:text-green-300";
@@ -209,10 +207,7 @@ function ReviewBadge({ review }: { review: ReviewRecord | null }) {
 }
 
 function displayValue(value: unknown) {
-  if (value === null || value === undefined || value === "")
-    return "Not provided";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
+  return formatReviewDisplayValue(value);
 }
 
 function externalHref(value: string | null | undefined) {
@@ -946,7 +941,7 @@ export default function ApplicationReviewWorkspace({
                             variant="outline"
                             className={statusClassName(item.application.status)}
                           >
-                            {statusLabel(item.application.status)}
+                            {applicationStatusLabel(item.application.status)}
                           </Badge>
                           {item.review?.flaggedForReview && (
                             <FlagIcon className="size-3.5 text-amber-600" />
@@ -1002,7 +997,7 @@ export default function ApplicationReviewWorkspace({
                   variant="outline"
                   className={statusClassName(selectedDetail.application.status)}
                 >
-                  {statusLabel(selectedDetail.application.status)}
+                  {applicationStatusLabel(selectedDetail.application.status)}
                 </Badge>
               )}
             </div>
@@ -1029,7 +1024,7 @@ export default function ApplicationReviewWorkspace({
                             selectedDetail.application.status,
                           )}
                         >
-                          {statusLabel(selectedDetail.application.status)}
+                          {applicationStatusLabel(selectedDetail.application.status)}
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">

@@ -8,6 +8,10 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import {
+  applicationStatusLabel,
+  formatReviewEventValue,
+} from "./display-formatters";
 
 type TimelineEvent = ReviewEventRecord | ReviewAuditEventRecord;
 
@@ -21,16 +25,6 @@ const REVIEW_EVENT_FIELD_LABELS: Record<string, string> = {
 
 function isAuditEvent(event: TimelineEvent): event is ReviewAuditEventRecord {
   return "applicationName" in event;
-}
-
-function formatEventValue(value: unknown, compact = false) {
-  if (value === null || value === undefined || value === "") return "empty";
-  if (typeof value === "boolean") return value ? "yes" : "no";
-  const limit = compact ? 24 : 40;
-  if (typeof value === "string" && value.length > limit) {
-    return `${value.slice(0, limit)}…`;
-  }
-  return String(value);
 }
 
 function formatEventTimestamp(value: string, compact = false) {
@@ -96,10 +90,12 @@ function ChangeChip({
       <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 text-xs leading-5 break-words">
         <span className="text-muted-foreground">{label}</span>
         <span className="mx-1 text-muted-foreground/80">
-          {formatEventValue(from, true)}
+          {formatReviewEventValue(from, true)}
         </span>
         <span className="text-muted-foreground">→</span>
-        <span className="ml-1 font-medium">{formatEventValue(to, true)}</span>
+        <span className="ml-1 font-medium">
+          {formatReviewEventValue(to, true)}
+        </span>
       </div>
     );
   }
@@ -108,11 +104,11 @@ function ChangeChip({
     <span className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs">
       <span className="shrink-0 text-muted-foreground">{label}</span>
       <span className="min-w-0 truncate text-muted-foreground/80">
-        {formatEventValue(from)}
+        {formatReviewEventValue(from)}
       </span>
       <span className="shrink-0 text-muted-foreground">→</span>
       <span className="min-w-0 truncate font-medium">
-        {formatEventValue(to)}
+        {formatReviewEventValue(to)}
       </span>
     </span>
   );
@@ -137,7 +133,7 @@ function CompactReviewEventRow({ event }: { event: TimelineEvent }) {
               variant="outline"
               className={statusBadgeClass(event.applicationStatus)}
             >
-              {event.applicationStatus}
+              {applicationStatusLabel(event.applicationStatus)}
             </Badge>
           ) : null}
         </div>
@@ -224,7 +220,7 @@ export function ReviewEventRow({
               variant="outline"
               className={statusBadgeClass(event.applicationStatus)}
             >
-              {event.applicationStatus}
+              {applicationStatusLabel(event.applicationStatus)}
             </Badge>
           ) : null}
         </div>
