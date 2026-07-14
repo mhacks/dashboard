@@ -15,11 +15,13 @@ import {
 import { users, type UserEntry } from "@/lib/db/schema/users";
 import { requireOrganizer } from "@/lib/auth/guards";
 import {
-  reviewCompleteSchema,
-  reviewDraftSchema,
+  reviewCompleteSaveSchema,
+  reviewDraftSaveSchema,
   reviewEventsInputSchema,
-  type ReviewCompleteInput,
-  type ReviewDraftInput,
+  type ReviewCompleteSaveInput,
+  type ReviewCompleteSaveResult,
+  type ReviewDraftSaveInput,
+  type ReviewDraftSaveResult,
   type ReviewEventRecord,
   type ReviewListItem,
   type ReviewRecord,
@@ -138,11 +140,41 @@ async function pruneReviewEvents(applicationId: string) {
   `);
 }
 
+function reviewVersionToken(
+  review: HackerApplicationReviewRow | null | undefined,
+): string | null {
+  return review?.updatedAt ?? null;
+}
+
+async function reviewRecordWithEmail(
+  review: HackerApplicationReviewRow,
+): Promise<ReviewRecord> {
+  const [reviewer] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, review.reviewerUserId))
+    .limit(1);
+
+  return withReviewerEmail(review, reviewer?.email ?? null);
+}
+
+async function conflictResult(
+  existing: HackerApplicationReviewRow | null,
+): Promise<ReviewSaveConflict> {
+  return {
+    ok: false,
+    code: "conflict",
+    review: existing ? await reviewRecordWithEmail(existing) : null,
+  };
+}
+
+type ReviewSaveConflict = Extract<ReviewDraftSaveResult, { ok: false }>;
+
 export async function saveApplicationReviewDraft(
-  input: ReviewDraftInput,
-): Promise<{ review: ReviewRecord; event: ReviewEventRecord | null }> {
+  input: ReviewDraftSaveInput,
+): Promise<ReviewDraftSaveResult> {
   const organizer = await requireOrganizer();
-  const parsed = parseActionInput(reviewDraftSchema, input);
+  const parsed = parseActionInput(reviewDraftSaveSchema, input);
   const now = new Date().toISOString();
   const reviewComments = parsed.flaggedForReview ? parsed.reviewComments : null;
 
@@ -156,6 +188,10 @@ export async function saveApplicationReviewDraft(
     .from(hackerApplicants)
     .where(eq(hackerApplicants.id, parsed.applicationId))
     .limit(1);
+
+  if (reviewVersionToken(previousReview) !== parsed.expectedUpdatedAt) {
+    return conflictResult(previousReview ?? null);
+  }
 
   const [review] = await db
     .insert(hackerApplicationReviews)
@@ -189,18 +225,14 @@ export async function saveApplicationReviewDraft(
     applicationStatus: application?.status ?? "pending",
   });
 
-  return { review: withReviewerEmail(review, organizer.email), event };
+  return { ok: true, review: withReviewerEmail(review, organizer.email), event };
 }
 
 export async function markApplicationReviewed(
-  input: ReviewCompleteInput,
-): Promise<{
-  review: ReviewRecord;
-  event: ReviewEventRecord | null;
-  status: "reviewed" | "flagged";
-}> {
+  input: ReviewCompleteSaveInput,
+): Promise<ReviewCompleteSaveResult> {
   const organizer = await requireOrganizer();
-  const parsed = parseActionInput(reviewCompleteSchema, input);
+  const parsed = parseActionInput(reviewCompleteSaveSchema, input);
   const now = new Date().toISOString();
   const status = parsed.flaggedForReview ? "flagged" : "reviewed";
   const reviewComments = parsed.flaggedForReview ? parsed.reviewComments : null;
@@ -210,6 +242,10 @@ export async function markApplicationReviewed(
     .from(hackerApplicationReviews)
     .where(eq(hackerApplicationReviews.applicationId, parsed.applicationId))
     .limit(1);
+
+  if (reviewVersionToken(previousReview) !== parsed.expectedUpdatedAt) {
+    return conflictResult(previousReview ?? null);
+  }
 
   const [review] = await db
     .insert(hackerApplicationReviews)
@@ -252,6 +288,7 @@ export async function markApplicationReviewed(
   });
 
   return {
+    ok: true,
     review: withReviewerEmail(review, organizer.email),
     event,
     status,

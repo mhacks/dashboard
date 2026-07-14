@@ -28,6 +28,14 @@ export const reviewDraftSchema = z.object({
   reviewComments: z.string().max(3000, "Comments are too long").nullable(),
 });
 
+export const reviewSaveOptionsSchema = z.object({
+  expectedUpdatedAt: z.string().nullable(),
+});
+
+export const reviewDraftSaveSchema = reviewDraftSchema.merge(
+  reviewSaveOptionsSchema,
+);
+
 export const reviewCompleteSchema = reviewDraftSchema
   .extend({
     effortRating: finalRatingSchema,
@@ -42,6 +50,10 @@ export const reviewCompleteSchema = reviewDraftSchema
       });
     }
   });
+
+export const reviewCompleteSaveSchema = reviewCompleteSchema.and(
+  reviewSaveOptionsSchema,
+);
 
 export const reviewEventsInputSchema = z.object({
   applicationId: z.uuid(),
@@ -98,6 +110,26 @@ export type ReviewSyncPayload = z.infer<typeof reviewSyncPayloadSchema>;
 
 export type ReviewDraftInput = z.infer<typeof reviewDraftSchema>;
 export type ReviewCompleteInput = z.infer<typeof reviewCompleteSchema>;
+export type ReviewDraftSaveInput = z.infer<typeof reviewDraftSaveSchema>;
+export type ReviewCompleteSaveInput = z.infer<typeof reviewCompleteSaveSchema>;
+
+export type ReviewSaveSuccess = {
+  ok: true;
+  review: ReviewRecord;
+  event: ReviewEventRecord | null;
+};
+
+export type ReviewSaveConflict = {
+  ok: false;
+  code: "conflict";
+  review: ReviewRecord | null;
+};
+
+export type ReviewDraftSaveResult = ReviewSaveSuccess | ReviewSaveConflict;
+
+export type ReviewCompleteSaveResult =
+  | (ReviewSaveSuccess & { status: "reviewed" | "flagged" })
+  | ReviewSaveConflict;
 export type ReviewEventsInput = z.infer<typeof reviewEventsInputSchema>;
 
 export type ReviewApplication = HackerApplicantRow & {
