@@ -562,6 +562,8 @@ export default function ApplicationReviewWorkspace({
   );
 
   function selectApplication(item: ReviewListSummaryItem) {
+    if (item.application.id === selectedId) return;
+
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     skipNextAutosave.current = true;
