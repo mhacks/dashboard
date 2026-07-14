@@ -48,7 +48,7 @@ export async function verifyOtp(
   next?: string,
 ): Promise<{ error: string } | undefined> {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.verifyOtp({
+  const { error } = await supabase.auth.verifyOtp({
     email,
     token,
     type: "email",
