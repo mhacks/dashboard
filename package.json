@@ -14,8 +14,6 @@
     "start": "node --env-file=.env.local .next/standalone/server.js",
     "lint": "eslint",
     "format": "prettier --write .",
-    "test": "vitest run",
-    "test:watch": "vitest",
     "db:start": "supabase start && bash scripts/gen-env-local.sh",
     "db:env": "bash scripts/gen-env-local.sh",
     "db:stop": "supabase stop",
@@ -77,7 +75,6 @@
     "prettier": "^3.9.4",
     "supabase": "^2.109.0",
     "tailwindcss": "^4.3.2",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "typescript": "^5.9.3"
   }
 }
