@@ -1,7 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
-import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -13,18 +11,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  ArrowLeftIcon,
-  BarChart3Icon,
-  MapPinnedIcon,
-  TrophyIcon,
-  UsersRoundIcon,
-} from "lucide-react";
+import { BarChart3Icon, MapPinnedIcon, TrophyIcon, UsersRoundIcon } from "lucide-react";
 import type {
   AnalyticsBucket,
   ApplicationAnalyticsData,
 } from "@/lib/types/application-reviews";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -41,7 +32,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import ThemeToggle from "../theme-toggle";
+import { ApplicationReviewHeader } from "../components/application-review-header";
+import { Meter } from "../components/meter";
+import { SummaryBar } from "../components/summary-bar";
 
 const CHART_COLORS = [
   "var(--color-moss)",
@@ -66,52 +59,6 @@ function withFills(items: AnalyticsBucket[]) {
     ...item,
     fill: CHART_COLORS[index % CHART_COLORS.length],
   }));
-}
-
-function SummaryBar({
-  items,
-}: {
-  items: Array<{
-    label: string;
-    value: string | number;
-    hint: string;
-    icon: ReactNode;
-  }>;
-}) {
-  return (
-    <section className="overflow-hidden rounded-lg border bg-card md:flex md:divide-x md:divide-border/60">
-      {items.map((item) => (
-        <div key={item.label} className="flex min-w-0 flex-1 gap-3 px-4 py-4">
-          <div className="shrink-0 text-moss dark:text-sage">{item.icon}</div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">{item.label}</p>
-            <p className="font-heading text-2xl italic text-moss dark:text-sage">
-              {item.value}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {item.hint}
-            </p>
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function Meter({ value, className }: { value: number; className?: string }) {
-  return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-full bg-moss/10 dark:bg-sage/10",
-        className,
-      )}
-    >
-      <div
-        className="h-full rounded-full bg-moss transition-all dark:bg-sage"
-        style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
-      />
-    </div>
-  );
 }
 
 function EmptyState() {
@@ -592,35 +539,10 @@ export default function ApplicationAnalyticsDashboard({
   return (
     <main className="min-h-screen bg-background px-4 py-5 text-foreground md:px-6">
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="font-red-hat text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
-              MHacks Organizer
-            </p>
-            <h1 className="font-heading text-4xl italic tracking-tight text-moss dark:text-sage">
-              Application Analytics
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Overall applicant demographics, location signals, academic mix,
-              and review score distributions.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline">
-              <Link href="/admin/applications">
-                <ArrowLeftIcon className="size-4" />
-                Back to reviews
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/admin/applications/leaderboard">
-                <TrophyIcon className="size-4" />
-                Leaderboard
-              </Link>
-            </Button>
-            <ThemeToggle />
-          </div>
-        </header>
+        <ApplicationReviewHeader
+          title="Application Analytics"
+          description="Overall applicant demographics, location signals, academic mix, and review score distributions."
+        />
 
         <SummaryBar
           items={[

@@ -1,13 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
-  BarChart3Icon,
   CheckCircle2Icon,
   ClipboardCheckIcon,
   DownloadIcon,
@@ -19,7 +17,6 @@ import {
   ListFilterIcon,
   SearchIcon,
   SmartphoneIcon,
-  TrophyIcon,
   UserRoundIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -63,8 +60,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+import { ApplicationReviewHeader } from "./components/application-review-header";
+import { Meter } from "./components/meter";
 import { ReviewEventTimeline } from "./review-event-timeline";
-import ThemeToggle from "./theme-toggle";
 
 type Organizer = { id: string; email: string };
 
@@ -859,50 +857,18 @@ export default function ApplicationReviewWorkspace({
   return (
     <main className="h-dvh overflow-hidden bg-background text-foreground">
       <div className="flex h-full flex-col">
-        <header className="shrink-0 border-b bg-card/80 px-4 py-3 backdrop-blur md:px-6">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
-                MHacks Organizer
+        <ApplicationReviewHeader
+          title="Application Review"
+          variant="workspace"
+          footer={
+            <div className="mt-3 flex items-center gap-3">
+              <Meter value={completionPercent} className="h-2 flex-1" />
+              <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                {completedCount} of {counts.total} complete
               </p>
-              <h1 className="font-heading text-2xl italic tracking-tight text-moss sm:text-3xl dark:text-sage">
-                Application Review
-              </h1>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button asChild variant="outline" size="sm" className="bg-card">
-                <Link
-                  href="/admin/applications/leaderboard"
-                  aria-label="Leaderboard"
-                >
-                  <TrophyIcon className="size-4" />
-                  <span className="hidden sm:inline">Leaderboard</span>
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="bg-card">
-                <Link
-                  href="/admin/applications/analytics"
-                  aria-label="Analytics"
-                >
-                  <BarChart3Icon className="size-4" />
-                  <span className="hidden sm:inline">Analytics</span>
-                </Link>
-              </Button>
-              <ThemeToggle />
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-moss/10 dark:bg-sage/10">
-              <div
-                className="h-full rounded-full bg-moss transition-all dark:bg-sage"
-                style={{ width: `${completionPercent}%` }}
-              />
-            </div>
-            <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {completedCount} of {counts.total} complete
-            </p>
-          </div>
-        </header>
+          }
+        />
 
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)_minmax(300px,360px)]">
           <aside
