@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,11 +19,11 @@ import Logistics from "./components/logistics";
 import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
+import { logout } from "@/lib/actions/auth.server.actions";
 import {
   submitHackerApplication,
   saveDraft,
 } from "@/lib/actions/application-form.server.actions";
-import { createClient } from "@/lib/supabase/client";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 
@@ -234,7 +233,6 @@ export default function ApplyPage({
   resumeUrl: string | null;
 }) {
   const readOnly = existingData !== null;
-  const router = useRouter();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -571,10 +569,7 @@ export default function ApplyPage({
               disabled={isSigningOut}
               onClick={async () => {
                 setIsSigningOut(true);
-                await createClient()
-                  .auth.signOut()
-                  .catch(() => {});
-                router.push("/");
+                await logout();
               }}
               className="glass-pill rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 disabled:opacity-50"
             >
