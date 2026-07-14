@@ -1,5 +1,5 @@
 {
-  "id": "e2d2cb5d-2a9a-4578-a330-96aa2d72bd17",
+  "id": "05e54e86-4289-4025-91d0-a3b35ef2fb46",
   "prevId": "58a6d516-9eb0-4b2f-a102-37a875029234",
   "version": "7",
   "dialect": "postgresql",
@@ -266,15 +266,15 @@
           ],
           "withCheck": "\"hacker_applicants\".\"user_id\" = (select auth.uid())"
         },
-        "hacker_applicants_update_own_or_organizer": {
-          "name": "hacker_applicants_update_own_or_organizer",
+        "hacker_applicants_update_organizer": {
+          "name": "hacker_applicants_update_organizer",
           "as": "PERMISSIVE",
           "for": "UPDATE",
           "to": [
             "authenticated"
           ],
-          "using": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
         }
       },
       "checkConstraints": {},
@@ -489,14 +489,22 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {
-        "hacker_application_review_events_organizer_all": {
-          "name": "hacker_application_review_events_organizer_all",
+        "hacker_application_review_events_organizer_select": {
+          "name": "hacker_application_review_events_organizer_select",
           "as": "PERMISSIVE",
-          "for": "ALL",
+          "for": "SELECT",
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_application_review_events_organizer_insert": {
+          "name": "hacker_application_review_events_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
           "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
         }
       },
@@ -612,10 +620,28 @@
         }
       },
       "policies": {
-        "hacker_application_reviews_organizer_all": {
-          "name": "hacker_application_reviews_organizer_all",
+        "hacker_application_reviews_organizer_select": {
+          "name": "hacker_application_reviews_organizer_select",
           "as": "PERMISSIVE",
-          "for": "ALL",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_application_reviews_organizer_insert": {
+          "name": "hacker_application_reviews_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_application_reviews_organizer_update": {
+          "name": "hacker_application_reviews_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
           "to": [
             "authenticated"
           ],

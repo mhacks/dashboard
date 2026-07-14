@@ -35,7 +35,9 @@ import { createClient } from "@/lib/supabase/client";
 import {
   reviewCompleteSchema,
   reviewDraftSchema,
+  reviewSyncPayloadSchema,
   type ReviewCounts,
+  type ReviewSyncPayload,
   type ReviewWorkspaceData,
   type ReviewDraftInput,
   type ReviewEventRecord,
@@ -110,14 +112,6 @@ type PresenceMeta = {
   userId: string;
   email: string;
   onlineAt: string;
-};
-
-type ReviewSyncPayload = {
-  sourceUserId: string;
-  applicationId: string;
-  review: ReviewRecord;
-  status?: ReviewListItem["application"]["status"];
-  event: ReviewEventRecord | null;
 };
 
 const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
@@ -774,11 +768,36 @@ export default function ApplicationReviewWorkspace({
     reviewSyncChannel.current = channel;
 
     channel.on("broadcast", { event: REVIEW_SYNC_EVENT }, ({ payload }) => {
-      const update = payload as ReviewSyncPayload;
-      if (update.sourceUserId && update.sourceUserId === organizer?.id) return;
+      const parsed = reviewSyncPayloadSchema.safeParse(payload);
+      if (!parsed.success) return;
+
+      const update = parsed.data;
+      if (update.sourceUserId === organizer?.id) return;
 
       updateReviewItem(update.applicationId, update.review, update.status);
-      appendReviewEvent(update.event);
+
+      if (update.applicationId !== selectedIdRef.current) return;
+
+      void getApplicationReviewDetail(update.applicationId)
+        .then((detail) => {
+          if (selectedIdRef.current !== update.applicationId) return;
+          setSelectedDetail(detail);
+          if (!skipNextAutosave.current) {
+            form.reset(toReviewDefaults(detail));
+          }
+        })
+        .catch((error) => {
+          console.error("Unable to refresh application detail:", error);
+        });
+
+      void getApplicationReviewEvents(update.applicationId)
+        .then((events) => {
+          if (selectedIdRef.current !== update.applicationId) return;
+          setReviewEvents(events);
+        })
+        .catch((error) => {
+          console.error("Unable to refresh review history:", error);
+        });
     });
 
     channel.subscribe();
@@ -787,7 +806,7 @@ export default function ApplicationReviewWorkspace({
       reviewSyncChannel.current = null;
       supabase.removeChannel(channel);
     };
-  }, [appendReviewEvent, organizer?.id, updateReviewItem]);
+  }, [form, organizer?.id, updateReviewItem]);
 
   useEffect(() => {
     if (!selectedDetail?.application.resume) {

@@ -129,11 +129,11 @@ export const hackerApplicants = pgTable(
       to: authenticatedRole,
       withCheck: sql`${table.userId} = ${authUid}`,
     }),
-    pgPolicy("hacker_applicants_update_own_or_organizer", {
+    pgPolicy("hacker_applicants_update_organizer", {
       for: "update",
       to: authenticatedRole,
-      using: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
-      withCheck: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
+      using: isOrganizer,
+      withCheck: isOrganizer,
     }),
   ],
 ).enableRLS();
@@ -221,8 +221,18 @@ export const hackerApplicationReviews = pgTable(
     unique("hacker_application_reviews_application_id_unique").on(
       table.applicationId,
     ),
-    pgPolicy("hacker_application_reviews_organizer_all", {
-      for: "all",
+    pgPolicy("hacker_application_reviews_organizer_select", {
+      for: "select",
+      to: authenticatedRole,
+      using: isOrganizer,
+    }),
+    pgPolicy("hacker_application_reviews_organizer_insert", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: isOrganizer,
+    }),
+    pgPolicy("hacker_application_reviews_organizer_update", {
+      for: "update",
       to: authenticatedRole,
       using: isOrganizer,
       withCheck: isOrganizer,
@@ -267,10 +277,14 @@ export const hackerApplicationReviewEvents = pgTable(
       table.applicationId,
       table.createdAt,
     ),
-    pgPolicy("hacker_application_review_events_organizer_all", {
-      for: "all",
+    pgPolicy("hacker_application_review_events_organizer_select", {
+      for: "select",
       to: authenticatedRole,
       using: isOrganizer,
+    }),
+    pgPolicy("hacker_application_review_events_organizer_insert", {
+      for: "insert",
+      to: authenticatedRole,
       withCheck: isOrganizer,
     }),
   ],

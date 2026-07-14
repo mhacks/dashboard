@@ -6,6 +6,7 @@ import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
 import { requireSessionUser } from "@/lib/auth/guards";
 
 const MAX_RESUME_SIZE = 10 * 1024 * 1024;
+const RESUME_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;
 
 export async function uploadResume(
   formData: FormData,
@@ -51,5 +52,7 @@ export async function getResumeDownloadUrl(key: string): Promise<string> {
   if (!(await canDownloadResume(key))) throw new Error("Forbidden");
 
   const command = new GetObjectCommand({ Bucket: RESUMES_BUCKET, Key: key });
-  return getSignedUrl(s3, command, { expiresIn: 86400 });
+  return getSignedUrl(s3, command, {
+    expiresIn: RESUME_DOWNLOAD_URL_TTL_SECONDS,
+  });
 }

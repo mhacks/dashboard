@@ -83,25 +83,3 @@ export const saveDraft = async (
     );
   }
 };
-
-export const updateHackerApplication = async (
-  data: HackerApplicationFormData,
-): Promise<void> => {
-  const { id: userId } = await requireSessionUser();
-  const parsed = hackerApplicationSchema.parse(data);
-  if (parsed.resume !== `resumes/${userId}.pdf`) {
-    throw new Error("Invalid resume");
-  }
-
-  try {
-    await db
-      .update(hackerApplicants)
-      .set({ ...toDbValues(parsed) })
-      .where(eq(hackerApplicants.userId, userId));
-  } catch (error) {
-    console.error("Unable to update Hacker Application:", error);
-    throw new Error(
-      error instanceof Error ? error.message : "Failed to update application",
-    );
-  }
-};
