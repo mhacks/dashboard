@@ -325,14 +325,6 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
 export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboardData> {
   await requireOrganizer();
 
-  const organizers = await db
-    .select({
-      id: users.id,
-      email: users.email,
-    })
-    .from(users)
-    .where(eq(users.role, "organizer"));
-
   const completedReviews = await db
     .select({
       review: hackerApplicationReviews,
@@ -388,10 +380,6 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
     };
     rowsByReviewerId.set(reviewerUserId, row);
     return row;
-  }
-
-  for (const organizer of organizers) {
-    ensureRow(organizer.id, organizer.email);
   }
 
   for (const { review, reviewerEmail } of completedReviews) {

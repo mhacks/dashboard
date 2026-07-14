@@ -15,7 +15,6 @@ import {
   EyeIcon,
   FileTextIcon,
   FlagIcon,
-  HistoryIcon,
   InboxIcon,
   ListFilterIcon,
   SearchIcon,
@@ -63,6 +62,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+import { ReviewEventTimeline } from "./review-event-timeline";
 import ThemeToggle from "./theme-toggle";
 
 type Organizer = { id: string; email: string };
@@ -199,38 +199,14 @@ function statusClassName(status: ReviewListItem["application"]["status"]) {
   return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300";
 }
 
-const REVIEW_EVENT_FIELD_LABELS: Record<string, string> = {
-  effortRating: "Effort",
-  builderRating: "Builder",
-  flaggedForReview: "Flag",
-  reviewComments: "Comments",
-  reviewedAt: "Reviewed time",
-};
+function ReviewBadge({ review }: { review: ReviewRecord | null }) {
+  if (!review?.reviewedAt) return null;
 
-function reviewEventLabel(eventType: ReviewEventRecord["eventType"]) {
-  if (eventType === "review_completed") return "Marked reviewed";
-  return "Saved draft";
-}
-
-function formatReviewEventValue(value: unknown) {
-  if (value === null || value === undefined || value === "") return "empty";
-  if (typeof value === "boolean") return value ? "yes" : "no";
-  if (typeof value === "string" && value.length > 48) {
-    return `${value.slice(0, 48)}...`;
-  }
-  return String(value);
-}
-
-function describeReviewEventChanges(event: ReviewEventRecord) {
-  const entries = Object.entries(event.changes);
-  if (entries.length === 0) return "No field changes";
-
-  return entries
-    .map(([field, change]) => {
-      const label = REVIEW_EVENT_FIELD_LABELS[field] ?? field;
-      return `${label}: ${formatReviewEventValue(change.from)} -> ${formatReviewEventValue(change.to)}`;
-    })
-    .join("; ");
+  return (
+    <span className="text-xs text-muted-foreground">
+      by {review.reviewerEmail ?? "organizer"}
+    </span>
+  );
 }
 
 function displayValue(value: unknown) {
@@ -356,71 +332,6 @@ function RatingPicker({
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
-  );
-}
-
-function ReviewBadge({ review }: { review: ReviewRecord | null }) {
-  if (!review?.reviewedAt) return null;
-
-  return (
-    <span className="text-xs text-muted-foreground">
-      by {review.reviewerEmail ?? "organizer"}
-    </span>
-  );
-}
-
-function ReviewHistory({
-  events,
-  loading,
-}: {
-  events: ReviewEventRecord[];
-  loading: boolean;
-}) {
-  return (
-    <div className="rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <HistoryIcon className="size-4 text-moss dark:text-sage" />
-          Edit history
-        </div>
-        {loading && (
-          <span className="text-xs text-muted-foreground">Loading...</span>
-        )}
-      </div>
-
-      <ScrollArea className="mt-2 h-48">
-        <div className="pr-3">
-          {!loading && events.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              No review edits logged yet.
-            </p>
-          )}
-
-          {events.length > 0 && (
-            <ol className="space-y-3">
-              {events.map((event) => (
-                <li key={event.id} className="border-l pl-3">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                    <span className="font-medium text-foreground">
-                      {reviewEventLabel(event.eventType)}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {new Date(event.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    by {event.reviewerEmail ?? "organizer"}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-foreground">
-                    {describeReviewEventChanges(event)}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
   );
 }
 
@@ -1457,7 +1368,7 @@ function ScorecardForm({
 }) {
   return (
     <form
-      className={cn("space-y-5", compact ? "p-4" : "p-5")}
+      className={cn("min-w-0 space-y-5", compact ? "p-4" : "p-5")}
       onSubmit={(event) => event.preventDefault()}
     >
       {!compact && (
@@ -1601,7 +1512,13 @@ function ScorecardForm({
         )}
       </div>
 
-      <ReviewHistory events={reviewEvents} loading={reviewEventsLoading} />
+      <ReviewEventTimeline
+        events={reviewEvents}
+        loading={reviewEventsLoading}
+        compact
+        maxHeight="12rem"
+        className="w-full min-w-0"
+      />
 
       {activeReviewers.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
