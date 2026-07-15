@@ -656,7 +656,10 @@ export default function ApplicationReviewWorkspace({
   }, [query, statusFilter]);
 
   useEffect(() => {
-    const pageCount = getPageCount(filteredItems.length, APPLICATIONS_PAGE_SIZE);
+    const pageCount = getPageCount(
+      filteredItems.length,
+      APPLICATIONS_PAGE_SIZE,
+    );
     setApplicationsPage((current) => clampPageIndex(current, pageCount));
   }, [filteredItems.length]);
 

@@ -121,8 +121,7 @@ export type ReviewSaveConflict = {
 };
 
 export type ReviewCompleteSaveResult =
-  | (ReviewSaveSuccess & { status: "reviewed" | "flagged" })
-  | ReviewSaveConflict;
+  (ReviewSaveSuccess & { status: "reviewed" | "flagged" }) | ReviewSaveConflict;
 export type ReviewEventsInput = z.infer<typeof reviewEventsInputSchema>;
 
 export type ReviewApplication = HackerApplicantRow & {
