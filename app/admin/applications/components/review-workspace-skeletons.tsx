@@ -1,9 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 function ApplicationReviewHeaderSkeleton({
@@ -297,9 +293,18 @@ function ScorecardSkeleton() {
   );
 }
 
-function LeaderboardRowSkeleton({ highlighted = false }: { highlighted?: boolean }) {
+function LeaderboardRowSkeleton({
+  highlighted = false,
+}: {
+  highlighted?: boolean;
+}) {
   return (
-    <div className={cn("px-4 py-3", highlighted && "bg-amber-50/60 dark:bg-amber-950/20")}>
+    <div
+      className={cn(
+        "px-4 py-3",
+        highlighted && "bg-amber-50/60 dark:bg-amber-950/20",
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <Skeleton className="mt-0.5 size-4 shrink-0 rounded-sm" />
@@ -381,10 +386,7 @@ export function LeaderboardPageSkeleton() {
   return (
     <main className="min-h-screen bg-background px-4 py-5 text-foreground md:px-6">
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <ApplicationReviewHeaderSkeleton
-          variant="dashboard"
-          withDescription
-        />
+        <ApplicationReviewHeaderSkeleton variant="dashboard" withDescription />
 
         <SummaryBarSkeleton />
 
@@ -472,7 +474,11 @@ function AnalyticsPieCardSkeleton() {
   );
 }
 
-function AnalyticsBarCardSkeleton({ height = "h-[280px]" }: { height?: string }) {
+function AnalyticsBarCardSkeleton({
+  height = "h-[280px]",
+}: {
+  height?: string;
+}) {
   return (
     <Card>
       <AnalyticsCardHeaderSkeleton />
@@ -486,7 +492,10 @@ function AnalyticsBarCardSkeleton({ height = "h-[280px]" }: { height?: string })
 function AnalyticsPipelineCardSkeleton() {
   return (
     <Card className="h-full">
-      <AnalyticsCardHeaderSkeleton titleWidth="w-32" descriptionWidth="max-w-sm" />
+      <AnalyticsCardHeaderSkeleton
+        titleWidth="w-32"
+        descriptionWidth="max-w-sm"
+      />
       <CardContent className="space-y-5">
         {Array.from({ length: 3 }).map((_, index) => (
           <div key={index}>
@@ -529,7 +538,10 @@ function AnalyticsRankedListCardSkeleton({ rows = 5 }: { rows?: number }) {
 function AnalyticsStatCardSkeleton() {
   return (
     <Card className="h-full">
-      <AnalyticsCardHeaderSkeleton titleWidth="w-36" descriptionWidth="max-w-sm" />
+      <AnalyticsCardHeaderSkeleton
+        titleWidth="w-36"
+        descriptionWidth="max-w-sm"
+      />
       <CardContent>
         <div className="flex items-end justify-between gap-3">
           <Skeleton className="h-10 w-16" />
@@ -581,10 +593,7 @@ export function AnalyticsPageSkeleton() {
   return (
     <main className="min-h-screen bg-background px-4 py-5 text-foreground md:px-6">
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <ApplicationReviewHeaderSkeleton
-          variant="dashboard"
-          withDescription
-        />
+        <ApplicationReviewHeaderSkeleton variant="dashboard" withDescription />
 
         <SummaryBarSkeleton />
 
