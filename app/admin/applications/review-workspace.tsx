@@ -458,7 +458,7 @@ function ResumePreview({
 }) {
   if (!resumeKey) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
+      <div className="flex h-[560px] items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
         No resume uploaded.
       </div>
     );
@@ -470,7 +470,7 @@ function ResumePreview({
 
   if (!resumeUrl) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 px-6 text-center text-sm text-muted-foreground">
+      <div className="flex h-[560px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 px-6 text-center text-sm text-muted-foreground">
         <FileTextIcon className="size-5" />
         Could not load a preview. Stored key: {resumeKey}
       </div>
@@ -500,7 +500,7 @@ function ResumePreview({
           type="button"
           onClick={() => void onRefresh()}
           disabled={refreshing}
-          className="flex h-[320px] w-full flex-col items-center justify-center gap-2 bg-muted/20 px-6 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/40 disabled:pointer-events-none disabled:opacity-60"
+          className="flex h-[560px] w-full flex-col items-center justify-center gap-2 bg-muted/20 px-6 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/40 disabled:pointer-events-none disabled:opacity-60"
         >
           <RefreshCwIcon
             className={cn("size-5", refreshing && "animate-spin")}
@@ -515,7 +515,7 @@ function ResumePreview({
           src={resumeUrl}
           sandbox="allow-scripts allow-same-origin"
           referrerPolicy="no-referrer"
-          className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
+          className="h-[560px] w-full bg-white dark:bg-zinc-950"
         />
       )}
     </div>
