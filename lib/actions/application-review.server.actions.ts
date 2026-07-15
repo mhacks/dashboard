@@ -26,6 +26,8 @@ import {
 
 const MAX_REVIEW_EVENTS_PER_APPLICATION = 50;
 
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 function parseActionInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw new Error("Invalid input");
@@ -82,25 +84,28 @@ function reviewChanges(
   return changes;
 }
 
-async function recordReviewEvent({
-  review,
-  previous,
-  reviewer,
-  eventType,
-  applicationStatus,
-  force = false,
-}: {
-  review: HackerApplicationReviewRow;
-  previous: HackerApplicationReviewRow | null;
-  reviewer: Pick<UserEntry, "id" | "email">;
-  eventType: "draft_saved" | "review_completed";
-  applicationStatus: ReviewListItem["application"]["status"];
-  force?: boolean;
-}): Promise<ReviewEventRecord | null> {
+async function recordReviewEvent(
+  {
+    review,
+    previous,
+    reviewer,
+    eventType,
+    applicationStatus,
+    force = false,
+  }: {
+    review: HackerApplicationReviewRow;
+    previous: HackerApplicationReviewRow | null;
+    reviewer: Pick<UserEntry, "id" | "email">;
+    eventType: "draft_saved" | "review_completed";
+    applicationStatus: ReviewListItem["application"]["status"];
+    force?: boolean;
+  },
+  tx: DbTx,
+): Promise<ReviewEventRecord | null> {
   const changes = reviewChanges(previous, review);
   if (!force && Object.keys(changes).length === 0) return null;
 
-  const [event] = await db
+  const [event] = await tx
     .insert(hackerApplicationReviewEvents)
     .values({
       reviewId: review.id,
@@ -112,13 +117,13 @@ async function recordReviewEvent({
     })
     .returning();
 
-  await pruneReviewEvents(review.applicationId);
+  await pruneReviewEvents(review.applicationId, tx);
 
   return withReviewEventEmail(event, reviewer.email);
 }
 
-async function pruneReviewEvents(applicationId: string) {
-  await db.execute(sql`
+async function pruneReviewEvents(applicationId: string, tx: DbTx) {
+  await tx.execute(sql`
     delete from ${hackerApplicationReviewEvents}
     where ${hackerApplicationReviewEvents.id} in (
       select id
@@ -145,8 +150,9 @@ function reviewVersionToken(
 
 async function reviewRecordWithEmail(
   review: HackerApplicationReviewRow,
+  tx: DbTx,
 ): Promise<ReviewRecord> {
-  const [reviewer] = await db
+  const [reviewer] = await tx
     .select({ email: users.email })
     .from(users)
     .where(eq(users.id, review.reviewerUserId))
@@ -157,11 +163,12 @@ async function reviewRecordWithEmail(
 
 async function conflictResult(
   existing: HackerApplicationReviewRow | null,
+  tx: DbTx,
 ): Promise<ReviewSaveConflict> {
   return {
     ok: false,
     code: "conflict",
-    review: existing ? await reviewRecordWithEmail(existing) : null,
+    review: existing ? await reviewRecordWithEmail(existing, tx) : null,
   };
 }
 
@@ -176,31 +183,29 @@ export async function markApplicationReviewed(
   const status = parsed.flaggedForReview ? "flagged" : "reviewed";
   const reviewComments = parsed.flaggedForReview ? parsed.reviewComments : null;
 
-  const [previousReview] = await db
-    .select()
-    .from(hackerApplicationReviews)
-    .where(eq(hackerApplicationReviews.applicationId, parsed.applicationId))
-    .limit(1);
+  return db.transaction(async (tx) => {
+    const [application] = await tx
+      .select({ id: hackerApplicants.id })
+      .from(hackerApplicants)
+      .where(eq(hackerApplicants.id, parsed.applicationId))
+      .for("update");
 
-  if (reviewVersionToken(previousReview) !== parsed.expectedUpdatedAt) {
-    return conflictResult(previousReview ?? null);
-  }
+    if (!application) throw new Error("Application not found");
 
-  const [review] = await db
-    .insert(hackerApplicationReviews)
-    .values({
-      applicationId: parsed.applicationId,
-      reviewerUserId: organizer.id,
-      effortRating: parsed.effortRating,
-      builderRating: parsed.builderRating,
-      flaggedForReview: parsed.flaggedForReview,
-      reviewComments,
-      reviewedAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: hackerApplicationReviews.applicationId,
-      set: {
+    const [previousReview] = await tx
+      .select()
+      .from(hackerApplicationReviews)
+      .where(eq(hackerApplicationReviews.applicationId, parsed.applicationId))
+      .limit(1);
+
+    if (reviewVersionToken(previousReview) !== parsed.expectedUpdatedAt) {
+      return conflictResult(previousReview ?? null, tx);
+    }
+
+    const [review] = await tx
+      .insert(hackerApplicationReviews)
+      .values({
+        applicationId: parsed.applicationId,
         reviewerUserId: organizer.id,
         effortRating: parsed.effortRating,
         builderRating: parsed.builderRating,
@@ -208,30 +213,45 @@ export async function markApplicationReviewed(
         reviewComments,
         reviewedAt: now,
         updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: hackerApplicationReviews.applicationId,
+        set: {
+          reviewerUserId: organizer.id,
+          effortRating: parsed.effortRating,
+          builderRating: parsed.builderRating,
+          flaggedForReview: parsed.flaggedForReview,
+          reviewComments,
+          reviewedAt: now,
+          updatedAt: now,
+        },
+      })
+      .returning();
+
+    await tx
+      .update(hackerApplicants)
+      .set({ status, updatedAt: now })
+      .where(eq(hackerApplicants.id, parsed.applicationId));
+
+    const event = await recordReviewEvent(
+      {
+        review,
+        previous: previousReview ?? null,
+        reviewer: organizer,
+        eventType: "review_completed",
+        applicationStatus: status,
+        force: true,
       },
-    })
-    .returning();
+      tx,
+    );
 
-  await db
-    .update(hackerApplicants)
-    .set({ status, updatedAt: now })
-    .where(eq(hackerApplicants.id, parsed.applicationId));
-
-  const event = await recordReviewEvent({
-    review,
-    previous: previousReview ?? null,
-    reviewer: organizer,
-    eventType: "review_completed",
-    applicationStatus: status,
-    force: true,
+    return {
+      ok: true,
+      review: withReviewerEmail(review, organizer.email),
+      event,
+      status,
+    };
   });
-
-  return {
-    ok: true,
-    review: withReviewerEmail(review, organizer.email),
-    event,
-    status,
-  };
 }
 
 export async function getApplicationReviewEvents(

@@ -101,7 +101,11 @@ function EmptyState() {
   );
 }
 
-function BucketList({ data }: { data: AnalyticsBucket[] }) {
+function BucketList({
+  data,
+}: {
+  data: Array<AnalyticsBucket & { fill?: string }>;
+}) {
   return (
     <div className="divide-y divide-border/60">
       {data.map((item, index) => (
@@ -113,7 +117,8 @@ function BucketList({ data }: { data: AnalyticsBucket[] }) {
             <span
               className="size-2.5 shrink-0 rounded-sm"
               style={{
-                backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+                backgroundColor:
+                  item.fill ?? CHART_COLORS[index % CHART_COLORS.length],
               }}
             />
             <span className="truncate">{item.label}</span>
@@ -204,7 +209,7 @@ function PiePanel({
                 </text>
               </PieChart>
             </ChartContainer>
-            <BucketList data={chartData} />
+            <BucketList data={pieSlices} />
           </div>
         )}
       </CardContent>

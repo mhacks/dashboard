@@ -456,6 +456,8 @@ function ResumePreview({
         <iframe
           title="Resume preview"
           src={resumeUrl}
+          sandbox=""
+          referrerPolicy="no-referrer"
           className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
         />
       )}
@@ -1009,21 +1011,13 @@ export default function ApplicationReviewWorkspace({
     if (!resumeKey) return;
 
     try {
-      const url =
-        resumeExpired || !resumeUrl
-          ? await fetchResumeDownloadUrl(resumeKey)
-          : resumeUrl;
+      const url = await getResumeDownloadUrl(resumeKey, "attachment");
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Unable to open resume:", error);
       toast.error("Unable to open resume.");
     }
-  }, [
-    fetchResumeDownloadUrl,
-    resumeExpired,
-    resumeUrl,
-    selectedDetail?.application.resume,
-  ]);
+  }, [selectedDetail?.application.resume]);
 
   useEffect(() => {
     if (!selectedId) return;
