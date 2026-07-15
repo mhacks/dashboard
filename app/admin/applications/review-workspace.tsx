@@ -514,7 +514,7 @@ function ResumePreview({
         <iframe
           title="Resume preview"
           src={resumeUrl}
-          sandbox=""
+          sandbox="allow-scripts allow-same-origin"
           referrerPolicy="no-referrer"
           className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
         />
