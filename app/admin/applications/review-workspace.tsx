@@ -917,13 +917,22 @@ export default function ApplicationReviewWorkspace({
     const isPending = selectedDetail?.application.status === "pending";
 
     if (!parsed.success) {
+      let toastMessage: string | null = null;
       for (const issue of parsed.error.issues) {
         const field = issue.path[0];
-        if (field === "effortRating" || field === "builderRating") {
+        if (
+          field === "effortRating" ||
+          field === "builderRating" ||
+          field === "reviewComments"
+        ) {
           form.setError(field, { message: issue.message });
+          toastMessage ??= issue.message;
         }
       }
-      toast.error("Add both 1-5 ratings before submitting your review.");
+      toast.error(
+        toastMessage ??
+          "Fix the highlighted fields before submitting your review.",
+      );
       return;
     }
 
@@ -1603,9 +1612,15 @@ function ScorecardForm({
                 value={field.value ?? ""}
                 onChange={(event) => field.onChange(event.target.value)}
                 placeholder="Why should this application get another look?"
+                aria-invalid={!!form.formState.errors.reviewComments}
               />
             )}
           />
+          {form.formState.errors.reviewComments && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.reviewComments.message}
+            </p>
+          )}
         </div>
       )}
 
