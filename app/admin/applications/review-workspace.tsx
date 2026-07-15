@@ -17,6 +17,7 @@ import {
   FlagIcon,
   InboxIcon,
   ListFilterIcon,
+  RefreshCwIcon,
   SearchIcon,
   SmartphoneIcon,
   UserRoundIcon,
@@ -81,6 +82,8 @@ type ReviewSyncChannel = ReturnType<SupabaseBrowserClient["channel"]>;
 
 const DESKTOP_BREAKPOINT = 1024;
 const APPLICATIONS_PAGE_SIZE = 25;
+// Keep in sync with RESUME_DOWNLOAD_URL_TTL_SECONDS in resume.server.actions.ts
+const RESUME_PREVIEW_URL_TTL_MS = 15 * 60 * 1000;
 const PHONE_LANDSCAPE_QUERY =
   "(orientation: landscape) and (max-height: 520px) and (max-width: 950px) and (pointer: coarse)";
 
@@ -363,10 +366,18 @@ function ResumePreview({
   resumeKey,
   resumeUrl,
   loading,
+  expired,
+  onRefresh,
+  onOpen,
+  refreshing,
 }: {
   resumeKey: string | null;
   resumeUrl: string | null;
   loading: boolean;
+  expired: boolean;
+  onRefresh: () => void;
+  onOpen: () => void;
+  refreshing: boolean;
 }) {
   if (!resumeKey) {
     return (
@@ -400,18 +411,38 @@ function ResumePreview({
           <FileTextIcon className="size-4 shrink-0 text-moss dark:text-sage" />
           <span className="truncate">Resume preview</span>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <a href={resumeUrl} target="_blank" rel="noreferrer">
-            <DownloadIcon className="size-3.5" />
-            Open
-          </a>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void onOpen()}
+          disabled={refreshing || loading}
+        >
+          <DownloadIcon className="size-3.5" />
+          Open
         </Button>
       </div>
-      <iframe
-        title="Resume preview"
-        src={resumeUrl}
-        className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
-      />
+      {expired ? (
+        <button
+          type="button"
+          onClick={() => void onRefresh()}
+          disabled={refreshing}
+          className="flex h-[320px] w-full flex-col items-center justify-center gap-2 bg-muted/20 px-6 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/40 disabled:pointer-events-none disabled:opacity-60"
+        >
+          <RefreshCwIcon
+            className={cn("size-5", refreshing && "animate-spin")}
+          />
+          {refreshing
+            ? "Refreshing preview..."
+            : "Preview expired. Click to refresh."}
+        </button>
+      ) : (
+        <iframe
+          title="Resume preview"
+          src={resumeUrl}
+          className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
+        />
+      )}
     </div>
   );
 }
@@ -420,11 +451,28 @@ function QuickLink({
   href,
   label,
   icon,
+  onClick,
 }: {
-  href: string | null | undefined;
+  href?: string | null;
   label: string;
   icon?: React.ReactNode;
+  onClick?: () => void;
 }) {
+  if (onClick) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="bg-card"
+        onClick={onClick}
+      >
+        {icon ?? <ExternalLinkIcon className="size-3.5" />}
+        {label}
+      </Button>
+    );
+  }
+
   if (!href) return null;
 
   return (
@@ -464,6 +512,9 @@ export default function ApplicationReviewWorkspace({
   const [activeReviewers, setActiveReviewers] = useState<PresenceMeta[]>([]);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeExpired, setResumeExpired] = useState(false);
+  const [resumeRefreshing, setResumeRefreshing] = useState(false);
+  const resumeExpiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [reviewEvents, setReviewEvents] = useState<ReviewEventRecord[]>([]);
   const [reviewEventsLoading, setReviewEventsLoading] = useState(false);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
@@ -800,20 +851,72 @@ export default function ApplicationReviewWorkspace({
     updateReviewItem,
   ]);
 
+  const clearResumeExpiryTimer = useCallback(() => {
+    if (resumeExpiryTimer.current) {
+      clearTimeout(resumeExpiryTimer.current);
+      resumeExpiryTimer.current = null;
+    }
+  }, []);
+
+  const scheduleResumeExpiry = useCallback(() => {
+    clearResumeExpiryTimer();
+    resumeExpiryTimer.current = setTimeout(() => {
+      setResumeExpired(true);
+    }, RESUME_PREVIEW_URL_TTL_MS);
+  }, [clearResumeExpiryTimer]);
+
+  const resetResumePreview = useCallback(() => {
+    setResumeUrl(null);
+    setResumeLoading(false);
+    setResumeExpired(false);
+    clearResumeExpiryTimer();
+  }, [clearResumeExpiryTimer]);
+
+  const fetchResumeDownloadUrl = useCallback(async (resumeKey: string) => {
+    return getResumeDownloadUrl(resumeKey);
+  }, []);
+
+  const bindResumeUrl = useCallback(
+    (url: string) => {
+      setResumeUrl(url);
+      setResumeExpired(false);
+      scheduleResumeExpiry();
+    },
+    [scheduleResumeExpiry],
+  );
+
+  const loadResumePreview = useCallback(
+    async (resumeKey: string) => {
+      try {
+        const url = await fetchResumeDownloadUrl(resumeKey);
+        bindResumeUrl(url);
+        return url;
+      } catch (error) {
+        console.error("Unable to load resume URL:", error);
+        setResumeUrl(null);
+        throw error;
+      }
+    },
+    [bindResumeUrl, fetchResumeDownloadUrl],
+  );
+
   useEffect(() => {
-    if (!selectedDetail?.application.resume) {
-      setResumeUrl(null);
-      setResumeLoading(false);
+    const resumeKey = selectedDetail?.application.resume;
+    if (!resumeKey) {
+      resetResumePreview();
       return;
     }
 
     let ignore = false;
     setResumeLoading(true);
     setResumeUrl(null);
+    setResumeExpired(false);
+    clearResumeExpiryTimer();
 
-    getResumeDownloadUrl(selectedDetail.application.resume)
+    void fetchResumeDownloadUrl(resumeKey)
       .then((url) => {
-        if (!ignore) setResumeUrl(url);
+        if (ignore) return;
+        bindResumeUrl(url);
       })
       .catch((error) => {
         console.error("Unable to load resume URL:", error);
@@ -825,8 +928,51 @@ export default function ApplicationReviewWorkspace({
 
     return () => {
       ignore = true;
+      clearResumeExpiryTimer();
     };
-  }, [selectedDetail?.application.id, selectedDetail?.application.resume]);
+  }, [
+    bindResumeUrl,
+    clearResumeExpiryTimer,
+    fetchResumeDownloadUrl,
+    resetResumePreview,
+    selectedDetail?.application.id,
+    selectedDetail?.application.resume,
+  ]);
+
+  const refreshResumePreview = useCallback(async () => {
+    const resumeKey = selectedDetail?.application.resume;
+    if (!resumeKey) return;
+
+    setResumeRefreshing(true);
+    try {
+      await loadResumePreview(resumeKey);
+    } catch {
+      toast.error("Unable to refresh resume preview.");
+    } finally {
+      setResumeRefreshing(false);
+    }
+  }, [loadResumePreview, selectedDetail?.application.resume]);
+
+  const openResumePreview = useCallback(async () => {
+    const resumeKey = selectedDetail?.application.resume;
+    if (!resumeKey) return;
+
+    try {
+      const url =
+        resumeExpired || !resumeUrl
+          ? await fetchResumeDownloadUrl(resumeKey)
+          : resumeUrl;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Unable to open resume:", error);
+      toast.error("Unable to open resume.");
+    }
+  }, [
+    fetchResumeDownloadUrl,
+    resumeExpired,
+    resumeUrl,
+    selectedDetail?.application.resume,
+  ]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -1144,6 +1290,13 @@ export default function ApplicationReviewWorkspace({
                   ).toLocaleDateString()}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedDetail.application.resume && (
+                    <QuickLink
+                      onClick={() => void openResumePreview()}
+                      label="Resume"
+                      icon={<FileTextIcon className="size-3.5" />}
+                    />
+                  )}
                   <QuickLink
                     href={
                       selectedDetail.application.applicantEmail
@@ -1151,11 +1304,6 @@ export default function ApplicationReviewWorkspace({
                         : null
                     }
                     label="Email"
-                  />
-                  <QuickLink
-                    href={resumeUrl}
-                    label="Resume"
-                    icon={<FileTextIcon className="size-3.5" />}
                   />
                   <QuickLink
                     href={externalHref(selectedDetail.application.github)}
@@ -1190,6 +1338,10 @@ export default function ApplicationReviewWorkspace({
               resumeKey={selectedDetail.application.resume}
               resumeUrl={resumeUrl}
               loading={resumeLoading}
+              expired={resumeExpired}
+              onRefresh={() => void refreshResumePreview()}
+              onOpen={() => void openResumePreview()}
+              refreshing={resumeRefreshing}
             />
 
             <Section title="Applicant Snapshot">
