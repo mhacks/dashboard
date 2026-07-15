@@ -514,7 +514,6 @@ function ResumePreview({
         <iframe
           title="Resume preview"
           src={resumeUrl}
-          sandbox=""
           referrerPolicy="no-referrer"
           className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
         />
@@ -1421,13 +1420,6 @@ export default function ApplicationReviewWorkspace({
                   ).toLocaleDateString()}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedDetail.application.resume && (
-                    <QuickLink
-                      onClick={() => void openResumePreview()}
-                      label="Resume"
-                      icon={<FileTextIcon className="size-3.5" />}
-                    />
-                  )}
                   <QuickLink
                     href={externalHref(selectedDetail.application.github)}
                     label="GitHub"
