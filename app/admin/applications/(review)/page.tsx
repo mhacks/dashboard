@@ -1,6 +1,6 @@
 import { getApplicationReviewDetail } from "@/lib/actions/application-review.server.actions";
 import { getApplicationReviewDashboard } from "@/lib/queries/application-review";
-import ApplicationReviewWorkspace from "./review-workspace";
+import ApplicationReviewWorkspace from "../review-workspace";
 
 export default async function AdminApplicationsPage() {
   const initialData = await getApplicationReviewDashboard();

@@ -1,4 +1,4 @@
-import { ReviewWorkspacePageSkeleton } from "./components/review-workspace-skeletons";
+import { ReviewWorkspacePageSkeleton } from "../components/review-workspace-skeletons";
 
 export default function AdminApplicationsLoading() {
   return (
