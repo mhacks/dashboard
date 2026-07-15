@@ -171,7 +171,7 @@ values
     'Female',
     'White',
     'Eastern Michigan University',
-    'United States',
+    'Canada',
     'Master''s',
     2026,
     5,
@@ -182,7 +182,7 @@ values
     'Small tools change big systems',
     'I enjoy mentoring first-time hackers and would love to help my team keep shipping.',
     'Driving',
-    'Ypsilanti, MI',
+    'Toronto, ON',
     'S',
     'Vegetarian',
     false,
@@ -205,8 +205,8 @@ values
     'Female',
     'Black or African American',
     'Wayne State University',
-    'United States',
-    'Bachelor''s',
+    'India',
+    'Master''s',
     2028,
     1,
     'Mathematics',
@@ -216,7 +216,7 @@ values
     'Maps should tell the truth',
     'Flagged only to discuss travel reimbursement constraints with the team.',
     'Bus',
-    'Detroit, MI',
+    'Bangalore, India',
     'L',
     null,
     true,
@@ -238,19 +238,19 @@ values
     22,
     'Female',
     'White',
-    'Michigan State University',
-    'United States',
-    'Bachelor''s',
+    'Imperial College London',
+    'United Kingdom',
+    'PhD / Doctorate',
     2027,
     3,
-    'Data Science',
+    'Robotics',
     null,
     'I would build a reliability dashboard for student organizations that checks forms, payments, schedules, and communication queues before event day. It would catch problems while they are still easy to fix.',
     'I want to come to MHacks because I like intense build weekends and I want to collaborate with designers and engineers outside my usual circle. My goal is to leave with a project people can actually keep using.',
     'Reliability is a feature',
     null,
     'Flying',
-    'Lansing, MI',
+    'London, UK',
     'M',
     'Peanut allergy',
     true,
@@ -393,7 +393,7 @@ on conflict (id) do update set
   snapshot = excluded.snapshot,
   created_at = excluded.created_at;
 
--- Bulk demo applicants for pagination and filter testing (96 more, 100 total).
+-- Bulk demo applicants for pagination, filter, and analytics testing (96 more, 100 total).
 with bulk_demo(n) as (
   select generate_series(105, 200)
 ),
@@ -471,7 +471,17 @@ universities(name, idx) as (
     ('Stanford University', 12),
     ('UC Berkeley', 13),
     ('University of Toronto', 14),
-    ('Cornell University', 15)
+    ('Cornell University', 15),
+    ('Harvard University', 16),
+    ('Yale University', 17),
+    ('Princeton University', 18),
+    ('Columbia University', 19),
+    ('Northwestern University', 20),
+    ('UCLA', 21),
+    ('USC', 22),
+    ('Rice University', 23),
+    ('Duke University', 24),
+    ('University of Texas at Austin', 25)
 ),
 majors(name, idx) as (
   values
@@ -484,7 +494,68 @@ majors(name, idx) as (
     ('Cognitive Science', 7),
     ('Design', 8),
     ('Business Analytics', 9),
-    ('Robotics', 10)
+    ('Robotics', 10),
+    ('Software Engineering', 11),
+    ('Artificial Intelligence / Machine Learning', 12),
+    ('Cybersecurity', 13),
+    ('Mechanical Engineering', 14),
+    ('Biology', 15),
+    ('Economics', 16),
+    ('Psychology', 17),
+    ('Finance', 18),
+    ('Human-Computer Interaction', 19),
+    ('Statistics', 20),
+    ('Neuroscience', 21),
+    ('Political Science', 22)
+),
+countries(name, idx) as (
+  values
+    ('United States', 1),
+    ('Canada', 2),
+    ('United Kingdom', 3),
+    ('Mexico', 4),
+    ('India', 5),
+    ('Germany', 6),
+    ('Brazil', 7),
+    ('France', 8),
+    ('Japan', 9),
+    ('South Korea', 10),
+    ('Australia', 11),
+    ('Singapore', 12),
+    ('Netherlands', 13),
+    ('Israel', 14),
+    ('Nigeria', 15),
+    ('Spain', 16),
+    ('Italy', 17),
+    ('Poland', 18)
+),
+coming_from(name, idx) as (
+  values
+    ('Ann Arbor, MI', 1),
+    ('Chicago, IL', 2),
+    ('Detroit, MI', 3),
+    ('Columbus, OH', 4),
+    ('San Francisco, CA', 5),
+    ('Austin, TX', 6),
+    ('Seattle, WA', 7),
+    ('Boston, MA', 8),
+    ('New York, NY', 9),
+    ('Atlanta, GA', 10),
+    ('Denver, CO', 11),
+    ('Pittsburgh, PA', 12),
+    ('Madison, WI', 13),
+    ('Minneapolis, MN', 14),
+    ('Nashville, TN', 15),
+    ('Raleigh, NC', 16),
+    ('Miami, FL', 17),
+    ('Phoenix, AZ', 18),
+    ('Portland, OR', 19),
+    ('Los Angeles, CA', 20),
+    ('Philadelphia, PA', 21),
+    ('Houston, TX', 22),
+    ('Toronto, ON', 23),
+    ('Vancouver, BC', 24),
+    ('London, UK', 25)
 ),
 bulk_profiles as (
   select
@@ -501,28 +572,25 @@ bulk_profiles as (
     end::application_status as status,
     u.name as university,
     m.name as major,
+    cf.name as coming_from,
+    c.name as country,
     case b.n % 4
       when 0 then 'Flying'
       when 1 then 'Driving'
       when 2 then 'Bus'
       else 'Train'
     end as transportation_type,
-    case b.n % 5
-      when 0 then 'Ann Arbor, MI'
-      when 1 then 'Chicago, IL'
-      when 2 then 'Detroit, MI'
-      when 3 then 'Columbus, OH'
-      else 'Toronto, ON'
-    end as coming_from,
     (b.n % 4) + 1 as previous_hackathons,
     18 + (b.n % 8) as age,
-    2026 + (b.n % 4) as graduation_year,
+    2025 + (b.n % 6) as graduation_year,
     b.n % 2 = 0 as needs_travel_reimbursement
   from bulk_users b
   join first_names fn on fn.idx = ((b.n - 1) % 24) + 1
   join last_names ln on ln.idx = ((b.n - 1) % 20) + 1
-  join universities u on u.idx = ((b.n - 1) % 15) + 1
-  join majors m on m.idx = ((b.n - 1) % 10) + 1
+  join universities u on u.idx = ((b.n - 1) % 25) + 1
+  join majors m on m.idx = ((b.n - 1) % 22) + 1
+  join countries c on c.idx = ((b.n - 1) % 18) + 1
+  join coming_from cf on cf.idx = ((b.n - 1) % 25) + 1
 )
 insert into auth.users (
   instance_id,
@@ -690,7 +758,17 @@ universities(name, idx) as (
     ('Stanford University', 12),
     ('UC Berkeley', 13),
     ('University of Toronto', 14),
-    ('Cornell University', 15)
+    ('Cornell University', 15),
+    ('Harvard University', 16),
+    ('Yale University', 17),
+    ('Princeton University', 18),
+    ('Columbia University', 19),
+    ('Northwestern University', 20),
+    ('UCLA', 21),
+    ('USC', 22),
+    ('Rice University', 23),
+    ('Duke University', 24),
+    ('University of Texas at Austin', 25)
 ),
 majors(name, idx) as (
   values
@@ -703,7 +781,68 @@ majors(name, idx) as (
     ('Cognitive Science', 7),
     ('Design', 8),
     ('Business Analytics', 9),
-    ('Robotics', 10)
+    ('Robotics', 10),
+    ('Software Engineering', 11),
+    ('Artificial Intelligence / Machine Learning', 12),
+    ('Cybersecurity', 13),
+    ('Mechanical Engineering', 14),
+    ('Biology', 15),
+    ('Economics', 16),
+    ('Psychology', 17),
+    ('Finance', 18),
+    ('Human-Computer Interaction', 19),
+    ('Statistics', 20),
+    ('Neuroscience', 21),
+    ('Political Science', 22)
+),
+countries(name, idx) as (
+  values
+    ('United States', 1),
+    ('Canada', 2),
+    ('United Kingdom', 3),
+    ('Mexico', 4),
+    ('India', 5),
+    ('Germany', 6),
+    ('Brazil', 7),
+    ('France', 8),
+    ('Japan', 9),
+    ('South Korea', 10),
+    ('Australia', 11),
+    ('Singapore', 12),
+    ('Netherlands', 13),
+    ('Israel', 14),
+    ('Nigeria', 15),
+    ('Spain', 16),
+    ('Italy', 17),
+    ('Poland', 18)
+),
+coming_from(name, idx) as (
+  values
+    ('Ann Arbor, MI', 1),
+    ('Chicago, IL', 2),
+    ('Detroit, MI', 3),
+    ('Columbus, OH', 4),
+    ('San Francisco, CA', 5),
+    ('Austin, TX', 6),
+    ('Seattle, WA', 7),
+    ('Boston, MA', 8),
+    ('New York, NY', 9),
+    ('Atlanta, GA', 10),
+    ('Denver, CO', 11),
+    ('Pittsburgh, PA', 12),
+    ('Madison, WI', 13),
+    ('Minneapolis, MN', 14),
+    ('Nashville, TN', 15),
+    ('Raleigh, NC', 16),
+    ('Miami, FL', 17),
+    ('Phoenix, AZ', 18),
+    ('Portland, OR', 19),
+    ('Los Angeles, CA', 20),
+    ('Philadelphia, PA', 21),
+    ('Houston, TX', 22),
+    ('Toronto, ON', 23),
+    ('Vancouver, BC', 24),
+    ('London, UK', 25)
 ),
 bulk_profiles as (
   select
@@ -719,28 +858,25 @@ bulk_profiles as (
     end::application_status as status,
     u.name as university,
     m.name as major,
+    cf.name as coming_from,
+    c.name as country,
     case b.n % 4
       when 0 then 'Flying'
       when 1 then 'Driving'
       when 2 then 'Bus'
       else 'Train'
     end as transportation_type,
-    case b.n % 5
-      when 0 then 'Ann Arbor, MI'
-      when 1 then 'Chicago, IL'
-      when 2 then 'Detroit, MI'
-      when 3 then 'Columbus, OH'
-      else 'Toronto, ON'
-    end as coming_from,
     (b.n % 4) + 1 as previous_hackathons,
     18 + (b.n % 8) as age,
-    2026 + (b.n % 4) as graduation_year,
+    2025 + (b.n % 6) as graduation_year,
     b.n % 2 = 0 as needs_travel_reimbursement
   from bulk_users b
   join first_names fn on fn.idx = ((b.n - 1) % 24) + 1
   join last_names ln on ln.idx = ((b.n - 1) % 20) + 1
-  join universities u on u.idx = ((b.n - 1) % 15) + 1
-  join majors m on m.idx = ((b.n - 1) % 10) + 1
+  join universities u on u.idx = ((b.n - 1) % 25) + 1
+  join majors m on m.idx = ((b.n - 1) % 22) + 1
+  join countries c on c.idx = ((b.n - 1) % 18) + 1
+  join coming_from cf on cf.idx = ((b.n - 1) % 25) + 1
 )
 insert into public.hacker_applicants (
   id,
@@ -784,21 +920,31 @@ select
   last_name,
   '+1415555' || lpad((1000 + (n % 9000))::text, 4, '0'),
   age,
-  case n % 3
+  case n % 4
     when 0 then 'Female'
     when 1 then 'Male'
-    else 'Non-binary'
+    when 2 then 'Non-binary'
+    else 'Prefer not to say'
   end,
-  case n % 5
+  case n % 8
     when 0 then 'Asian'
     when 1 then 'White'
     when 2 then 'Black or African American'
-    when 3 then 'Hispanic or Latino'
-    else 'Two or More Races'
+    when 3 then 'Hispanic or Latino / Latina / Latinx'
+    when 4 then 'American Indian or Alaska Native'
+    when 5 then 'Middle Eastern or North African'
+    when 6 then 'Native Hawaiian or Pacific Islander'
+    else 'Multiracial (please describe)'
   end,
   university,
-  case when n % 7 = 0 then 'Canada' else 'United States' end,
-  case when n % 4 = 0 then 'Master''s' else 'Bachelor''s' end,
+  country,
+  case n % 5
+    when 0 then 'Master''s'
+    when 1 then 'Bachelor''s'
+    when 2 then 'PhD / Doctorate'
+    when 3 then 'Associate''s'
+    else 'High School / Secondary School'
+  end,
   graduation_year,
   previous_hackathons,
   major,

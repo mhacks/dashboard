@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -37,11 +38,14 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { paginateSlice } from "@/lib/pagination";
 import { ApplicationReviewHeader } from "../components/application-review-header";
+import { ListPagination } from "../components/list-pagination";
 import { Meter } from "../components/meter";
 import { SummaryBar } from "../components/summary-bar";
+
+const ANALYTICS_LIST_PAGE_SIZE = 10;
 
 const CHART_COLORS = [
   "var(--color-moss)",
@@ -101,34 +105,74 @@ function EmptyState() {
   );
 }
 
+function usePaginatedItems<T>(items: T[], pageSize: number) {
+  const [pageIndex, setPageIndex] = useState(0);
+  const [prevItems, setPrevItems] = useState(items);
+
+  if (items !== prevItems) {
+    setPrevItems(items);
+    setPageIndex(0);
+  }
+
+  const paginatedItems = useMemo(
+    () => paginateSlice(items, pageIndex, pageSize),
+    [items, pageIndex, pageSize],
+  );
+
+  return {
+    pageIndex,
+    setPageIndex,
+    paginatedItems,
+  };
+}
+
 function BucketList({
   data,
+  pageSize = ANALYTICS_LIST_PAGE_SIZE,
 }: {
   data: Array<AnalyticsBucket & { fill?: string }>;
+  pageSize?: number;
 }) {
+  const { pageIndex, setPageIndex, paginatedItems } = usePaginatedItems(
+    data,
+    pageSize,
+  );
+
   return (
-    <div className="divide-y divide-border/60">
-      {data.map((item, index) => (
-        <div
-          key={item.label}
-          className="flex items-center justify-between gap-3 py-2.5 text-sm"
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <span
-              className="size-2.5 shrink-0 rounded-sm"
-              style={{
-                backgroundColor:
-                  item.fill ?? CHART_COLORS[index % CHART_COLORS.length],
-              }}
-            />
-            <span className="truncate">{item.label}</span>
+    <div className="flex min-h-0 flex-col">
+      <div className="divide-y divide-border/60">
+        {paginatedItems.map((item, index) => (
+          <div
+            key={item.label}
+            className="flex items-center justify-between gap-3 py-2.5 text-sm"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="size-2.5 shrink-0 rounded-sm"
+                style={{
+                  backgroundColor:
+                    item.fill ??
+                    CHART_COLORS[
+                      (pageIndex * pageSize + index) % CHART_COLORS.length
+                    ],
+                }}
+              />
+              <span className="truncate">{item.label}</span>
+            </div>
+            <div className="shrink-0 text-right text-muted-foreground">
+              <div>{item.count}</div>
+              <div className="text-xs">{item.percentage}%</div>
+            </div>
           </div>
-          <div className="shrink-0 text-right text-muted-foreground">
-            <div>{item.count}</div>
-            <div className="text-xs">{item.percentage}%</div>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <ListPagination
+        pageIndex={pageIndex}
+        totalItems={data.length}
+        pageSize={pageSize}
+        onPageChange={setPageIndex}
+        className="mt-2 rounded-md border-t-0 bg-transparent px-0 py-1.5"
+      />
     </div>
   );
 }
@@ -305,11 +349,18 @@ function RankedList({
   title,
   description,
   data,
+  pageSize = ANALYTICS_LIST_PAGE_SIZE,
 }: {
   title: string;
   description: string;
   data: AnalyticsBucket[];
+  pageSize?: number;
 }) {
+  const { pageIndex, setPageIndex, paginatedItems } = usePaginatedItems(
+    data,
+    pageSize,
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -322,14 +373,14 @@ function RankedList({
             <EmptyState />
           </div>
         ) : (
-          <ScrollArea className="max-h-[360px]">
+          <>
             <div className="divide-y divide-border/60">
-              {data.map((item, index) => (
+              {paginatedItems.map((item, index) => (
                 <div key={item.label} className="px-4 py-3">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="w-5 shrink-0 text-xs text-muted-foreground">
-                        {index + 1}
+                        {pageIndex * pageSize + index + 1}
                       </span>
                       <span className="truncate font-medium">{item.label}</span>
                     </div>
@@ -341,7 +392,13 @@ function RankedList({
                 </div>
               ))}
             </div>
-          </ScrollArea>
+            <ListPagination
+              pageIndex={pageIndex}
+              totalItems={data.length}
+              pageSize={pageSize}
+              onPageChange={setPageIndex}
+            />
+          </>
         )}
       </CardContent>
     </Card>
@@ -420,8 +477,6 @@ function ReviewProgressCard({ data }: { data: ApplicationAnalyticsData }) {
 }
 
 function OverviewTab({ data }: { data: ApplicationAnalyticsData }) {
-  const topCountries = data.locations.countries.slice(0, 5);
-
   return (
     <div className="flex flex-col gap-5">
       <section className="grid gap-5 xl:grid-cols-2">
@@ -450,7 +505,7 @@ function OverviewTab({ data }: { data: ApplicationAnalyticsData }) {
         <RankedList
           title="Top Countries"
           description="Most represented countries on applications."
-          data={topCountries}
+          data={data.locations.countries}
         />
       </section>
 
