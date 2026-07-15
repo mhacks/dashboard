@@ -108,7 +108,7 @@ export function ResumePreviewSkeleton() {
         </div>
         <Skeleton className="h-8 w-16 rounded-md" />
       </div>
-      <Skeleton className="h-[320px] w-full rounded-none" />
+      <Skeleton className="h-[560px] w-full rounded-none" />
     </div>
   );
 }
