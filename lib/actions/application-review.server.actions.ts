@@ -16,12 +16,9 @@ import { users, type UserEntry } from "@/lib/db/schema/users";
 import { requireOrganizer } from "@/lib/auth/guards";
 import {
   reviewCompleteSaveSchema,
-  reviewDraftSaveSchema,
   reviewEventsInputSchema,
   type ReviewCompleteSaveInput,
   type ReviewCompleteSaveResult,
-  type ReviewDraftSaveInput,
-  type ReviewDraftSaveResult,
   type ReviewEventRecord,
   type ReviewListItem,
   type ReviewRecord,
@@ -168,65 +165,7 @@ async function conflictResult(
   };
 }
 
-type ReviewSaveConflict = Extract<ReviewDraftSaveResult, { ok: false }>;
-
-export async function saveApplicationReviewDraft(
-  input: ReviewDraftSaveInput,
-): Promise<ReviewDraftSaveResult> {
-  const organizer = await requireOrganizer();
-  const parsed = parseActionInput(reviewDraftSaveSchema, input);
-  const now = new Date().toISOString();
-  const reviewComments = parsed.flaggedForReview ? parsed.reviewComments : null;
-
-  const [previousReview] = await db
-    .select()
-    .from(hackerApplicationReviews)
-    .where(eq(hackerApplicationReviews.applicationId, parsed.applicationId))
-    .limit(1);
-  const [application] = await db
-    .select({ status: hackerApplicants.status })
-    .from(hackerApplicants)
-    .where(eq(hackerApplicants.id, parsed.applicationId))
-    .limit(1);
-
-  if (reviewVersionToken(previousReview) !== parsed.expectedUpdatedAt) {
-    return conflictResult(previousReview ?? null);
-  }
-
-  const [review] = await db
-    .insert(hackerApplicationReviews)
-    .values({
-      applicationId: parsed.applicationId,
-      reviewerUserId: organizer.id,
-      effortRating: parsed.effortRating,
-      builderRating: parsed.builderRating,
-      flaggedForReview: parsed.flaggedForReview,
-      reviewComments,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: hackerApplicationReviews.applicationId,
-      set: {
-        reviewerUserId: organizer.id,
-        effortRating: parsed.effortRating,
-        builderRating: parsed.builderRating,
-        flaggedForReview: parsed.flaggedForReview,
-        reviewComments,
-        updatedAt: now,
-      },
-    })
-    .returning();
-
-  const event = await recordReviewEvent({
-    review,
-    previous: previousReview ?? null,
-    reviewer: organizer,
-    eventType: "draft_saved",
-    applicationStatus: application?.status ?? "pending",
-  });
-
-  return { ok: true, review: withReviewerEmail(review, organizer.email), event };
-}
+type ReviewSaveConflict = Extract<ReviewCompleteSaveResult, { ok: false }>;
 
 export async function markApplicationReviewed(
   input: ReviewCompleteSaveInput,

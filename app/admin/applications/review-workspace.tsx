@@ -27,7 +27,6 @@ import {
   getApplicationReviewEvents,
   getApplicationReviewDetail,
   markApplicationReviewed,
-  saveApplicationReviewDraft,
 } from "@/lib/actions/application-review.server.actions";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 import { createClient } from "@/lib/supabase/client";
@@ -75,7 +74,6 @@ import { ReviewEventTimeline } from "./review-event-timeline";
 
 type Organizer = { id: string; email: string };
 
-type SaveStatus = "idle" | "saving" | "saved" | "error" | "conflict";
 type StatusFilter = "all" | "pending" | "reviewed" | "flagged";
 type MobileView = "list" | "detail";
 type SupabaseBrowserClient = ReturnType<typeof createClient>;
@@ -460,7 +458,6 @@ export default function ApplicationReviewWorkspace({
   const [applicationsPage, setApplicationsPage] = useState(0);
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [scorecardOpen, setScorecardOpen] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [reviewConflict, setReviewConflict] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const isDesktop = useIsDesktop();
@@ -473,14 +470,9 @@ export default function ApplicationReviewWorkspace({
   const [realtimeReady, setRealtimeReady] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const selectedIdRef = useRef(selectedId);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inFlightSave = useRef<Promise<boolean> | null>(null);
   const serverUpdatedAt = useRef<string | null>(
     initialSelectedItem?.review?.updatedAt ?? null,
   );
-  const skipNextAutosave = useRef(false);
-  const saveSequence = useRef(0);
   const reviewSyncChannel = useRef<ReviewSyncChannel | null>(null);
 
   const form = useForm<ReviewDraftInput>({
@@ -504,22 +496,12 @@ export default function ApplicationReviewWorkspace({
     (item: ReviewListItem | ReviewListSummaryItem | undefined) => {
       resetReviewForm(toReviewDefaults(item));
       syncServerBaseline(item?.review);
-      setSaveStatus("idle");
     },
     [resetReviewForm, syncServerBaseline],
   );
 
   const markReviewConflict = useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    if (savedTimer.current) {
-      clearTimeout(savedTimer.current);
-      savedTimer.current = null;
-    }
     setReviewConflict(true);
-    setSaveStatus("conflict");
   }, []);
 
   const effortRating = form.watch("effortRating");
@@ -691,111 +673,22 @@ export default function ApplicationReviewWorkspace({
     [organizer?.id],
   );
 
-  const persistReviewDraft = useCallback(
-    async (data: ReviewDraftInput, sequence: number): Promise<boolean> => {
-      try {
-        const result = await saveApplicationReviewDraft({
-          ...data,
-          expectedUpdatedAt: serverUpdatedAt.current,
-        });
-        if (saveSequence.current !== sequence) return false;
-
-        if (!result.ok) {
-          markReviewConflict();
-          return false;
-        }
-
-        updateReviewItem(data.applicationId, result.review);
-        appendReviewEvent(result.event);
-        void broadcastReviewUpdate({
-          applicationId: data.applicationId,
-          review: result.review,
-          event: result.event,
-        });
-        syncServerBaseline(result.review);
-        resetReviewForm(normalizeReviewValues(form.getValues()));
-        setSaveStatus("saved");
-        savedTimer.current = setTimeout(() => setSaveStatus("idle"), 2500);
-        return true;
-      } catch (error) {
-        console.error("Review autosave failed:", error);
-        if (saveSequence.current === sequence) setSaveStatus("error");
-        return false;
-      }
-    },
-    [
-      appendReviewEvent,
-      broadcastReviewUpdate,
-      form,
-      markReviewConflict,
-      resetReviewForm,
-      syncServerBaseline,
-      updateReviewItem,
-    ],
-  );
-
-  const flushAutosave = useCallback(async () => {
-    if (skipNextAutosave.current || reviewConflict) return;
-
-    const hadPendingTimer = saveTimer.current !== null;
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    if (savedTimer.current) {
-      clearTimeout(savedTimer.current);
-      savedTimer.current = null;
-    }
-
-    if (inFlightSave.current) {
-      await inFlightSave.current;
-    }
-
-    if (!hadPendingTimer && !form.formState.isDirty) return;
-
-    const values = normalizeReviewValues(form.getValues());
-    const parsed = reviewDraftSchema.safeParse(values);
-    if (!parsed.success) return;
-    if (parsed.data.applicationId !== selectedIdRef.current) return;
-
-    const sequence = saveSequence.current + 1;
-    saveSequence.current = sequence;
-    setSaveStatus("saving");
-
-    const savePromise = persistReviewDraft(parsed.data, sequence);
-    inFlightSave.current = savePromise;
-    try {
-      await savePromise;
-    } finally {
-      if (inFlightSave.current === savePromise) {
-        inFlightSave.current = null;
-      }
-    }
-  }, [form, persistReviewDraft, reviewConflict]);
-
-  function hasUnsavedLocalEdits() {
-    return (
-      saveTimer.current !== null ||
-      inFlightSave.current !== null ||
-      form.formState.isDirty
-    );
-  }
-
-  async function selectApplication(item: ReviewListSummaryItem) {
+  function selectApplication(item: ReviewListSummaryItem) {
     if (item.application.id === selectedId) return;
 
-    await flushAutosave();
-    saveSequence.current += 1;
-    skipNextAutosave.current = true;
+    if (form.formState.isDirty) {
+      const proceed = window.confirm(
+        "You have unsaved review changes. Switch applications anyway? Your changes will be lost.",
+      );
+      if (!proceed) return;
+    }
+
     setSelectedId(item.application.id);
     setSelectedDetail(undefined);
     setMobileView("detail");
     setScorecardOpen(false);
     setResumeUrl(null);
     applyReviewForm(item);
-    window.setTimeout(() => {
-      skipNextAutosave.current = false;
-    }, 0);
   }
 
   useEffect(() => {
@@ -812,7 +705,7 @@ export default function ApplicationReviewWorkspace({
       .then((detail) => {
         if (!ignore) {
           setSelectedDetail(detail);
-          if (!skipNextAutosave.current && !hasUnsavedLocalEdits()) {
+          if (!form.formState.isDirty) {
             applyReviewForm(detail);
           }
         }
@@ -828,50 +721,7 @@ export default function ApplicationReviewWorkspace({
     return () => {
       ignore = true;
     };
-  }, [applyReviewForm, selectedId]);
-
-  useEffect(() => {
-    // react-hook-form's watch() subscription cannot be memoized by React Compiler.
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const subscription = form.watch((rawValues) => {
-      if (
-        skipNextAutosave.current ||
-        reviewConflict ||
-        !rawValues.applicationId
-      ) {
-        return;
-      }
-      const values = normalizeReviewValues(rawValues as ReviewDraftInput);
-      const parsed = reviewDraftSchema.safeParse(values);
-
-      if (!parsed.success) {
-        setSaveStatus("error");
-        return;
-      }
-
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      if (savedTimer.current) clearTimeout(savedTimer.current);
-      const sequence = saveSequence.current + 1;
-      saveSequence.current = sequence;
-      setSaveStatus("saving");
-
-      saveTimer.current = setTimeout(() => {
-        const savePromise = persistReviewDraft(parsed.data, sequence);
-        inFlightSave.current = savePromise;
-        void savePromise.finally(() => {
-          if (inFlightSave.current === savePromise) {
-            inFlightSave.current = null;
-          }
-        });
-      }, 900);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      if (savedTimer.current) clearTimeout(savedTimer.current);
-    };
-  }, [form, persistReviewDraft, reviewConflict]);
+  }, [applyReviewForm, form.formState.isDirty, selectedId]);
 
   useEffect(() => {
     if (!realtimeReady || !organizer) return;
@@ -894,6 +744,7 @@ export default function ApplicationReviewWorkspace({
 
       const update = parsed.data;
       if (update.sourceUserId === organizer.id) return;
+      if (!update.status) return;
 
       updateReviewItem(update.applicationId, update.review, update.status);
 
@@ -903,13 +754,11 @@ export default function ApplicationReviewWorkspace({
         .then((detail) => {
           if (selectedIdRef.current !== update.applicationId) return;
           setSelectedDetail(detail);
-          if (hasUnsavedLocalEdits()) {
+          if (form.formState.isDirty) {
             markReviewConflict();
             return;
           }
-          if (!skipNextAutosave.current) {
-            applyReviewForm(detail);
-          }
+          applyReviewForm(detail);
         })
         .catch((error) => {
           console.error("Unable to refresh application detail:", error);
@@ -938,6 +787,7 @@ export default function ApplicationReviewWorkspace({
     };
   }, [
     applyReviewForm,
+    form.formState.isDirty,
     markReviewConflict,
     organizer,
     realtimeReady,
@@ -1051,14 +901,15 @@ export default function ApplicationReviewWorkspace({
     };
   }, [organizer, realtimeReady, selectedId, supabase]);
 
-  async function handleMarkReviewed() {
+  async function handleSubmitReview() {
     if (reviewConflict) {
-      toast.error("Saving is blocked due to a conflict.");
+      toast.error("Submit is blocked due to a conflict.");
       return;
     }
 
     const values = normalizeReviewValues(form.getValues());
     const parsed = reviewCompleteSchema.safeParse(values);
+    const isPending = selectedDetail?.application.status === "pending";
 
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -1067,7 +918,7 @@ export default function ApplicationReviewWorkspace({
           form.setError(field, { message: issue.message });
         }
       }
-      toast.error("Add both 1-5 ratings before marking reviewed.");
+      toast.error("Add both 1-5 ratings before submitting your review.");
       return;
     }
 
@@ -1080,7 +931,7 @@ export default function ApplicationReviewWorkspace({
 
       if (!result.ok) {
         markReviewConflict();
-        toast.error("Saving is blocked due to a conflict.");
+        toast.error("Submit is blocked due to a conflict.");
         return;
       }
 
@@ -1093,14 +944,21 @@ export default function ApplicationReviewWorkspace({
         event: result.event,
       });
       applyReviewForm({
-        application: selectedDetail!.application,
+        application: {
+          ...selectedDetail!.application,
+          status: result.status,
+        },
         review: result.review,
       });
       setScorecardOpen(false);
-      toast.success("Application marked reviewed.");
+      toast.success(isPending ? "Review submitted." : "Review updated.");
     } catch (error) {
-      console.error("Unable to complete review:", error);
-      toast.error("Unable to mark reviewed. Please try again.");
+      console.error("Unable to submit review:", error);
+      toast.error(
+        isPending
+          ? "Unable to submit review. Please try again."
+          : "Unable to update review. Please try again.",
+      );
     } finally {
       setIsCompleting(false);
     }
@@ -1422,13 +1280,6 @@ export default function ApplicationReviewWorkspace({
         <div className="shrink-0 border-t bg-card/95 px-3 pt-3 backdrop-blur supports-backdrop-filter:bg-card/90 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted-foreground">
-                {saveStatus === "saving" && "Saving..."}
-                {saveStatus === "saved" && "Saved"}
-                {saveStatus === "error" && "Check ratings"}
-                {saveStatus === "conflict" && "Saving blocked"}
-                {saveStatus === "idle" && "Autosaves as you score"}
-              </p>
               <p className="truncate text-sm font-medium">
                 {effortRating ?? "—"} · {builderRating ?? "—"}
                 {flaggedForReview ? " · Flagged" : ""}
@@ -1455,7 +1306,6 @@ export default function ApplicationReviewWorkspace({
         effortRating={effortRating}
         builderRating={builderRating}
         flaggedForReview={flaggedForReview}
-        saveStatus={saveStatus}
         reviewConflict={reviewConflict}
         selectedDetail={selectedDetail}
         reviewEvents={reviewEvents}
@@ -1463,7 +1313,7 @@ export default function ApplicationReviewWorkspace({
         activeReviewers={activeReviewers}
         organizerEmail={organizer?.email}
         isCompleting={isCompleting}
-        onMarkReviewed={handleMarkReviewed}
+        onSubmitReview={handleSubmitReview}
       />
     </ScrollArea>
   );
@@ -1585,7 +1435,6 @@ export default function ApplicationReviewWorkspace({
                     effortRating={effortRating}
                     builderRating={builderRating}
                     flaggedForReview={flaggedForReview}
-                    saveStatus={saveStatus}
                     reviewConflict={reviewConflict}
                     selectedDetail={selectedDetail}
                     reviewEvents={reviewEvents}
@@ -1593,7 +1442,7 @@ export default function ApplicationReviewWorkspace({
                     activeReviewers={activeReviewers}
                     organizerEmail={organizer?.email}
                     isCompleting={isCompleting}
-                    onMarkReviewed={handleMarkReviewed}
+                    onSubmitReview={handleSubmitReview}
                     compact
                   />
                 ) : null}
@@ -1611,7 +1460,6 @@ function ScorecardForm({
   effortRating,
   builderRating,
   flaggedForReview,
-  saveStatus,
   reviewConflict,
   selectedDetail,
   reviewEvents,
@@ -1619,14 +1467,13 @@ function ScorecardForm({
   activeReviewers,
   organizerEmail,
   isCompleting,
-  onMarkReviewed,
+  onSubmitReview,
   compact = false,
 }: {
   form: UseFormReturn<ReviewDraftInput>;
   effortRating: number | null;
   builderRating: number | null;
   flaggedForReview: boolean;
-  saveStatus: SaveStatus;
   reviewConflict: boolean;
   selectedDetail: ReviewListItem | undefined;
   reviewEvents: ReviewEventRecord[];
@@ -1634,9 +1481,11 @@ function ScorecardForm({
   activeReviewers: PresenceMeta[];
   organizerEmail?: string;
   isCompleting: boolean;
-  onMarkReviewed: () => void;
+  onSubmitReview: () => void;
   compact?: boolean;
 }) {
+  const isPending = selectedDetail?.application.status === "pending";
+
   return (
     <form
       className={cn("min-w-0 space-y-5", compact ? "p-4" : "p-5")}
@@ -1651,8 +1500,7 @@ function ScorecardForm({
             Scorecard
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Autosaves while you work. Use Mark reviewed when the review is
-            complete.
+            Submit your review when scoring is complete.
           </p>
         </div>
       )}
@@ -1756,40 +1604,29 @@ function ScorecardForm({
         </div>
       )}
 
-      <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Save status</span>
-          <span
-            className={cn(
-              "font-medium",
-              saveStatus === "error" && "text-destructive",
-              saveStatus === "conflict" && "text-destructive",
-              saveStatus === "saved" && "text-green-700 dark:text-green-300",
-              saveStatus === "saving" && "text-moss dark:text-sage",
-            )}
-          >
-            {saveStatus === "idle" && "Idle"}
-            {saveStatus === "saving" && "Saving..."}
-            {saveStatus === "saved" && "Saved"}
-            {saveStatus === "error" && "Check ratings"}
-            {saveStatus === "conflict" && "Saving blocked"}
-          </span>
+      {(reviewConflict || selectedDetail?.review?.reviewedAt) && (
+        <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+          {reviewConflict && (
+            <p className="text-destructive">
+              Another organizer submitted a review while you were editing.
+              Submit is blocked until you reload this application.
+            </p>
+          )}
+          {selectedDetail?.review?.reviewedAt && (
+            <div
+              className={cn(
+                "flex items-center gap-2 text-xs text-muted-foreground",
+                reviewConflict && "mt-2",
+              )}
+            >
+              <CheckCircle2Icon className="size-4 text-green-600 dark:text-green-300" />
+              Reviewed{" "}
+              {new Date(selectedDetail.review.reviewedAt).toLocaleString()} by{" "}
+              {selectedDetail.review.reviewerEmail ?? "organizer"}
+            </div>
+          )}
         </div>
-        {reviewConflict && (
-          <p className="mt-3 text-sm text-destructive">
-            Another organizer saved changes while you were editing. Saving is
-            blocked.
-          </p>
-        )}
-        {selectedDetail?.review?.reviewedAt && (
-          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <CheckCircle2Icon className="size-4 text-green-600 dark:text-green-300" />
-            Reviewed{" "}
-            {new Date(selectedDetail.review.reviewedAt).toLocaleString()} by{" "}
-            {selectedDetail.review.reviewerEmail ?? "organizer"}
-          </div>
-        )}
-      </div>
+      )}
 
       <ReviewEventTimeline
         events={reviewEvents}
@@ -1813,15 +1650,17 @@ function ScorecardForm({
 
       <Button
         type="button"
-        onClick={onMarkReviewed}
+        onClick={onSubmitReview}
         disabled={!selectedDetail || isCompleting || reviewConflict}
         className="h-11 w-full bg-moss text-white hover:bg-moss/90 dark:bg-sage dark:text-night dark:hover:bg-sage/90"
       >
         {isCompleting
-          ? "Marking reviewed..."
-          : selectedDetail?.review?.reviewedAt
-            ? "Update reviewed"
-            : "Mark reviewed"}
+          ? isPending
+            ? "Submitting review..."
+            : "Updating review..."
+          : isPending
+            ? "Submit Review"
+            : "Update Review"}
       </Button>
 
       <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">

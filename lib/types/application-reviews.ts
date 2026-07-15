@@ -32,10 +32,6 @@ export const reviewSaveOptionsSchema = z.object({
   expectedUpdatedAt: z.string().nullable(),
 });
 
-export const reviewDraftSaveSchema = reviewDraftSchema.merge(
-  reviewSaveOptionsSchema,
-);
-
 export const reviewCompleteSchema = reviewDraftSchema
   .extend({
     effortRating: finalRatingSchema,
@@ -110,7 +106,6 @@ export type ReviewSyncPayload = z.infer<typeof reviewSyncPayloadSchema>;
 
 export type ReviewDraftInput = z.infer<typeof reviewDraftSchema>;
 export type ReviewCompleteInput = z.infer<typeof reviewCompleteSchema>;
-export type ReviewDraftSaveInput = z.infer<typeof reviewDraftSaveSchema>;
 export type ReviewCompleteSaveInput = z.infer<typeof reviewCompleteSaveSchema>;
 
 export type ReviewSaveSuccess = {
@@ -124,8 +119,6 @@ export type ReviewSaveConflict = {
   code: "conflict";
   review: ReviewRecord | null;
 };
-
-export type ReviewDraftSaveResult = ReviewSaveSuccess | ReviewSaveConflict;
 
 export type ReviewCompleteSaveResult =
   | (ReviewSaveSuccess & { status: "reviewed" | "flagged" })
