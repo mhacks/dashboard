@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { HistoryIcon } from "lucide-react";
 import type {
   ReviewAuditEventRecord,
@@ -30,6 +30,11 @@ function isAuditEvent(event: TimelineEvent): event is ReviewAuditEventRecord {
   return "applicationName" in event;
 }
 
+function formatEventTimestamp(value: string, compact: true): string;
+function formatEventTimestamp(
+  value: string,
+  compact?: false,
+): { date: string; time: string };
 function formatEventTimestamp(value: string, compact = false) {
   const date = new Date(value);
   if (compact) {
@@ -269,10 +274,12 @@ export function ReviewEventTimeline({
   className?: string;
 }) {
   const [pageIndex, setPageIndex] = useState(0);
+  const [prevEvents, setPrevEvents] = useState(events);
 
-  useEffect(() => {
+  if (events !== prevEvents) {
+    setPrevEvents(events);
     setPageIndex(0);
-  }, [events]);
+  }
 
   const paginatedEvents = useMemo(
     () => paginateSlice(events, pageIndex, pageSize),

@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels";
-import { Controller, useForm, type UseFormReturn } from "react-hook-form";
+import {
+  Controller,
+  useForm,
+  useWatch,
+  type UseFormReturn,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangleIcon,
@@ -500,7 +505,7 @@ export default function ApplicationReviewWorkspace({
   const [selectedDetail, setSelectedDetail] = useState<
     ReviewListItem | undefined
   >(undefined);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoadedId, setDetailLoadedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [applicationsPage, setApplicationsPage] = useState(0);
@@ -511,12 +516,14 @@ export default function ApplicationReviewWorkspace({
   const isDesktop = useIsDesktop();
   const [activeReviewers, setActiveReviewers] = useState<PresenceMeta[]>([]);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
-  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeLoadedKey, setResumeLoadedKey] = useState<string | null>(null);
   const [resumeExpired, setResumeExpired] = useState(false);
   const [resumeRefreshing, setResumeRefreshing] = useState(false);
   const resumeExpiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [reviewEvents, setReviewEvents] = useState<ReviewEventRecord[]>([]);
-  const [reviewEventsLoading, setReviewEventsLoading] = useState(false);
+  const [reviewEventsLoadedId, setReviewEventsLoadedId] = useState<
+    string | null
+  >(null);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
   const [realtimeReady, setRealtimeReady] = useState(false);
   const supabase = useMemo(() => createClient(), []);
@@ -555,9 +562,13 @@ export default function ApplicationReviewWorkspace({
     setReviewConflict(true);
   }, []);
 
-  const effortRating = form.watch("effortRating");
-  const builderRating = form.watch("builderRating");
-  const flaggedForReview = form.watch("flaggedForReview");
+  const [effortRating, builderRating, flaggedForReview] = useWatch({
+    control: form.control,
+    name: ["effortRating", "builderRating", "flaggedForReview"],
+  });
+  const detailLoading = Boolean(selectedId) && detailLoadedId !== selectedId;
+  const reviewEventsLoading =
+    Boolean(selectedId) && reviewEventsLoadedId !== selectedId;
   const isPhoneLandscape = useIsPhoneLandscape();
   const panelLayout = useDefaultLayout({
     id: "application-review-workspace",
@@ -623,9 +634,13 @@ export default function ApplicationReviewWorkspace({
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
-  useEffect(() => {
-    if (isDesktop) setScorecardOpen(false);
-  }, [isDesktop]);
+  const [prevIsDesktop, setPrevIsDesktop] = useState(isDesktop);
+  if (isDesktop !== prevIsDesktop) {
+    setPrevIsDesktop(isDesktop);
+    if (isDesktop && scorecardOpen) {
+      setScorecardOpen(false);
+    }
+  }
 
   const filteredItems = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -651,22 +666,28 @@ export default function ApplicationReviewWorkspace({
     });
   }, [items, query, statusFilter]);
 
-  useEffect(() => {
-    setApplicationsPage(0);
-  }, [query, statusFilter]);
+  const pageCount = getPageCount(filteredItems.length, APPLICATIONS_PAGE_SIZE);
+  const filterKey = `${query}|${statusFilter}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
 
-  useEffect(() => {
-    const pageCount = getPageCount(
-      filteredItems.length,
-      APPLICATIONS_PAGE_SIZE,
-    );
-    setApplicationsPage((current) => clampPageIndex(current, pageCount));
-  }, [filteredItems.length]);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setApplicationsPage(0);
+  }
+
+  const clampedApplicationsPage = clampPageIndex(applicationsPage, pageCount);
+  if (clampedApplicationsPage !== applicationsPage) {
+    setApplicationsPage(clampedApplicationsPage);
+  }
 
   const paginatedItems = useMemo(
     () =>
-      paginateSlice(filteredItems, applicationsPage, APPLICATIONS_PAGE_SIZE),
-    [filteredItems, applicationsPage],
+      paginateSlice(
+        filteredItems,
+        clampedApplicationsPage,
+        APPLICATIONS_PAGE_SIZE,
+      ),
+    [filteredItems, clampedApplicationsPage],
   );
 
   const counts = useMemo(() => getCounts(items), [items]);
@@ -751,14 +772,9 @@ export default function ApplicationReviewWorkspace({
   }
 
   useEffect(() => {
-    if (!selectedId) {
-      setSelectedDetail(undefined);
-      setDetailLoading(false);
-      return;
-    }
+    if (!selectedId) return;
 
     let ignore = false;
-    setDetailLoading(true);
 
     getApplicationReviewDetail(selectedId)
       .then((detail) => {
@@ -774,13 +790,25 @@ export default function ApplicationReviewWorkspace({
         if (!ignore) setSelectedDetail(undefined);
       })
       .finally(() => {
-        if (!ignore) setDetailLoading(false);
+        if (!ignore) setDetailLoadedId(selectedId);
       });
 
     return () => {
       ignore = true;
     };
   }, [applyReviewForm, form.formState.isDirty, selectedId]);
+
+  if (!selectedId) {
+    if (selectedDetail !== undefined) setSelectedDetail(undefined);
+    if (detailLoadedId !== null) setDetailLoadedId(null);
+  }
+
+  const [prevReviewEventsId, setPrevReviewEventsId] = useState(selectedId);
+  if (selectedId !== prevReviewEventsId) {
+    setPrevReviewEventsId(selectedId);
+    if (reviewEvents.length > 0) setReviewEvents([]);
+    if (reviewEventsLoadedId !== null) setReviewEventsLoadedId(null);
+  }
 
   useEffect(() => {
     if (!realtimeReady || !organizer) return;
@@ -868,13 +896,6 @@ export default function ApplicationReviewWorkspace({
     }, RESUME_PREVIEW_URL_TTL_MS);
   }, [clearResumeExpiryTimer]);
 
-  const resetResumePreview = useCallback(() => {
-    setResumeUrl(null);
-    setResumeLoading(false);
-    setResumeExpired(false);
-    clearResumeExpiryTimer();
-  }, [clearResumeExpiryTimer]);
-
   const fetchResumeDownloadUrl = useCallback(async (resumeKey: string) => {
     return getResumeDownloadUrl(resumeKey);
   }, []);
@@ -906,15 +927,11 @@ export default function ApplicationReviewWorkspace({
   useEffect(() => {
     const resumeKey = selectedDetail?.application.resume;
     if (!resumeKey) {
-      resetResumePreview();
+      clearResumeExpiryTimer();
       return;
     }
 
     let ignore = false;
-    setResumeLoading(true);
-    setResumeUrl(null);
-    setResumeExpired(false);
-    clearResumeExpiryTimer();
 
     void fetchResumeDownloadUrl(resumeKey)
       .then((url) => {
@@ -926,7 +943,7 @@ export default function ApplicationReviewWorkspace({
         if (!ignore) setResumeUrl(null);
       })
       .finally(() => {
-        if (!ignore) setResumeLoading(false);
+        if (!ignore) setResumeLoadedKey(resumeKey);
       });
 
     return () => {
@@ -937,10 +954,20 @@ export default function ApplicationReviewWorkspace({
     bindResumeUrl,
     clearResumeExpiryTimer,
     fetchResumeDownloadUrl,
-    resetResumePreview,
     selectedDetail?.application.id,
     selectedDetail?.application.resume,
   ]);
+
+  const resumeKey = selectedDetail?.application.resume;
+  const resumeLoading = Boolean(resumeKey) && resumeLoadedKey !== resumeKey;
+  const [prevResumeKey, setPrevResumeKey] = useState(resumeKey);
+
+  if (resumeKey !== prevResumeKey) {
+    setPrevResumeKey(resumeKey);
+    if (resumeUrl !== null) setResumeUrl(null);
+    if (resumeExpired) setResumeExpired(false);
+    if (resumeLoadedKey !== null) setResumeLoadedKey(null);
+  }
 
   const refreshResumePreview = useCallback(async () => {
     const resumeKey = selectedDetail?.application.resume;
@@ -978,15 +1005,9 @@ export default function ApplicationReviewWorkspace({
   ]);
 
   useEffect(() => {
-    if (!selectedId) {
-      setReviewEvents([]);
-      setReviewEventsLoading(false);
-      return;
-    }
+    if (!selectedId) return;
 
     let ignore = false;
-    setReviewEvents([]);
-    setReviewEventsLoading(true);
 
     getApplicationReviewEvents(selectedId)
       .then((events) => {
@@ -997,7 +1018,7 @@ export default function ApplicationReviewWorkspace({
         if (!ignore) setReviewEvents([]);
       })
       .finally(() => {
-        if (!ignore) setReviewEventsLoading(false);
+        if (!ignore) setReviewEventsLoadedId(selectedId);
       });
 
     return () => {
@@ -1216,7 +1237,7 @@ export default function ApplicationReviewWorkspace({
         )}
       </div>
       <ListPagination
-        pageIndex={applicationsPage}
+        pageIndex={clampedApplicationsPage}
         totalItems={filteredItems.length}
         pageSize={APPLICATIONS_PAGE_SIZE}
         onPageChange={setApplicationsPage}

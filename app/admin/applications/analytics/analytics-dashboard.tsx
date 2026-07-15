@@ -39,7 +39,6 @@ import {
 } from "@/components/ui/chart";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { ApplicationReviewHeader } from "../components/application-review-header";
 import { Meter } from "../components/meter";
 import { SummaryBar } from "../components/summary-bar";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReviewAuditEventRecord } from "@/lib/types/application-reviews";
 import { paginateSlice } from "@/lib/pagination";
 import { ListPagination } from "../components/list-pagination";
@@ -14,10 +14,12 @@ export function AuditActivityFeed({
   events: ReviewAuditEventRecord[];
 }) {
   const [pageIndex, setPageIndex] = useState(0);
+  const [prevEvents, setPrevEvents] = useState(events);
 
-  useEffect(() => {
+  if (events !== prevEvents) {
+    setPrevEvents(events);
     setPageIndex(0);
-  }, [events]);
+  }
 
   const paginatedEvents = useMemo(
     () => paginateSlice(events, pageIndex, AUDIT_PAGE_SIZE),
