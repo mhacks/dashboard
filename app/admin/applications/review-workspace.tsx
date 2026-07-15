@@ -61,7 +61,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { paginateSlice } from "@/lib/pagination";
+import { clampPageIndex, getPageCount, paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { ApplicationReviewHeader } from "./components/application-review-header";
 import { ListPagination } from "./components/list-pagination";
@@ -603,6 +603,11 @@ export default function ApplicationReviewWorkspace({
   useEffect(() => {
     setApplicationsPage(0);
   }, [query, statusFilter]);
+
+  useEffect(() => {
+    const pageCount = getPageCount(filteredItems.length, APPLICATIONS_PAGE_SIZE);
+    setApplicationsPage((current) => clampPageIndex(current, pageCount));
+  }, [filteredItems.length]);
 
   const paginatedItems = useMemo(
     () =>
