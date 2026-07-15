@@ -22,7 +22,6 @@ import {
   FileTextIcon,
   FlagIcon,
   InboxIcon,
-  LinkIcon,
   ListFilterIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -43,7 +42,6 @@ import {
   reviewDraftSchema,
   reviewSyncPayloadSchema,
   type ReviewCounts,
-  type ReviewSyncPayload,
   type ReviewWorkspaceData,
   type ReviewDraftInput,
   type ReviewEventRecord,
@@ -244,6 +242,30 @@ function getCounts(items: ReviewListSummaryItem[]): ReviewCounts {
     },
     { total: 0, pending: 0, reviewed: 0, flagged: 0 },
   );
+}
+
+function summaryItemFromDetail(
+  detail: ReviewListItem,
+  whyMhacksPreview: string,
+): ReviewListSummaryItem {
+  const application = detail.application;
+
+  return {
+    application: {
+      id: application.id,
+      slug: application.slug,
+      userId: application.userId,
+      status: application.status,
+      firstName: application.firstName,
+      lastName: application.lastName,
+      applicantEmail: application.applicantEmail,
+      university: application.university,
+      major: application.major,
+      createdAt: application.createdAt,
+      whyMhacksPreview,
+    },
+    review: detail.review,
+  };
 }
 
 function applicantName(item: ReviewListSummaryItem | ReviewListItem) {
@@ -829,17 +851,46 @@ export default function ApplicationReviewWorkspace({
   }, []);
 
   const broadcastReviewUpdate = useCallback(
-    async (payload: Omit<ReviewSyncPayload, "sourceUserId">) => {
+    async (applicationId: string) => {
       await reviewSyncChannel.current?.send({
         type: "broadcast",
         event: REVIEW_SYNC_EVENT,
         payload: {
-          ...payload,
+          applicationId,
           sourceUserId: organizer?.id ?? "",
         },
       });
     },
     [organizer?.id],
+  );
+
+  const refreshReviewFromServer = useCallback(
+    async (applicationId: string) => {
+      const detail = await getApplicationReviewDetail(applicationId);
+
+      setItems((current) =>
+        current.map((item) =>
+          item.application.id === applicationId
+            ? summaryItemFromDetail(detail, item.application.whyMhacksPreview)
+            : item,
+        ),
+      );
+
+      if (selectedIdRef.current !== applicationId) return;
+
+      setSelectedDetail(detail);
+      if (form.formState.isDirty) {
+        markReviewConflict();
+      } else {
+        applyReviewForm(detail);
+      }
+
+      const events = await getApplicationReviewEvents(applicationId);
+      if (selectedIdRef.current === applicationId) {
+        setReviewEvents(events);
+      }
+    },
+    [applyReviewForm, form.formState.isDirty, markReviewConflict],
   );
 
   function applyApplicationSwitch(item: ReviewListSummaryItem) {
@@ -930,37 +981,14 @@ export default function ApplicationReviewWorkspace({
     channel.on("broadcast", { event: REVIEW_SYNC_EVENT }, ({ payload }) => {
       const parsed = reviewSyncPayloadSchema.safeParse(payload);
       if (!parsed.success) return;
+      if (parsed.data.sourceUserId === organizer.id) return;
 
-      const update = parsed.data;
-      if (update.sourceUserId === organizer.id) return;
-      if (!update.status) return;
-
-      updateReviewItem(update.applicationId, update.review, update.status);
-
-      if (update.applicationId !== selectedIdRef.current) return;
-
-      void getApplicationReviewDetail(update.applicationId)
-        .then((detail) => {
-          if (selectedIdRef.current !== update.applicationId) return;
-          setSelectedDetail(detail);
-          if (form.formState.isDirty) {
-            markReviewConflict();
-            return;
-          }
-          applyReviewForm(detail);
-        })
-        .catch((error) => {
-          console.error("Unable to refresh application detail:", error);
-        });
-
-      void getApplicationReviewEvents(update.applicationId)
-        .then((events) => {
-          if (selectedIdRef.current !== update.applicationId) return;
-          setReviewEvents(events);
-        })
-        .catch((error) => {
-          console.error("Unable to refresh review history:", error);
-        });
+      void refreshReviewFromServer(parsed.data.applicationId).catch((error) => {
+        console.error(
+          "Unable to refresh application after review sync:",
+          error,
+        );
+      });
     });
 
     channel.subscribe((status, err) => {
@@ -974,15 +1002,7 @@ export default function ApplicationReviewWorkspace({
       reviewSyncChannel.current = null;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [
-    applyReviewForm,
-    form.formState.isDirty,
-    markReviewConflict,
-    organizer,
-    realtimeReady,
-    supabase,
-    updateReviewItem,
-  ]);
+  }, [organizer, realtimeReady, refreshReviewFromServer, supabase]);
 
   const clearResumeExpiryTimer = useCallback(() => {
     if (resumeExpiryTimer.current) {
@@ -1220,12 +1240,7 @@ export default function ApplicationReviewWorkspace({
 
       updateReviewItem(parsed.data.applicationId, result.review, result.status);
       appendReviewEvent(result.event);
-      void broadcastReviewUpdate({
-        applicationId: parsed.data.applicationId,
-        review: result.review,
-        status: result.status,
-        event: result.event,
-      });
+      void broadcastReviewUpdate(parsed.data.applicationId);
       applyReviewForm({
         application: {
           ...selectedDetail!.application,

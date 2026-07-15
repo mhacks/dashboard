@@ -59,51 +59,9 @@ export const applicationSlugSchema = z
   .string()
   .regex(/^app_[a-f0-9]{24}$/, "Invalid application slug");
 
-export const reviewSyncReviewSchema = z.object({
-  id: z.uuid(),
-  applicationId: z.uuid(),
-  reviewerUserId: z.uuid(),
-  effortRating: draftRatingSchema,
-  builderRating: draftRatingSchema,
-  flaggedForReview: z.boolean(),
-  reviewComments: z.string().nullable(),
-  reviewedAt: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  reviewerEmail: z.string().nullable(),
-});
-
-export const reviewSyncEventSchema = z.object({
-  id: z.uuid(),
-  reviewId: z.uuid(),
-  applicationId: z.uuid(),
-  reviewerUserId: z.uuid(),
-  eventType: z.enum(["draft_saved", "review_completed"]),
-  changes: z.record(
-    z.string(),
-    z.object({
-      from: z.union([z.string(), z.number(), z.boolean(), z.null()]),
-      to: z.union([z.string(), z.number(), z.boolean(), z.null()]),
-    }),
-  ),
-  snapshot: z.object({
-    effortRating: draftRatingSchema,
-    builderRating: draftRatingSchema,
-    flaggedForReview: z.boolean(),
-    reviewComments: z.string().nullable(),
-    reviewedAt: z.string().nullable(),
-    applicationStatus: z.enum(["pending", "reviewed", "flagged"]),
-  }),
-  createdAt: z.string(),
-  reviewerEmail: z.string().nullable(),
-});
-
 export const reviewSyncPayloadSchema = z.object({
   sourceUserId: z.uuid(),
   applicationId: z.uuid(),
-  review: reviewSyncReviewSchema,
-  status: z.enum(["pending", "reviewed", "flagged"]).optional(),
-  event: reviewSyncEventSchema.nullable(),
 });
 
 export type ReviewSyncPayload = z.infer<typeof reviewSyncPayloadSchema>;
