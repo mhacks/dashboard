@@ -38,7 +38,6 @@ CREATE POLICY "hacker_applicants_select_own_or_organizer" ON "hacker_applicants"
   where id = (select auth.uid())
     and role = 'organizer'
 ));--> statement-breakpoint
-CREATE POLICY "hacker_applicants_insert_own" ON "hacker_applicants" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ("hacker_applicants"."user_id" = (select auth.uid()));--> statement-breakpoint
 CREATE POLICY "hacker_applicants_update_organizer" ON "hacker_applicants" AS PERMISSIVE FOR UPDATE TO "authenticated" USING (exists (
   select 1
   from public.users

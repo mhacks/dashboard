@@ -1,5 +1,5 @@
 {
-  "id": "0ee792af-37bb-46ba-94d3-b510d42b8eee",
+  "id": "dc4e991e-ac30-4d9a-a20f-819a5f6a754d",
   "prevId": "05c7d84e-d6bd-4ab5-9ba9-c93ccba6b76b",
   "version": "7",
   "dialect": "postgresql",
@@ -256,15 +256,6 @@
             "authenticated"
           ],
           "using": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
-        },
-        "hacker_applicants_insert_own": {
-          "name": "hacker_applicants_insert_own",
-          "as": "PERMISSIVE",
-          "for": "INSERT",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "\"hacker_applicants\".\"user_id\" = (select auth.uid())"
         },
         "hacker_applicants_update_organizer": {
           "name": "hacker_applicants_update_organizer",

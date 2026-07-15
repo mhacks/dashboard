@@ -125,11 +125,6 @@ export const hackerApplicants = pgTable(
       to: authenticatedRole,
       using: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
     }),
-    pgPolicy("hacker_applicants_insert_own", {
-      for: "insert",
-      to: authenticatedRole,
-      withCheck: sql`${table.userId} = ${authUid}`,
-    }),
     pgPolicy("hacker_applicants_update_organizer", {
       for: "update",
       to: authenticatedRole,
