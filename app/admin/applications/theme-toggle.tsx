@@ -3,10 +3,13 @@
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import { useMounted } from "@/hooks/use-mounted";
 
 export default function ThemeToggle() {
+  const mounted = useMounted();
   const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+
+  const isDark = mounted && resolvedTheme === "dark";
 
   return (
     <Button

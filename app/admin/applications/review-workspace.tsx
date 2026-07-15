@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 import type { Session } from "@supabase/supabase-js";
 import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels";
 import {
@@ -133,6 +134,17 @@ function useIsPhoneLandscape() {
   }, []);
 
   return isPhoneLandscape;
+}
+
+function isBenignRealtimeChannelError(error: unknown) {
+  if (!error) return true;
+
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("socket closed: 1001") ||
+    message.includes("socket closed") ||
+    message.includes("Channel closed")
+  );
 }
 
 type PresenceMeta = {
@@ -505,8 +517,10 @@ function QuickLink({
 
 export default function ApplicationReviewWorkspace({
   initialData,
+  initialSelectedDetail,
 }: {
   initialData: ReviewWorkspaceData;
+  initialSelectedDetail?: ReviewListItem;
 }) {
   const initialSelectedItem =
     initialData.items.find((item) => item.application.status === "pending") ??
@@ -517,8 +531,10 @@ export default function ApplicationReviewWorkspace({
   );
   const [selectedDetail, setSelectedDetail] = useState<
     ReviewListItem | undefined
-  >(undefined);
-  const [detailLoadedId, setDetailLoadedId] = useState<string | null>(null);
+  >(initialSelectedDetail);
+  const [detailLoadedId, setDetailLoadedId] = useState<string | null>(
+    initialSelectedDetail?.application.id ?? null,
+  );
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [applicationsPage, setApplicationsPage] = useState(0);
@@ -544,15 +560,17 @@ export default function ApplicationReviewWorkspace({
   const supabase = useMemo(() => createClient(), []);
   const selectedIdRef = useRef(selectedId);
   const serverUpdatedAt = useRef<string | null>(
-    initialSelectedItem?.review?.updatedAt ?? null,
+    initialSelectedDetail?.review?.updatedAt ??
+      initialSelectedItem?.review?.updatedAt ??
+      null,
   );
   const reviewSyncChannel = useRef<ReviewSyncChannel | null>(null);
 
   const form = useForm<ReviewDraftInput>({
     resolver: zodResolver(reviewDraftSchema),
     mode: "onChange",
-    defaultValues: emptyReviewDefaults(
-      initialSelectedItem?.application.id ?? "",
+    defaultValues: toReviewDefaults(
+      initialSelectedDetail ?? initialSelectedItem,
     ),
   });
   const { reset: resetReviewForm } = form;
@@ -585,6 +603,7 @@ export default function ApplicationReviewWorkspace({
   const reviewEventsLoading =
     Boolean(selectedId) && reviewEventsLoadedId !== selectedId;
   const isPhoneLandscape = useIsPhoneLandscape();
+  const panelsMounted = useMounted();
   const panelLayout = useDefaultLayout({
     id: "application-review-workspace",
     panelIds: [...REVIEW_WORKSPACE_PANEL_IDS],
@@ -594,7 +613,10 @@ export default function ApplicationReviewWorkspace({
   useEffect(() => {
     let cancelled = false;
 
-    async function syncSession(session: Session | null) {
+    async function syncSession(
+      session: Session | null,
+      mode: "full" | "refresh",
+    ) {
       if (!session?.access_token) {
         await supabase.realtime.setAuth(null);
         if (cancelled) return;
@@ -614,6 +636,11 @@ export default function ApplicationReviewWorkspace({
         return;
       }
 
+      if (mode === "refresh") {
+        await supabase.realtime.setAuth(session.access_token);
+        return;
+      }
+
       setRealtimeReady(false);
       await supabase.realtime.setAuth(session.access_token);
       if (cancelled) return;
@@ -625,17 +652,18 @@ export default function ApplicationReviewWorkspace({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (
-        event === "INITIAL_SESSION" ||
-        event === "SIGNED_IN" ||
-        event === "TOKEN_REFRESHED"
-      ) {
-        void syncSession(session);
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+        void syncSession(session, "full");
+        return;
+      }
+
+      if (event === "TOKEN_REFRESHED") {
+        void syncSession(session, "refresh");
         return;
       }
 
       if (event === "SIGNED_OUT") {
-        void syncSession(null);
+        void syncSession(null, "full");
       }
     });
 
@@ -800,7 +828,7 @@ export default function ApplicationReviewWorkspace({
   }
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || detailLoadedId === selectedId) return;
 
     let ignore = false;
 
@@ -824,7 +852,7 @@ export default function ApplicationReviewWorkspace({
     return () => {
       ignore = true;
     };
-  }, [applyReviewForm, form.formState.isDirty, selectedId]);
+  }, [applyReviewForm, detailLoadedId, form.formState.isDirty, selectedId]);
 
   if (!selectedId) {
     if (selectedDetail !== undefined) setSelectedDetail(undefined);
@@ -890,9 +918,9 @@ export default function ApplicationReviewWorkspace({
     });
 
     channel.subscribe((status, err) => {
-      if (status === "CHANNEL_ERROR") {
-        console.error("Unable to subscribe to review sync channel:", err);
-      }
+      if (!active || status !== "CHANNEL_ERROR") return;
+      if (isBenignRealtimeChannelError(err)) return;
+      console.error("Unable to subscribe to review sync channel:", err);
     });
 
     return () => {
@@ -1074,6 +1102,8 @@ export default function ApplicationReviewWorkspace({
       .on("presence", { event: "join" }, syncPresence)
       .on("presence", { event: "leave" }, syncPresence)
       .subscribe(async (status, err) => {
+        if (!active) return;
+
         if (status === "SUBSCRIBED") {
           await channel?.track({
             userId: organizer.id,
@@ -1081,7 +1111,10 @@ export default function ApplicationReviewWorkspace({
             onlineAt: new Date().toISOString(),
           });
           syncPresence();
-        } else if (status === "CHANNEL_ERROR") {
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" && !isBenignRealtimeChannelError(err)) {
           console.error("Unable to subscribe to review presence channel:", err);
         }
       });
@@ -1560,46 +1593,60 @@ export default function ApplicationReviewWorkspace({
           }
         />
 
-        <ResizablePanelGroup
-          id="application-review-workspace"
-          orientation="horizontal"
-          defaultLayout={panelLayout.defaultLayout}
-          onLayoutChanged={panelLayout.onLayoutChanged}
-          resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
-          className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex"
-        >
-          <ResizablePanel
-            id="applications-list"
-            defaultSize={300}
-            minSize={280}
-            className="min-h-0 min-w-0"
+        {panelsMounted ? (
+          <ResizablePanelGroup
+            id="application-review-workspace"
+            orientation="horizontal"
+            defaultLayout={panelLayout.defaultLayout}
+            onLayoutChanged={panelLayout.onLayoutChanged}
+            resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
+            className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex"
           >
-            <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+            <ResizablePanel
+              id="applications-list"
+              defaultSize={300}
+              minSize={280}
+              className="min-h-0 min-w-0"
+            >
+              <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+                {applicationsListBody}
+              </aside>
+            </ResizablePanel>
+
+            <ResizablePanel
+              id="application-detail"
+              minSize={320}
+              className="min-h-0 min-w-0"
+            >
+              <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
+                {applicationDetailBody}
+              </section>
+            </ResizablePanel>
+
+            <ResizablePanel
+              id="scorecard"
+              defaultSize={330}
+              minSize={300}
+              className="min-h-0 min-w-0"
+            >
+              <aside className="flex h-full min-h-0 min-w-0 flex-col bg-card">
+                {scorecardBody}
+              </aside>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:grid lg:grid-cols-[300px_minmax(0,1fr)_330px]">
+            <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
               {applicationsListBody}
             </aside>
-          </ResizablePanel>
-
-          <ResizablePanel
-            id="application-detail"
-            minSize={320}
-            className="min-h-0 min-w-0"
-          >
-            <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
               {applicationDetailBody}
             </section>
-          </ResizablePanel>
-
-          <ResizablePanel
-            id="scorecard"
-            defaultSize={330}
-            minSize={300}
-            className="min-h-0 min-w-0"
-          >
-            <aside className="flex h-full min-h-0 min-w-0 flex-col bg-card">
+            <aside className="min-h-0 min-w-0 overflow-hidden bg-card">
               {scorecardBody}
             </aside>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          </div>
+        )}
 
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card lg:hidden">
           <aside
