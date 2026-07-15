@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { ListPagination } from "./components/list-pagination";
+import { ReviewEventListSkeleton } from "./components/review-workspace-skeletons";
 import {
   applicationStatusLabel,
   formatReviewEventValue,
@@ -303,15 +304,12 @@ export function ReviewEventTimeline({
             <p className="mt-1 text-xs text-muted-foreground">{description}</p>
           ) : null}
         </div>
-        {loading ? (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            Loading...
-          </span>
-        ) : null}
       </div>
 
       <div className="mt-3 min-w-0">
-        {!loading && events.length === 0 ? (
+        {loading ? (
+          <ReviewEventListSkeleton compact={compact} />
+        ) : events.length === 0 ? (
           <div className="flex h-28 items-center justify-center rounded-lg border border-dashed bg-background/40 px-3 text-center text-xs text-muted-foreground">
             {emptyMessage}
           </div>

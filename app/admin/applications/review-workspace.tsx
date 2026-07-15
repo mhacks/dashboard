@@ -81,6 +81,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { clampPageIndex, getPageCount, paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { ApplicationReviewHeader } from "./components/application-review-header";
+import {
+  ApplicationDetailSkeleton,
+  ResumePreviewSkeleton,
+} from "./components/review-workspace-skeletons";
 import { ListPagination } from "./components/list-pagination";
 import { Meter } from "./components/meter";
 import {
@@ -404,11 +408,7 @@ function ResumePreview({
   }
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
-        Loading resume preview...
-      </div>
-    );
+    return <ResumePreviewSkeleton />;
   }
 
   if (!resumeUrl) {
@@ -706,6 +706,11 @@ export default function ApplicationReviewWorkspace({
   );
 
   const counts = useMemo(() => getCounts(items), [items]);
+  const selectedSummaryItem = useMemo(
+    () => items.find((item) => item.application.id === selectedId),
+    [items, selectedId],
+  );
+  const activeItem = selectedDetail ?? selectedSummaryItem;
   const completedCount = counts.reviewed + counts.flagged;
   const completionPercent =
     counts.total === 0 ? 0 : Math.round((completedCount / counts.total) * 100);
@@ -1280,25 +1285,23 @@ export default function ApplicationReviewWorkspace({
           </Button>
           <ListFilterIcon className="hidden size-4 shrink-0 text-muted-foreground lg:block" />
           <span className="truncate text-sm font-medium">
-            {selectedDetail
-              ? `${applicantName(selectedDetail)} application`
+            {activeItem
+              ? `${applicantName(activeItem)} application`
               : "Select an application"}
           </span>
         </div>
-        {selectedDetail && (
+        {activeItem && (
           <Badge
             variant="outline"
-            className={statusClassName(selectedDetail.application.status)}
+            className={statusClassName(activeItem.application.status)}
           >
-            {applicationStatusLabel(selectedDetail.application.status)}
+            {applicationStatusLabel(activeItem.application.status)}
           </Badge>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {detailLoading && !selectedDetail ? (
-          <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
-            Loading application…
-          </div>
+          <ApplicationDetailSkeleton />
         ) : !selectedDetail ? (
           <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
             Select an application to review.
@@ -1557,68 +1560,66 @@ export default function ApplicationReviewWorkspace({
           }
         />
 
-        {isDesktop ? (
-          <ResizablePanelGroup
-            id="application-review-workspace"
-            orientation="horizontal"
-            defaultLayout={panelLayout.defaultLayout}
-            onLayoutChanged={panelLayout.onLayoutChanged}
-            resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
-            className="min-h-0 flex-1 overflow-hidden border-t bg-card"
+        <ResizablePanelGroup
+          id="application-review-workspace"
+          orientation="horizontal"
+          defaultLayout={panelLayout.defaultLayout}
+          onLayoutChanged={panelLayout.onLayoutChanged}
+          resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
+          className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex"
+        >
+          <ResizablePanel
+            id="applications-list"
+            defaultSize={300}
+            minSize={280}
+            className="min-h-0 min-w-0"
           >
-            <ResizablePanel
-              id="applications-list"
-              defaultSize={300}
-              minSize={280}
-              className="min-h-0 min-w-0"
-            >
-              <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
-                {applicationsListBody}
-              </aside>
-            </ResizablePanel>
-
-            <ResizablePanel
-              id="application-detail"
-              minSize={320}
-              className="min-h-0 min-w-0"
-            >
-              <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
-                {applicationDetailBody}
-              </section>
-            </ResizablePanel>
-
-            <ResizablePanel
-              id="scorecard"
-              defaultSize={330}
-              minSize={300}
-              className="min-h-0 min-w-0"
-            >
-              <aside className="flex h-full min-h-0 min-w-0 flex-col bg-card">
-                {scorecardBody}
-              </aside>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        ) : (
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card">
-            <aside
-              className={cn(
-                "min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card",
-                mobileView === "list" ? "flex" : "hidden",
-              )}
-            >
+            <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
               {applicationsListBody}
             </aside>
+          </ResizablePanel>
 
-            <section
-              className={cn(
-                "min-h-0 min-w-0 flex-col overflow-hidden bg-muted/30",
-                mobileView === "detail" ? "flex" : "hidden",
-              )}
-            >
+          <ResizablePanel
+            id="application-detail"
+            minSize={320}
+            className="min-h-0 min-w-0"
+          >
+            <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
               {applicationDetailBody}
             </section>
-          </div>
-        )}
+          </ResizablePanel>
+
+          <ResizablePanel
+            id="scorecard"
+            defaultSize={330}
+            minSize={300}
+            className="min-h-0 min-w-0"
+          >
+            <aside className="flex h-full min-h-0 min-w-0 flex-col bg-card">
+              {scorecardBody}
+            </aside>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card lg:hidden">
+          <aside
+            className={cn(
+              "min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card",
+              mobileView === "list" ? "flex" : "hidden",
+            )}
+          >
+            {applicationsListBody}
+          </aside>
+
+          <section
+            className={cn(
+              "min-h-0 min-w-0 flex-col overflow-hidden bg-muted/30",
+              mobileView === "detail" ? "flex" : "hidden",
+            )}
+          >
+            {applicationDetailBody}
+          </section>
+        </div>
 
         <AlertDialog
           open={pendingApplicationSwitch !== null}
