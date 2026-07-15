@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useApplicationsOpen } from "./use-applications-open";
+import posthog from "posthog-js";
 
 const LIQUID_GLASS_PROPS = {
   displacementScale: 34,
@@ -72,6 +73,7 @@ export default function NavBar() {
             aria-disabled={!applicationsOpen}
             onClick={(e) => {
               if (!applicationsOpen) e.preventDefault();
+              else posthog.capture("apply_now_clicked", { location: "navbar" });
             }}
             className={`glass-pill font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic transition-opacity ${
               applicationsOpen

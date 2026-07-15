@@ -26,6 +26,7 @@ import {
 } from "@/lib/actions/application-form.server.actions";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
+import posthog from "posthog-js";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -367,6 +368,10 @@ export default function ApplyPage({
         if (!valid) return;
       }
     }
+    posthog.capture("application_step_completed", {
+      step_index: step,
+      step_label: STEPS[step].label,
+    });
     setDirection(1);
     setStep((s) => s + 1);
   };
@@ -386,9 +391,11 @@ export default function ApplyPage({
       if (duplicate) {
         setIsDuplicate(true);
       } else {
+        posthog.capture("application_submitted");
         setSubmitSuccess(true);
       }
     } catch (error) {
+      posthog.captureException(error);
       console.error("Submission error:", error);
     } finally {
       setIsSubmitting(false);

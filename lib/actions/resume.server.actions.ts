@@ -4,6 +4,7 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
 import { requireSessionUser } from "@/lib/auth/guards";
+import { getPostHogClient } from "@/lib/posthog-server";
 import {
   isAllowedResumeKey,
   isPdfBuffer,
@@ -45,6 +46,14 @@ export async function uploadResume(
       ContentLength: buffer.length,
     }),
   );
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "resume_uploaded",
+    properties: { file_size_bytes: file.size },
+  });
+  await posthog.flush();
 
   return { key };
 }

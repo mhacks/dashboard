@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { sendOtp, verifyOtp } from "@/lib/actions/auth.server.actions";
+import posthog from "posthog-js";
 
 const emailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -70,6 +71,7 @@ function AuthForm() {
       setTurnstileToken(null);
       return;
     }
+    posthog.capture("otp_requested");
     setSentEmail(email);
     setStep("verify");
   }
