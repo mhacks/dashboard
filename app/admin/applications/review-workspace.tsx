@@ -49,6 +49,17 @@ import {
   type ReviewListSummaryItem,
   type ReviewRecord,
 } from "@/lib/types/application-reviews";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -524,6 +535,8 @@ export default function ApplicationReviewWorkspace({
   const [reviewEventsLoadedId, setReviewEventsLoadedId] = useState<
     string | null
   >(null);
+  const [pendingApplicationSwitch, setPendingApplicationSwitch] =
+    useState<ReviewListSummaryItem | null>(null);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
   const [realtimeReady, setRealtimeReady] = useState(false);
   const supabase = useMemo(() => createClient(), []);
@@ -753,22 +766,30 @@ export default function ApplicationReviewWorkspace({
     [organizer?.id],
   );
 
-  function selectApplication(item: ReviewListSummaryItem) {
-    if (item.application.id === selectedId) return;
-
-    if (form.formState.isDirty) {
-      const proceed = window.confirm(
-        "You have unsaved review changes. Switch applications anyway? Your changes will be lost.",
-      );
-      if (!proceed) return;
-    }
-
+  function applyApplicationSwitch(item: ReviewListSummaryItem) {
     setSelectedId(item.application.id);
     setSelectedDetail(undefined);
     setMobileView("detail");
     setScorecardOpen(false);
     setResumeUrl(null);
     applyReviewForm(item);
+  }
+
+  function selectApplication(item: ReviewListSummaryItem) {
+    if (item.application.id === selectedId) return;
+
+    if (form.formState.isDirty) {
+      setPendingApplicationSwitch(item);
+      return;
+    }
+
+    applyApplicationSwitch(item);
+  }
+
+  function confirmApplicationSwitch() {
+    if (!pendingApplicationSwitch) return;
+    applyApplicationSwitch(pendingApplicationSwitch);
+    setPendingApplicationSwitch(null);
   }
 
   useEffect(() => {
@@ -1604,6 +1625,35 @@ export default function ApplicationReviewWorkspace({
             </section>
           </div>
         )}
+
+        <AlertDialog
+          open={pendingApplicationSwitch !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingApplicationSwitch(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogMedia>
+                <AlertTriangleIcon className="text-amber-600 dark:text-amber-400" />
+              </AlertDialogMedia>
+              <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved review changes. Switch applications anyway?
+                Your changes will be lost.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay here</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={confirmApplicationSwitch}
+              >
+                Switch anyway
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {!isDesktop && (
           <Drawer open={scorecardOpen} onOpenChange={setScorecardOpen}>
