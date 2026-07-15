@@ -1373,14 +1373,6 @@ export default function ApplicationReviewWorkspace({
                     />
                   )}
                   <QuickLink
-                    href={
-                      selectedDetail.application.applicantEmail
-                        ? `mailto:${selectedDetail.application.applicantEmail}`
-                        : null
-                    }
-                    label="Email"
-                  />
-                  <QuickLink
                     href={externalHref(selectedDetail.application.github)}
                     label="GitHub"
                   />
