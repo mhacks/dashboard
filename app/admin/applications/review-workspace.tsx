@@ -327,7 +327,7 @@ function Section({
       <h2 className="mb-3 font-red-hat text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </h2>
-      <dl className="divide-y divide-border/60 rounded-lg border bg-card px-4 py-1">
+      <dl className="divide-y divide-border/60 overflow-hidden rounded-lg border bg-card py-1 [&>*:nth-child(even)]:bg-muted/25 [&>*]:px-4">
         {children}
       </dl>
     </section>
