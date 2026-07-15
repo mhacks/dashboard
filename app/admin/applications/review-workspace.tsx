@@ -515,7 +515,7 @@ function ResumePreview({
           src={resumeUrl}
           sandbox="allow-scripts allow-same-origin"
           referrerPolicy="no-referrer"
-          className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
+          className="h-[320px] w-full bg-white dark:bg-zinc-950"
         />
       )}
     </div>
