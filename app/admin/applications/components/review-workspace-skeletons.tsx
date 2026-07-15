@@ -124,7 +124,7 @@ export function ApplicationDetailSkeleton() {
           </div>
           <Skeleton className="h-4 w-72 max-w-full" />
           <div className="flex flex-wrap gap-2">
-            {Array.from({ length: 4 }).map((_, index) => (
+            {Array.from({ length: 3 }).map((_, index) => (
               <Skeleton key={index} className="h-8 w-20 rounded-md" />
             ))}
           </div>

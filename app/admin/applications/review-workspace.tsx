@@ -1421,13 +1421,6 @@ export default function ApplicationReviewWorkspace({
                   ).toLocaleDateString()}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedDetail.application.resume && (
-                    <QuickLink
-                      onClick={() => void openResumePreview()}
-                      label="Resume"
-                      icon={<FileTextIcon className="size-3.5" />}
-                    />
-                  )}
                   <QuickLink
                     href={externalHref(selectedDetail.application.github)}
                     label="GitHub"
