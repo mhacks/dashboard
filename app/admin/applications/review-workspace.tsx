@@ -579,10 +579,6 @@ export default function ApplicationReviewWorkspace({
     initialSelectedDetail?.application.id ??
     initialSelectedItem?.application.id ??
     "";
-  const initialStatusFilter =
-    initialSelectedDetail?.application.status ??
-    initialSelectedItem?.application.status ??
-    "pending";
   const [items, setItems] = useState(initialData.items);
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [selectedDetail, setSelectedDetail] = useState<
@@ -592,13 +588,12 @@ export default function ApplicationReviewWorkspace({
     initialSelectedDetail?.application.id ?? null,
   );
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>(initialStatusFilter);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [applicationsPage, setApplicationsPage] = useState(() =>
     initialApplicationsPageForSelection(
       initialData.items,
       initialSelectedId,
-      initialStatusFilter,
+      "all",
     ),
   );
   const [mobileView, setMobileView] = useState<MobileView>("list");
