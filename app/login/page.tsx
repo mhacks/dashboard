@@ -156,6 +156,7 @@ function AuthForm() {
 
                 <Turnstile
                   ref={turnstileRef}
+                  className="ph-no-capture"
                   siteKey={process.env.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY!}
                   options={{ appearance: "interaction-only" }}
                   onSuccess={setTurnstileToken}

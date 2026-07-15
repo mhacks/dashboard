@@ -1,4 +1,4 @@
--- Local-only seed data. Runs on first `supabase start` and every `supabase db reset`.
+-- Local-only storage seed. Runs on first `supabase start` and every `supabase db reset`.
 -- Not applied to the remote database (remote schema uses drizzle-kit migrate).
 -- Production resume storage uses AWS S3, not Supabase Storage.
 

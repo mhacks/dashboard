@@ -21,7 +21,10 @@ import { FormField } from "../utils";
 import { SelectWithOther } from "./select-with-other";
 import { UniversitySearch } from "./university-search";
 import { HackerApplicationFormData } from "@/lib/types/applications";
-import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
+import {
+  getResumeDownloadUrl,
+  uploadResume,
+} from "@/lib/actions/resume.server.actions";
 
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
@@ -227,14 +230,11 @@ const AcademicInformation = ({
                 try {
                   const body = new FormData();
                   body.append("file", file);
-                  const res = await fetch("/api/upload-resume", {
-                    method: "POST",
-                    body,
-                  });
-                  if (!res.ok) {
-                    throw new Error(await res.text());
+                  const result = await uploadResume(body);
+                  if ("error" in result) {
+                    throw new Error(result.error);
                   }
-                  const { key } = await res.json();
+                  const { key } = result;
                   setValue("resume", key);
                   setJustUploaded(true);
                   setUploadState("done");

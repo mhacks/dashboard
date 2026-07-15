@@ -8,6 +8,8 @@ import {
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthStateSync } from "@/components/auth-state-sync";
+import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,15 +47,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${redHatDisplay.variable} antialiased`}
         suppressHydrationWarning
       >
-        <TooltipProvider>
-          <AuthStateSync />
-          {children}
-        </TooltipProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+            <AuthStateSync />
+            {children}
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

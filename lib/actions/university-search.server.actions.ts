@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { requireSessionUser } from "@/lib/auth/guards";
 import {
   searchUniversities as searchUniversityDataset,
   type UniversitySearchResult,
@@ -9,12 +9,6 @@ import {
 export async function searchUniversities(
   query: string,
 ): Promise<UniversitySearchResult[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Unauthorized");
-
+  await requireSessionUser();
   return searchUniversityDataset(query);
 }

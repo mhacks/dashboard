@@ -15,6 +15,20 @@
       "when": 1783150258956,
       "tag": "20260704073058_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784082736207,
+      "tag": "20260715023216_review_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784082737209,
+      "tag": "20260715023217_is_organizer_realtime_and_triggers",
+      "breakpoints": true
     }
   ]
 }

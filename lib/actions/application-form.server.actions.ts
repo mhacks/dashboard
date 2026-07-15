@@ -9,17 +9,8 @@ import {
   hackerApplicants,
   hackerApplicationDrafts,
 } from "@/lib/db/schema/applications";
-import { createClient } from "@/lib/supabase/server";
+import { requireSessionUser } from "@/lib/auth/guards";
 import { getPostHogClient } from "@/lib/posthog-server";
-
-async function getAuthenticatedUserId(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
-  return user.id;
-}
 
 // The MLH agreement checkboxes are validated in the form but not stored —
 // submitting the application implies acceptance — so drop them before writing.
@@ -39,8 +30,11 @@ function toDbValues(parsed: HackerApplicationFormData): ApplicationDbValues {
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<{ duplicate: boolean }> => {
-  const userId = await getAuthenticatedUserId();
+  const { id: userId } = await requireSessionUser();
   const parsed = hackerApplicationSchema.parse(data);
+  if (parsed.resume !== `resumes/${userId}.pdf`) {
+    throw new Error("Invalid resume");
+  }
 
   try {
     const result = await db
@@ -81,7 +75,11 @@ export const submitHackerApplication = async (
 export const saveDraft = async (
   data: Partial<HackerApplicationFormData>,
 ): Promise<void> => {
-  const userId = await getAuthenticatedUserId();
+  const { id: userId } = await requireSessionUser();
+
+  if (data.resume !== undefined && data.resume !== `resumes/${userId}.pdf`) {
+    throw new Error("Invalid resume");
+  }
 
   try {
     await db
@@ -97,25 +95,6 @@ export const saveDraft = async (
     console.error("Unable to save draft:", error);
     throw new Error(
       error instanceof Error ? error.message : "Failed to save draft",
-    );
-  }
-};
-
-export const updateHackerApplication = async (
-  data: HackerApplicationFormData,
-): Promise<void> => {
-  const userId = await getAuthenticatedUserId();
-  const parsed = hackerApplicationSchema.parse(data);
-
-  try {
-    await db
-      .update(hackerApplicants)
-      .set({ ...toDbValues(parsed) })
-      .where(eq(hackerApplicants.userId, userId));
-  } catch (error) {
-    console.error("Unable to update Hacker Application:", error);
-    throw new Error(
-      error instanceof Error ? error.message : "Failed to update application",
     );
   }
 };
