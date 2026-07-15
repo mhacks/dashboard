@@ -369,7 +369,9 @@ export function ReviewWorkspacePageSkeleton() {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card lg:hidden">
-        <ApplicationsListSkeleton />
+        <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-card">
+          <ApplicationsListSkeleton />
+        </aside>
       </div>
     </div>
   );

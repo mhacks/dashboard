@@ -1594,46 +1594,48 @@ export default function ApplicationReviewWorkspace({
         />
 
         {panelsMounted ? (
-          <ResizablePanelGroup
-            id="application-review-workspace"
-            orientation="horizontal"
-            defaultLayout={panelLayout.defaultLayout}
-            onLayoutChanged={panelLayout.onLayoutChanged}
-            resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
-            className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex"
-          >
-            <ResizablePanel
-              id="applications-list"
-              defaultSize={300}
-              minSize={280}
-              className="min-h-0 min-w-0"
+          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex">
+            <ResizablePanelGroup
+              id="application-review-workspace"
+              orientation="horizontal"
+              defaultLayout={panelLayout.defaultLayout}
+              onLayoutChanged={panelLayout.onLayoutChanged}
+              resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
+              className="min-h-0 flex-1 overflow-hidden"
             >
-              <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
-                {applicationsListBody}
-              </aside>
-            </ResizablePanel>
+              <ResizablePanel
+                id="applications-list"
+                defaultSize={300}
+                minSize={280}
+                className="min-h-0 min-w-0"
+              >
+                <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+                  {applicationsListBody}
+                </aside>
+              </ResizablePanel>
 
-            <ResizablePanel
-              id="application-detail"
-              minSize={320}
-              className="min-h-0 min-w-0"
-            >
-              <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
-                {applicationDetailBody}
-              </section>
-            </ResizablePanel>
+              <ResizablePanel
+                id="application-detail"
+                minSize={320}
+                className="min-h-0 min-w-0"
+              >
+                <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30">
+                  {applicationDetailBody}
+                </section>
+              </ResizablePanel>
 
-            <ResizablePanel
-              id="scorecard"
-              defaultSize={330}
-              minSize={300}
-              className="min-h-0 min-w-0"
-            >
-              <aside className="flex h-full min-h-0 min-w-0 flex-col bg-card">
-                {scorecardBody}
-              </aside>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+              <ResizablePanel
+                id="scorecard"
+                defaultSize={330}
+                minSize={300}
+                className="min-h-0 min-w-0"
+              >
+                <aside className="flex h-full min-h-0 min-w-0 flex-col bg-card">
+                  {scorecardBody}
+                </aside>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
         ) : (
           <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:grid lg:grid-cols-[300px_minmax(0,1fr)_330px]">
             <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
@@ -1651,7 +1653,7 @@ export default function ApplicationReviewWorkspace({
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-t bg-card lg:hidden">
           <aside
             className={cn(
-              "min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card",
+              "h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card",
               mobileView === "list" ? "flex" : "hidden",
             )}
           >
@@ -1660,7 +1662,7 @@ export default function ApplicationReviewWorkspace({
 
           <section
             className={cn(
-              "min-h-0 min-w-0 flex-col overflow-hidden bg-muted/30",
+              "h-full min-h-0 min-w-0 flex-col overflow-hidden bg-muted/30",
               mobileView === "detail" ? "flex" : "hidden",
             )}
           >
