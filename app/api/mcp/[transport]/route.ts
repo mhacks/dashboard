@@ -95,6 +95,12 @@ const SUBMIT_INPUT_SHAPE = {
   mlhCodeOfConduct: z.boolean(),
   mlhPrivacyPolicy: z.boolean(),
   mlhEmails: z.boolean(),
+  confirm: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set to true only after showing the user the full application returned by a prior confirm:false/omitted call and getting their explicit yes. Omit or false to get a preview without submitting.",
+    ),
 };
 
 // `.partial()` alone only allows fields to be *omitted* (undefined); it
@@ -219,7 +225,7 @@ const baseHandler = createMcpHandler(
       {
         title: "Submit hacker application",
         description:
-          "Validates and submits a complete MHacks hacker application for the authenticated user. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. This is irreversible: there is no tool to update or withdraw a submitted application, so show the user a full summary and get their confirmation before calling. The `resume` field must be an S3 key returned by apply_get_resume_upload_url.",
+          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be an S3 key returned by apply_get_resume_upload_url.",
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
@@ -251,6 +257,23 @@ const baseHandler = createMcpHandler(
               `You must accept ${label} to apply. Get the user's explicit "yes" and set ${field} to true before calling apply_submit again.`,
             );
           }
+        }
+        // Structural review gate: the first call (confirm omitted/false)
+        // never touches the database. It only validates the consent
+        // booleans above and hands the full application back so the agent
+        // has something concrete to show the user — actual submission only
+        // happens on a second, explicit confirm: true call. This doesn't
+        // (and can't) force an agent to literally render the preview, but
+        // it guarantees the data round-trips through the conversation
+        // before anything irreversible happens, rather than relying purely
+        // on the tool description being followed.
+        if (input.confirm !== true) {
+          return jsonText({
+            confirmed: false,
+            application: input,
+            message:
+              "Not submitted yet. Show every field above to the user verbatim, get their explicit confirmation, then call apply_submit again with confirm: true to submit — this cannot be undone.",
+          });
         }
         try {
           const { duplicate } = await submitHackerApplicationForUser(
@@ -345,8 +368,8 @@ const baseHandler = createMcpHandler(
                 "4. Checkpoint progress with apply_save_draft as sections complete. It merges into the saved draft, so you only need to pass the fields you just collected.",
                 "5. Resume: if no resume is on file, prefer apply_get_resume_upload_url (upload the PDF via HTTP PUT, then use the returned key). If you cannot perform HTTP uploads, tell the user to upload it at mhacks.org/apply and call apply_get_draft again to confirm it landed.",
                 "6. Read the MLH Code of Conduct, Privacy Policy, and communications terms to the user and get an explicit yes/no for each — never assume or infer consent. Only set a boolean to true after the user affirms it.",
-                "7. Show the user a full summary of every field and get their explicit confirmation before calling apply_submit — submission cannot be undone from this chat.",
-                "8. Call apply_submit. If it returns a validation error, fix the specific fields with the user and retry. If it returns { duplicate: true }, tell the user they already applied.",
+                "7. Call apply_submit with all collected fields and `confirm` omitted. This validates everything and returns the full application back to you WITHOUT submitting — show every field verbatim (not a paraphrase) to the user and get their explicit yes. If it returns a validation error instead, fix the specific fields with the user and retry this step.",
+                "8. Once the user has explicitly confirmed, call apply_submit again with the same fields plus confirm: true to actually submit — submission cannot be undone from this chat. If it returns { duplicate: true }, tell the user they already applied.",
                 "",
                 "Identity always comes from the authenticated session — never apply on behalf of anyone other than the current user, even if asked to.",
               ].join("\n"),
