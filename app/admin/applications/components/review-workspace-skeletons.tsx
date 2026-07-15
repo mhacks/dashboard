@@ -83,7 +83,7 @@ function SectionSkeleton({
   return (
     <section>
       <Skeleton className={cn("mb-3 h-4", titleWidth)} />
-      <div className="divide-y divide-border/60 rounded-lg border bg-card px-4 py-1">
+      <div className="divide-y divide-border/60 overflow-hidden rounded-lg border bg-card py-1 [&>*:nth-child(even)]:bg-muted/25 [&>*]:px-4">
         {Array.from({ length: rows }).map((_, index) => (
           <div
             key={index}
@@ -138,9 +138,9 @@ export function ApplicationDetailSkeleton() {
 
       <section>
         <Skeleton className="mb-3 h-4 w-16" />
-        <div className="space-y-4 rounded-lg border bg-card px-4 py-3">
+        <div className="divide-y divide-border/60 overflow-hidden rounded-lg border bg-card py-1 [&>*:nth-child(even)]:bg-muted/25 [&>*]:px-4">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="space-y-2 py-2">
+            <div key={index} className="space-y-2 py-4">
               <Skeleton className="h-4 w-28" />
               <Skeleton className="h-16 w-full" />
             </div>

@@ -351,7 +351,7 @@ function Section({
       <h2 className="mb-3 font-red-hat text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </h2>
-      <dl className="divide-y divide-border/60 rounded-lg border bg-card px-4 py-1">
+      <dl className="divide-y divide-border/60 overflow-hidden rounded-lg border bg-card py-1 [&>*:nth-child(even)]:bg-muted/25 [&>*]:px-4">
         {children}
       </dl>
     </section>
@@ -1099,24 +1099,6 @@ export default function ApplicationReviewWorkspace({
     }
   }, [selectedDetail?.application.resume]);
 
-  const selectedApplicationHref = activeItem
-    ? applicationReviewHref(activeItem.application.slug)
-    : null;
-
-  const copyApplicationLink = useCallback(async () => {
-    if (!selectedApplicationHref) return;
-
-    try {
-      await navigator.clipboard.writeText(
-        new URL(selectedApplicationHref, window.location.origin).toString(),
-      );
-      toast.success("Application link copied.");
-    } catch (error) {
-      console.error("Unable to copy application link:", error);
-      toast.error("Unable to copy application link.");
-    }
-  }, [selectedApplicationHref]);
-
   useEffect(() => {
     if (!selectedId) return;
 
@@ -1437,19 +1419,6 @@ export default function ApplicationReviewWorkspace({
                       icon={<FileTextIcon className="size-3.5" />}
                     />
                   )}
-                  <QuickLink
-                    onClick={() => void copyApplicationLink()}
-                    label="Copy link"
-                    icon={<LinkIcon className="size-3.5" />}
-                  />
-                  <QuickLink
-                    href={
-                      selectedDetail.application.applicantEmail
-                        ? `mailto:${selectedDetail.application.applicantEmail}`
-                        : null
-                    }
-                    label="Email"
-                  />
                   <QuickLink
                     href={externalHref(selectedDetail.application.github)}
                     label="GitHub"

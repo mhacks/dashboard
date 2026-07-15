@@ -550,7 +550,6 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
       major: bucketize(
         applications.map((application) => application.major),
         total,
-        10,
       ),
       graduationYear: sortGraduationYearBuckets(
         bucketize(
@@ -573,14 +572,12 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
       comingFrom: bucketize(
         applications.map((application) => application.comingFrom),
         total,
-        10,
       ),
     },
     academics: {
       universities: bucketize(
         applications.map((application) => application.university),
         total,
-        10,
       ),
       previousHackathonBuckets: bucketizeOrdered(
         applications.map((application) =>
