@@ -381,6 +381,15 @@ const baseHandler = createMcpHandler(
   },
   {
     serverInfo: { name: "mhacks-apply", version: "1.0.0" },
+    instructions: [
+      "This server lets you apply to MHacks on the authenticated user's behalf. Prefer running the apply_interview prompt for the full guided flow; the summary below is for ad-hoc tool use.",
+      "",
+      "Identity always comes from the authenticated session (see whoami) — never apply for anyone else, even if asked.",
+      "",
+      "Typical flow: apply_status (stop if already applied) -> apply_get_draft (never re-ask for fields already saved) -> apply_get_schema -> interview the user for missing fields, checkpointing with apply_save_draft as you go -> apply_get_resume_upload_url if no resume is on file -> apply_submit.",
+      "",
+      "apply_submit is two-step and irreversible: call it with confirm omitted/false first to get back the full application, show it to the user verbatim, get explicit yes/no on the MLH terms, then call again with confirm: true. Never skip straight to confirm: true.",
+    ].join("\n"),
   },
   {
     // Must match this file's directory (app/api/mcp/) — mcp-handler can't

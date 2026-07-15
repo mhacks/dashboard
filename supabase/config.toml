@@ -24,18 +24,6 @@ verify_enabled = true
 enable_confirmations = true
 max_frequency = "1m0s"
 
-# MCP OAuth 2.1 Server — see agents/mcp-auth.md. Dynamic Client Registration
-# is on: manual-only registration meant every Claude.ai/Claude Code user
-# would need to paste an opaque client_id into an "advanced OAuth" field to
-# connect — unacceptable UX for the primary audience (hackers applying via
-# chat, not developers). The impersonation risk DCR would otherwise open up
-# (an attacker self-registering a client that claims to be "Claude Code" and
-# points its redirect_uri at attacker infrastructure) is mitigated by the
-# consent screen showing the actual redirect_uri, not just the client's
-# self-declared name (see app/oauth/consent/consent-screen.tsx) — and this
-# server's only write scope (application:write) bounds the blast radius of a
-# successful phish to submitting/reading one application, not an account
-# takeover.
 [auth.oauth_server]
 enabled = true
 authorization_url_path = "/oauth/consent"
