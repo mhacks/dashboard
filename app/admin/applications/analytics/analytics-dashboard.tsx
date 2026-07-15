@@ -4,12 +4,15 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   LabelList,
   Pie,
   PieChart,
+  Rectangle,
+  Sector,
   XAxis,
   YAxis,
+  type BarShapeProps,
+  type PieSectorShapeProps,
 } from "recharts";
 import {
   BarChart3Icon,
@@ -66,6 +69,31 @@ function withFills(items: AnalyticsBucket[]) {
   }));
 }
 
+function resolveBucketFill(payload: unknown, fallback?: string) {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "fill" in payload &&
+    typeof payload.fill === "string"
+  ) {
+    return payload.fill;
+  }
+
+  return fallback;
+}
+
+function ColoredPieSector(props: PieSectorShapeProps) {
+  return (
+    <Sector {...props} fill={resolveBucketFill(props.payload, props.fill)} />
+  );
+}
+
+function ColoredBar(props: BarShapeProps) {
+  return (
+    <Rectangle {...props} fill={resolveBucketFill(props.payload, props.fill)} />
+  );
+}
+
 function EmptyState() {
   return (
     <div className="flex h-40 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
@@ -111,10 +139,11 @@ function PiePanel({
   data: AnalyticsBucket[];
 }) {
   const chartData = withFills(data);
+  const pieSlices = chartData.filter((item) => item.count > 0);
   const pieData =
-    chartData.length === 1
+    pieSlices.length === 1
       ? [
-          chartData[0],
+          pieSlices[0],
           {
             label: "Remainder",
             count: 0.0001,
@@ -122,7 +151,7 @@ function PiePanel({
             fill: "transparent",
           },
         ]
-      : chartData;
+      : pieSlices;
   const total = chartData.reduce((sum, item) => sum + item.count, 0);
 
   return (
@@ -132,13 +161,14 @@ function PiePanel({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {chartData.length === 0 ? (
+        {chartData.length === 0 || total === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(200px,1fr)_220px]">
             <ChartContainer
               config={countConfig}
-              className="mx-auto aspect-square max-h-[280px]"
+              initialDimension={{ width: 280, height: 280 }}
+              className="mx-auto aspect-square h-[280px] w-full max-w-[280px]"
             >
               <PieChart>
                 <ChartTooltip
@@ -153,11 +183,8 @@ function PiePanel({
                   paddingAngle={pieData.length > 1 ? 2 : 0}
                   stroke="var(--color-card)"
                   strokeWidth={3}
-                >
-                  {pieData.map((entry) => (
-                    <Cell key={entry.label} fill={entry.fill} />
-                  ))}
-                </Pie>
+                  shape={ColoredPieSector}
+                />
                 <text
                   x="50%"
                   y="47%"
@@ -250,16 +277,17 @@ function BarPanel({
                 </>
               )}
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Bar dataKey="count" radius={horizontal ? 4 : [4, 4, 0, 0]}>
+              <Bar
+                dataKey="count"
+                radius={horizontal ? 4 : [4, 4, 0, 0]}
+                shape={ColoredBar}
+              >
                 <LabelList
                   dataKey="count"
                   position={horizontal ? "right" : "top"}
                   className="fill-foreground"
                   fontSize={12}
                 />
-                {chartData.map((entry) => (
-                  <Cell key={entry.label} fill={entry.fill} />
-                ))}
               </Bar>
             </BarChart>
           </ChartContainer>
