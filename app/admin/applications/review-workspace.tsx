@@ -16,7 +16,6 @@ import {
   ArrowLeftIcon,
   CheckCircle2Icon,
   ClipboardCheckIcon,
-  DownloadIcon,
   ExternalLinkIcon,
   EyeIcon,
   FileTextIcon,
@@ -492,7 +491,7 @@ function ResumePreview({
           onClick={() => void onOpen()}
           disabled={refreshing || loading}
         >
-          <DownloadIcon className="size-3.5" />
+          <ExternalLinkIcon className="size-3.5" />
           Open
         </Button>
       </div>
@@ -514,7 +513,7 @@ function ResumePreview({
         <iframe
           title="Resume preview"
           src={resumeUrl}
-          sandbox=""
+          sandbox="allow-scripts allow-same-origin"
           referrerPolicy="no-referrer"
           className="pointer-events-none h-[320px] w-full bg-white dark:bg-zinc-950"
         />
@@ -1105,13 +1104,16 @@ export default function ApplicationReviewWorkspace({
     if (!resumeKey) return;
 
     try {
-      const url = await getResumeDownloadUrl(resumeKey, "attachment");
+      const url =
+        resumeUrl && !resumeExpired
+          ? resumeUrl
+          : await getResumeDownloadUrl(resumeKey);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Unable to open resume:", error);
       toast.error("Unable to open resume.");
     }
-  }, [selectedDetail?.application.resume]);
+  }, [resumeUrl, resumeExpired, selectedDetail?.application.resume]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -1421,13 +1423,6 @@ export default function ApplicationReviewWorkspace({
                   ).toLocaleDateString()}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedDetail.application.resume && (
-                    <QuickLink
-                      onClick={() => void openResumePreview()}
-                      label="Resume"
-                      icon={<FileTextIcon className="size-3.5" />}
-                    />
-                  )}
                   <QuickLink
                     href={externalHref(selectedDetail.application.github)}
                     label="GitHub"
