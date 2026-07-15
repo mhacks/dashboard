@@ -1,5 +1,5 @@
 {
-  "id": "58a6d516-9eb0-4b2f-a102-37a875029234",
+  "id": "0ee792af-37bb-46ba-94d3-b510d42b8eee",
   "prevId": "05c7d84e-d6bd-4ab5-9ba9-c93ccba6b76b",
   "version": "7",
   "dialect": "postgresql",
@@ -247,7 +247,36 @@
           ]
         }
       },
-      "policies": {},
+      "policies": {
+        "hacker_applicants_select_own_or_organizer": {
+          "name": "hacker_applicants_select_own_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_applicants_insert_own": {
+          "name": "hacker_applicants_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"hacker_applicants\".\"user_id\" = (select auth.uid())"
+        },
+        "hacker_applicants_update_organizer": {
+          "name": "hacker_applicants_update_organizer",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
       "checkConstraints": {},
       "isRLSEnabled": true
     },
@@ -295,7 +324,45 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
+      "policies": {
+        "hacker_application_drafts_select_own": {
+          "name": "hacker_application_drafts_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"hacker_application_drafts\".\"user_id\" = (select auth.uid())"
+        },
+        "hacker_application_drafts_insert_own": {
+          "name": "hacker_application_drafts_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"hacker_application_drafts\".\"user_id\" = (select auth.uid())"
+        },
+        "hacker_application_drafts_update_own": {
+          "name": "hacker_application_drafts_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"hacker_application_drafts\".\"user_id\" = (select auth.uid())",
+          "withCheck": "\"hacker_application_drafts\".\"user_id\" = (select auth.uid())"
+        },
+        "hacker_application_drafts_delete_own": {
+          "name": "hacker_application_drafts_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"hacker_application_drafts\".\"user_id\" = (select auth.uid())"
+        }
+      },
       "checkConstraints": {},
       "isRLSEnabled": true
     },
@@ -421,7 +488,26 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
+      "policies": {
+        "hacker_application_review_events_organizer_select": {
+          "name": "hacker_application_review_events_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_application_review_events_organizer_insert": {
+          "name": "hacker_application_review_events_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
       "checkConstraints": {},
       "isRLSEnabled": true
     },
@@ -533,7 +619,36 @@
           ]
         }
       },
-      "policies": {},
+      "policies": {
+        "hacker_application_reviews_organizer_select": {
+          "name": "hacker_application_reviews_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_application_reviews_organizer_insert": {
+          "name": "hacker_application_reviews_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_application_reviews_organizer_update": {
+          "name": "hacker_application_reviews_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
       "checkConstraints": {},
       "isRLSEnabled": true
     },
@@ -574,7 +689,17 @@
           ]
         }
       },
-      "policies": {},
+      "policies": {
+        "users_select_own_or_organizer": {
+          "name": "users_select_own_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
       "checkConstraints": {},
       "isRLSEnabled": true
     }
@@ -609,7 +734,30 @@
   "schemas": {},
   "sequences": {},
   "roles": {},
-  "policies": {},
+  "policies": {
+    "organizers_receive_review_realtime": {
+      "name": "organizers_receive_review_realtime",
+      "as": "PERMISSIVE",
+      "for": "SELECT",
+      "to": [
+        "authenticated"
+      ],
+      "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n) AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
+      "schema": "realtime",
+      "on": "\"realtime\".\"messages\""
+    },
+    "organizers_send_review_realtime": {
+      "name": "organizers_send_review_realtime",
+      "as": "PERMISSIVE",
+      "for": "INSERT",
+      "to": [
+        "authenticated"
+      ],
+      "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n) AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
+      "schema": "realtime",
+      "on": "\"realtime\".\"messages\""
+    }
+  },
   "views": {},
   "_meta": {
     "columns": {},

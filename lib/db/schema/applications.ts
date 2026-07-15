@@ -16,6 +16,7 @@ import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole, authUsers } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";
 import { users } from "./users";
+import "./triggers";
 
 export const applicationStatus = pgEnum("application_status", [
   "pending",

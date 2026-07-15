@@ -1,6 +1,6 @@
 {
-  "id": "05e54e86-4289-4025-91d0-a3b35ef2fb46",
-  "prevId": "58a6d516-9eb0-4b2f-a102-37a875029234",
+  "id": "61cf0084-c212-43e7-9983-13dea93ce17b",
+  "prevId": "908e5420-8c8b-4c20-b043-0d491d77f65a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -742,7 +742,7 @@
       "to": [
         "authenticated"
       ],
-      "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n) AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
+      "using": "public.is_organizer() AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
       "schema": "realtime",
       "on": "\"realtime\".\"messages\""
     },
@@ -753,7 +753,7 @@
       "to": [
         "authenticated"
       ],
-      "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n) AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
+      "withCheck": "public.is_organizer() AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
       "schema": "realtime",
       "on": "\"realtime\".\"messages\""
     }

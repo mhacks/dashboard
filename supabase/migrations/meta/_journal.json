@@ -19,29 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1783563781883,
-      "tag": "20260709022301_review_portal",
+      "when": 1784082736207,
+      "tag": "20260715023216_review_portal",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1784005961963,
-      "tag": "20260714051241_rls_policies",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1784074205374,
-      "tag": "20260715001005_is_organizer_function",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1784074210420,
-      "tag": "20260715001010_fix_realtime_organizer_rls",
+      "when": 1784082737209,
+      "tag": "20260715023217_is_organizer_realtime_and_triggers",
       "breakpoints": true
     }
   ]
