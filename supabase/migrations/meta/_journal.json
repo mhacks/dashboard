@@ -29,6 +29,20 @@
       "when": 1784005961963,
       "tag": "20260714051241_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784074205374,
+      "tag": "20260715001005_is_organizer_function",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784074210420,
+      "tag": "20260715001010_fix_realtime_organizer_rls",
+      "breakpoints": true
     }
   ]
 }

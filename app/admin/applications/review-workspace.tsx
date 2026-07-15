@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useDefaultLayout } from "react-resizable-panels";
+import type { Session } from "@supabase/supabase-js";
+import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels";
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -126,6 +127,27 @@ const REVIEW_WORKSPACE_PANEL_IDS = [
 ] as const;
 const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
 const REVIEW_SYNC_EVENT = "review_updated";
+
+const PANEL_LAYOUT_STORAGE: LayoutStorage = {
+  getItem(key) {
+    try {
+      return typeof window === "undefined"
+        ? null
+        : window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(key, value);
+      }
+    } catch {
+      // Ignore storage failures (private mode, quota, etc.)
+    }
+  },
+};
 
 const EFFORT_DESCRIPTIONS: Record<number, string> = {
   1: "Generic answer, unclear why they want to attend",
@@ -448,6 +470,8 @@ export default function ApplicationReviewWorkspace({
   const [reviewEvents, setReviewEvents] = useState<ReviewEventRecord[]>([]);
   const [reviewEventsLoading, setReviewEventsLoading] = useState(false);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
+  const [realtimeReady, setRealtimeReady] = useState(false);
+  const supabase = useMemo(() => createClient(), []);
   const selectedIdRef = useRef(selectedId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -505,16 +529,62 @@ export default function ApplicationReviewWorkspace({
   const panelLayout = useDefaultLayout({
     id: "application-review-workspace",
     panelIds: [...REVIEW_WORKSPACE_PANEL_IDS],
+    storage: PANEL_LAYOUT_STORAGE,
   });
 
   useEffect(() => {
-    createClient()
-      .auth.getUser()
-      .then(({ data: { user } }) => {
-        if (!user) return;
-        setOrganizer({ id: user.id, email: user.email ?? "" });
-      });
-  }, []);
+    let cancelled = false;
+
+    async function syncSession(session: Session | null) {
+      if (!session?.access_token) {
+        await supabase.realtime.setAuth(null);
+        if (cancelled) return;
+        setOrganizer(null);
+        setRealtimeReady(false);
+        return;
+      }
+
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+      if (cancelled || error || !user) {
+        await supabase.realtime.setAuth(null);
+        setOrganizer(null);
+        setRealtimeReady(false);
+        return;
+      }
+
+      setRealtimeReady(false);
+      await supabase.realtime.setAuth(session.access_token);
+      if (cancelled) return;
+
+      setOrganizer({ id: user.id, email: user.email ?? "" });
+      setRealtimeReady(true);
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED"
+      ) {
+        void syncSession(session);
+        return;
+      }
+
+      if (event === "SIGNED_OUT") {
+        void syncSession(null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -804,10 +874,18 @@ export default function ApplicationReviewWorkspace({
   }, [form, persistReviewDraft, reviewConflict]);
 
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase.channel(REVIEW_SYNC_CHANNEL, {
+    if (!realtimeReady || !organizer) return;
+
+    let active = true;
+    let channel: ReviewSyncChannel | null = null;
+
+    channel = supabase.channel(REVIEW_SYNC_CHANNEL, {
       config: { private: true },
     });
+    if (!active) {
+      supabase.removeChannel(channel);
+      return;
+    }
     reviewSyncChannel.current = channel;
 
     channel.on("broadcast", { event: REVIEW_SYNC_EVENT }, ({ payload }) => {
@@ -815,7 +893,7 @@ export default function ApplicationReviewWorkspace({
       if (!parsed.success) return;
 
       const update = parsed.data;
-      if (update.sourceUserId === organizer?.id) return;
+      if (update.sourceUserId === organizer.id) return;
 
       updateReviewItem(update.applicationId, update.review, update.status);
 
@@ -847,13 +925,25 @@ export default function ApplicationReviewWorkspace({
         });
     });
 
-    channel.subscribe();
+    channel.subscribe((status, err) => {
+      if (status === "CHANNEL_ERROR") {
+        console.error("Unable to subscribe to review sync channel:", err);
+      }
+    });
 
     return () => {
+      active = false;
       reviewSyncChannel.current = null;
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [applyReviewForm, form, markReviewConflict, organizer?.id, updateReviewItem]);
+  }, [
+    applyReviewForm,
+    markReviewConflict,
+    organizer,
+    realtimeReady,
+    supabase,
+    updateReviewItem,
+  ]);
 
   useEffect(() => {
     if (!selectedDetail?.application.resume) {
@@ -912,14 +1002,21 @@ export default function ApplicationReviewWorkspace({
   }, [selectedId]);
 
   useEffect(() => {
-    if (!selectedId || !organizer) return;
+    if (!realtimeReady || !selectedId || !organizer) return;
 
-    const supabase = createClient();
-    const channel = supabase.channel(`application-review:${selectedId}`, {
+    let active = true;
+    let channel: ReviewSyncChannel | null = null;
+
+    channel = supabase.channel(`application-review:${selectedId}`, {
       config: { private: true, presence: { key: organizer.id } },
     });
+    if (!active) {
+      supabase.removeChannel(channel);
+      return;
+    }
 
     const syncPresence = () => {
+      if (!active || !channel) return;
       const state = channel.presenceState() as Record<string, PresenceMeta[]>;
       const reviewers = Object.values(state)
         .flat()
@@ -927,23 +1024,32 @@ export default function ApplicationReviewWorkspace({
       setActiveReviewers(reviewers);
     };
 
-    channel.on("presence", { event: "sync" }, syncPresence);
-    channel.subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
-        await channel.track({
-          userId: organizer.id,
-          email: organizer.email,
-          onlineAt: new Date().toISOString(),
-        });
-      }
-    });
+    channel
+      .on("presence", { event: "sync" }, syncPresence)
+      .on("presence", { event: "join" }, syncPresence)
+      .on("presence", { event: "leave" }, syncPresence)
+      .subscribe(async (status, err) => {
+        if (status === "SUBSCRIBED") {
+          await channel?.track({
+            userId: organizer.id,
+            email: organizer.email,
+            onlineAt: new Date().toISOString(),
+          });
+          syncPresence();
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("Unable to subscribe to review presence channel:", err);
+        }
+      });
 
     return () => {
+      active = false;
       setActiveReviewers([]);
-      channel.untrack();
-      supabase.removeChannel(channel);
+      if (channel) {
+        void channel.untrack();
+        supabase.removeChannel(channel);
+      }
     };
-  }, [organizer, selectedId]);
+  }, [organizer, realtimeReady, selectedId, supabase]);
 
   async function handleMarkReviewed() {
     if (reviewConflict) {

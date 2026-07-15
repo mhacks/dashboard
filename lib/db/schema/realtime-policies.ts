@@ -5,7 +5,7 @@ import {
   realtimeMessages,
   realtimeTopic,
 } from "drizzle-orm/supabase";
-import { isOrganizer } from "./rls";
+import { isOrganizerFn } from "./functions";
 
 const reviewRealtimeTopic = sql`(
   ${realtimeTopic} = 'application-review:dashboard'
@@ -17,7 +17,7 @@ export const organizersReceiveReviewRealtime = pgPolicy(
   {
     for: "select",
     to: authenticatedRole,
-    using: sql`${isOrganizer} AND ${reviewRealtimeTopic}`,
+    using: sql`${isOrganizerFn} AND ${reviewRealtimeTopic}`,
   },
 ).link(realtimeMessages);
 
@@ -26,6 +26,6 @@ export const organizersSendReviewRealtime = pgPolicy(
   {
     for: "insert",
     to: authenticatedRole,
-    withCheck: sql`${isOrganizer} AND ${reviewRealtimeTopic}`,
+    withCheck: sql`${isOrganizerFn} AND ${reviewRealtimeTopic}`,
   },
 ).link(realtimeMessages);
