@@ -546,14 +546,13 @@ export default function ApplicationReviewWorkspace({
   initialData: ReviewWorkspaceData;
   initialSelectedDetail?: ReviewListItem;
 }) {
-  const initialSelectedItem =
-    initialSelectedDetail
-      ? initialData.items.find(
-          (item) => item.application.id === initialSelectedDetail.application.id,
-        )
-      : (initialData.items.find(
-          (item) => item.application.status === "pending",
-        ) ?? initialData.items[0]);
+  const initialSelectedItem = initialSelectedDetail
+    ? initialData.items.find(
+        (item) => item.application.id === initialSelectedDetail.application.id,
+      )
+    : (initialData.items.find(
+        (item) => item.application.status === "pending",
+      ) ?? initialData.items[0]);
   const initialSelectedId =
     initialSelectedDetail?.application.id ??
     initialSelectedItem?.application.id ??

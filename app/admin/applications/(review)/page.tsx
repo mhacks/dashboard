@@ -12,9 +12,5 @@ export default async function AdminApplicationsPage() {
     redirect(`/admin/applications/${initialSelectedItem.application.slug}`);
   }
 
-  return (
-    <ApplicationReviewWorkspace
-      initialData={initialData}
-    />
-  );
+  return <ApplicationReviewWorkspace initialData={initialData} />;
 }
