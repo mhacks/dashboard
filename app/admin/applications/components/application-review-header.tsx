@@ -25,7 +25,9 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/applications",
     label: "Reviews",
     icon: ClipboardCheckIcon,
-    isActive: (pathname) => pathname === "/admin/applications",
+    isActive: (pathname) =>
+      pathname === "/admin/applications" ||
+      /^\/admin\/applications\/app_[a-f0-9]{24}$/.test(pathname),
   },
   {
     href: "/admin/applications/leaderboard",

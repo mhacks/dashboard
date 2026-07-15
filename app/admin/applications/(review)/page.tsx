@@ -1,4 +1,4 @@
-import { getApplicationReviewDetail } from "@/lib/actions/application-review.server.actions";
+import { redirect } from "next/navigation";
 import { getApplicationReviewDashboard } from "@/lib/queries/application-review";
 import ApplicationReviewWorkspace from "../review-workspace";
 
@@ -7,14 +7,14 @@ export default async function AdminApplicationsPage() {
   const initialSelectedItem =
     initialData.items.find((item) => item.application.status === "pending") ??
     initialData.items[0];
-  const initialSelectedDetail = initialSelectedItem
-    ? await getApplicationReviewDetail(initialSelectedItem.application.id)
-    : undefined;
+
+  if (initialSelectedItem) {
+    redirect(`/admin/applications/${initialSelectedItem.application.slug}`);
+  }
 
   return (
     <ApplicationReviewWorkspace
       initialData={initialData}
-      initialSelectedDetail={initialSelectedDetail}
     />
   );
 }

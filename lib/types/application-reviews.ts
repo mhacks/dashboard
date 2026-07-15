@@ -55,6 +55,10 @@ export const reviewEventsInputSchema = z.object({
   applicationId: z.uuid(),
 });
 
+export const applicationSlugSchema = z
+  .string()
+  .regex(/^app_[a-f0-9]{24}$/, "Invalid application slug");
+
 export const reviewSyncReviewSchema = z.object({
   id: z.uuid(),
   applicationId: z.uuid(),
@@ -125,6 +129,7 @@ export type ReviewCompleteSaveResult =
 export type ReviewEventsInput = z.infer<typeof reviewEventsInputSchema>;
 
 export type ReviewApplication = HackerApplicantRow & {
+  slug: string;
   applicantEmail: string | null;
 };
 
@@ -154,6 +159,7 @@ export type ReviewAuditEventRecord = ReviewEventRecord & {
 
 export type ReviewApplicationSummary = {
   id: string;
+  slug: string;
   userId: string;
   status: ReviewApplication["status"];
   firstName: string;

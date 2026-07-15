@@ -22,6 +22,7 @@ import {
   FileTextIcon,
   FlagIcon,
   InboxIcon,
+  LinkIcon,
   ListFilterIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -293,6 +294,29 @@ function externalHref(value: string | null | undefined) {
   }
 }
 
+function applicationReviewHref(slug: string) {
+  return `/admin/applications/${slug}`;
+}
+
+function initialApplicationsPageForSelection(
+  items: ReviewListSummaryItem[],
+  selectedId: string,
+  statusFilter: StatusFilter,
+) {
+  if (!selectedId) return 0;
+
+  const filtered =
+    statusFilter === "all"
+      ? items
+      : items.filter((item) => item.application.status === statusFilter);
+  const selectedIndex = filtered.findIndex(
+    (item) => item.application.id === selectedId,
+  );
+
+  if (selectedIndex < 0) return 0;
+  return Math.floor(selectedIndex / APPLICATIONS_PAGE_SIZE);
+}
+
 function MetaItem({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="grid gap-x-4 gap-y-0.5 py-3 sm:grid-cols-[minmax(9rem,34%)_1fr]">
@@ -523,12 +547,23 @@ export default function ApplicationReviewWorkspace({
   initialSelectedDetail?: ReviewListItem;
 }) {
   const initialSelectedItem =
-    initialData.items.find((item) => item.application.status === "pending") ??
-    initialData.items[0];
+    initialSelectedDetail
+      ? initialData.items.find(
+          (item) => item.application.id === initialSelectedDetail.application.id,
+        )
+      : (initialData.items.find(
+          (item) => item.application.status === "pending",
+        ) ?? initialData.items[0]);
+  const initialSelectedId =
+    initialSelectedDetail?.application.id ??
+    initialSelectedItem?.application.id ??
+    "";
+  const initialStatusFilter =
+    initialSelectedDetail?.application.status ??
+    initialSelectedItem?.application.status ??
+    "pending";
   const [items, setItems] = useState(initialData.items);
-  const [selectedId, setSelectedId] = useState(
-    initialSelectedItem?.application.id ?? "",
-  );
+  const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [selectedDetail, setSelectedDetail] = useState<
     ReviewListItem | undefined
   >(initialSelectedDetail);
@@ -536,8 +571,15 @@ export default function ApplicationReviewWorkspace({
     initialSelectedDetail?.application.id ?? null,
   );
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
-  const [applicationsPage, setApplicationsPage] = useState(0);
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>(initialStatusFilter);
+  const [applicationsPage, setApplicationsPage] = useState(() =>
+    initialApplicationsPageForSelection(
+      initialData.items,
+      initialSelectedId,
+      initialStatusFilter,
+    ),
+  );
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [reviewConflict, setReviewConflict] = useState(false);
@@ -808,6 +850,11 @@ export default function ApplicationReviewWorkspace({
     setScorecardOpen(false);
     setResumeUrl(null);
     applyReviewForm(item);
+    window.history.replaceState(
+      null,
+      "",
+      applicationReviewHref(item.application.slug),
+    );
   }
 
   function selectApplication(item: ReviewListSummaryItem) {
@@ -1051,6 +1098,24 @@ export default function ApplicationReviewWorkspace({
       toast.error("Unable to open resume.");
     }
   }, [selectedDetail?.application.resume]);
+
+  const selectedApplicationHref = activeItem
+    ? applicationReviewHref(activeItem.application.slug)
+    : null;
+
+  const copyApplicationLink = useCallback(async () => {
+    if (!selectedApplicationHref) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        new URL(selectedApplicationHref, window.location.origin).toString(),
+      );
+      toast.success("Application link copied.");
+    } catch (error) {
+      console.error("Unable to copy application link:", error);
+      toast.error("Unable to copy application link.");
+    }
+  }, [selectedApplicationHref]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -1372,6 +1437,11 @@ export default function ApplicationReviewWorkspace({
                       icon={<FileTextIcon className="size-3.5" />}
                     />
                   )}
+                  <QuickLink
+                    onClick={() => void copyApplicationLink()}
+                    label="Copy link"
+                    icon={<LinkIcon className="size-3.5" />}
+                  />
                   <QuickLink
                     href={
                       selectedDetail.application.applicantEmail

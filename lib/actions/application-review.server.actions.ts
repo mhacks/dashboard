@@ -174,6 +174,8 @@ async function conflictResult(
 
 type ReviewSaveConflict = Extract<ReviewCompleteSaveResult, { ok: false }>;
 
+const computedApplicationSlug = sql<string>`'app_' || substring(md5(${hackerApplicants.userId}::text) from 1 for 24)`;
+
 export async function markApplicationReviewed(
   input: ReviewCompleteSaveInput,
 ): Promise<ReviewCompleteSaveResult> {
@@ -286,6 +288,7 @@ export async function getApplicationReviewDetail(
   const [application] = await db
     .select({
       application: hackerApplicants,
+      slug: computedApplicationSlug,
       applicantEmail: users.email,
     })
     .from(hackerApplicants)
@@ -308,6 +311,7 @@ export async function getApplicationReviewDetail(
   return {
     application: {
       ...application.application,
+      slug: application.slug,
       applicantEmail: application.applicantEmail,
     },
     review: review

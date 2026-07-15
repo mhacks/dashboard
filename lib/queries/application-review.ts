@@ -24,6 +24,8 @@ import {
 
 const WHY_MHACKS_PREVIEW_LENGTH = 160;
 
+const applicationSlug = sql<string>`'app_' || substring(md5(${hackerApplicants.userId}::text) from 1 for 24)`;
+
 function countStatuses(items: ReviewListSummaryItem[]): ReviewCounts {
   return items.reduce<ReviewCounts>(
     (counts, item) => {
@@ -253,6 +255,7 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
   const applications = await db
     .select({
       id: hackerApplicants.id,
+      slug: applicationSlug,
       userId: hackerApplicants.userId,
       status: hackerApplicants.status,
       firstName: hackerApplicants.firstName,
@@ -302,6 +305,7 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
     return {
       application: {
         id: application.id,
+        slug: application.slug,
         userId: application.userId,
         status: application.status,
         firstName: application.firstName,
