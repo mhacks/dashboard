@@ -443,6 +443,7 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
 
   const applications = await db
     .select({
+      id: hackerApplicants.id,
       status: hackerApplicants.status,
       age: hackerApplicants.age,
       gender: hackerApplicants.gender,
@@ -456,13 +457,20 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
       comingFrom: hackerApplicants.comingFrom,
     })
     .from(hackerApplicants);
-  const reviews = await db
-    .select({
-      reviewedAt: hackerApplicationReviews.reviewedAt,
-      effortRating: hackerApplicationReviews.effortRating,
-      builderRating: hackerApplicationReviews.builderRating,
-    })
-    .from(hackerApplicationReviews);
+  const applicationIds = applications.map((application) => application.id);
+  const reviews =
+    applicationIds.length === 0
+      ? []
+      : await db
+          .select({
+            reviewedAt: hackerApplicationReviews.reviewedAt,
+            effortRating: hackerApplicationReviews.effortRating,
+            builderRating: hackerApplicationReviews.builderRating,
+          })
+          .from(hackerApplicationReviews)
+          .where(
+            inArray(hackerApplicationReviews.applicationId, applicationIds),
+          );
   const total = applications.length;
 
   const reviewedScores = reviews.filter(
