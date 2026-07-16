@@ -61,6 +61,10 @@ export async function createUserInvite(
   const replacePendingInvite = options?.replacePendingInvite ?? false;
   const changeExistingUserRole = options?.changeExistingUserRole ?? false;
 
+  if (normalizeInviteEmail(organizer.email) === normalizedEmail) {
+    return { error: "You cannot change your own role." };
+  }
+
   const [[existingUser], [pendingInvite]] = await Promise.all([
     db
       .select()

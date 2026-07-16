@@ -29,6 +29,7 @@ import {
   INVITE_SYNC_EVENT,
   inviteStatus,
   inviteSyncPayloadSchema,
+  normalizeInviteEmail,
   type UserInviteListResult,
   userInviteRoleSchema,
 } from "@/lib/types/user-invitations";
@@ -297,6 +298,11 @@ export default function TeamManagement({
     return () => window.clearTimeout(timeoutId);
   }, [searchInput, refreshInvites]);
 
+  function isOwnEmail(email: string) {
+    if (!organizer?.email) return false;
+    return normalizeInviteEmail(email) === normalizeInviteEmail(organizer.email);
+  }
+
   async function sendInvite(
     email: string,
     inviteRole: UserRole,
@@ -305,6 +311,11 @@ export default function TeamManagement({
       changeExistingUserRole?: boolean;
     },
   ) {
+    if (isOwnEmail(email)) {
+      toast.error("You cannot change your own role.");
+      return;
+    }
+
     const result = await createUserInvite(email, inviteRole, options);
     if (!result) {
       toast.success(
@@ -352,6 +363,11 @@ export default function TeamManagement({
     if (inviteConfirmation?.type !== "existing-user") return;
 
     const { email, role: inviteRole } = inviteConfirmation;
+    if (isOwnEmail(email)) {
+      setInviteConfirmation(null);
+      toast.error("You cannot change your own role.");
+      return;
+    }
     setInviteConfirmation(null);
 
     startSubmitTransition(async () => {
@@ -518,7 +534,11 @@ export default function TeamManagement({
             <div className="flex items-end">
               <Button
                 type="submit"
-                disabled={isSubmitting || inviteEmail.trim().length === 0}
+                disabled={
+                  isSubmitting ||
+                  inviteEmail.trim().length === 0 ||
+                  isOwnEmail(inviteEmail)
+                }
               >
                 {isSubmitting ? "Sending…" : "Send invite"}
               </Button>
