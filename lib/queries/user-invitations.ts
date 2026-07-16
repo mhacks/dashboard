@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, ilike, or, sql } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
@@ -13,14 +13,25 @@ import {
 
 export const INVITE_PAGE_SIZE = 10;
 
+function inviteSearchCondition(search: string) {
+  const term = `%${search.trim()}%`;
+  return or(
+    ilike(userInvitations.email, term),
+    ilike(users.email, term),
+  );
+}
+
 export async function listUserInvites(
   pageIndex = 0,
   pageSize = INVITE_PAGE_SIZE,
+  search = "",
 ) {
   await requireOrganizer();
 
   const safePageIndex = Math.max(0, pageIndex);
   const safePageSize = Math.min(Math.max(pageSize, 1), 50);
+  const trimmedSearch = search.trim().slice(0, 100);
+  const filters = trimmedSearch ? inviteSearchCondition(trimmedSearch) : undefined;
 
   const rows = await db
     .select({
@@ -36,6 +47,7 @@ export async function listUserInvites(
     })
     .from(userInvitations)
     .innerJoin(users, eq(userInvitations.invitedBy, users.id))
+    .where(filters)
     .orderBy(desc(userInvitations.createdAt))
     .limit(safePageSize)
     .offset(safePageIndex * safePageSize);

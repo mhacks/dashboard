@@ -27,8 +27,9 @@ export { INVITE_PAGE_SIZE };
 export async function listUserInvites(
   pageIndex?: number,
   pageSize?: number,
+  search?: string,
 ) {
-  return listUserInvitesQuery(pageIndex, pageSize);
+  return listUserInvitesQuery(pageIndex, pageSize, search);
 }
 
 export async function getPendingUserInvite(email: string) {

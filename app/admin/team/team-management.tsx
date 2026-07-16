@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Trash2Icon, UsersRoundIcon } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { SearchIcon, Trash2Icon, UsersRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   createUserInvite,
@@ -66,28 +66,53 @@ function formatDateTime(value: Date | string | null) {
 export default function TeamManagement({ initialInvites }: TeamManagementProps) {
   const [inviteData, setInviteData] = useState(initialInvites);
   const [pageIndex, setPageIndex] = useState(0);
-  const [email, setEmail] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [role, setRole] = useState<UserRole>("organizer");
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
+  const skipSearchEffect = useRef(true);
 
-  async function refreshInvites(nextPageIndex = pageIndex) {
-    const updatedInvites = await listUserInvites(nextPageIndex, INVITE_PAGE_SIZE);
+  async function refreshInvites(
+    nextPageIndex = pageIndex,
+    query = searchInput.trim(),
+  ) {
+    const updatedInvites = await listUserInvites(
+      nextPageIndex,
+      INVITE_PAGE_SIZE,
+      query,
+    );
     setInviteData(updatedInvites);
   }
+
+  useEffect(() => {
+    if (skipSearchEffect.current) {
+      skipSearchEffect.current = false;
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPageIndex(0);
+      startSubmitTransition(async () => {
+        await refreshInvites(0, searchInput.trim());
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
 
   function handleInviteSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     startSubmitTransition(async () => {
-      const result = await createUserInvite(email, role);
+      const result = await createUserInvite(inviteEmail, role);
       if (result?.error) {
         toast.error(result.error);
         return;
       }
 
       toast.success("Invite sent.");
-      setEmail("");
+      setInviteEmail("");
       setPageIndex(0);
       await refreshInvites(0);
     });
@@ -147,8 +172,8 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
                   id="invite-email"
                   type="email"
                   placeholder="reviewer@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
                   required
                 />
               </div>
@@ -170,7 +195,7 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
               <div className="flex items-end">
                 <Button
                   type="submit"
-                  disabled={isSubmitting || email.trim().length === 0}
+                  disabled={isSubmitting || inviteEmail.trim().length === 0}
                 >
                   {isSubmitting ? "Sending…" : "Send invite"}
                 </Button>
@@ -180,16 +205,31 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Invites</CardTitle>
-            <CardDescription>
-              Pending invites can be revoked before they are accepted or expire.
-            </CardDescription>
+          <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <CardTitle>Invites</CardTitle>
+              <CardDescription>
+                Pending invites can be revoked before they are accepted or expire.
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:max-w-xs">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by email…"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                className="pl-9"
+                aria-label="Search invites"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {inviteData.totalCount === 0 ? (
               <p className="px-6 pb-6 text-sm text-muted-foreground">
-                No invites yet.
+                {searchInput.trim()
+                  ? "No invites match your search."
+                  : "No invites yet."}
               </p>
             ) : (
               <>
