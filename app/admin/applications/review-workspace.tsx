@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMounted } from "@/hooks/use-mounted";
+import { useCoalescedAsync } from "@/hooks/use-coalesced-async";
 import { useOrganizerRealtimeSession } from "@/hooks/use-organizer-realtime-session";
 import { usePrivateBroadcastChannel } from "@/hooks/use-private-broadcast-channel";
 import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels";
@@ -35,6 +36,7 @@ import {
   markApplicationReviewed,
 } from "@/lib/actions/application-review.server.actions";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
+import { formatMonthDay, formatShortDate } from "@/lib/format/dates";
 import { createClient } from "@/lib/supabase/client";
 import { isBenignRealtimeChannelError } from "@/lib/supabase/realtime-errors";
 import { sendPrivateBroadcast } from "@/lib/supabase/realtime-broadcast";
@@ -42,6 +44,8 @@ import { applicationStatusBadgeClass } from "@/lib/utils/badge-classes";
 import {
   reviewCompleteSchema,
   reviewDraftSchema,
+  REVIEW_SYNC_CHANNEL,
+  REVIEW_SYNC_EVENT,
   reviewSyncPayloadSchema,
   type ReviewCounts,
   type ReviewWorkspaceData,
@@ -82,6 +86,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { clampPageIndex, getPageCount, paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
+import { InlineWarningNotice } from "@/app/admin/components/warning-callout";
 import { SearchField } from "@/app/admin/components/search-field";
 import {
   ApplicationDetailSkeleton,
@@ -146,8 +151,6 @@ const REVIEW_WORKSPACE_PANEL_IDS = [
   "application-detail",
   "scorecard",
 ] as const;
-const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
-const REVIEW_SYNC_EVENT = "review_updated";
 
 const PANEL_LAYOUT_STORAGE: LayoutStorage = {
   getItem(key) {
@@ -773,7 +776,13 @@ export default function ApplicationReviewWorkspace({
 
   const refreshReviewFromServer = useCallback(
     async (applicationId: string) => {
-      const detail = await getApplicationReviewDetail(applicationId);
+      const isSelected = selectedIdRef.current === applicationId;
+      const [detail, events] = await Promise.all([
+        getApplicationReviewDetail(applicationId),
+        isSelected
+          ? getApplicationReviewEvents(applicationId)
+          : Promise.resolve(null),
+      ]);
 
       setItems((current) =>
         current.map((item) =>
@@ -783,7 +792,7 @@ export default function ApplicationReviewWorkspace({
         ),
       );
 
-      if (selectedIdRef.current !== applicationId) return;
+      if (!isSelected || selectedIdRef.current !== applicationId) return;
 
       setSelectedDetail(detail);
       if (form.formState.isDirty) {
@@ -792,12 +801,24 @@ export default function ApplicationReviewWorkspace({
         applyReviewForm(detail);
       }
 
-      const events = await getApplicationReviewEvents(applicationId);
-      if (selectedIdRef.current === applicationId) {
+      if (events && selectedIdRef.current === applicationId) {
         setReviewEvents(events);
       }
     },
     [applyReviewForm, form.formState.isDirty, markReviewConflict],
+  );
+
+  const scheduleRefreshReview = useCoalescedAsync(
+    async (applicationId: string) => {
+      try {
+        await refreshReviewFromServer(applicationId);
+      } catch (error) {
+        console.error(
+          "Unable to refresh application after review sync:",
+          error,
+        );
+      }
+    },
   );
 
   usePrivateBroadcastChannel({
@@ -809,12 +830,7 @@ export default function ApplicationReviewWorkspace({
     realtimeReady,
     channelRef: reviewSyncChannel,
     onRemoteMessage: (payload) => {
-      void refreshReviewFromServer(payload.applicationId).catch((error) => {
-        console.error(
-          "Unable to refresh application after review sync:",
-          error,
-        );
-      });
+      scheduleRefreshReview(payload.applicationId);
     },
     logLabel: "review sync channel",
   });
@@ -1201,13 +1217,7 @@ export default function ApplicationReviewWorkspace({
                       {applicantName(item)}
                     </p>
                     <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {new Date(item.application.createdAt).toLocaleDateString(
-                        undefined,
-                        {
-                          month: "short",
-                          day: "numeric",
-                        },
-                      )}
+                      {formatMonthDay(item.application.createdAt)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
@@ -1309,9 +1319,7 @@ export default function ApplicationReviewWorkspace({
                   {selectedDetail.application.applicantEmail ??
                     "No applicant email"}{" "}
                   · submitted{" "}
-                  {new Date(
-                    selectedDetail.application.createdAt,
-                  ).toLocaleDateString()}
+                  {formatShortDate(selectedDetail.application.createdAt)}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <QuickLink
@@ -1329,17 +1337,9 @@ export default function ApplicationReviewWorkspace({
                 </div>
               </div>
               {activeReviewers.length > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-                  <div className="flex items-center gap-2 font-medium">
-                    <EyeIcon className="size-4" />
-                    Currently viewing
-                  </div>
-                  <p className="mt-1 text-xs">
-                    {activeReviewers
-                      .map((reviewer) => reviewer.email)
-                      .join(", ")}
-                  </p>
-                </div>
+                <InlineWarningNotice icon={EyeIcon} title="Currently viewing">
+                  {activeReviewers.map((reviewer) => reviewer.email).join(", ")}
+                </InlineWarningNotice>
               )}
             </div>
 
@@ -1861,15 +1861,13 @@ function ScorecardForm({
       />
 
       {activeReviewers.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-          <div className="flex items-center gap-2 font-medium">
-            <AlertTriangleIcon className="size-4" />
-            Another organizer is here
-          </div>
-          <p className="mt-1 text-xs">
-            {activeReviewers.map((reviewer) => reviewer.email).join(", ")}
-          </p>
-        </div>
+        <InlineWarningNotice
+          icon={AlertTriangleIcon}
+          title="Another organizer is here"
+          className="p-3"
+        >
+          {activeReviewers.map((reviewer) => reviewer.email).join(", ")}
+        </InlineWarningNotice>
       )}
 
       <Button

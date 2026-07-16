@@ -59,6 +59,9 @@ export const applicationSlugSchema = z
   .string()
   .regex(/^app_[a-f0-9]{24}$/, "Invalid application slug");
 
+export const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
+export const REVIEW_SYNC_EVENT = "review_updated";
+
 export const reviewSyncPayloadSchema = z.object({
   sourceUserId: z.uuid(),
   applicationId: z.uuid(),

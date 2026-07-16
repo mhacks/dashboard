@@ -10,6 +10,10 @@ import {
   applicationStatusBadgeClass,
   reviewEventTypeBadgeClass,
 } from "@/lib/utils/badge-classes";
+import {
+  formatShortDateTime,
+  formatTimelineTimestamp,
+} from "@/lib/format/dates";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { paginateSlice } from "@/lib/pagination";
@@ -33,34 +37,6 @@ const REVIEW_EVENT_FIELD_LABELS: Record<string, string> = {
 
 function isAuditEvent(event: TimelineEvent): event is ReviewAuditEventRecord {
   return "applicationName" in event;
-}
-
-function formatEventTimestamp(value: string, compact: true): string;
-function formatEventTimestamp(
-  value: string,
-  compact?: false,
-): { date: string; time: string };
-function formatEventTimestamp(value: string, compact = false) {
-  const date = new Date(value);
-  if (compact) {
-    return date.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }
-
-  return {
-    date: date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    }),
-    time: date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
-  };
 }
 
 function eventTypeLabel(eventType: ReviewEventRecord["eventType"]) {
@@ -112,7 +88,7 @@ function ChangeChip({
 
 function CompactReviewEventRow({ event }: { event: TimelineEvent }) {
   const changes = Object.entries(event.changes);
-  const timestamp = formatEventTimestamp(event.createdAt, true);
+  const timestamp = formatShortDateTime(event.createdAt);
 
   return (
     <div className="min-w-0 space-y-2 py-3">
@@ -174,7 +150,7 @@ export function ReviewEventRow({
   }
 
   const changes = Object.entries(event.changes);
-  const timestamp = formatEventTimestamp(event.createdAt);
+  const timestamp = formatTimelineTimestamp(event.createdAt);
 
   return (
     <div className="relative flex min-w-0 gap-3 px-4 py-3">

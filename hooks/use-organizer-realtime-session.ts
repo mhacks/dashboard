@@ -31,7 +31,6 @@ export function useOrganizerRealtimeSession(supabase: SupabaseBrowserClient) {
         return;
       }
 
-      setRealtimeReady(false);
       await supabase.realtime.setAuth(session.access_token);
       if (cancelled) return;
 
