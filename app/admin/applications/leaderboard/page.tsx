@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { ApplicationReviewHeader } from "../components/application-review-header";
+import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
+import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { Meter } from "../components/meter";
 import { SummaryBar } from "../components/summary-bar";
 import { AuditActivityFeed } from "./audit-activity-feed";
@@ -112,94 +113,92 @@ export default async function ApplicationReviewLeaderboardPage() {
   const maxCompleted = topReviewer?.completedApplications ?? 0;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-5 text-foreground md:px-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <ApplicationReviewHeader
-          title="Review Leaderboard"
-          description="Completed application scorecards by organizer, with recent review activity below."
-        />
+    <AdminPageShell>
+      <AdminPageHeader
+        title="Review Leaderboard"
+        description="Completed application scorecards by organizer, with recent review activity below."
+      />
 
-        <SummaryBar
-          items={[
-            {
-              label: "Completed",
-              value: data.totals.completedApplications,
-              hint: "Applications with a submitted review scorecard.",
-              icon: <TrophyIcon className="size-5" />,
-            },
-            {
-              label: "Active reviewers",
-              value: data.totals.activeReviewers,
-              hint: "Organizers with at least one completed review.",
-              icon: <UsersRoundIcon className="size-5" />,
-            },
-            {
-              label: "Audit events",
-              value: data.totals.totalEvents,
-              hint: `${data.totals.draftEvents} drafts · ${data.totals.completionEvents} completions.`,
-              icon: <HistoryIcon className="size-5" />,
-            },
-            {
-              label: "Top reviewer",
-              value: topReviewer?.completedApplications ?? 0,
-              hint: topReviewer?.reviewerEmail ?? "No completed reviews yet.",
-              icon: <CrownIcon className="size-5" />,
-            },
-          ]}
-        />
+      <SummaryBar
+        items={[
+          {
+            label: "Completed",
+            value: data.totals.completedApplications,
+            hint: "Applications with a submitted review scorecard.",
+            icon: <TrophyIcon className="size-5" />,
+          },
+          {
+            label: "Active reviewers",
+            value: data.totals.activeReviewers,
+            hint: "Organizers with at least one completed review.",
+            icon: <UsersRoundIcon className="size-5" />,
+          },
+          {
+            label: "Audit events",
+            value: data.totals.totalEvents,
+            hint: `${data.totals.draftEvents} drafts · ${data.totals.completionEvents} completions.`,
+            icon: <HistoryIcon className="size-5" />,
+          },
+          {
+            label: "Top reviewer",
+            value: topReviewer?.completedApplications ?? 0,
+            hint: topReviewer?.reviewerEmail ?? "No completed reviews yet.",
+            icon: <CrownIcon className="size-5" />,
+          },
+        ]}
+      />
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <TrophyIcon className="size-5 text-moss dark:text-sage" />
-              <CardTitle>Organizer Rankings</CardTitle>
-            </div>
-            <CardDescription>
-              Each completion counts once from the canonical review row, so
-              draft saves do not inflate totals.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            {activeRows.length === 0 ? (
-              <div className="px-4 pb-4">
-                <div className="flex h-44 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
-                  No completed reviews yet. Rankings will appear here once
-                  organizers finish scorecards.
-                </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <TrophyIcon className="size-5 text-moss dark:text-sage" />
+            <CardTitle>Organizer Rankings</CardTitle>
+          </div>
+          <CardDescription>
+            Each completion counts once from the canonical review row, so draft
+            saves do not inflate totals.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-0 pb-0">
+          {activeRows.length === 0 ? (
+            <div className="px-4 pb-4">
+              <div className="flex h-44 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
+                No completed reviews yet. Rankings will appear here once
+                organizers finish scorecards.
               </div>
-            ) : (
-              <ScrollArea className="max-h-[560px]">
-                <div className="divide-y divide-border/60">
-                  {activeRows.map((row, index) => (
-                    <LeaderboardRow
-                      key={row.reviewerUserId}
-                      row={row}
-                      index={index}
-                      maxCompleted={maxCompleted}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <HistoryIcon className="size-5 text-moss dark:text-sage" />
-              <CardTitle>Recent Activity</CardTitle>
             </div>
-            <CardDescription>
-              Latest review edits across organizers — draft saves and completed
-              scorecards. Showing up to 100 most recent events.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <AuditActivityFeed events={data.recentEvents} />
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+          ) : (
+            <ScrollArea className="max-h-[560px]">
+              <div className="divide-y divide-border/60">
+                {activeRows.map((row, index) => (
+                  <LeaderboardRow
+                    key={row.reviewerUserId}
+                    row={row}
+                    index={index}
+                    maxCompleted={maxCompleted}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <HistoryIcon className="size-5 text-moss dark:text-sage" />
+            <CardTitle>Recent Activity</CardTitle>
+          </div>
+          <CardDescription>
+            Latest review edits across organizers — draft saves and completed
+            scorecards. Showing up to 100 most recent events.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-0 pb-0">
+          <AuditActivityFeed events={data.recentEvents} />
+        </CardContent>
+      </Card>
+    </AdminPageShell>
   );
 }

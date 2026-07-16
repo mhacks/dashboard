@@ -1,60 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { AdminPageHeaderSkeleton } from "@/app/admin/components/admin-page-header-skeleton";
+import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { cn } from "@/lib/utils";
-
-function ApplicationReviewHeaderSkeleton({
-  variant = "workspace",
-  withDescription = false,
-  withFooter = false,
-}: {
-  variant?: "workspace" | "dashboard";
-  withDescription?: boolean;
-  withFooter?: boolean;
-}) {
-  const isWorkspace = variant === "workspace";
-
-  return (
-    <header
-      className={cn(
-        isWorkspace
-          ? "shrink-0 border-b bg-card/80 px-4 py-3 backdrop-blur md:px-6"
-          : "border-b pb-5",
-      )}
-    >
-      <div
-        className={cn(
-          "flex gap-3",
-          isWorkspace
-            ? "items-start justify-between"
-            : "flex-col lg:flex-row lg:items-end lg:justify-between",
-        )}
-      >
-        <div className="min-w-0 space-y-2">
-          <Skeleton className="h-3 w-32" />
-          <Skeleton
-            className={cn(
-              isWorkspace ? "h-8 w-56 sm:h-9" : "h-10 w-64 max-w-full",
-            )}
-          />
-          {withDescription ? (
-            <Skeleton className="h-4 w-full max-w-2xl" />
-          ) : null}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-8 w-24 rounded-md" />
-          ))}
-        </div>
-      </div>
-      {withFooter ? (
-        <div className="mt-3 flex items-center gap-3">
-          <Skeleton className="h-2 flex-1 rounded-full" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-      ) : null}
-    </header>
-  );
-}
 
 function SummaryBarSkeleton({ items = 4 }: { items?: number }) {
   return (
@@ -348,7 +296,7 @@ function AuditActivityRowSkeleton() {
 export function ReviewWorkspacePageSkeleton() {
   return (
     <div className="flex h-full flex-col">
-      <ApplicationReviewHeaderSkeleton withFooter />
+      <AdminPageHeaderSkeleton withFooter />
 
       <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:grid lg:grid-cols-[300px_minmax(0,1fr)_330px]">
         <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
@@ -384,51 +332,49 @@ export function ReviewWorkspacePageSkeleton() {
 
 export function LeaderboardPageSkeleton() {
   return (
-    <main className="min-h-screen bg-background px-4 py-5 text-foreground md:px-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <ApplicationReviewHeaderSkeleton variant="dashboard" withDescription />
+    <AdminPageShell>
+      <AdminPageHeaderSkeleton variant="page" withDescription />
 
-        <SummaryBarSkeleton />
+      <SummaryBarSkeleton />
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Skeleton className="size-5 rounded-sm" />
-              <Skeleton className="h-5 w-40" />
-            </div>
-            <Skeleton className="h-4 w-full max-w-xl" />
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <div className="divide-y divide-border/60">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <LeaderboardRowSkeleton key={index} highlighted={index === 0} />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-5 rounded-sm" />
+            <Skeleton className="h-5 w-40" />
+          </div>
+          <Skeleton className="h-4 w-full max-w-xl" />
+        </CardHeader>
+        <CardContent className="px-0 pb-0">
+          <div className="divide-y divide-border/60">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <LeaderboardRowSkeleton key={index} highlighted={index === 0} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Skeleton className="size-5 rounded-sm" />
-              <Skeleton className="h-5 w-32" />
-            </div>
-            <Skeleton className="h-4 w-full max-w-2xl" />
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <div className="divide-y divide-border/60">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <AuditActivityRowSkeleton key={index} />
-              ))}
-            </div>
-            <div className="flex items-center justify-between gap-2 border-t bg-muted/20 px-3 py-2">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-7 w-28 rounded-md" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-5 rounded-sm" />
+            <Skeleton className="h-5 w-32" />
+          </div>
+          <Skeleton className="h-4 w-full max-w-2xl" />
+        </CardHeader>
+        <CardContent className="px-0 pb-0">
+          <div className="divide-y divide-border/60">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <AuditActivityRowSkeleton key={index} />
+            ))}
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t bg-muted/20 px-3 py-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-28 rounded-md" />
+          </div>
+        </CardContent>
+      </Card>
+    </AdminPageShell>
   );
 }
 
@@ -591,17 +537,15 @@ function AnalyticsOverviewSkeleton() {
 
 export function AnalyticsPageSkeleton() {
   return (
-    <main className="min-h-screen bg-background px-4 py-5 text-foreground md:px-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <ApplicationReviewHeaderSkeleton variant="dashboard" withDescription />
+    <AdminPageShell>
+      <AdminPageHeaderSkeleton variant="page" withDescription />
 
-        <SummaryBarSkeleton />
+      <SummaryBarSkeleton />
 
-        <div>
-          <AnalyticsTabsSkeleton />
-          <AnalyticsOverviewSkeleton />
-        </div>
+      <div>
+        <AnalyticsTabsSkeleton />
+        <AnalyticsOverviewSkeleton />
       </div>
-    </main>
+    </AdminPageShell>
   );
 }
