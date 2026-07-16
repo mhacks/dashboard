@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -18,12 +18,6 @@ import {
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { sendOtp, verifyOtp } from "@/lib/actions/auth.server.actions";
-import { getPendingUserInvite } from "@/lib/actions/user-invitations.server.actions";
-import type { UserRole } from "@/lib/db/schema/users";
-import {
-  userInviteEmailSchema,
-  normalizeInviteEmail,
-} from "@/lib/types/user-invitations";
 import posthog from "posthog-js";
 
 const emailSchema = z.object({
@@ -43,21 +37,15 @@ const SLOT_CLASS =
 function AuthForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
-  const prefilledEmail = searchParams.get("email")?.trim() ?? "";
 
   const [step, setStep] = useState<"email" | "verify">("email");
   const [sentEmail, setSentEmail] = useState("");
-  const [pendingInviteRole, setPendingInviteRole] = useState<UserRole | null>(
-    null,
-  );
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
-  const inviteCheckRequestId = useRef(0);
-  const inviteRoleCache = useRef(new Map<string, UserRole | null>());
 
   const emailForm = useForm<EmailForm>({
     resolver: zodResolver(emailSchema),
-    defaultValues: { email: prefilledEmail },
+    defaultValues: { email: "" },
   });
 
   const tokenForm = useForm<TokenForm>({
@@ -67,34 +55,7 @@ function AuthForm() {
 
   // react-hook-form's watch() cannot be memoized by React Compiler.
   // eslint-disable-next-line react-hooks/incompatible-library
-  const emailValue = emailForm.watch("email");
   const tokenValue = tokenForm.watch("token");
-
-  useEffect(() => {
-    const email = emailValue.trim();
-    if (!email || !userInviteEmailSchema.safeParse(email).success) {
-      setPendingInviteRole(null);
-      return;
-    }
-
-    const normalizedEmail = normalizeInviteEmail(email);
-    const cachedRole = inviteRoleCache.current.get(normalizedEmail);
-    if (cachedRole !== undefined) {
-      setPendingInviteRole(cachedRole);
-      return;
-    }
-
-    const requestId = ++inviteCheckRequestId.current;
-    const timeoutId = window.setTimeout(() => {
-      void getPendingUserInvite(email).then((role) => {
-        if (requestId !== inviteCheckRequestId.current) return;
-        inviteRoleCache.current.set(normalizedEmail, role);
-        setPendingInviteRole(role);
-      });
-    }, 400);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [emailValue]);
 
   async function onSendOtp({ email }: EmailForm) {
     if (!turnstileToken) {
@@ -163,16 +124,6 @@ function AuthForm() {
               >
                 Enter your email to receive a one-time code.
               </p>
-              {pendingInviteRole && (
-                <p
-                  className="mt-3 rounded-md border border-[#c8d4a8] bg-white/70 px-3 py-2 font-red-hat text-[13px] text-center"
-                  style={{ color: "#3A4A26" }}
-                >
-                  {pendingInviteRole === "organizer"
-                    ? "You've been invited as an organizer. Sign in with this email to access the review portal."
-                    : "You've been invited to MHacks. Sign in with this email to continue."}
-                </p>
-              )}
             </CardHeader>
 
             <CardContent>
