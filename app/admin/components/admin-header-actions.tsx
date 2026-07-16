@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutGridIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import ThemeToggle from "../applications/theme-toggle";
+import ThemeToggle from "./theme-toggle";
 
 export function AdminHeaderActions() {
   const pathname = usePathname();

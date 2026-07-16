@@ -5,14 +5,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type AdminLink = {
+type AdminLink = {
   href: string;
   title: string;
   description: string;
   icon: LucideIcon;
 };
 
-export type AdminArea = {
+type AdminArea = {
   title: string;
   description: string;
   icon: LucideIcon;
