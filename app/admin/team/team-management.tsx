@@ -300,7 +300,9 @@ export default function TeamManagement({
 
   function isOwnEmail(email: string) {
     if (!organizer?.email) return false;
-    return normalizeInviteEmail(email) === normalizeInviteEmail(organizer.email);
+    return (
+      normalizeInviteEmail(email) === normalizeInviteEmail(organizer.email)
+    );
   }
 
   async function sendInvite(
