@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { SearchIcon, Trash2Icon, UsersRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -8,12 +8,12 @@ import {
   listUserInvites,
   revokeUserInvite,
 } from "@/lib/actions/user-invitations.server.actions";
-import { INVITE_PAGE_SIZE } from "@/lib/queries/user-invitations";
 import type { UserRole } from "@/lib/db/schema/users";
-import type { UserInviteListResult } from "@/lib/types/user-invitations";
 import {
   canRevokeInvite,
+  INVITE_PAGE_SIZE,
   inviteStatus,
+  type UserInviteListResult,
   userInviteRoleSchema,
 } from "@/lib/types/user-invitations";
 import { ApplicationReviewHeader } from "@/app/admin/applications/components/application-review-header";
@@ -99,17 +99,17 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     useState<InviteConfirmation | null>(null);
   const skipSearchEffect = useRef(true);
 
-  async function refreshInvites(
-    nextPageIndex = pageIndex,
-    query = searchInput.trim(),
-  ) {
-    const updatedInvites = await listUserInvites(
-      nextPageIndex,
-      INVITE_PAGE_SIZE,
-      query,
-    );
-    setInviteData(updatedInvites);
-  }
+  const refreshInvites = useCallback(
+    async (nextPageIndex = pageIndex, query = searchInput.trim()) => {
+      const updatedInvites = await listUserInvites(
+        nextPageIndex,
+        INVITE_PAGE_SIZE,
+        query,
+      );
+      setInviteData(updatedInvites);
+    },
+    [pageIndex, searchInput],
+  );
 
   useEffect(() => {
     if (skipSearchEffect.current) {
@@ -125,7 +125,7 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [searchInput]);
+  }, [searchInput, refreshInvites]);
 
   async function sendInvite(
     email: string,

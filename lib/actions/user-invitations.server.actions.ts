@@ -12,7 +12,6 @@ import { users, type UserRole } from "@/lib/db/schema/users";
 import { sendInviteEmail } from "@/lib/email/send-invite-email";
 import {
   getPendingUserInvite as getPendingUserInviteQuery,
-  INVITE_PAGE_SIZE,
   listUserInvites as listUserInvitesQuery,
 } from "@/lib/queries/user-invitations";
 import {
@@ -22,8 +21,6 @@ import {
   userInviteEmailSchema,
   userInviteRoleSchema,
 } from "@/lib/types/user-invitations";
-
-export { INVITE_PAGE_SIZE };
 
 export async function listUserInvites(
   pageIndex?: number,

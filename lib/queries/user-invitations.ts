@@ -7,11 +7,10 @@ import {
 } from "@/lib/db/schema/user-invitations";
 import { users, type UserRole } from "@/lib/db/schema/users";
 import {
+  INVITE_PAGE_SIZE,
   normalizeInviteEmail,
   userInviteEmailSchema,
 } from "@/lib/types/user-invitations";
-
-export const INVITE_PAGE_SIZE = 10;
 
 function inviteSearchCondition(search: string) {
   const term = `%${search.trim()}%`;
@@ -53,7 +52,16 @@ export async function listUserInvites(
     .offset(safePageIndex * safePageSize);
 
   return {
-    items: rows.map(({ totalCount: _totalCount, ...item }) => item),
+    items: rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      role: row.role,
+      acceptedAt: row.acceptedAt,
+      revokedAt: row.revokedAt,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt,
+      invitedByEmail: row.invitedByEmail,
+    })),
     totalCount: rows[0]?.totalCount ?? 0,
   };
 }

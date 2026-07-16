@@ -26,7 +26,7 @@ export const userInvitations = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
+  () => [
     pgPolicy("user_invitations_organizer_select", {
       for: "select",
       to: authenticatedRole,

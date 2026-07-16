@@ -1,7 +1,5 @@
-import {
-  INVITE_PAGE_SIZE,
-  listUserInvites,
-} from "@/lib/queries/user-invitations";
+import { listUserInvites } from "@/lib/queries/user-invitations";
+import { INVITE_PAGE_SIZE } from "@/lib/types/user-invitations";
 import TeamManagement from "./team-management";
 
 export default async function AdminTeamPage() {
