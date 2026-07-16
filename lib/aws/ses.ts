@@ -1,16 +1,31 @@
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
+import nodemailer, { type Transporter } from "nodemailer";
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "hackathon@mhacks.org";
 const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MHacks Team";
 
-function getSesClient() {
+function getTransporter(): Transporter | null {
+  const smtpHost = process.env.SMTP_HOST;
+  if (smtpHost) {
+    return nodemailer.createTransport({
+      host: smtpHost,
+      port: Number(process.env.SMTP_PORT ?? 54325),
+      secure: false,
+      tls: { rejectUnauthorized: false },
+    });
+  }
+
   const accessKeyId = process.env.SES_ACCESS_KEY_ID;
   const secretAccessKey = process.env.SES_SECRET_ACCESS_KEY;
   if (!accessKeyId || !secretAccessKey) return null;
 
-  return new SESClient({
+  const sesClient = new SESv2Client({
     region: process.env.SES_REGION ?? "us-east-2",
     credentials: { accessKeyId, secretAccessKey },
+  });
+
+  return nodemailer.createTransport({
+    SES: { sesClient, SendEmailCommand },
   });
 }
 
@@ -25,22 +40,16 @@ export async function sendEmail({
   text: string;
   html: string;
 }) {
-  const client = getSesClient();
-  if (!client) return false;
+  const transporter = getTransporter();
+  if (!transporter) return false;
 
-  await client.send(
-    new SendEmailCommand({
-      Source: `${FROM_NAME} <${FROM_EMAIL}>`,
-      Destination: { ToAddresses: [to] },
-      Message: {
-        Subject: { Data: subject },
-        Body: {
-          Text: { Data: text },
-          Html: { Data: html },
-        },
-      },
-    }),
-  );
+  await transporter.sendMail({
+    from: `${FROM_NAME} <${FROM_EMAIL}>`,
+    to,
+    subject,
+    text,
+    html,
+  });
 
   return true;
 }

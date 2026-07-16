@@ -32,7 +32,6 @@ missing=()
 [[ -z "$S3_ACCESS_KEY" ]] && missing+=("S3_PROTOCOL_ACCESS_KEY_ID")
 [[ -z "$S3_SECRET_KEY" ]] && missing+=("S3_PROTOCOL_ACCESS_KEY_SECRET")
 [[ -z "$S3_ENDPOINT" ]] && missing+=("STORAGE_S3_URL")
-[[ -z "$S3_REGION" ]] && missing+=("S3_PROTOCOL_REGION")
 
 if [[ ${#missing[@]} -gt 0 ]]; then
   echo "Missing from supabase status: ${missing[*]}" >&2
@@ -52,7 +51,11 @@ RESUMES_S3_URL="$S3_ENDPOINT"
 RESUMES_ACCESS_KEY_ID="$S3_ACCESS_KEY"
 RESUMES_SECRET_ACCESS_KEY="$S3_SECRET_KEY"
 RESUMES_BUCKET="resumes"
-RESUMES_REGION="$S3_REGION"
+RESUMES_REGION="local"
+
+# Email (Mailpit — see docs/local-development.md)
+SMTP_HOST="127.0.0.1"
+SMTP_PORT="54325"
 
 # Cloudflare
 NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY="1x00000000000000000000AA"
