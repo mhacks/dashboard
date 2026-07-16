@@ -98,17 +98,19 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
   const [inviteConfirmation, setInviteConfirmation] =
     useState<InviteConfirmation | null>(null);
   const skipSearchEffect = useRef(true);
+  const searchInputRef = useRef(searchInput);
+  searchInputRef.current = searchInput;
 
   const refreshInvites = useCallback(
-    async (nextPageIndex = pageIndex, query = searchInput.trim()) => {
+    async (nextPageIndex: number, query?: string) => {
       const updatedInvites = await listUserInvites(
         nextPageIndex,
         INVITE_PAGE_SIZE,
-        query,
+        query ?? searchInputRef.current.trim(),
       );
       setInviteData(updatedInvites);
     },
-    [pageIndex, searchInput],
+    [],
   );
 
   useEffect(() => {
