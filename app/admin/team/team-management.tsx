@@ -19,6 +19,7 @@ import {
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,14 +47,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 type InviteConfirmation =
   | {
@@ -78,13 +71,43 @@ type TeamManagementProps = {
   initialInvites: UserInviteListResult;
 };
 
-function formatDateTime(value: Date | string | null) {
-  if (!value) return "—";
+function formatInviteDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value);
-  return date.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
+}
+
+function inviteStatusBadgeClass(
+  status: ReturnType<typeof inviteStatus>,
+) {
+  switch (status) {
+    case "Accepted":
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/70 dark:bg-green-950/50 dark:text-green-300";
+    case "Pending":
+      return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/70 dark:bg-blue-950/50 dark:text-blue-300";
+    case "Revoked":
+      return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300";
+    case "Expired":
+      return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-300";
+  }
+}
+
+function inviteMetadata(invite: UserInviteListResult["items"][number]) {
+  const status = inviteStatus(invite);
+  const parts = [
+    `Invited by ${invite.invitedByEmail}`,
+    `Created ${formatInviteDate(invite.createdAt)}`,
+    `Expires ${formatInviteDate(invite.expiresAt)}`,
+  ];
+
+  if (status === "Accepted" && invite.acceptedAt) {
+    parts.push(`Accepted ${formatInviteDate(invite.acceptedAt)}`);
+  }
+
+  return parts.join(" · ");
 }
 
 export default function TeamManagement({ initialInvites }: TeamManagementProps) {
@@ -99,7 +122,10 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     useState<InviteConfirmation | null>(null);
   const skipSearchEffect = useRef(true);
   const searchInputRef = useRef(searchInput);
-  searchInputRef.current = searchInput;
+
+  useEffect(() => {
+    searchInputRef.current = searchInput;
+  }, [searchInput]);
 
   const refreshInvites = useCallback(
     async (nextPageIndex: number, query?: string) => {
@@ -372,62 +398,62 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="px-0 pb-0">
             {inviteData.totalCount === 0 ? (
-              <p className="px-6 pb-6 text-sm text-muted-foreground">
+              <p className="px-4 pb-4 text-sm text-muted-foreground">
                 {searchInput.trim()
                   ? "No invites match your search."
                   : "No invites yet."}
               </p>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Invited by</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Expires</TableHead>
-                      <TableHead>Accepted</TableHead>
-                      <TableHead className="w-[72px]">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {inviteData.items.map((invite) => (
-                      <TableRow key={invite.id}>
-                        <TableCell className="font-medium">{invite.email}</TableCell>
-                        <TableCell>{ROLE_LABELS[invite.role]}</TableCell>
-                        <TableCell>{inviteStatus(invite)}</TableCell>
-                        <TableCell>{invite.invitedByEmail}</TableCell>
-                        <TableCell>{formatDateTime(invite.createdAt)}</TableCell>
-                        <TableCell>{formatDateTime(invite.expiresAt)}</TableCell>
-                        <TableCell>{formatDateTime(invite.acceptedAt)}</TableCell>
-                        <TableCell>
-                          {canRevokeInvite(invite) ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Revoke invite for ${invite.email}`}
-                              disabled={
-                                isSubmitting && revokingInviteId === invite.id
-                              }
-                              onClick={() => handleRevokeInvite(invite.id)}
+                <div className="divide-y divide-border/60">
+                  {inviteData.items.map((invite) => {
+                    const status = inviteStatus(invite);
+
+                    return (
+                      <div
+                        key={invite.id}
+                        className="flex items-start justify-between gap-3 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium">
+                              {invite.email}
+                            </p>
+                            <Badge variant="outline">
+                              {ROLE_LABELS[invite.role]}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={inviteStatusBadgeClass(status)}
                             >
-                              <Trash2Icon className="size-4" />
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                              {status}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {inviteMetadata(invite)}
+                          </p>
+                        </div>
+                        {canRevokeInvite(invite) ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="shrink-0"
+                            aria-label={`Revoke invite for ${invite.email}`}
+                            disabled={
+                              isSubmitting && revokingInviteId === invite.id
+                            }
+                            onClick={() => handleRevokeInvite(invite.id)}
+                          >
+                            <Trash2Icon className="size-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
                 <ListPagination
                   pageIndex={pageIndex}
                   totalItems={inviteData.totalCount}
