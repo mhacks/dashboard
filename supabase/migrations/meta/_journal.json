@@ -29,6 +29,20 @@
       "when": 1784082737209,
       "tag": "20260715023217_is_organizer_realtime_and_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784168292290,
+      "tag": "20260716021812_user_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784168293290,
+      "tag": "20260716021813_handle_new_user_invites",
+      "breakpoints": true
     }
   ]
 }
