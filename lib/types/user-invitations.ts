@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { listUserInvites } from "@/lib/queries/user-invitations";
-import { userRole } from "@/lib/db/schema/users";
+import { userRole, type UserRole } from "@/lib/db/schema/users";
 
 export const userInviteEmailSchema = z.email();
 export const userInviteRoleSchema = z.enum(userRole.enumValues);
@@ -17,6 +17,15 @@ export function inviteExpiresAt(from = new Date()) {
 
 export type UserInviteListResult = Awaited<ReturnType<typeof listUserInvites>>;
 export type UserInviteListItem = UserInviteListResult["items"][number];
+
+export type CreateUserInviteResult =
+  | { error: string }
+  | {
+      pendingInvite: {
+        id: string;
+        role: UserRole;
+      };
+    };
 
 export function inviteStatus(
   invite: Pick<

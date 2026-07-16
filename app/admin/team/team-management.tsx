@@ -10,7 +10,10 @@ import {
 } from "@/lib/actions/user-invitations.server.actions";
 import { INVITE_PAGE_SIZE } from "@/lib/queries/user-invitations";
 import type { UserRole } from "@/lib/db/schema/users";
-import type { UserInviteListResult } from "@/lib/types/user-invitations";
+import type {
+  CreateUserInviteResult,
+  UserInviteListResult,
+} from "@/lib/types/user-invitations";
 import {
   canRevokeInvite,
   inviteStatus,
@@ -19,6 +22,16 @@ import {
 import { ApplicationReviewHeader } from "@/app/admin/applications/components/application-review-header";
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,13 +58,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type TeamManagementProps = {
-  initialInvites: UserInviteListResult;
+type PendingInviteReplacement = {
+  email: string;
+  role: UserRole;
+  pendingRole: UserRole;
 };
+
+function isPendingInviteResult(
+  result: CreateUserInviteResult,
+): result is Extract<CreateUserInviteResult, { pendingInvite: unknown }> {
+  return "pendingInvite" in result;
+}
 
 const ROLE_LABELS: Record<UserRole, string> = {
   hacker: "Hacker",
   organizer: "Organizer",
+};
+
+type TeamManagementProps = {
+  initialInvites: UserInviteListResult;
 };
 
 function formatDateTime(value: Date | string | null) {
@@ -71,6 +96,8 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
   const [role, setRole] = useState<UserRole>("organizer");
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
+  const [pendingInviteReplacement, setPendingInviteReplacement] =
+    useState<PendingInviteReplacement | null>(null);
   const skipSearchEffect = useRef(true);
 
   async function refreshInvites(
@@ -101,20 +128,49 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);
 
+  async function sendInvite(
+    email: string,
+    inviteRole: UserRole,
+    replacePendingInvite = false,
+  ) {
+    const result = await createUserInvite(email, inviteRole, {
+      replacePendingInvite,
+    });
+    if (result && isPendingInviteResult(result)) {
+      setPendingInviteReplacement({
+        email,
+        role: inviteRole,
+        pendingRole: result.pendingInvite.role,
+      });
+      return;
+    }
+    if (result?.error) {
+      toast.error(result.error);
+      return;
+    }
+
+    toast.success("Invite sent.");
+    setInviteEmail("");
+    setPageIndex(0);
+    await refreshInvites(0);
+  }
+
   function handleInviteSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     startSubmitTransition(async () => {
-      const result = await createUserInvite(inviteEmail, role);
-      if (result?.error) {
-        toast.error(result.error);
-        return;
-      }
+      await sendInvite(inviteEmail, role);
+    });
+  }
 
-      toast.success("Invite sent.");
-      setInviteEmail("");
-      setPageIndex(0);
-      await refreshInvites(0);
+  function handleReplacePendingInvite() {
+    if (!pendingInviteReplacement) return;
+
+    const { email, role: inviteRole } = pendingInviteReplacement;
+    setPendingInviteReplacement(null);
+
+    startSubmitTransition(async () => {
+      await sendInvite(email, inviteRole, true);
     });
   }
 
@@ -203,6 +259,41 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
             </form>
           </CardContent>
         </Card>
+
+        <AlertDialog
+          open={pendingInviteReplacement !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingInviteReplacement(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Replace pending invite?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingInviteReplacement ? (
+                  <>
+                    <span className="font-medium text-foreground">
+                      {pendingInviteReplacement.email}
+                    </span>{" "}
+                    already has a pending invite as{" "}
+                    {ROLE_LABELS[pendingInviteReplacement.pendingRole]}. Revoke
+                    that invite and send a new one as{" "}
+                    {ROLE_LABELS[pendingInviteReplacement.role]}?
+                  </>
+                ) : null}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep existing invite</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={handleReplacePendingInvite}
+              >
+                Revoke and send new invite
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Card>
           <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">

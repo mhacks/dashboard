@@ -16,6 +16,7 @@ import {
   listUserInvites as listUserInvitesQuery,
 } from "@/lib/queries/user-invitations";
 import {
+  type CreateUserInviteResult,
   inviteExpiresAt,
   normalizeInviteEmail,
   userInviteEmailSchema,
@@ -39,7 +40,8 @@ export async function getPendingUserInvite(email: string) {
 export async function createUserInvite(
   email: string,
   role: UserRole,
-): Promise<{ error: string } | undefined> {
+  options?: { replacePendingInvite?: boolean },
+): Promise<CreateUserInviteResult | undefined> {
   const organizer = await requireOrganizer();
   const normalizedEmail = normalizeInviteEmail(email);
   const parsedEmail = userInviteEmailSchema.safeParse(normalizedEmail);
@@ -53,6 +55,7 @@ export async function createUserInvite(
 
   const inviteRole = parsedRole.data;
   const expiresAt = inviteExpiresAt();
+  const replacePendingInvite = options?.replacePendingInvite ?? false;
 
   const [[existingUser], [pendingInvite]] = await Promise.all([
     db
@@ -61,7 +64,10 @@ export async function createUserInvite(
       .where(sql`lower(${users.email}) = ${normalizedEmail}`)
       .limit(1),
     db
-      .select({ id: userInvitations.id })
+      .select({
+        id: userInvitations.id,
+        role: userInvitations.role,
+      })
       .from(userInvitations)
       .where(pendingInviteForEmail(normalizedEmail))
       .limit(1),
@@ -71,14 +77,21 @@ export async function createUserInvite(
     return { error: `This user already has the ${inviteRole} role.` };
   }
 
-  if (pendingInvite) {
-    return { error: "An invite is already pending for this email." };
+  if (pendingInvite && !replacePendingInvite) {
+    return { pendingInvite };
   }
 
   if (existingUser) {
     const acceptedAt = new Date();
 
     await db.transaction(async (tx) => {
+      if (pendingInvite) {
+        await tx
+          .update(userInvitations)
+          .set({ revokedAt: new Date() })
+          .where(eq(userInvitations.id, pendingInvite.id));
+      }
+
       await tx
         .update(users)
         .set({ role: inviteRole })
@@ -102,12 +115,28 @@ export async function createUserInvite(
     return;
   }
 
-  await db.insert(userInvitations).values({
-    email: normalizedEmail,
-    role: inviteRole,
-    invitedBy: organizer.id,
-    expiresAt,
-  });
+  if (pendingInvite) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(userInvitations)
+        .set({ revokedAt: new Date() })
+        .where(eq(userInvitations.id, pendingInvite.id));
+
+      await tx.insert(userInvitations).values({
+        email: normalizedEmail,
+        role: inviteRole,
+        invitedBy: organizer.id,
+        expiresAt,
+      });
+    });
+  } else {
+    await db.insert(userInvitations).values({
+      email: normalizedEmail,
+      role: inviteRole,
+      invitedBy: organizer.id,
+      expiresAt,
+    });
+  }
 
   try {
     await sendInviteEmail(normalizedEmail, inviteRole);
