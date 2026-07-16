@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { SearchIcon, Trash2Icon, UsersRoundIcon, AlertTriangleIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -12,10 +13,14 @@ import type { UserRole } from "@/lib/db/schema/users";
 import {
   canRevokeInvite,
   INVITE_PAGE_SIZE,
+  INVITE_SYNC_CHANNEL,
+  INVITE_SYNC_EVENT,
   inviteStatus,
+  inviteSyncPayloadSchema,
   type UserInviteListResult,
   userInviteRoleSchema,
 } from "@/lib/types/user-invitations";
+import { createClient } from "@/lib/supabase/client";
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
@@ -56,6 +61,21 @@ const ROLE_LABELS: Record<UserRole, string> = {
   hacker: "Hacker",
   organizer: "Organizer",
 };
+
+type Organizer = { id: string; email: string };
+type SupabaseBrowserClient = ReturnType<typeof createClient>;
+type InviteSyncChannel = ReturnType<SupabaseBrowserClient["channel"]>;
+
+function isBenignRealtimeChannelError(error: unknown) {
+  if (!error) return true;
+
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("socket closed: 1001") ||
+    message.includes("socket closed") ||
+    message.includes("Channel closed")
+  );
+}
 
 type TeamManagementProps = {
   initialInvites: UserInviteListResult;
@@ -110,12 +130,21 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
   const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
   const [inviteConfirmation, setInviteConfirmation] =
     useState<InviteConfirmation | null>(null);
+  const [organizer, setOrganizer] = useState<Organizer | null>(null);
+  const [realtimeReady, setRealtimeReady] = useState(false);
   const skipSearchEffect = useRef(true);
   const searchInputRef = useRef(searchInput);
+  const pageIndexRef = useRef(pageIndex);
+  const supabase = useMemo(() => createClient(), []);
+  const inviteSyncChannel = useRef<InviteSyncChannel | null>(null);
 
   useEffect(() => {
     searchInputRef.current = searchInput;
   }, [searchInput]);
+
+  useEffect(() => {
+    pageIndexRef.current = pageIndex;
+  }, [pageIndex]);
 
   const refreshInvites = useCallback(
     async (nextPageIndex: number, query?: string) => {
@@ -128,6 +157,117 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     },
     [],
   );
+
+  const broadcastInviteUpdate = useCallback(async () => {
+    await inviteSyncChannel.current?.send({
+      type: "broadcast",
+      event: INVITE_SYNC_EVENT,
+      payload: {
+        sourceUserId: organizer?.id ?? "",
+      },
+    });
+  }, [organizer?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncSession(
+      session: Session | null,
+      mode: "full" | "refresh",
+    ) {
+      if (!session?.access_token) {
+        await supabase.realtime.setAuth(null);
+        if (cancelled) return;
+        setOrganizer(null);
+        setRealtimeReady(false);
+        return;
+      }
+
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+      if (cancelled || error || !user) {
+        await supabase.realtime.setAuth(null);
+        setOrganizer(null);
+        setRealtimeReady(false);
+        return;
+      }
+
+      if (mode === "refresh") {
+        await supabase.realtime.setAuth(session.access_token);
+        return;
+      }
+
+      setRealtimeReady(false);
+      await supabase.realtime.setAuth(session.access_token);
+      if (cancelled) return;
+
+      setOrganizer({ id: user.id, email: user.email ?? "" });
+      setRealtimeReady(true);
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+        void syncSession(session, "full");
+        return;
+      }
+
+      if (event === "TOKEN_REFRESHED") {
+        void syncSession(session, "refresh");
+        return;
+      }
+
+      if (event === "SIGNED_OUT") {
+        void syncSession(null, "full");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!realtimeReady || !organizer) return;
+
+    let active = true;
+    let channel: InviteSyncChannel | null = null;
+
+    channel = supabase.channel(INVITE_SYNC_CHANNEL, {
+      config: { private: true },
+    });
+    if (!active) {
+      supabase.removeChannel(channel);
+      return;
+    }
+    inviteSyncChannel.current = channel;
+
+    channel.on("broadcast", { event: INVITE_SYNC_EVENT }, ({ payload }) => {
+      const parsed = inviteSyncPayloadSchema.safeParse(payload);
+      if (!parsed.success) return;
+      if (parsed.data.sourceUserId === organizer.id) return;
+
+      void refreshInvites(pageIndexRef.current).catch((error) => {
+        console.error("Unable to refresh invites after realtime sync:", error);
+      });
+    });
+
+    channel.subscribe((status, err) => {
+      if (!active || status !== "CHANNEL_ERROR") return;
+      if (isBenignRealtimeChannelError(err)) return;
+      console.error("Unable to subscribe to invite sync channel:", err);
+    });
+
+    return () => {
+      active = false;
+      inviteSyncChannel.current = null;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [organizer, realtimeReady, refreshInvites, supabase]);
 
   useEffect(() => {
     if (skipSearchEffect.current) {
@@ -161,6 +301,7 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
       setInviteEmail("");
       setPageIndex(0);
       await refreshInvites(0);
+      void broadcastInviteUpdate();
       return;
     }
 
@@ -236,6 +377,7 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
 
       toast.success("Invite revoked.");
       await refreshInvites(pageIndex);
+      void broadcastInviteUpdate();
     });
   }
 

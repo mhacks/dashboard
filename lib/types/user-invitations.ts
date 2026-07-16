@@ -7,6 +7,15 @@ export const userInviteRoleSchema = z.enum(userRole.enumValues);
 export const INVITE_PAGE_SIZE = 10;
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+export const INVITE_SYNC_CHANNEL = "user-invites:dashboard";
+export const INVITE_SYNC_EVENT = "invites_updated";
+
+export const inviteSyncPayloadSchema = z.object({
+  sourceUserId: z.uuid(),
+});
+
+export type InviteSyncPayload = z.infer<typeof inviteSyncPayloadSchema>;
+
 export function normalizeInviteEmail(email: string) {
   return email.trim().toLowerCase();
 }

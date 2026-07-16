@@ -50,6 +50,13 @@
       "when": 1784168294290,
       "tag": "20260716021900_defer_invite_acceptance",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784171630726,
+      "tag": "20260716031350_user_invites_realtime",
+      "breakpoints": true
     }
   ]
 }
