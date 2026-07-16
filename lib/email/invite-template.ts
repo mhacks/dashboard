@@ -1,6 +1,9 @@
 import type { UserRole } from "@/lib/db/schema/users";
 import { USER_ROLE_LABELS } from "@/lib/types/user-invitations";
 
+const EMAIL_FONT =
+  'font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;';
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -8,6 +11,224 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function renderEmailSection(
+  content: string,
+  {
+    align,
+    padding = "0 40px 32px",
+  }: { align?: "center"; padding?: string } = {},
+) {
+  return `<tr>
+              <td
+                ${align ? `align="${align}"` : ""}
+                style="
+                  padding: ${padding};
+                  ${EMAIL_FONT}
+                "
+              >
+                ${content}
+              </td>
+            </tr>`;
+}
+
+function renderSignInButton(loginUrl: string, withLinkCopy = false) {
+  const safeLoginUrl = escapeHtml(loginUrl);
+  const linkCopy = withLinkCopy
+    ? `<p
+                  style="
+                    margin: 16px 0 0;
+                    color: #707070;
+                    font-size: 13px;
+                    line-height: 1.5;
+                  "
+                >
+                  Or copy this link into your browser:<br />
+                  <a
+                    href="${safeLoginUrl}"
+                    style="color: #4285f4; text-decoration: underline; word-break: break-all"
+                  >
+                    ${safeLoginUrl}
+                  </a>
+                </p>`
+    : "";
+
+  return `<a
+                  href="${safeLoginUrl}"
+                  style="
+                    display: inline-block;
+                    background: #3a4a26;
+                    color: #ffffff;
+                    font-size: 16px;
+                    font-weight: 700;
+                    line-height: 1;
+                    text-decoration: none;
+                    border-radius: 999px;
+                    padding: 14px 28px;
+                  "
+                >
+                  Sign in to MHacks
+                </a>${linkCopy}`;
+}
+
+function renderWhatsNextSection(items: string[], withContact = false) {
+  const contact = withContact
+    ? `<p
+                  style="
+                    margin: 0 0 16px;
+                    color: #505050;
+                    font-size: 16px;
+                    line-height: 1.6;
+                  "
+                >
+                  Questions? Reach out to us anytime at
+                  <a
+                    href="mailto:hackathon@mhacks.org"
+                    style="color: #4285f4; text-decoration: underline"
+                  >
+                    hackathon@mhacks.org
+                  </a>.
+                </p>`
+    : "";
+
+  return renderEmailSection(
+    `<h2
+                  style="
+                    margin: 0 0 20px;
+                    color: #040404;
+                    font-size: 24px;
+                    font-weight: 900;
+                  "
+                >
+                  What's Next?
+                </h2>
+
+                <ul
+                  style="
+                    margin: 0 0 24px;
+                    padding-left: 20px;
+                    color: #505050;
+                    font-size: 16px;
+                    line-height: 1.8;
+                  "
+                >
+                  ${renderListItems(items)}
+                </ul>
+
+                ${contact}
+
+                <p
+                  style="
+                    margin: 0;
+                    color: #505050;
+                    font-size: 16px;
+                    font-weight: 700;
+                  "
+                >
+                  &mdash; The MHacks Team
+                </p>`,
+    { padding: "0 40px 40px" },
+  );
+}
+
+function renderEmailLayout(pageTitle: string, bodyRows: string) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(pageTitle)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body,
+      table,
+      td,
+      a {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      table,
+      td {
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      img {
+        -ms-interpolation-mode: bicubic;
+        border: 0;
+        height: auto;
+        line-height: 100%;
+        outline: none;
+        text-decoration: none;
+      }
+      table {
+        border-collapse: collapse !important;
+      }
+      body {
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #f6f1de;
+      ${EMAIL_FONT}
+      -webkit-font-smoothing: antialiased;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      style="background-color: #f6f1de; padding: 40px 0; width: 100%"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            style="
+              background: #ffffff;
+              border-radius: 16px;
+              overflow: hidden;
+              max-width: 600px;
+            "
+          >
+            <tr>
+              <td align="center" style="padding: 40px 40px 20px">
+                <img
+                  src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
+                  alt="MHacks"
+                  width="120"
+                  style="
+                    display: block;
+                    border: 0;
+                    width: 120px;
+                    max-width: 120px;
+                  "
+                />
+              </td>
+            </tr>
+            ${bodyRows}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 }
 
 export function formatInviteExpiration(expiresAt: Date) {
@@ -66,7 +287,6 @@ export function buildInviteEmail({
 }) {
   const roleLabel = USER_ROLE_LABELS[role];
   const expiration = formatInviteExpiration(expiresAt);
-  const safeLoginUrl = escapeHtml(loginUrl);
   const nextSteps = whatsNextItems(role);
 
   const subject = `You're invited to MHacks as ${roleLabel}`;
@@ -91,104 +311,10 @@ export function buildInviteEmail({
     "— The MHacks Team",
   ].join("\n");
 
-  const html = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MHacks | You're Invited</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;700;800;900&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      body,
-      table,
-      td,
-      a {
-        -webkit-text-size-adjust: 100%;
-        -ms-text-size-adjust: 100%;
-      }
-      table,
-      td {
-        mso-table-lspace: 0pt;
-        mso-table-rspace: 0pt;
-      }
-      img {
-        -ms-interpolation-mode: bicubic;
-        border: 0;
-        height: auto;
-        line-height: 100%;
-        outline: none;
-        text-decoration: none;
-      }
-      table {
-        border-collapse: collapse !important;
-      }
-      body {
-        height: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-      }
-    </style>
-  </head>
-  <body
-    style="
-      margin: 0;
-      padding: 0;
-      background-color: #f6f1de;
-      font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    "
-  >
-    <table
-      role="presentation"
-      width="100%"
-      cellspacing="0"
-      cellpadding="0"
-      style="background-color: #f6f1de; padding: 40px 0; width: 100%"
-    >
-      <tr>
-        <td align="center">
-          <table
-            role="presentation"
-            width="100%"
-            cellspacing="0"
-            cellpadding="0"
-            style="
-              background: #ffffff;
-              border-radius: 16px;
-              overflow: hidden;
-              max-width: 600px;
-            "
-          >
-            <tr>
-              <td align="center" style="padding: 40px 40px 20px">
-                <img
-                  src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
-                  alt="MHacks"
-                  width="120"
-                  style="
-                    display: block;
-                    border: 0;
-                    width: 120px;
-                    max-width: 120px;
-                  "
-                />
-              </td>
-            </tr>
-
-            <tr>
-              <td
-                style="
-                  padding: 0 40px;
-                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-                "
-              >
-                <p
+  const html = renderEmailLayout(
+    "MHacks | You're Invited",
+    `${renderEmailSection(
+      `<p
                   style="
                     margin: 0;
                     color: #69a13b;
@@ -234,19 +360,11 @@ export function buildInviteEmail({
                 >
                   Sign in with this email address to accept your invite and
                   access the portal.
-                </p>
-              </td>
-            </tr>
-
-            <tr>
-              <td
-                align="center"
-                style="
-                  padding: 0 40px 12px;
-                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-                "
-              >
-                <table
+                </p>`,
+      { padding: "0 40px" },
+    )}
+            ${renderEmailSection(
+              `<table
                   role="presentation"
                   cellspacing="0"
                   cellpadding="0"
@@ -284,61 +402,14 @@ export function buildInviteEmail({
                       </p>
                     </td>
                   </tr>
-                </table>
-              </td>
-            </tr>
-
-            <tr>
-              <td
-                align="center"
-                style="
-                  padding: 0 40px 32px;
-                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-                "
-              >
-                <a
-                  href="${safeLoginUrl}"
-                  style="
-                    display: inline-block;
-                    background: #3a4a26;
-                    color: #ffffff;
-                    font-size: 16px;
-                    font-weight: 700;
-                    line-height: 1;
-                    text-decoration: none;
-                    border-radius: 999px;
-                    padding: 14px 28px;
-                  "
-                >
-                  Sign in to MHacks
-                </a>
-                <p
-                  style="
-                    margin: 16px 0 0;
-                    color: #707070;
-                    font-size: 13px;
-                    line-height: 1.5;
-                  "
-                >
-                  Or copy this link into your browser:<br />
-                  <a
-                    href="${safeLoginUrl}"
-                    style="color: #4285f4; text-decoration: underline; word-break: break-all"
-                  >
-                    ${safeLoginUrl}
-                  </a>
-                </p>
-              </td>
-            </tr>
-
-            <tr>
-              <td
-                style="
-                  padding: 0 40px 40px;
-                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-                "
-              >
-                <h2
+                </table>`,
+              { align: "center", padding: "0 40px 12px" },
+            )}
+            ${renderEmailSection(renderSignInButton(loginUrl, true), {
+              align: "center",
+            })}
+            ${renderEmailSection(
+              `<h2
                   style="
                     margin: 0 0 20px;
                     color: #040404;
@@ -379,75 +450,11 @@ export function buildInviteEmail({
                 >
                   This invite expires on
                   <strong style="color: #040404">${escapeHtml(expiration)}</strong>.
-                </p>
-              </td>
-            </tr>
-
-            <tr>
-              <td
-                style="
-                  padding: 0 40px 40px;
-                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-                "
-              >
-                <h2
-                  style="
-                    margin: 0 0 20px;
-                    color: #040404;
-                    font-size: 24px;
-                    font-weight: 900;
-                  "
-                >
-                  What's Next?
-                </h2>
-
-                <ul
-                  style="
-                    margin: 0 0 24px;
-                    padding-left: 20px;
-                    color: #505050;
-                    font-size: 16px;
-                    line-height: 1.8;
-                  "
-                >
-                  ${renderListItems(nextSteps)}
-                </ul>
-
-                <p
-                  style="
-                    margin: 0 0 16px;
-                    color: #505050;
-                    font-size: 16px;
-                    line-height: 1.6;
-                  "
-                >
-                  Questions? Reach out to us anytime at
-                  <a
-                    href="mailto:hackathon@mhacks.org"
-                    style="color: #4285f4; text-decoration: underline"
-                  >
-                    hackathon@mhacks.org
-                  </a>.
-                </p>
-
-                <p
-                  style="
-                    margin: 0;
-                    color: #505050;
-                    font-size: 16px;
-                    font-weight: 700;
-                  "
-                >
-                  &mdash; The MHacks Team
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+                </p>`,
+              { padding: "0 40px 40px" },
+            )}
+            ${renderWhatsNextSection(nextSteps, true)}`,
+  );
 
   return { subject, text, html };
 }
@@ -460,7 +467,6 @@ export function buildRoleChangeEmail({
   loginUrl: string;
 }) {
   const roleLabel = USER_ROLE_LABELS[role];
-  const safeLoginUrl = escapeHtml(loginUrl);
   const nextSteps = whatsNextItems(role);
 
   const subject = `Your MHacks role has been updated to ${roleLabel}`;
@@ -476,104 +482,10 @@ export function buildRoleChangeEmail({
     "— The MHacks Team",
   ].join("\n");
 
-  const html = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MHacks | Role Updated</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;700;800;900&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      body,
-      table,
-      td,
-      a {
-        -webkit-text-size-adjust: 100%;
-        -ms-text-size-adjust: 100%;
-      }
-      table,
-      td {
-        mso-table-lspace: 0pt;
-        mso-table-rspace: 0pt;
-      }
-      img {
-        -ms-interpolation-mode: bicubic;
-        border: 0;
-        height: auto;
-        line-height: 100%;
-        outline: none;
-        text-decoration: none;
-      }
-      table {
-        border-collapse: collapse !important;
-      }
-      body {
-        height: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-      }
-    </style>
-  </head>
-  <body
-    style="
-      margin: 0;
-      padding: 0;
-      background-color: #f6f1de;
-      font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    "
-  >
-    <table
-      role="presentation"
-      width="100%"
-      cellspacing="0"
-      cellpadding="0"
-      style="background-color: #f6f1de; padding: 40px 0; width: 100%"
-    >
-      <tr>
-        <td align="center">
-          <table
-            role="presentation"
-            width="100%"
-            cellspacing="0"
-            cellpadding="0"
-            style="
-              background: #ffffff;
-              border-radius: 16px;
-              overflow: hidden;
-              max-width: 600px;
-            "
-          >
-            <tr>
-              <td align="center" style="padding: 40px 40px 20px">
-                <img
-                  src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
-                  alt="MHacks"
-                  width="120"
-                  style="
-                    display: block;
-                    border: 0;
-                    width: 120px;
-                    max-width: 120px;
-                  "
-                />
-              </td>
-            </tr>
-
-            <tr>
-              <td
-                style="
-                  padding: 0 40px 32px;
-                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-                "
-              >
-                <p
+  const html = renderEmailLayout(
+    "MHacks | Role Updated",
+    `${renderEmailSection(
+      `<p
                   style="
                     margin: 0;
                     color: #69a13b;
@@ -611,74 +523,11 @@ export function buildRoleChangeEmail({
                 </p>
 
                 <p style="margin: 0 0 24px; text-align: center">
-                  <a
-                    href="${safeLoginUrl}"
-                    style="
-                      display: inline-block;
-                      background: #3a4a26;
-                      color: #ffffff;
-                      font-size: 16px;
-                      font-weight: 700;
-                      line-height: 1;
-                      text-decoration: none;
-                      border-radius: 999px;
-                      padding: 14px 28px;
-                    "
-                  >
-                    Sign in to MHacks
-                  </a>
-                </p>
-              </td>
-            </tr>
-
-            <tr>
-              <td
-                style="
-                  padding: 0 40px 40px;
-                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
-                "
-              >
-                <h2
-                  style="
-                    margin: 0 0 20px;
-                    color: #040404;
-                    font-size: 24px;
-                    font-weight: 900;
-                  "
-                >
-                  What's Next?
-                </h2>
-
-                <ul
-                  style="
-                    margin: 0 0 24px;
-                    padding-left: 20px;
-                    color: #505050;
-                    font-size: 16px;
-                    line-height: 1.8;
-                  "
-                >
-                  ${renderListItems(nextSteps)}
-                </ul>
-
-                <p
-                  style="
-                    margin: 0;
-                    color: #505050;
-                    font-size: 16px;
-                    font-weight: 700;
-                  "
-                >
-                  &mdash; The MHacks Team
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+                  ${renderSignInButton(loginUrl)}
+                </p>`,
+    )}
+            ${renderWhatsNextSection(nextSteps)}`,
+  );
 
   return { subject, text, html };
 }

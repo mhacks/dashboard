@@ -38,7 +38,7 @@ export async function createUserInvite(
     replacePendingInvite?: boolean;
     changeExistingUserRole?: boolean;
   },
-): Promise<CreateUserInviteResult | undefined> {
+): Promise<CreateUserInviteResult> {
   const organizer = await requireOrganizer();
   const normalizedEmail = normalizeInviteEmail(email);
   const parsedEmail = userInviteEmailSchema.safeParse(normalizedEmail);
@@ -84,7 +84,7 @@ export async function createUserInvite(
   }
 
   if (!existingUser && pendingInvite && !replacePendingInvite) {
-    return { pendingInvite };
+    return { pendingInvite: { role: pendingInvite.role } };
   }
 
   if (existingUser) {
@@ -112,16 +112,11 @@ export async function createUserInvite(
       });
     });
 
-    try {
-      await sendRoleChangeEmail(normalizedEmail, inviteRole);
-    } catch (error) {
+    void sendRoleChangeEmail(normalizedEmail, inviteRole).catch((error) => {
       console.error("Failed to send role change email:", error);
-      return {
-        error: "Role updated, but the notification email could not be sent.",
-      };
-    }
+    });
 
-    return;
+    return { ok: true };
   }
 
   if (pendingInvite) {
@@ -138,17 +133,16 @@ export async function createUserInvite(
     expiresAt,
   });
 
-  try {
-    await sendInviteEmail(normalizedEmail, inviteRole, expiresAt);
-  } catch (error) {
+  void sendInviteEmail(normalizedEmail, inviteRole, expiresAt).catch((error) => {
     console.error("Failed to send invite email:", error);
-    return { error: "Invite created, but the email could not be sent." };
-  }
+  });
+
+  return { ok: true };
 }
 
 export async function revokeUserInvite(
   inviteId: string,
-): Promise<{ error: string } | undefined> {
+): Promise<{ ok: true } | { error: string }> {
   await requireOrganizer();
 
   const parsedId = z.uuid().safeParse(inviteId);
@@ -187,4 +181,6 @@ export async function revokeUserInvite(
     .update(userInvitations)
     .set({ revokedAt: new Date() })
     .where(eq(userInvitations.id, parsedId.data));
+
+  return { ok: true };
 }

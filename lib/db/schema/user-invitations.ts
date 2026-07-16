@@ -1,4 +1,4 @@
-import { pgTable, pgPolicy, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, pgPolicy, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
 import { and, gt, isNull, sql } from "drizzle-orm";
 import { authenticatedRole } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";
@@ -20,7 +20,9 @@ export const userInvitations = pgTable(
       .defaultNow()
       .notNull(),
   },
-  () => [
+  (table) => [
+    index("user_invitations_email_lower_idx").on(sql`lower(${table.email})`),
+    index("user_invitations_created_at_idx").on(table.createdAt),
     pgPolicy("user_invitations_organizer_select", {
       for: "select",
       to: authenticatedRole,

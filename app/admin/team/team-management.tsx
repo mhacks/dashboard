@@ -8,13 +8,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import type { Session } from "@supabase/supabase-js";
-import {
-  SearchIcon,
-  Trash2Icon,
-  UsersRoundIcon,
-  AlertTriangleIcon,
-} from "lucide-react";
+import { Trash2Icon, UsersRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   createUserInvite,
@@ -22,9 +16,8 @@ import {
   revokeUserInvite,
 } from "@/lib/actions/user-invitations.server.actions";
 import type { UserRole } from "@/lib/db/schema/users";
+import { formatShortDate } from "@/lib/format/dates";
 import {
-  canRevokeInvite,
-  coerceInviteDate,
   INVITE_PAGE_SIZE,
   INVITE_SYNC_CHANNEL,
   INVITE_SYNC_EVENT,
@@ -36,10 +29,15 @@ import {
   userInviteRoleSchema,
 } from "@/lib/types/user-invitations";
 import { createClient } from "@/lib/supabase/client";
-import { isBenignRealtimeChannelError } from "@/lib/supabase/realtime-errors";
+import { sendPrivateBroadcast } from "@/lib/supabase/realtime-broadcast";
+import { inviteStatusBadgeClass } from "@/lib/utils/badge-classes";
+import { useOrganizerRealtimeSession } from "@/hooks/use-organizer-realtime-session";
+import { usePrivateBroadcastChannel } from "@/hooks/use-private-broadcast-channel";
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
+import { SearchField } from "@/app/admin/components/search-field";
+import { WarningCallout } from "@/app/admin/components/warning-callout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,45 +71,20 @@ type InviteConfirmation =
       currentRole: UserRole;
     };
 
-type Organizer = { id: string; email: string };
-type SupabaseBrowserClient = ReturnType<typeof createClient>;
-type InviteSyncChannel = ReturnType<SupabaseBrowserClient["channel"]>;
-
 type TeamManagementProps = {
   initialInvites: UserInviteListResult;
 };
-
-function formatInviteDate(value: Date | string) {
-  return coerceInviteDate(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function inviteStatusBadgeClass(status: ReturnType<typeof inviteStatus>) {
-  switch (status) {
-    case "Accepted":
-      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/70 dark:bg-green-950/50 dark:text-green-300";
-    case "Pending":
-      return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/70 dark:bg-blue-950/50 dark:text-blue-300";
-    case "Revoked":
-      return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300";
-    case "Expired":
-      return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-300";
-  }
-}
 
 function inviteMetadata(invite: UserInviteListResult["items"][number]) {
   const status = inviteStatus(invite);
   const parts = [
     `Invited by ${invite.invitedByEmail}`,
-    `Created ${formatInviteDate(invite.createdAt)}`,
-    `Expires ${formatInviteDate(invite.expiresAt)}`,
+    `Created ${formatShortDate(invite.createdAt)}`,
+    `Expires ${formatShortDate(invite.expiresAt)}`,
   ];
 
   if (status === "Accepted" && invite.acceptedAt) {
-    parts.push(`Accepted ${formatInviteDate(invite.acceptedAt)}`);
+    parts.push(`Accepted ${formatShortDate(invite.acceptedAt)}`);
   }
 
   return parts.join(" · ");
@@ -130,13 +103,14 @@ export default function TeamManagement({
   const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
   const [inviteConfirmation, setInviteConfirmation] =
     useState<InviteConfirmation | null>(null);
-  const [organizer, setOrganizer] = useState<Organizer | null>(null);
-  const [realtimeReady, setRealtimeReady] = useState(false);
   const skipSearchEffect = useRef(true);
   const searchInputRef = useRef(searchInput);
   const pageIndexRef = useRef(pageIndex);
   const supabase = useMemo(() => createClient(), []);
-  const inviteSyncChannel = useRef<InviteSyncChannel | null>(null);
+  const inviteSyncChannel = useRef<ReturnType<typeof supabase.channel> | null>(
+    null,
+  );
+  const { organizer, realtimeReady } = useOrganizerRealtimeSession(supabase);
 
   useEffect(() => {
     searchInputRef.current = searchInput;
@@ -159,111 +133,31 @@ export default function TeamManagement({
   );
 
   const broadcastInviteUpdate = useCallback(async () => {
-    await inviteSyncChannel.current?.send({
-      type: "broadcast",
-      event: INVITE_SYNC_EVENT,
-      payload: {
-        sourceUserId: organizer?.id ?? "",
-      },
+    if (!organizer?.id) return;
+
+    await sendPrivateBroadcast(inviteSyncChannel.current, INVITE_SYNC_EVENT, {
+      sourceUserId: organizer.id,
     });
-  }, [organizer?.id]);
+  }, [organizer]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function syncSession(
-      session: Session | null,
-      mode: "full" | "refresh",
-    ) {
-      if (!session?.access_token) {
-        await supabase.realtime.setAuth(null);
-        if (cancelled) return;
-        setOrganizer(null);
-        setRealtimeReady(false);
-        return;
-      }
-
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-      if (cancelled || error || !user) {
-        await supabase.realtime.setAuth(null);
-        setOrganizer(null);
-        setRealtimeReady(false);
-        return;
-      }
-
-      if (mode === "refresh") {
-        await supabase.realtime.setAuth(session.access_token);
-        return;
-      }
-
-      setRealtimeReady(false);
-      await supabase.realtime.setAuth(session.access_token);
-      if (cancelled) return;
-
-      setOrganizer({ id: user.id, email: user.email ?? "" });
-      setRealtimeReady(true);
-    }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
-        void syncSession(session, "full");
-        return;
-      }
-
-      if (event === "TOKEN_REFRESHED") {
-        void syncSession(session, "refresh");
-        return;
-      }
-
-      if (event === "SIGNED_OUT") {
-        void syncSession(null, "full");
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  useEffect(() => {
-    if (!realtimeReady || !organizer) return;
-
-    let active = true;
-    let channel: InviteSyncChannel | null = null;
-
-    channel = supabase.channel(INVITE_SYNC_CHANNEL, {
-      config: { private: true },
-    });
-    inviteSyncChannel.current = channel;
-
-    channel.on("broadcast", { event: INVITE_SYNC_EVENT }, ({ payload }) => {
-      const parsed = inviteSyncPayloadSchema.safeParse(payload);
-      if (!parsed.success) return;
-      if (parsed.data.sourceUserId === organizer.id) return;
-
+  usePrivateBroadcastChannel({
+    supabase,
+    channelName: INVITE_SYNC_CHANNEL,
+    event: INVITE_SYNC_EVENT,
+    payloadSchema: inviteSyncPayloadSchema,
+    organizerId: organizer?.id,
+    realtimeReady,
+    channelRef: inviteSyncChannel,
+    onRemoteMessage: () => {
       void refreshInvites(pageIndexRef.current).catch((error) => {
-        console.error("Unable to refresh invites after realtime sync:", error);
+        console.error(
+          "Unable to refresh invites after realtime sync:",
+          error,
+        );
       });
-    });
-
-    channel.subscribe((status, err) => {
-      if (!active || status !== "CHANNEL_ERROR") return;
-      if (isBenignRealtimeChannelError(err)) return;
-      console.error("Unable to subscribe to invite sync channel:", err);
-    });
-
-    return () => {
-      active = false;
-      inviteSyncChannel.current = null;
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [organizer, realtimeReady, refreshInvites, supabase]);
+    },
+    logLabel: "invite sync channel",
+  });
 
   useEffect(() => {
     if (skipSearchEffect.current) {
@@ -302,7 +196,7 @@ export default function TeamManagement({
     }
 
     const result = await createUserInvite(email, inviteRole, options);
-    if (!result) {
+    if ("ok" in result && result.ok) {
       toast.success(
         options?.changeExistingUserRole ? "Role updated." : "Invite sent.",
       );
@@ -333,7 +227,9 @@ export default function TeamManagement({
       return;
     }
 
-    toast.error(result.error);
+    if ("error" in result) {
+      toast.error(result.error);
+    }
   }
 
   function handleInviteSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -383,7 +279,7 @@ export default function TeamManagement({
     void (async () => {
       const result = await revokeUserInvite(inviteId);
       setRevokingInviteId(null);
-      if (result?.error) {
+      if ("error" in result) {
         toast.error(result.error);
         return;
       }
@@ -393,6 +289,9 @@ export default function TeamManagement({
       void broadcastInviteUpdate();
     })();
   }
+
+  const isExistingUserConfirmation =
+    inviteConfirmation?.type === "existing-user";
 
   return (
     <AdminPageShell>
@@ -417,73 +316,66 @@ export default function TeamManagement({
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {inviteConfirmation ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-              <div className="flex items-start gap-2">
-                <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">
-                    {inviteConfirmation.type === "existing-user"
-                      ? "Change existing user's role?"
-                      : "Replace pending invite?"}
-                  </p>
-                  <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
-                    {inviteConfirmation.type === "existing-user" ? (
-                      <>
-                        <span className="font-medium text-amber-950 dark:text-amber-100">
-                          {inviteConfirmation.email}
-                        </span>{" "}
-                        already has an account as{" "}
-                        {USER_ROLE_LABELS[inviteConfirmation.currentRole]}.
-                        Change their role to{" "}
-                        {USER_ROLE_LABELS[inviteConfirmation.role]}?
-                      </>
-                    ) : (
-                      <>
-                        <span className="font-medium text-amber-950 dark:text-amber-100">
-                          {inviteConfirmation.email}
-                        </span>{" "}
-                        already has a pending invite as{" "}
-                        {USER_ROLE_LABELS[inviteConfirmation.pendingRole]}.
-                        Revoke that invite and send a new one as{" "}
-                        {USER_ROLE_LABELS[inviteConfirmation.role]}?
-                      </>
-                    )}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="bg-background"
-                      onClick={() => setInviteConfirmation(null)}
-                    >
-                      {inviteConfirmation.type === "existing-user"
-                        ? "Keep current role"
-                        : "Keep existing invite"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={
-                        inviteConfirmation.type === "existing-user"
-                          ? "default"
-                          : "destructive"
-                      }
-                      disabled={isSendingInvite}
-                      onClick={
-                        inviteConfirmation.type === "existing-user"
-                          ? handleConfirmExistingUserRoleChange
-                          : handleConfirmPendingInviteReplacement
-                      }
-                    >
-                      {inviteConfirmation.type === "existing-user"
-                        ? "Change role"
-                        : "Revoke and send new invite"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <WarningCallout
+              title={
+                isExistingUserConfirmation
+                  ? "Change existing user's role?"
+                  : "Replace pending invite?"
+              }
+              actions={
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="bg-background"
+                    onClick={() => setInviteConfirmation(null)}
+                  >
+                    {isExistingUserConfirmation
+                      ? "Keep current role"
+                      : "Keep existing invite"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={
+                      isExistingUserConfirmation ? "default" : "destructive"
+                    }
+                    disabled={isSendingInvite}
+                    onClick={
+                      isExistingUserConfirmation
+                        ? handleConfirmExistingUserRoleChange
+                        : handleConfirmPendingInviteReplacement
+                    }
+                  >
+                    {isExistingUserConfirmation
+                      ? "Change role"
+                      : "Revoke and send new invite"}
+                  </Button>
+                </>
+              }
+            >
+              {isExistingUserConfirmation ? (
+                <>
+                  <span className="font-medium text-amber-950 dark:text-amber-100">
+                    {inviteConfirmation.email}
+                  </span>{" "}
+                  already has an account as{" "}
+                  {USER_ROLE_LABELS[inviteConfirmation.currentRole]}. Change
+                  their role to {USER_ROLE_LABELS[inviteConfirmation.role]}?
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-amber-950 dark:text-amber-100">
+                    {inviteConfirmation.email}
+                  </span>{" "}
+                  already has a pending invite as{" "}
+                  {USER_ROLE_LABELS[inviteConfirmation.pendingRole]}. Revoke
+                  that invite and send a new one as{" "}
+                  {USER_ROLE_LABELS[inviteConfirmation.role]}?
+                </>
+              )}
+            </WarningCallout>
           ) : null}
           <form
             onSubmit={handleInviteSubmit}
@@ -541,17 +433,13 @@ export default function TeamManagement({
               Pending invites can be revoked before they are accepted or expire.
             </CardDescription>
           </div>
-          <div className="relative w-full sm:max-w-xs">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search by email…"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              className="pl-9"
-              aria-label="Search invites"
-            />
-          </div>
+          <SearchField
+            className="sm:max-w-xs"
+            placeholder="Search by email…"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            aria-label="Search invites"
+          />
         </CardHeader>
         <CardContent className="px-0 pb-0">
           {inviteData.totalCount === 0 ? (
@@ -590,7 +478,7 @@ export default function TeamManagement({
                           {inviteMetadata(invite)}
                         </p>
                       </div>
-                      {canRevokeInvite(invite) ? (
+                      {inviteStatus(invite) === "Pending" ? (
                         <Button
                           type="button"
                           variant="ghost"

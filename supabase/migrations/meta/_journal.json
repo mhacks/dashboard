@@ -57,6 +57,13 @@
       "when": 1784171630726,
       "tag": "20260716031350_user_invites_realtime",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784254560000,
+      "tag": "20260717043600_user_invitations_indexes",
+      "breakpoints": true
     }
   ]
 }
