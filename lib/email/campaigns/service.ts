@@ -11,7 +11,6 @@ import {
 } from "@/lib/db/schema/email";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
-  assertCampaignsEnabled,
   assertFullCampaignSendingAllowed,
   EmailCampaignError,
   getCampaignLimits,
@@ -41,7 +40,6 @@ export interface SendResult {
 
 export async function listCampaigns() {
   await requireOrganizer();
-  assertCampaignsEnabled();
 
   const rows = await db
     .select()
@@ -54,7 +52,6 @@ export async function listCampaigns() {
 
 export async function createCampaign(input: CampaignUpsertInput) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   const payload = validateCampaignInput(input);
   const now = new Date().toISOString();
 
@@ -85,7 +82,6 @@ export async function createCampaign(input: CampaignUpsertInput) {
 }
 
 export async function getCampaign(campaignId: string) {
-  assertCampaignsEnabled();
   const [campaign] = await db
     .select()
     .from(emailCampaigns)
@@ -128,7 +124,6 @@ export async function updateCampaign(
   input: CampaignUpsertInput,
 ) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   const payload = validateCampaignInput(input);
   const now = new Date().toISOString();
 
@@ -162,7 +157,6 @@ export async function updateCampaign(
 
 export async function deleteCampaign(campaignId: string) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
 
   await db.delete(emailCampaigns).where(eq(emailCampaigns.id, campaignId));
   await recordCampaignEvent({
@@ -178,7 +172,6 @@ export async function saveCampaignRecipients(
   recipientsText: string,
 ) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   await getCampaign(campaignId);
 
   const parsed = parseRecipientText(recipientsText);
@@ -236,7 +229,6 @@ export async function renderCampaignPreview(
   override?: Partial<CampaignUpsertInput>,
 ) {
   await requireOrganizer();
-  assertCampaignsEnabled();
   const campaign = await getCampaign(campaignId);
   const snapshot = {
     ...campaign.templateSnapshot,
@@ -254,7 +246,6 @@ export async function renderCampaignPreview(
 
 export async function sendOneCampaignEmail(campaignId: string, email: string) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   const campaign = await getCampaign(campaignId);
   const normalizedEmail = email.trim().toLowerCase();
   const mergeData = buildMergeData(normalizedEmail);
@@ -286,7 +277,6 @@ export async function sendTestCampaignEmails(
   emails: string[],
 ) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   const campaign = await getCampaign(campaignId);
   const uniqueEmails = Array.from(
     new Set(emails.map((email) => email.trim().toLowerCase())),
@@ -368,7 +358,6 @@ export async function processCampaignBatch(campaignId: string) {
 
 export async function retryFailedRecipients(campaignId: string) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   const now = new Date().toISOString();
 
   await db.update(emailCampaignRecipients).set({
@@ -392,7 +381,6 @@ export async function retryFailedRecipients(campaignId: string) {
 
 export async function getCampaignStatus(campaignId: string) {
   await requireOrganizer();
-  assertCampaignsEnabled();
   await getCampaign(campaignId);
   return campaignStatus(campaignId);
 }

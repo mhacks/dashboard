@@ -8,7 +8,7 @@ import {
 } from "@/lib/db/schema/email";
 import { EmailCampaignError } from "@/lib/email/campaigns/config";
 import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
-import { defaultEmailTheme } from "@/lib/email/theme";
+import { defaultEmailTheme, normalizeEmailTheme } from "@/lib/email/theme";
 import {
   getEmailTemplate,
   getTemplateCatalog,
@@ -140,14 +140,14 @@ export async function getActiveTheme() {
     .limit(1);
 
   return {
-    theme: setting?.theme ?? defaultEmailTheme,
+    theme: normalizeEmailTheme(setting?.theme ?? defaultEmailTheme),
     databaseReady: true,
   };
 }
 
 export async function saveActiveTheme(input: unknown) {
   const organizer = await requireOrganizer();
-  const theme = emailThemeTokensSchema.parse(input);
+  const theme = normalizeEmailTheme(emailThemeTokensSchema.parse(input));
   const now = new Date().toISOString();
 
   const [setting] = await db
@@ -168,7 +168,7 @@ export async function saveActiveTheme(input: unknown) {
     })
     .returning();
 
-  return setting.theme;
+  return normalizeEmailTheme(setting.theme);
 }
 
 export async function renderMasterTemplatePreview(input: {

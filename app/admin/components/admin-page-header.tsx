@@ -6,11 +6,13 @@ export function AdminPageHeader({
   title,
   description,
   variant = "page",
+  actions,
   footer,
 }: {
   title: string;
   description?: string;
   variant?: "page" | "workspace";
+  actions?: ReactNode;
   footer?: ReactNode;
 }) {
   const classes = adminPageHeaderClasses(variant);
@@ -29,7 +31,10 @@ export function AdminPageHeader({
             </p>
           ) : null}
         </div>
-        <AdminHeaderActions />
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          {actions}
+          <AdminHeaderActions />
+        </div>
       </div>
       {footer}
     </header>

@@ -38,32 +38,12 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_SECRET_ACCESS_KEY"
         },
         {
-          "name": "ENABLE_EMAIL_CAMPAIGNS",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/ENABLE_EMAIL_CAMPAIGNS"
-        },
-        {
-          "name": "EMAIL_CAMPAIGN_ALLOW_FULL_SENDS",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_ALLOW_FULL_SENDS"
-        },
-        {
-          "name": "AWS_SES_REGION",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_REGION"
-        },
-        {
           "name": "AWS_SES_ACCESS_KEY_ID",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_ACCESS_KEY_ID"
         },
         {
           "name": "AWS_SES_SECRET_ACCESS_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SECRET_ACCESS_KEY"
-        },
-        {
-          "name": "EMAIL_CAMPAIGN_FROM_EMAIL",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_FROM_EMAIL"
-        },
-        {
-          "name": "EMAIL_CAMPAIGN_FROM_NAME",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_FROM_NAME"
         },
         {
           "name": "DATABASE_URL",

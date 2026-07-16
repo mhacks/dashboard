@@ -1,6 +1,6 @@
 import { render, toPlainText } from "@react-email/render";
 import { getEmailTemplate } from "@/lib/email/templates/registry";
-import { defaultEmailTheme } from "@/lib/email/theme";
+import { defaultEmailTheme, normalizeEmailTheme } from "@/lib/email/theme";
 import {
   emailCampaignContentSchema,
   emailRenderPreviewSchema,
@@ -38,9 +38,10 @@ export async function renderCampaignEmail({
   }
 
   const parsedContent = emailCampaignContentSchema.parse(content);
-  const parsedTheme = theme
+  const parsedThemeInput = theme
     ? emailThemeTokensSchema.parse(theme)
     : defaultEmailTheme;
+  const parsedTheme = normalizeEmailTheme(parsedThemeInput);
   const mergedContent = mergeContent(parsedContent, mergeData);
   const mergedPreviewText = mergeText(previewText, mergeData);
   const mergedSubject = mergeText(subject, mergeData);

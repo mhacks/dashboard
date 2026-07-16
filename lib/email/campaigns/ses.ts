@@ -1,7 +1,11 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { EmailCampaignError } from "@/lib/email/campaigns/config";
+import {
+  emailCampaignSender,
+  EmailCampaignError,
+} from "@/lib/email/campaigns/config";
 
 let sesClient: SESClient | null = null;
+const sesRegion = "us-east-2";
 const sesRequestTimeoutMs = 15_000;
 
 export interface SendRenderedEmailInput {
@@ -18,19 +22,6 @@ export async function sendRenderedEmail({
   text,
 }: SendRenderedEmailInput) {
   const client = getSesClient();
-  const fromEmail =
-    process.env.EMAIL_CAMPAIGN_FROM_EMAIL ?? process.env.SES_FROM_EMAIL;
-  const fromName =
-    process.env.EMAIL_CAMPAIGN_FROM_NAME ??
-    process.env.SES_FROM_NAME ??
-    "MHacks Team";
-
-  if (!fromEmail) {
-    throw new EmailCampaignError(
-      "EMAIL_CAMPAIGN_FROM_EMAIL is not configured",
-      500,
-    );
-  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), sesRequestTimeoutMs);
@@ -38,7 +29,7 @@ export async function sendRenderedEmail({
   try {
     const result = await client.send(
       new SendEmailCommand({
-        Source: `${fromName} <${fromEmail}>`,
+        Source: `${emailCampaignSender.fromName} <${emailCampaignSender.fromEmail}>`,
         Destination: {
           ToAddresses: [to],
         },
@@ -91,12 +82,6 @@ function getSesClient() {
     return sesClient;
   }
 
-  const configuredRegion =
-    process.env.AWS_SES_REGION ?? process.env.RESUMES_REGION;
-  const region =
-    configuredRegion && configuredRegion !== "local"
-      ? configuredRegion
-      : "us-east-2";
   const accessKeyId =
     process.env.AWS_SES_ACCESS_KEY_ID ??
     process.env.AWS_SES_SMTP_USER ??
@@ -104,12 +89,15 @@ function getSesClient() {
   const secretAccessKey =
     process.env.AWS_SES_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY;
 
-  if (!region || !accessKeyId || !secretAccessKey) {
-    throw new EmailCampaignError("SES credentials are not configured", 500);
+  if (!accessKeyId || !secretAccessKey) {
+    throw new EmailCampaignError(
+      "SES credentials are not configured. Set AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY, then restart the dev server.",
+      500,
+    );
   }
 
   sesClient = new SESClient({
-    region,
+    region: sesRegion,
     credentials: {
       accessKeyId,
       secretAccessKey,

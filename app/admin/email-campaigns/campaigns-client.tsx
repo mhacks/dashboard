@@ -6,32 +6,28 @@ import {
   ArrowUp,
   AlertTriangle,
   CheckCircle2,
-  FileText,
-  Flower2,
+  Copy,
   Laptop,
   ListChecks,
   Loader2,
-  Moon,
-  Palette,
   Play,
   Plus,
   Save,
   Send,
+  Sparkles,
   Smartphone,
-  Sun,
   Trash2,
   Upload,
   Users,
   X,
 } from "lucide-react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type { EmailCampaignContent, EmailThemeTokens } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
 
 type PreviewMode = "desktop" | "mobile";
-type Surface = "builder" | "styles" | "send";
+export type EmailCampaignSurface = "builder" | "styles" | "send";
 type TemplateType = "structured" | "html";
 type ToastTone = "loading" | "success" | "error" | "info";
 
@@ -90,13 +86,15 @@ interface ToastState {
 const templatesStorageKey = "mhacks-email-master-templates";
 const themeStorageKey = "mhacks-email-active-theme";
 const themeStorageVersionKey = "mhacks-email-active-theme-version";
-const currentThemeStorageVersion = "m26-base-config";
-const colorModeStorageKey = "mhacks-email-studio-dark-mode";
+const currentThemeStorageVersion = "m26-single-font-config";
 
-export default function EmailCampaignsClient() {
+export default function EmailCampaignsClient({
+  initialSurface,
+}: {
+  initialSurface: EmailCampaignSurface;
+}) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
-  const [surface, setSurface] = useState<Surface>("builder");
-  const [darkMode, setDarkMode] = useState(false);
+  const surface = initialSurface;
   const [templates, setTemplates] = useState<MasterTemplate[]>([]);
   const [campaignLimits, setCampaignLimits] = useState<CampaignLimits>({
     maxRecipients: 2000,
@@ -119,6 +117,7 @@ export default function EmailCampaignsClient() {
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const [notice, setNotice] = useState("");
+  const [aiDraftText, setAiDraftText] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -177,9 +176,14 @@ export default function EmailCampaignsClient() {
       const saved = await persistTemplate(selectedTemplate);
       replaceTemplate(saved);
       setNotice("Template saved.");
+      showToast("success", "Template saved", "Saved to the database.");
     } catch {
-      storeTemplates(templates);
-      setNotice("Template saved.");
+      setNotice("Template could not be saved to the database.");
+      showToast(
+        "error",
+        "Template save failed",
+        "The local draft is still visible, but it was not persisted.",
+      );
     } finally {
       setBusy(null);
     }
@@ -198,9 +202,14 @@ export default function EmailCampaignsClient() {
       setTheme(data.theme);
       storeTheme(data.theme);
       setNotice("Styles saved.");
+      showToast("success", "Styles saved", "Saved to the database.");
     } catch {
-      storeTheme(theme);
-      setNotice("Styles saved.");
+      setNotice("Styles could not be saved to the database.");
+      showToast(
+        "error",
+        "Styles save failed",
+        "The current styles are still visible locally, but were not persisted.",
+      );
     } finally {
       setBusy(null);
     }
@@ -283,12 +292,18 @@ export default function EmailCampaignsClient() {
       setSelectedTemplateId(data.template.id);
       storeTemplates(nextTemplates);
       setNotice("Template uploaded.");
+      showToast("success", "Template uploaded", "Saved to the database.");
     } catch {
       const nextTemplates = [template, ...templates];
       setTemplates(nextTemplates);
       setSelectedTemplateId(template.id);
       storeTemplates(nextTemplates);
-      setNotice("Template uploaded.");
+      setNotice("Upload kept as a local draft. Database save failed.");
+      showToast(
+        "error",
+        "Upload save failed",
+        "The uploaded template is local only until it saves successfully.",
+      );
     } finally {
       setBusy(null);
       if (uploadRef.current) {
@@ -395,12 +410,59 @@ export default function EmailCampaignsClient() {
     setNotice("Template removed.");
   }
 
-  function toggleDarkMode() {
-    setDarkMode((current) => {
-      const next = !current;
-      window.localStorage.setItem(colorModeStorageKey, String(next));
-      return next;
-    });
+  async function copyAiTemplateContext() {
+    if (!selectedTemplate) return;
+
+    try {
+      const context = buildAiTemplateContext(selectedTemplate, mergeFields);
+      await window.navigator.clipboard.writeText(context);
+      setNotice("AI context copied.");
+      showToast(
+        "success",
+        "AI context copied",
+        "Paste it into your local agent or ChatGPT, then import the JSON draft here.",
+      );
+    } catch {
+      setNotice("Could not copy AI context.");
+      showToast("error", "Could not copy AI context");
+    }
+  }
+
+  function importAiTemplateDraft() {
+    if (!selectedTemplate) return;
+
+    try {
+      const draft = parseAiTemplateDraft(
+        aiDraftText,
+        selectedTemplate,
+        mergeFields,
+      );
+      const now = new Date().toISOString();
+      const newTemplate: MasterTemplate = {
+        ...selectedTemplate,
+        ...draft,
+        id: `local-template-${crypto.randomUUID()}`,
+        name: draft.name ?? `${selectedTemplate.name} AI draft`,
+        status: "active",
+        updatedAt: now,
+      };
+      const nextTemplates = [newTemplate, ...templates];
+      setTemplates(nextTemplates);
+      setSelectedTemplateId(newTemplate.id);
+      setSelectedSectionIndex(0);
+      storeTemplates(nextTemplates);
+      setAiDraftText("");
+      setNotice("AI draft created as a new template. Review before saving.");
+      showToast(
+        "success",
+        "AI draft created",
+        "The source template was not changed.",
+      );
+    } catch (error) {
+      const message = errorMessage(error);
+      setNotice(message);
+      showToast("error", "AI draft rejected", message);
+    }
   }
 
   async function renderPreview(
@@ -659,7 +721,6 @@ export default function EmailCampaignsClient() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadWorkspace();
-      setDarkMode(readStorage(colorModeStorageKey, false));
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -689,87 +750,18 @@ export default function EmailCampaignsClient() {
   const previewWidth = previewMode === "desktop" ? 720 : 390;
 
   return (
-    <div
-      className={cn(
-        "relative min-h-screen overflow-hidden transition-colors",
-        darkMode
-          ? "dark bg-[#0b0d08] text-zinc-50"
-          : "bg-[#f7f7f2] text-zinc-950",
-      )}
-    >
-      <Image
-        src="/white_green_bg.png"
-        alt=""
-        fill
-        className="pointer-events-none object-cover object-top opacity-[0.06] dark:opacity-[0.08]"
-      />
-      <div className="pointer-events-none absolute inset-0 bg-white/82 dark:bg-[#0b0d08]/88" />
-
-      <section className="relative border-b border-black/10 bg-white/80 px-4 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#11140d]/82 dark:shadow-[0_8px_32px_rgba(0,0,0,0.24)]">
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-end justify-between gap-5">
-            <div>
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                <Flower2 className="size-4" />
-                MHacks Email Studio
-              </div>
-              <h1 className="font-heading mt-1 text-4xl leading-none italic text-[#3A4A26] sm:text-5xl dark:text-[#dce8b0]">
-                Campaigns
-              </h1>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                Build, tune, and preview reusable email templates.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className={cn(liquidDarkPillClass, "flex w-fit gap-1 p-1")}>
-              <PillButton
-                active={surface === "builder"}
-                onClick={() => setSurface("builder")}
-              >
-                <FileText />
-                Builder
-              </PillButton>
-              <PillButton
-                active={surface === "styles"}
-                onClick={() => setSurface("styles")}
-              >
-                <Palette />
-                Styles
-              </PillButton>
-              <PillButton
-                active={surface === "send"}
-                onClick={() => setSurface("send")}
-              >
-                <Send />
-                Send
-              </PillButton>
-            </div>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              title={darkMode ? "Light mode" : "Dark mode"}
-              className={cn(liquidIconButtonClass, "size-11")}
-              onClick={toggleDarkMode}
-            >
-              {darkMode ? <Sun /> : <Moon />}
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <div className="relative mx-auto grid max-w-[1600px] gap-4 px-4 py-4 md:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_minmax(420px,0.9fr)]">
+    <div className="font-red-hat flex min-h-0 flex-col gap-4">
+      <div className="grid w-full gap-4 md:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_minmax(420px,0.9fr)]">
         <aside className="md:self-stretch">
-          <section className={cn(liquidPanelClass, "p-4 md:sticky md:top-4")}>
+          <section className={cn(adminPanelClass, "p-4 md:sticky md:top-4")}>
             <div className="flex items-center justify-between">
-              <h2 className="font-heading text-2xl italic text-[#3A4A26] dark:text-[#dce8b0]">
+              <h2 className="text-base font-semibold text-foreground">
                 Templates
               </h2>
               <Button
                 variant="ghost"
                 title="New template"
-                className={cn(liquidLightButtonClass, "h-8 px-3")}
+                className={cn(adminSecondaryButtonClass, "h-8 px-3")}
                 onClick={createStructuredTemplate}
               >
                 <Plus />
@@ -789,7 +781,7 @@ export default function EmailCampaignsClient() {
             <Button
               variant="ghost"
               className={cn(
-                liquidLightButtonClass,
+                adminSecondaryButtonClass,
                 "mt-3 w-full justify-start",
               )}
               onClick={() => uploadRef.current?.click()}
@@ -807,21 +799,21 @@ export default function EmailCampaignsClient() {
                     setSelectedTemplateId(template.id);
                     setSelectedSectionIndex(0);
                   }}
-                  className={`w-full rounded-[1.25rem] border p-3 text-left transition ${
+                  className={`w-full rounded-lg border p-3 text-left transition ${
                     selectedTemplateId === template.id
-                      ? "border-[#44572199] bg-[#f4f7ee] shadow-[0_10px_28px_rgba(68,87,33,0.12)] dark:border-[#dce8b066] dark:bg-[#1b2213]"
-                      : "border-black/10 bg-white hover:border-black/15 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20 dark:hover:bg-white/[0.07]"
+                      ? "border-primary bg-muted/40 "
+                      : "border-border bg-card hover:border-border hover:bg-muted"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+                    <p className="truncate text-sm font-semibold text-foreground">
                       {template.name}
                     </p>
-                    <span className="rounded-full border border-white/15 bg-black/[0.38] px-2 py-1 text-[10px] uppercase tracking-wide text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-xl dark:bg-white/10">
+                    <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs uppercase tracking-wide text-muted-foreground">
                       {template.type}
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-300">
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                     {template.description || template.subject}
                   </p>
                 </button>
@@ -830,7 +822,7 @@ export default function EmailCampaignsClient() {
           </section>
         </aside>
 
-        <section className={cn(liquidPanelClass, "min-h-[740px] p-5")}>
+        <section className={cn(adminPanelClass, "min-h-[740px] p-5")}>
           {surface === "builder" ? (
             <BuilderPanel
               notice={notice}
@@ -842,6 +834,10 @@ export default function EmailCampaignsClient() {
               busy={busy}
               onSaveTemplate={() => void saveTemplateToMaster()}
               onDeleteTemplate={deleteSelectedTemplate}
+              aiDraftText={aiDraftText}
+              onAiDraftTextChange={setAiDraftText}
+              onCopyAiContext={() => void copyAiTemplateContext()}
+              onImportAiDraft={importAiTemplateDraft}
               onMergePreviewDataChange={(field, value) =>
                 setMergePreviewData((current) => ({
                   ...current,
@@ -890,18 +886,18 @@ export default function EmailCampaignsClient() {
         </section>
 
         <section
-          className={cn(liquidPanelClass, "p-4 md:col-span-2 2xl:col-span-1")}
+          className={cn(adminPanelClass, "p-4 md:col-span-2 2xl:col-span-1")}
         >
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="font-heading text-2xl italic text-[#3A4A26] dark:text-[#dce8b0]">
+              <h2 className="text-base font-semibold text-foreground">
                 Preview
               </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs text-muted-foreground">
                 Live desktop/mobile preview.
               </p>
             </div>
-            <div className={cn(liquidDarkPillClass, "flex gap-1 p-1")}>
+            <div className="inline-flex items-center gap-1 rounded-md border bg-muted p-1">
               <PreviewButton
                 active={previewMode === "desktop"}
                 onClick={() => setPreviewMode("desktop")}
@@ -918,9 +914,9 @@ export default function EmailCampaignsClient() {
               </PreviewButton>
             </div>
           </div>
-          <div className="mt-4 overflow-auto rounded-[1.25rem] border border-black/10 bg-[#f7f7f4] p-4 dark:border-white/10 dark:bg-black/20">
+          <div className="mt-4 overflow-auto rounded-lg border border-border bg-muted/30 p-4">
             <div
-              className="mx-auto overflow-hidden rounded-xl bg-white shadow-[0_18px_48px_rgba(0,0,0,0.14)]"
+              className="mx-auto overflow-hidden rounded-md bg-card "
               style={{ width: previewWidth, maxWidth: "100%" }}
             >
               {previewHtml ? (
@@ -931,7 +927,7 @@ export default function EmailCampaignsClient() {
                   className="h-[760px] w-full border-0"
                 />
               ) : (
-                <div className="flex h-[520px] items-center justify-center text-sm text-zinc-500">
+                <div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">
                   Select a template to preview.
                 </div>
               )}
@@ -954,6 +950,10 @@ function BuilderPanel({
   busy,
   onSaveTemplate,
   onDeleteTemplate,
+  aiDraftText,
+  onAiDraftTextChange,
+  onCopyAiContext,
+  onImportAiDraft,
   onMergePreviewDataChange,
   onTemplateChange,
   onContentChange,
@@ -972,6 +972,10 @@ function BuilderPanel({
   busy: string | null;
   onSaveTemplate: () => void;
   onDeleteTemplate: () => void;
+  aiDraftText: string;
+  onAiDraftTextChange: (value: string) => void;
+  onCopyAiContext: () => void;
+  onImportAiDraft: () => void;
   onMergePreviewDataChange: (field: string, value: string) => void;
   onTemplateChange: (patch: Partial<MasterTemplate>) => void;
   onContentChange: (patch: Partial<EmailCampaignContent>) => void;
@@ -986,7 +990,7 @@ function BuilderPanel({
 }) {
   if (!selectedTemplate) {
     return (
-      <div className="flex h-full items-center justify-center rounded-[1.5rem] border border-dashed border-black/15 bg-white text-sm text-zinc-500 dark:border-white/15 dark:bg-white/[0.04] dark:text-zinc-400">
+      <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border bg-card text-sm text-muted-foreground">
         Choose or create a master template.
       </div>
     );
@@ -996,29 +1000,27 @@ function BuilderPanel({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Template editor
           </p>
-          <h2 className="font-heading text-3xl italic text-[#3A4A26] sm:text-4xl dark:text-[#dce8b0]">
+          <h2 className="text-lg font-semibold text-foreground">
             {selectedTemplate.name}
           </h2>
           {notice ? (
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              {notice}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{notice}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="ghost"
-            className={liquidDangerButtonClass}
+            className={adminDangerButtonClass}
             onClick={onDeleteTemplate}
           >
             <Trash2 />
             Remove
           </Button>
           <Button
-            className={liquidDarkButtonClass}
+            className={adminPrimaryButtonClass}
             onClick={onSaveTemplate}
             disabled={busy === "save-template"}
           >
@@ -1071,10 +1073,18 @@ function BuilderPanel({
         onChange={onMergePreviewDataChange}
       />
 
+      <AiDraftPanel
+        draftText={aiDraftText}
+        templateType={selectedTemplate.type}
+        onCopyContext={onCopyAiContext}
+        onDraftTextChange={onAiDraftTextChange}
+        onImportDraft={onImportAiDraft}
+      />
+
       {selectedTemplate.type === "html" ? (
         <Field label="HTML template">
           <textarea
-            className={`${textareaClass} font-mono text-xs`}
+            className={`${textareaClass} text-xs`}
             rows={18}
             value={selectedTemplate.html ?? ""}
             onChange={(event) => onTemplateChange({ html: event.target.value })}
@@ -1082,15 +1092,15 @@ function BuilderPanel({
         </Field>
       ) : selectedTemplate.content ? (
         <div className="grid gap-4 lg:grid-cols-[230px_1fr]">
-          <div className={cn(liquidInsetClass, "p-3")}>
+          <div className={cn(adminInsetClass, "p-3")}>
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Blocks
               </p>
               <Button
                 size="icon-sm"
                 variant="ghost"
-                className={liquidIconButtonClass}
+                className={adminIconButtonClass}
                 onClick={onSectionAdd}
               >
                 <Plus />
@@ -1102,16 +1112,16 @@ function BuilderPanel({
                   key={section.id}
                   type="button"
                   onClick={() => onSectionSelect(index)}
-                  className={`w-full rounded-[1rem] border p-3 text-left text-sm transition ${
+                  className={`w-full rounded-md border p-3 text-left text-sm transition ${
                     selectedSectionIndex === index
-                      ? "border-[#44572199] bg-white shadow-[0_10px_26px_rgba(68,87,33,0.1)] dark:border-[#dce8b066] dark:bg-[#1b2213]"
-                      : "border-black/10 bg-transparent hover:bg-white dark:border-white/10 dark:hover:bg-white/[0.06]"
+                      ? "border-primary bg-card "
+                      : "border-border bg-transparent hover:bg-card"
                   }`}
                 >
-                  <p className="truncate font-medium text-zinc-950 dark:text-zinc-100">
+                  <p className="truncate font-medium text-foreground">
                     {section.title || `Block ${index + 1}`}
                   </p>
-                  <p className="mt-1 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-300">
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                     {section.body}
                   </p>
                 </button>
@@ -1150,14 +1160,14 @@ function BuilderPanel({
               />
             </Field>
             {selectedSection ? (
-              <div className={cn(liquidInsetClass, "p-4")}>
+              <div className={cn(adminInsetClass, "p-4")}>
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-sm font-semibold">Selected block</p>
                   <div className="flex gap-1">
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      className={liquidMiniButtonClass}
+                      className={adminMiniButtonClass}
                       onClick={() => onSectionMove(selectedSectionIndex, -1)}
                     >
                       <ArrowUp />
@@ -1165,7 +1175,7 @@ function BuilderPanel({
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      className={liquidMiniButtonClass}
+                      className={adminMiniButtonClass}
                       onClick={() => onSectionMove(selectedSectionIndex, 1)}
                     >
                       <ArrowDown />
@@ -1173,7 +1183,7 @@ function BuilderPanel({
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      className={liquidMiniButtonClass}
+                      className={adminMiniButtonClass}
                       onClick={() => onSectionRemove(selectedSectionIndex)}
                     >
                       <Trash2 />
@@ -1245,6 +1255,76 @@ function BuilderPanel({
   );
 }
 
+function AiDraftPanel({
+  draftText,
+  templateType,
+  onCopyContext,
+  onDraftTextChange,
+  onImportDraft,
+}: {
+  draftText: string;
+  templateType: TemplateType;
+  onCopyContext: () => void;
+  onDraftTextChange: (value: string) => void;
+  onImportDraft: () => void;
+}) {
+  return (
+    <section className={cn(adminInsetClass, "p-4")}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              AI drafting
+            </p>
+            <span className="rounded border bg-card px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+              Beta
+            </span>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Copy a strict template context for ChatGPT or a local agent, then
+            paste its JSON draft here. Imports create a new local template and
+            never overwrite the source template.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          className={adminSecondaryButtonClass}
+          onClick={onCopyContext}
+        >
+          <Copy />
+          Copy AI context
+        </Button>
+      </div>
+
+      <textarea
+        className={cn(textareaClass, "mt-3 min-h-32 text-xs")}
+        value={draftText}
+        onChange={(event) => onDraftTextChange(event.target.value)}
+        placeholder={
+          templateType === "html"
+            ? '{ "subject": "...", "previewText": "...", "html": "<p>...</p>" }'
+            : '{ "subject": "...", "previewText": "...", "content": { "heading": "...", "sections": [...] } }'
+        }
+      />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          Importing creates a new local draft. It does not save or send.
+        </p>
+        <Button
+          type="button"
+          className={adminPrimaryButtonClass}
+          disabled={!draftText.trim()}
+          onClick={onImportDraft}
+        >
+          <Sparkles />
+          Import AI draft
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function MergeFieldsPanel({
   fields,
   values,
@@ -1255,19 +1335,19 @@ function MergeFieldsPanel({
   onChange: (field: string, value: string) => void;
 }) {
   return (
-    <section className={cn(liquidInsetClass, "p-4")}>
+    <section className={cn(adminInsetClass, "p-4")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Recipient data
           </p>
-          <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
             Merge fields are recipient-list columns, not values to enter one by
             one. A future audience import should provide one row per recipient
             and one column for each field used here.
           </p>
         </div>
-        <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-zinc-600 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-300">
+        <span className="rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           {fields.length} required {fields.length === 1 ? "column" : "columns"}
         </span>
       </div>
@@ -1275,7 +1355,7 @@ function MergeFieldsPanel({
       {fields.length > 0 ? (
         <div className="mt-4 space-y-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Required mailing list columns
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -1285,23 +1365,23 @@ function MergeFieldsPanel({
                 </code>
               ))}
             </div>
-            <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
               For a 2000 person list, this is handled once at import/send time:
               each CSV/database row supplies its own values for these columns.
             </p>
           </div>
 
-          <div className="rounded-xl border border-black/10 bg-white p-3 dark:border-white/10 dark:bg-white/[0.035]">
+          <div className="rounded-md border border-border bg-card p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Sample preview row
                 </span>
-                <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Used only to render the preview on the right.
                 </p>
               </div>
-              <span className="rounded-full border border-black/10 px-3 py-1 text-xs text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+              <span className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground">
                 1 recipient
               </span>
             </div>
@@ -1309,7 +1389,7 @@ function MergeFieldsPanel({
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {fields.map((field) => (
                 <label key={field} className="block space-y-2">
-                  <span className="flex items-center justify-between gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  <span className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
                     <span className="truncate">{field}</span>
                     <code className={codeClass}>{`{{${field}}}`}</code>
                   </span>
@@ -1326,7 +1406,7 @@ function MergeFieldsPanel({
           </div>
         </div>
       ) : (
-        <p className="mt-3 rounded-xl border border-dashed border-black/10 bg-white px-3 py-2 text-sm text-zinc-500 dark:border-white/10 dark:bg-white/[0.035] dark:text-zinc-400">
+        <p className="mt-3 rounded-md border border-dashed border-border bg-card px-3 py-2 text-sm text-muted-foreground">
           This template does not require extra recipient columns yet.
         </p>
       )}
@@ -1380,51 +1460,47 @@ function SendPanel({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Direct send
           </p>
-          <h2 className="font-heading text-3xl italic text-[#3A4A26] sm:text-4xl dark:text-[#dce8b0]">
-            Send email
-          </h2>
+          <h2 className="text-lg font-semibold text-foreground">Send email</h2>
           {notice ? (
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              {notice}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{notice}</p>
           ) : null}
         </div>
       </div>
 
       {!templateCanSend ? (
-        <p className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
+        <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
           Select a template with content before sending.
         </p>
       ) : null}
 
       <SendProgress busy={busy} sendStatus={sendStatus} />
 
-      <section className={cn(liquidInsetClass, "p-4")}>
+      <section className={cn(adminInsetClass, "p-4")}>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Selected template
             </p>
-            <p className="mt-1 text-lg font-semibold text-zinc-950 dark:text-zinc-100">
+            <p className="mt-1 text-lg font-semibold text-foreground">
               {selectedTemplate?.name ?? "No template selected"}
             </p>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-sm text-muted-foreground">
               {selectedTemplate?.type === "html"
                 ? "HTML template"
                 : "Structured template"}
             </p>
           </div>
-          <div className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[0.035]">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <div className="rounded-md border border-border bg-card px-3 py-2 text-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Server limits
             </p>
-            <p className="mt-1 text-zinc-700 dark:text-zinc-200">
+            <p className="mt-1 text-foreground">
               {limits.maxRecipients} max recipients
             </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs text-muted-foreground">
               {limits.batchSize}/batch, about {sendRate}/sec
               {limits.maxSendRatePerSecond
                 ? ` max ${limits.maxSendRatePerSecond}/sec`
@@ -1446,13 +1522,13 @@ function SendPanel({
         ) : null}
       </section>
 
-      <section className={cn(liquidInsetClass, "p-4")}>
+      <section className={cn(adminInsetClass, "p-4")}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Recipients
             </p>
-            <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Paste emails or CSV with an{" "}
               <code className={codeClass}>email</code> column plus merge columns
               like <code className={codeClass}>name</code>.
@@ -1460,7 +1536,7 @@ function SendPanel({
           </div>
           <Button
             variant="ghost"
-            className={liquidLightButtonClass}
+            className={adminSecondaryButtonClass}
             disabled={!recipientText.trim() || Boolean(busy)}
             onClick={onCheckRecipients}
           >
@@ -1469,7 +1545,7 @@ function SendPanel({
           </Button>
         </div>
         <textarea
-          className={cn(textareaClass, "mt-3 min-h-36 font-mono text-xs")}
+          className={cn(textareaClass, "mt-3 min-h-36 text-xs")}
           value={recipientText}
           onChange={(event) => onRecipientTextChange(event.target.value)}
           placeholder={
@@ -1478,23 +1554,23 @@ function SendPanel({
         />
         {recipientResult ? (
           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-            <p className="rounded-xl border border-black/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.035]">
+            <p className="rounded-md border border-border bg-card px-3 py-2">
               {recipientResult.emails.length} valid
             </p>
-            <p className="rounded-xl border border-black/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.035]">
+            <p className="rounded-md border border-border bg-card px-3 py-2">
               {recipientResult.duplicateCount} duplicates
             </p>
-            <p className="rounded-xl border border-black/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.035]">
+            <p className="rounded-md border border-border bg-card px-3 py-2">
               {recipientResult.invalid.length} invalid
             </p>
           </div>
         ) : null}
       </section>
 
-      <section className={cn(liquidInsetClass, "p-4")}>
+      <section className={cn(adminInsetClass, "p-4")}>
         <div className="grid gap-4 lg:grid-cols-2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Send one
             </p>
             <div className="mt-2 flex gap-2">
@@ -1506,7 +1582,7 @@ function SendPanel({
                 placeholder="one@email.com"
               />
               <Button
-                className={liquidDarkButtonClass}
+                className={adminPrimaryButtonClass}
                 disabled={!templateCanSend || !sendOneEmail || Boolean(busy)}
                 onClick={onSendOne}
               >
@@ -1516,7 +1592,7 @@ function SendPanel({
             </div>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Test send
             </p>
             <div className="mt-2 flex gap-2">
@@ -1528,7 +1604,7 @@ function SendPanel({
               />
               <Button
                 variant="ghost"
-                className={liquidLightButtonClass}
+                className={adminSecondaryButtonClass}
                 disabled={
                   !templateCanSend || !testEmails.trim() || Boolean(busy)
                 }
@@ -1542,30 +1618,30 @@ function SendPanel({
         </div>
       </section>
 
-      <section className={cn(liquidInsetClass, "p-4")}>
+      <section className={cn(adminInsetClass, "p-4")}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Full list
             </p>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+            <p className="mt-1 text-sm text-muted-foreground">
               Sends in server-throttled batches. Keep this tab open while the
               list is running.
             </p>
             {sendStatus ? (
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="mt-2 text-sm text-muted-foreground">
                 {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
                 {sendStatus.failedCount} failed
               </p>
             ) : validatedRecipients > 0 ? (
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="mt-2 text-sm text-muted-foreground">
                 {validatedRecipients} checked recipients ready to send.
               </p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
-              className={liquidDarkButtonClass}
+              className={adminPrimaryButtonClass}
               disabled={
                 !templateCanSend || !recipientText.trim() || Boolean(busy)
               }
@@ -1581,7 +1657,7 @@ function SendPanel({
             {sendStatus.recentFailures.map((failure) => (
               <p
                 key={`${failure.email}-${failure.error}`}
-                className="rounded-xl border border-red-200/60 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-200/20 dark:bg-red-200/10 dark:text-red-100"
+                className="rounded-md border border-red-200/60 bg-red-50 px-3 py-2 text-sm text-red-900"
               >
                 {failure.email}: {failure.error || "Send failed"}
               </p>
@@ -1595,11 +1671,11 @@ function SendPanel({
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-black/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.035]">
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+    <div className="rounded-md border border-border bg-card px-3 py-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+      <p className="mt-1 truncate text-sm font-semibold text-foreground">
         {value}
       </p>
     </div>
@@ -1642,33 +1718,31 @@ function SendProgress({
     : "Working on the server...";
 
   return (
-    <section className="overflow-hidden rounded-[1.25rem] border border-[#44572133] bg-[#f4f7ee] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] dark:border-[#dce8b033] dark:bg-[#dce8b0]/10">
+    <section className="overflow-hidden rounded-lg border border-border bg-muted/40 p-4 ">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           {busy ? (
-            <Loader2 className="size-4 shrink-0 animate-spin text-[#445721] dark:text-[#dce8b0]" />
+            <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
           ) : (
-            <CheckCircle2 className="size-4 shrink-0 text-[#445721] dark:text-[#dce8b0]" />
+            <CheckCircle2 className="size-4 shrink-0 text-primary" />
           )}
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+            <p className="truncate text-sm font-semibold text-foreground">
               {title}
             </p>
-            <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-              {detail}
-            </p>
+            <p className="truncate text-xs text-muted-foreground">{detail}</p>
           </div>
         </div>
         {progress !== null ? (
-          <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-zinc-600 dark:border-white/10 dark:bg-white/[0.07] dark:text-zinc-200">
+          <span className="rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             {progress}%
           </span>
         ) : null}
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+      <div className="mt-3 h-2 overflow-hidden rounded-md bg-muted">
         <div
           className={cn(
-            "h-full rounded-full bg-[#445721] transition-all duration-500 dark:bg-[#dce8b0]",
+            "h-full rounded-md bg-primary transition-all duration-500",
             progress === null && "w-2/3 animate-pulse",
           )}
           style={progress !== null ? { width: `${progress}%` } : undefined}
@@ -1699,15 +1773,15 @@ function ToastSnackbar({
           : Send;
   const toneClass =
     toast.tone === "error"
-      ? "border-red-500 bg-red-600 text-white shadow-[0_28px_80px_rgba(185,28,28,0.38)] dark:border-red-300 dark:bg-red-500 dark:text-white"
+      ? "border-red-500 bg-red-600 text-primary-foreground "
       : toast.tone === "success"
-        ? "border-[#44572144] bg-[#f4f7ee] text-zinc-950 dark:border-[#dce8b044] dark:bg-[#dce8b0]/12 dark:text-zinc-50"
-        : "border-black/10 bg-white text-zinc-950 dark:border-white/10 dark:bg-[#151910] dark:text-zinc-50";
+        ? "border-primary/40 bg-muted/40 text-foreground"
+        : "border-border bg-card text-foreground";
 
   return (
     <div
       className={cn(
-        "fixed inset-x-4 bottom-4 z-50 mx-auto max-w-lg rounded-[1.25rem] border-2 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-2xl md:left-auto md:right-5 md:mx-0",
+        "fixed inset-x-4 bottom-4 z-50 mx-auto max-w-lg rounded-lg border-2 p-4   md:left-auto md:right-5 md:mx-0",
         toneClass,
       )}
       role="status"
@@ -1733,14 +1807,14 @@ function ToastSnackbar({
             </p>
           ) : null}
           {toast.tone === "loading" ? (
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-current opacity-70" />
+            <div className="mt-3 h-1.5 overflow-hidden rounded-md bg-muted">
+              <div className="h-full w-2/3 animate-pulse rounded-md bg-current opacity-70" />
             </div>
           ) : null}
         </div>
         <button
           type="button"
-          className="rounded-full p-1 opacity-75 transition hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+          className="rounded-md p-1 opacity-75 transition hover:bg-muted hover:opacity-100"
           aria-label="Dismiss notification"
           onClick={onDismiss}
         >
@@ -1787,15 +1861,13 @@ function StylesPanel({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Email styling
           </p>
-          <h2 className="font-heading text-4xl italic text-[#3A4A26] dark:text-[#dce8b0]">
-            Styles
-          </h2>
+          <h2 className="text-lg font-semibold text-foreground">Styles</h2>
         </div>
         <Button
-          className={liquidDarkButtonClass}
+          className={adminPrimaryButtonClass}
           onClick={onSaveStyles}
           disabled={busy === "save-styles"}
         >
@@ -1808,7 +1880,7 @@ function StylesPanel({
         {colorFields.map(([key, label]) => (
           <label
             key={key}
-            className="flex items-center gap-3 rounded-2xl border border-black/10 bg-white p-3 shadow-[0_8px_24px_rgba(0,0,0,0.035)] transition hover:border-[#44572166] dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-[#dce8b066]"
+            className="flex items-center gap-3 rounded-lg border border-border bg-card p-3  transition hover:border-primary/50"
           >
             <input
               type="color"
@@ -1816,11 +1888,11 @@ function StylesPanel({
               onChange={(event) =>
                 onThemeChange({ ...theme, [key]: event.target.value })
               }
-              className="size-10 rounded-xl border border-black/10 bg-transparent dark:border-white/15"
+              className="size-10 rounded-md border border-border bg-transparent"
             />
             <span className="min-w-0">
               <span className="block text-sm font-medium">{label}</span>
-              <span className="block truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="block truncate text-xs text-muted-foreground">
                 {String(theme[key])}
               </span>
             </span>
@@ -1841,40 +1913,7 @@ function StylesPanel({
           </Field>
         ))}
       </div>
-      <Field label="Font stack">
-        <input
-          className={inputClass}
-          value={theme.fontFamily}
-          onChange={(event) =>
-            onThemeChange({ ...theme, fontFamily: event.target.value })
-          }
-        />
-      </Field>
     </div>
-  );
-}
-
-function PillButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-all [&_svg]:size-4 ${
-        active
-          ? "border-white/70 bg-white/78 text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-          : "border-transparent text-white/78 hover:border-white/20 hover:bg-white/[0.12] hover:text-white"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -1894,10 +1933,10 @@ function PreviewButton({
       type="button"
       title={label}
       onClick={onClick}
-      className={`flex size-9 items-center justify-center rounded-full border transition-all [&_svg]:size-4 ${
+      className={`flex size-8 items-center justify-center rounded-sm border border-transparent transition-colors [&_svg]:size-4 ${
         active
-          ? "border-white/70 bg-white/78 text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-          : "border-transparent text-white/78 hover:border-white/20 hover:bg-white/[0.12] hover:text-white"
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
       }`}
     >
       {children}
@@ -1914,7 +1953,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       {children}
@@ -1973,6 +2012,303 @@ async function api<T>(
   }
 
   return data as T;
+}
+
+function buildAiTemplateContext(
+  template: MasterTemplate,
+  mergeFields: string[],
+) {
+  const allowedMergeFields = Array.from(
+    new Set([...Object.keys(defaultMergeSamples), ...mergeFields]),
+  ).sort((a, b) => a.localeCompare(b));
+  const draftSchema =
+    template.type === "html"
+      ? {
+          name: "optional short template name",
+          description: "optional admin-only description",
+          subject: "required subject, max 180 chars",
+          previewText: "optional inbox preview, max 220 chars",
+          html: "required HTML fragment or document; no scripts, event handlers, or javascript URLs",
+        }
+      : {
+          name: "optional short template name",
+          description: "optional admin-only description",
+          subject: "required subject, max 180 chars",
+          previewText: "optional inbox preview, max 220 chars",
+          content: {
+            eyebrow: "optional short eyebrow",
+            heading: "required heading",
+            intro: "optional intro line",
+            sections: [
+              {
+                kind: "text or code",
+                title: "optional section title",
+                body: "required section copy",
+              },
+            ],
+            cta: {
+              label: "optional CTA label",
+              url: "optional http(s) URL",
+            },
+            footerNote: "optional footer note",
+          },
+        };
+
+  return [
+    "# MHacks Email Template Drafting Context (Beta)",
+    "",
+    "You are drafting a NEW email template for MHacks organizers using the current template as context. Return ONLY valid JSON. Do not include Markdown fences or commentary.",
+    "",
+    "Rules:",
+    "- Keep the message concise and operational.",
+    "- Use only the allowed merge fields listed below.",
+    "- Merge fields must be written as {{field_name}}.",
+    "- Do not invent applicant segments, audience sources, backend behavior, or sending rules.",
+    "- Do not include scripts, event handlers, tracking pixels, external forms, or javascript URLs.",
+    "- The imported draft will become a new local template; it will not overwrite the source template.",
+    "- The organizer will review before saving or sending.",
+    "",
+    `Template type: ${template.type}`,
+    `Allowed merge fields: ${allowedMergeFields.join(", ") || "none"}`,
+    "",
+    "Expected JSON shape:",
+    JSON.stringify(draftSchema, null, 2),
+    "",
+    "Current template:",
+    JSON.stringify(templateForAiContext(template), null, 2),
+  ].join("\n");
+}
+
+function templateForAiContext(template: MasterTemplate) {
+  return {
+    name: template.name,
+    type: template.type,
+    description: template.description,
+    subject: template.subject,
+    previewText: template.previewText,
+    content: template.content,
+    html: template.html,
+  };
+}
+
+function parseAiTemplateDraft(
+  rawDraft: string,
+  template: MasterTemplate,
+  currentMergeFields: string[],
+): Partial<MasterTemplate> {
+  const parsed = parseJsonObject(rawDraft);
+  const draft = isRecord(parsed.template) ? parsed.template : parsed;
+  const allowedMergeFields = new Set([
+    ...Object.keys(defaultMergeSamples),
+    ...currentMergeFields,
+  ]);
+  const next: Partial<MasterTemplate> = {};
+
+  if (hasString(draft, "name")) {
+    next.name = boundedString(draft.name, "Template name", 120);
+  }
+
+  if (hasString(draft, "description")) {
+    next.description = boundedString(draft.description, "Description", 240);
+  }
+
+  if (hasString(draft, "subject")) {
+    next.subject = boundedString(draft.subject, "Subject", 180, true);
+  }
+
+  if (hasString(draft, "previewText")) {
+    next.previewText = boundedString(draft.previewText, "Preview text", 220);
+  }
+
+  if (template.type === "html") {
+    if (!hasString(draft, "html")) {
+      throw new Error("AI draft must include html for this template.");
+    }
+
+    assertSafeHtml(draft.html);
+    assertAllowedMergeFields([draft.html], allowedMergeFields);
+    next.html = draft.html;
+    next.content = null;
+    return next;
+  }
+
+  if (!isRecord(draft.content)) {
+    throw new Error("AI draft must include content for this template.");
+  }
+
+  const content = parseAiContentDraft(draft.content, allowedMergeFields);
+  next.content = content;
+  next.html = null;
+  return next;
+}
+
+function parseJsonObject(rawDraft: string): Record<string, unknown> {
+  const trimmed = rawDraft.trim();
+  const withoutFence = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const start = withoutFence.indexOf("{");
+  const end = withoutFence.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("Paste a JSON object from the AI draft.");
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(withoutFence.slice(start, end + 1));
+    if (!isRecord(parsed)) {
+      throw new Error("AI draft must be a JSON object.");
+    }
+    return parsed;
+  } catch {
+    throw new Error("AI draft JSON could not be parsed.");
+  }
+}
+
+function parseAiContentDraft(
+  draft: Record<string, unknown>,
+  allowedMergeFields: Set<string>,
+): EmailCampaignContent {
+  if (!hasString(draft, "heading")) {
+    throw new Error("AI draft content must include a heading.");
+  }
+
+  if (!Array.isArray(draft.sections) || draft.sections.length === 0) {
+    throw new Error("AI draft content must include at least one section.");
+  }
+
+  const sections = draft.sections.map((section, index) => {
+    if (!isRecord(section) || !hasString(section, "body")) {
+      throw new Error(`Section ${index + 1} must include body text.`);
+    }
+
+    const kind: EmailCampaignContent["sections"][number]["kind"] =
+      section.kind === "code" || section.kind === "text"
+        ? section.kind
+        : undefined;
+
+    return {
+      id: hasString(section, "id") ? section.id : crypto.randomUUID(),
+      kind,
+      title: hasString(section, "title") ? section.title : undefined,
+      body: boundedString(
+        section.body,
+        `Section ${index + 1} body`,
+        4000,
+        true,
+      ),
+    };
+  });
+
+  const content: EmailCampaignContent = {
+    eyebrow: hasString(draft, "eyebrow")
+      ? boundedString(draft.eyebrow, "Eyebrow", 80)
+      : undefined,
+    heading: boundedString(draft.heading, "Heading", 160, true),
+    intro: hasString(draft, "intro")
+      ? boundedString(draft.intro, "Intro", 1000)
+      : undefined,
+    sections,
+    footerNote: hasString(draft, "footerNote")
+      ? boundedString(draft.footerNote, "Footer note", 1000)
+      : undefined,
+  };
+
+  if (isRecord(draft.cta)) {
+    if (!hasString(draft.cta, "label") || !hasString(draft.cta, "url")) {
+      throw new Error("CTA must include label and url.");
+    }
+
+    assertHttpUrl(draft.cta.url);
+    content.cta = {
+      label: boundedString(draft.cta.label, "CTA label", 80, true),
+      url: boundedString(draft.cta.url, "CTA URL", 500, true),
+    };
+  }
+
+  assertAllowedMergeFields(contentStrings(content), allowedMergeFields);
+  return content;
+}
+
+function assertAllowedMergeFields(
+  values: string[],
+  allowedMergeFields: Set<string>,
+) {
+  const fields = extractMergeFieldsFromValues(values);
+  const unknown = fields.filter((field) => !allowedMergeFields.has(field));
+
+  if (unknown.length > 0) {
+    throw new Error(`Unknown merge fields: ${unknown.join(", ")}`);
+  }
+}
+
+function contentStrings(content: EmailCampaignContent) {
+  return [
+    content.eyebrow ?? "",
+    content.heading,
+    content.intro ?? "",
+    content.cta?.label ?? "",
+    content.cta?.url ?? "",
+    content.footerNote ?? "",
+    ...content.sections.flatMap((section) => [
+      section.title ?? "",
+      section.body,
+    ]),
+  ];
+}
+
+function assertSafeHtml(html: string) {
+  if (/<script\b/i.test(html) || /\son\w+=/i.test(html)) {
+    throw new Error("HTML drafts cannot include scripts or event handlers.");
+  }
+
+  if (/javascript:/i.test(html)) {
+    throw new Error("HTML drafts cannot include javascript URLs.");
+  }
+}
+
+function assertHttpUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return;
+    }
+  } catch {
+    // handled below
+  }
+
+  throw new Error("CTA URL must use http or https.");
+}
+
+function boundedString(
+  value: string,
+  label: string,
+  maxLength: number,
+  required = false,
+) {
+  const next = value.trim();
+
+  if (required && !next) {
+    throw new Error(`${label} is required.`);
+  }
+
+  if (next.length > maxLength) {
+    throw new Error(`${label} must be ${maxLength} characters or fewer.`);
+  }
+
+  return next;
+}
+
+function hasString(
+  value: Record<string, unknown>,
+  key: string,
+): value is Record<string, unknown> & Record<typeof key, string> {
+  return typeof value[key] === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function mergeTemplates(
@@ -2036,6 +2372,11 @@ function extractMergeFields(template: MasterTemplate) {
       section.body,
     ]) ?? []),
   ];
+
+  return extractMergeFieldsFromValues(values);
+}
+
+function extractMergeFieldsFromValues(values: string[]) {
   const fields = new Set<string>();
   const pattern = /{{\s*([\w.-]+)\s*}}/g;
 
@@ -2061,17 +2402,18 @@ function ensureMergePreviewData(
   return next;
 }
 
-function defaultMergeValue(field: string) {
-  const samples: Record<string, string> = {
-    email: "hacker@mhacks.org",
-    expires_in: "10 minutes",
-    first_name: "Hacker",
-    name: "Hacker",
-    otp_code: "123456",
-    travel_reimbursement: "150.00",
-  };
+const defaultMergeSamples: Record<string, string> = {
+  email: "hacker@mhacks.org",
+  expires_in: "10 minutes",
+  first_name: "Hacker",
+  last_name: "Hacker",
+  name: "Hacker",
+  otp_code: "123456",
+  travel_reimbursement: "150.00",
+};
 
-  return samples[field] ?? `Sample ${field.replaceAll("_", " ")}`;
+function defaultMergeValue(field: string) {
+  return defaultMergeSamples[field] ?? `Sample ${field.replaceAll("_", " ")}`;
 }
 
 function parseEmailList(value: string) {
@@ -2133,35 +2475,30 @@ function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
-const liquidPanelClass =
-  "rounded-[1.5rem] border border-black/10 bg-white/95 shadow-[0_18px_48px_rgba(0,0,0,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-[#11140d]/95 dark:shadow-[0_18px_52px_rgba(0,0,0,0.32)]";
+const adminPanelClass = "rounded-lg border bg-card";
 
-const liquidInsetClass =
-  "rounded-[1.25rem] border border-black/10 bg-[#f7f7f4] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-none";
+const adminInsetClass = "rounded-lg border bg-muted/30";
 
-const liquidDarkPillClass =
-  "rounded-full border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.22)] backdrop-blur-2xl";
+const adminSecondaryButtonClass =
+  "h-8 rounded-md border border-border bg-card px-3 text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
 
-const liquidLightButtonClass =
-  "h-10 rounded-full border border-black/10 bg-white px-4 text-zinc-800 shadow-[0_8px_22px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] transition-all hover:border-[#44572166] hover:bg-[#f6f8ef] hover:text-zinc-950 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-100 dark:shadow-none dark:hover:border-[#dce8b066] dark:hover:bg-white/[0.1] dark:hover:text-white";
+const adminPrimaryButtonClass =
+  "h-8 rounded-md bg-primary px-3 text-primary-foreground shadow-none transition-colors hover:bg-primary/90";
 
-const liquidDarkButtonClass =
-  "h-10 rounded-full border border-white/15 bg-black/[0.42] px-5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl transition-all hover:bg-black/[0.54] hover:text-white";
+const adminDangerButtonClass =
+  "h-8 rounded-md border border-border bg-card px-3 text-muted-foreground shadow-none transition-colors hover:bg-destructive/10 hover:text-destructive";
 
-const liquidDangerButtonClass =
-  "h-10 rounded-full border border-black/10 bg-white px-4 text-zinc-700 shadow-[0_8px_22px_rgba(0,0,0,0.05)] transition-all hover:border-black/20 hover:bg-zinc-50 hover:text-zinc-950 dark:border-white/10 dark:bg-white/[0.05] dark:text-zinc-200 dark:shadow-none dark:hover:border-white/20 dark:hover:bg-white/[0.09] dark:hover:text-white";
+const adminIconButtonClass =
+  "rounded-md border border-border bg-card text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
 
-const liquidIconButtonClass =
-  "rounded-full border border-black/10 bg-white text-zinc-800 shadow-[0_8px_22px_rgba(0,0,0,0.05)] hover:border-[#44572166] hover:bg-[#f6f8ef] hover:text-zinc-950 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-100 dark:shadow-none dark:hover:border-[#dce8b066] dark:hover:bg-white/[0.1] dark:hover:text-white";
-
-const liquidMiniButtonClass =
-  "rounded-full border border-black/10 bg-white text-zinc-600 hover:border-[#44572166] hover:bg-[#f6f8ef] hover:text-zinc-950 dark:border-white/10 dark:bg-white/[0.05] dark:text-zinc-300 dark:hover:border-[#dce8b066] dark:hover:bg-white/[0.1] dark:hover:text-white";
+const adminMiniButtonClass =
+  "rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
 
 const codeClass =
-  "rounded-md border border-black/10 bg-white px-1.5 py-0.5 font-mono text-xs text-zinc-700 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-200";
+  "font-red-hat rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground";
 
 const inputClass =
-  "h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition placeholder:text-zinc-400 focus-visible:border-[#3A4A26] focus-visible:ring-3 focus-visible:ring-[#3A4A26]/15 dark:border-white/10 dark:bg-white/[0.055] dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus-visible:border-[#dce8b0] dark:focus-visible:ring-[#dce8b0]/15";
+  "font-red-hat h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:font-red-hat placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
 
 const textareaClass =
-  "w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm leading-6 outline-none transition placeholder:text-zinc-400 focus-visible:border-[#3A4A26] focus-visible:ring-3 focus-visible:ring-[#3A4A26]/15 dark:border-white/10 dark:bg-white/[0.055] dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus-visible:border-[#dce8b0] dark:focus-visible:ring-[#dce8b0]/15";
+  "font-red-hat w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 text-foreground outline-none transition-colors placeholder:font-red-hat placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";

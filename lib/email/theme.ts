@@ -23,6 +23,13 @@ export const defaultEmailTheme: EmailThemeTokens = {
   fontFamily: 'Inter,Avenir,"Avenir Next","Helvetica Neue",Arial,sans-serif',
 };
 
+export function normalizeEmailTheme(theme: EmailThemeTokens): EmailThemeTokens {
+  return {
+    ...theme,
+    fontFamily: defaultEmailTheme.fontFamily,
+  };
+}
+
 export const emailTheme = {
   colors: {
     background: defaultEmailTheme.background,

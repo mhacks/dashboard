@@ -1,6 +1,5 @@
 import { requireOrganizer } from "@/lib/auth/guards";
 import {
-  assertCampaignsEnabled,
   EmailCampaignError,
   getCampaignLimits,
 } from "@/lib/email/campaigns/config";
@@ -28,7 +27,6 @@ import {
 } from "@/lib/email/types";
 
 export function parseDirectRecipients(input: unknown) {
-  assertCampaignsEnabled();
   const body = directRecipientParseSchema.parse(input);
   const parsed = parseRecipientText(body.recipients);
   enforceRecipientLimit(parsed.emails.length);
@@ -38,7 +36,6 @@ export function parseDirectRecipients(input: unknown) {
 
 export async function sendOneDirectEmail(input: unknown) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   const body = directSendOneSchema.parse(input);
   const email = body.email.trim().toLowerCase();
   const mergeData = buildMergeData(email, body.mergeData);
@@ -68,7 +65,6 @@ export async function sendOneDirectEmail(input: unknown) {
 
 export async function sendDirectTestEmails(input: unknown) {
   const organizer = await requireOrganizer();
-  assertCampaignsEnabled();
   const body = directTestSendSchema.parse(input);
   const emails = Array.from(
     new Set(body.emails.map((email) => email.trim().toLowerCase())),

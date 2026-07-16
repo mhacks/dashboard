@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { assertEmailRequestAllowed } from "@/lib/email/request-guard";
-import { assertCampaignsEnabled } from "@/lib/email/campaigns/config";
 import {
   campaignErrorResponse,
   campaignJson,
@@ -11,7 +10,6 @@ import { campaignUpsertSchema } from "@/lib/email/types";
 export async function POST(request: NextRequest) {
   try {
     await assertEmailRequestAllowed(request);
-    assertCampaignsEnabled();
     const body = campaignUpsertSchema.parse(await request.json());
     const rendered = await renderCampaignEmail({
       templateId: body.templateId,

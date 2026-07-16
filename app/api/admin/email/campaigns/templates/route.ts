@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 import { assertEmailRequestAllowed } from "@/lib/email/request-guard";
-import {
-  assertCampaignsEnabled,
-  getCampaignLimits,
-} from "@/lib/email/campaigns/config";
+import { getCampaignLimits } from "@/lib/email/campaigns/config";
 import {
   campaignErrorResponse,
   campaignJson,
@@ -14,7 +11,6 @@ import { getTemplateCatalog } from "@/lib/email/templates/registry";
 export async function GET(request: NextRequest) {
   try {
     await assertEmailRequestAllowed(request);
-    assertCampaignsEnabled();
     const templates = await Promise.all(
       getTemplateCatalog().map(async (template) => {
         const preview = await renderCampaignEmail({

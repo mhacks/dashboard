@@ -54,7 +54,7 @@ export function EmailSection({
   return (
     <Section style={sectionBlock}>
       {title ? (
-        <Heading as="h2" style={sectionHeadingStyle}>
+        <Heading as="h2" style={sectionHeadingStyle(theme)}>
           {title}
         </Heading>
       ) : null}
@@ -217,12 +217,9 @@ const smallStyle = (theme: EmailThemeTokens) => ({
   margin: "24px 0",
 });
 
-const headingFontFamily =
-  '"Arial Black","Arial Bold",Arial,"Helvetica Neue",Helvetica,sans-serif';
-
 const headingStyle = (theme: EmailThemeTokens) => ({
   color: "#050505",
-  fontFamily: headingFontFamily,
+  fontFamily: theme.fontFamily,
   fontSize: theme.headingSize,
   lineHeight: "30px",
   fontWeight: "700",
@@ -230,14 +227,14 @@ const headingStyle = (theme: EmailThemeTokens) => ({
   textTransform: "uppercase" as const,
 });
 
-const sectionHeadingStyle = {
+const sectionHeadingStyle = (theme: EmailThemeTokens) => ({
   color: "#050505",
-  fontFamily: headingFontFamily,
+  fontFamily: theme.fontFamily,
   fontSize: "20px",
   lineHeight: "30px",
   fontWeight: "700",
   margin: "0",
-};
+});
 
 const logo = {
   display: "block",
@@ -246,7 +243,7 @@ const logo = {
 
 const eyebrowStyle = (theme: EmailThemeTokens) => ({
   color: theme.green,
-  fontFamily: headingFontFamily,
+  fontFamily: theme.fontFamily,
   fontSize: "16px",
   fontWeight: "700",
   letterSpacing: "0",
@@ -264,8 +261,7 @@ const codeBlock = (theme: EmailThemeTokens) => ({
   border: `1px solid ${theme.border}`,
   borderRadius: "8px",
   color: "#050505",
-  fontFamily:
-    '"SFMono-Regular",Consolas,"Liberation Mono",Menlo,Courier,monospace',
+  fontFamily: theme.fontFamily,
   fontSize: "32px",
   fontWeight: "700",
   letterSpacing: "8px",
