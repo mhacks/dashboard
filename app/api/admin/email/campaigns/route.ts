@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { assertEmailRequestAllowed } from "@/lib/email/request-guard";
-import { createCampaign } from "@/lib/email/campaigns/service";
+import { createCampaign, listCampaigns } from "@/lib/email/campaigns/service";
 import {
   campaignErrorResponse,
   campaignJson,
@@ -12,10 +12,10 @@ export async function GET(request: NextRequest) {
   try {
     await assertEmailRequestAllowed(request);
     return campaignJson({
-      campaigns: [],
+      campaigns: await listCampaigns(),
       templates: getTemplateCatalog(),
       limits: getCampaignLimits(),
-      databaseReady: false,
+      databaseReady: true,
     });
   } catch (error) {
     return campaignErrorResponse(error);

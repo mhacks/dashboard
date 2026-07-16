@@ -2,8 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useApplicationsOpen } from "./use-applications-open";
+import posthog from "posthog-js";
+
+const LIQUID_GLASS_PROPS = {
+  displacementScale: 34,
+  blurAmount: 0.16,
+  saturation: 120,
+  aberrationIntensity: 1.2,
+  elasticity: 0.12,
+  cornerRadius: 999,
+  mode: "standard" as const,
+};
+
+const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
+  ssr: false,
+});
 
 const links = [
   { href: "#about", label: "About" },
@@ -12,9 +28,6 @@ const links = [
   { href: "#sponsors", label: "Sponsors" },
   { href: "#faqs", label: "FAQ" },
 ];
-
-const pillClass =
-  "border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
@@ -34,6 +47,22 @@ export default function NavBar() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    let rafId = 0;
+    const startedAt = performance.now();
+    const duration = 550;
+
+    const tick = (now: number) => {
+      window.dispatchEvent(new Event("resize"));
+      if (now - startedAt < duration) {
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [showLogo]);
+
   return (
     <>
       {/* ── Mobile (< lg) ── */}
@@ -44,8 +73,9 @@ export default function NavBar() {
             aria-disabled={!applicationsOpen}
             onClick={(e) => {
               if (!applicationsOpen) e.preventDefault();
+              else posthog.capture("apply_now_clicked", { location: "navbar" });
             }}
-            className={`${pillClass} font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic transition-opacity ${
+            className={`glass-pill font-red-hat inline-block rounded-full px-4 pt-[9px] pb-[7px] text-[17px] italic transition-opacity ${
               applicationsOpen
                 ? "text-white hover:opacity-80"
                 : "cursor-not-allowed text-white/35"
@@ -57,9 +87,7 @@ export default function NavBar() {
 
         {/* Hamburger pill + dropdown */}
         <div className="relative">
-          <div
-            className={`${pillClass} rounded-full flex items-center justify-center p-3`}
-          >
+          <div className="glass-pill rounded-full flex items-center justify-center p-3">
             <button
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
@@ -85,7 +113,7 @@ export default function NavBar() {
           </div>
 
           <div
-            className={`absolute right-0 mt-2 ${pillClass} rounded-2xl transition-all duration-300 origin-top-right ${
+            className={`absolute right-0 mt-2 glass-pill rounded-2xl transition-all duration-300 origin-top-right ${
               open
                 ? "pointer-events-auto scale-100 opacity-100"
                 : "pointer-events-none scale-95 opacity-0"
@@ -108,11 +136,17 @@ export default function NavBar() {
       </nav>
 
       {/* ── Desktop (lg+) ── */}
-      <nav className="fixed top-4 left-1/2 z-50 hidden -translate-x-1/2 lg:block">
-        <div
-          className={`flex items-center rounded-full ${pillClass} px-6 py-3`}
+      <LiquidGlass
+        className="z-50 hidden lg:block"
+        {...LIQUID_GLASS_PROPS}
+        padding="0"
+        style={{ position: "fixed", top: "2rem", left: "50%" }}
+      >
+        <nav
+          className="glass-pill flex items-center rounded-full px-6 py-3"
+          aria-label="Primary navigation"
         >
-          {/* Logo slides in from the left */}
+          {/* Logo slides in from the left. */}
           <div
             className="overflow-hidden flex items-center"
             style={{
@@ -136,7 +170,7 @@ export default function NavBar() {
             <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
           </div>
 
-          <div className="flex items-center gap-7 text-lg font-heading italic text-white">
+          <div className="flex items-center gap-7 text-lg font-heading italic text-white drop-shadow-[0_1px_5px_rgba(0,0,0,0.75)]">
             {links.map((link) => (
               <a
                 key={link.href}
@@ -147,8 +181,8 @@ export default function NavBar() {
               </a>
             ))}
           </div>
-        </div>
-      </nav>
+        </nav>
+      </LiquidGlass>
     </>
   );
 }

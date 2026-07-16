@@ -63,12 +63,28 @@ export function EmailSection({
       ) : (
         body.split("\n").map((line, index) => (
           <Text key={`${line}-${index}`} style={paragraphStyle(theme)}>
-            {line}
+            {renderInlineText(line)}
           </Text>
         ))
       )}
     </Section>
   );
+}
+
+function renderInlineText(value: string) {
+  const parts = value.split(/(\*\*[^*]+\*\*)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={`${part}-${index}`} style={strongStyle}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    return part;
+  });
 }
 
 export function EmailDivider({
@@ -103,15 +119,6 @@ export function EmailCta({
       <Button href={url} style={ctaButton(theme)}>
         {label}
       </Button>
-      <Text style={fallbackCopy(theme)}>
-        If the button above doesn&apos;t work, you can also copy and paste this
-        link into your browser.
-      </Text>
-      <Section style={fallbackPanel(theme)}>
-        <Link href={url} style={fallbackLink}>
-          {url}
-        </Link>
-      </Section>
     </Section>
   );
 }
@@ -197,6 +204,11 @@ const paragraphStyle = (theme: EmailThemeTokens) => ({
   margin: "24px 0",
 });
 
+const strongStyle = {
+  color: "#050505",
+  fontWeight: "700",
+};
+
 const smallStyle = (theme: EmailThemeTokens) => ({
   color: theme.muted,
   fontSize: "16px",
@@ -205,8 +217,12 @@ const smallStyle = (theme: EmailThemeTokens) => ({
   margin: "24px 0",
 });
 
+const headingFontFamily =
+  '"Arial Black","Arial Bold",Arial,"Helvetica Neue",Helvetica,sans-serif';
+
 const headingStyle = (theme: EmailThemeTokens) => ({
   color: "#050505",
+  fontFamily: headingFontFamily,
   fontSize: theme.headingSize,
   lineHeight: "30px",
   fontWeight: "700",
@@ -216,6 +232,7 @@ const headingStyle = (theme: EmailThemeTokens) => ({
 
 const sectionHeadingStyle = {
   color: "#050505",
+  fontFamily: headingFontFamily,
   fontSize: "20px",
   lineHeight: "30px",
   fontWeight: "700",
@@ -229,6 +246,7 @@ const logo = {
 
 const eyebrowStyle = (theme: EmailThemeTokens) => ({
   color: theme.green,
+  fontFamily: headingFontFamily,
   fontSize: "16px",
   fontWeight: "700",
   letterSpacing: "0",
@@ -275,32 +293,6 @@ const ctaButton = (theme: EmailThemeTokens) => ({
   textTransform: "uppercase" as const,
   width: "100%",
 });
-
-const fallbackCopy = (theme: EmailThemeTokens) => ({
-  color: theme.text,
-  fontSize: theme.bodySize,
-  fontWeight: "400",
-  lineHeight: "24px",
-  margin: "32px 0 16px",
-  textAlign: "left" as const,
-});
-
-const fallbackPanel = (theme: EmailThemeTokens) => ({
-  backgroundColor: theme.panel,
-  borderRadius: "4px",
-  margin: "0",
-  padding: "8px",
-  textAlign: "left" as const,
-});
-
-const fallbackLink = {
-  color: "#2684ff",
-  fontSize: "14px",
-  fontFamily: "monospace",
-  fontWeight: "400",
-  textDecoration: "none",
-  wordBreak: "break-all" as const,
-};
 
 const flowerDividerWrap = {
   margin: "32px 0",

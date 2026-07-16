@@ -128,13 +128,3 @@ export type HackerApplicant = HackerApplicationFormData & {
   status: ApplicationStatus;
   user: UserEntry;
 };
-
-export const judgeApplicationSchema = baseApplicationSchema;
-export type JudgeApplicationFormData = z.infer<typeof judgeApplicationSchema>;
-
-export type JudgeApplicant = JudgeApplicationFormData & {
-  id: string;
-  userId: string;
-  status: ApplicationStatus;
-  user: UserEntry;
-};

@@ -138,9 +138,10 @@
     @apply text-foreground;
   }
   html {
-    @apply font-sans;
-    background-color: #f4f2e8;
-    scroll-behavior: smooth;
+    @apply bg-paper font-sans scroll-smooth;
+  }
+  ::selection {
+    @apply bg-moss text-fog;
   }
 }
 
@@ -195,11 +196,6 @@
   }
 }
 
-::selection {
-  background: #3a4a26;
-  color: #f0efe6;
-}
-
 .animate-scroll-left {
   animation: scroll-left 20s linear infinite;
 }
@@ -217,4 +213,14 @@
 
 .lens-pop {
   animation: lens-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@layer components {
+  .glass-pill {
+    @apply border border-white/20 bg-black/[0.32] shadow-[0_8px_24px] shadow-black/30 inset-shadow-[0_1px_0] inset-shadow-white/15 backdrop-blur-xl;
+  }
+
+  .glass-card {
+    @apply border border-white/30 bg-paper/88 shadow-[0_24px_64px] shadow-black/40 inset-shadow-[0_1px_0] inset-shadow-white/90 backdrop-blur-xl;
+  }
 }

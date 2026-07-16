@@ -11,9 +11,6 @@ const navLinks = [
 
 const detailItems = ["October 3 - 4, 2026", "Ann Arbor, MI", "800+ Hackers"];
 
-const pillClass =
-  "border border-white/15 bg-black/[0.38] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2)] backdrop-blur-2xl";
-
 export default function NotFound() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-night text-cream">
@@ -53,7 +50,7 @@ export default function NotFound() {
 
         <nav
           aria-label="Homepage sections"
-          className={`hidden items-center gap-7 rounded-full px-6 py-3 font-heading text-lg italic text-white lg:flex ${pillClass}`}
+          className="glass-pill hidden items-center gap-7 rounded-full px-6 py-3 font-heading text-lg italic text-white lg:flex"
         >
           {navLinks.map((link) => (
             <Link
@@ -68,7 +65,7 @@ export default function NotFound() {
 
         <Link
           href="/apply"
-          className={`font-red-hat rounded-full px-4 pb-[7px] pt-[9px] text-[17px] italic text-white transition-opacity hover:opacity-80 lg:hidden ${pillClass}`}
+          className="glass-pill font-red-hat rounded-full px-4 pb-[7px] pt-[9px] text-[17px] italic text-white transition-opacity hover:opacity-80 lg:hidden"
         >
           Apply Now
         </Link>
@@ -90,21 +87,21 @@ export default function NotFound() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/"
-              className="font-red-hat inline-flex h-11 items-center gap-2 rounded-full border border-white/60 bg-white/85 px-5 text-sm font-semibold text-zinc-900 shadow-sm backdrop-blur-md transition-opacity hover:opacity-80"
+              className="glass-pill font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
             >
               <ArrowLeft className="size-4" aria-hidden />
               Back home
             </Link>
             <Link
               href="/apply"
-              className="font-red-hat inline-flex h-11 items-center gap-2 rounded-full border border-white/25 bg-white/12 px-5 text-sm font-semibold text-white shadow-sm backdrop-blur-md transition-opacity hover:bg-white/18"
+              className="glass-pill font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
             >
               Apply
               <ArrowUpRight className="size-4" aria-hidden />
             </Link>
             <a
               href="mailto:hackathon@mhacks.org"
-              className="font-red-hat inline-flex h-11 items-center gap-2 rounded-full border border-white/25 bg-black/20 px-5 text-sm font-semibold text-white shadow-sm backdrop-blur-md transition-opacity hover:bg-black/30"
+              className="glass-pill font-red-hat inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
             >
               <Mail className="size-4" aria-hidden />
               Contact

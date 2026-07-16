@@ -64,6 +64,7 @@ interface RecipientSaveResult {
 }
 
 interface DirectSendStatus {
+  campaignId?: string;
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
@@ -592,12 +593,14 @@ export default function EmailCampaignsClient() {
       let cursor = 0;
       let sentCount = 0;
       let failedCount = 0;
+      let campaignId: string | undefined;
       let recentFailures: DirectSendStatus["recentFailures"] = [];
 
       for (let batch = 0; batch < 1000; batch += 1) {
         status = await api<DirectSendStatus>("/api/admin/email/send/start", {
           method: "POST",
           body: JSON.stringify({
+            campaignId,
             template,
             recipients: recipientText,
             cursor,
@@ -615,6 +618,7 @@ export default function EmailCampaignsClient() {
         cursor = status.nextCursor;
         sentCount = status.sentCount;
         failedCount = status.failedCount;
+        campaignId = status.campaignId;
         recentFailures = status.recentFailures;
 
         if (status.complete) {
@@ -685,7 +689,7 @@ export default function EmailCampaignsClient() {
   const previewWidth = previewMode === "desktop" ? 720 : 390;
 
   return (
-    <main
+    <div
       className={cn(
         "relative min-h-screen overflow-hidden transition-colors",
         darkMode
@@ -936,7 +940,7 @@ export default function EmailCampaignsClient() {
         </section>
       </div>
       <ToastSnackbar toast={toast} onDismiss={() => setToast(null)} />
-    </main>
+    </div>
   );
 }
 
@@ -1928,6 +1932,7 @@ async function persistTemplate(template: MasterTemplate) {
     content: template.content ?? undefined,
     html: template.html ?? undefined,
     status: template.status,
+    sourceTemplateId: template.sourceTemplateId,
   };
 
   if (template.id.startsWith("seed-") || template.id.startsWith("local-")) {

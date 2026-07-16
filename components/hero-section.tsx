@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useApplicationsOpen } from "./use-applications-open";
 import MlhTrustBadge from "./mlh-trust-badge";
+import posthog from "posthog-js";
 
 const BOX_W = 176;
 const BOX_H = 224;
@@ -176,6 +177,7 @@ export default function HeroSection() {
                 alt="MHacks"
                 width={56}
                 height={56}
+                priority
                 className="w-10 h-10 sm:w-14 sm:h-14 drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] brightness-[1.4]"
               />
             </Link>
@@ -184,16 +186,17 @@ export default function HeroSection() {
               aria-disabled={!applicationsOpen}
               onClick={(e) => {
                 if (!applicationsOpen) e.preventDefault();
+                else posthog.capture("apply_now_clicked", { location: "hero" });
               }}
               className="relative group hidden lg:block"
               onMouseEnter={handleButtonEnter}
               onMouseLeave={handleButtonLeave}
             >
               <span
-                className={`font-red-hat inline-block rounded-full border px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold shadow-sm backdrop-blur-md transition-opacity ${
+                className={`font-red-hat inline-block rounded-full px-5 py-2 sm:px-6 sm:py-2.5 text-[13px] sm:text-[15px] font-semibold transition-opacity ${
                   applicationsOpen
-                    ? "border-white/60 bg-white/85 text-zinc-900 hover:opacity-80"
-                    : "cursor-not-allowed border-white/25 bg-white/25 text-white/40"
+                    ? "glass-pill text-white hover:opacity-80"
+                    : "glass-pill cursor-not-allowed text-white/35 opacity-70"
                 }`}
               >
                 Apply Now

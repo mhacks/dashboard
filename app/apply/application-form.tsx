@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,23 +19,24 @@ import Logistics from "./components/logistics";
 import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
+import { logout } from "@/lib/actions/auth.server.actions";
 import {
   submitHackerApplication,
   saveDraft,
 } from "@/lib/actions/application-form.server.actions";
-import { createClient } from "@/lib/supabase/client";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
+import posthog from "posthog-js";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
-const GREEN = "#3A4A26";
-
-const GLASS_CARD =
-  "border border-white/30 bg-[#f4f2e8]/[0.88] shadow-[0_24px_64px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-2xl";
-const GLASS_PILL =
-  "border border-white/20 bg-black/[0.32] shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-xl";
+const MOSS = "var(--color-moss)";
+const MOSS_15 = "color-mix(in srgb, var(--color-moss) 15%, transparent)";
+const MOSS_20 = "color-mix(in srgb, var(--color-moss) 20%, transparent)";
+const MOSS_25 = "color-mix(in srgb, var(--color-moss) 25%, transparent)";
+const MOSS_30 = "color-mix(in srgb, var(--color-moss) 30%, transparent)";
+const MOSS_65 = "color-mix(in srgb, var(--color-moss) 65%, transparent)";
 
 const STEPS: Array<{
   label: string;
@@ -140,27 +140,23 @@ function StepBar({ current }: { current: number }) {
                     ? {
                         width: 10,
                         height: 10,
-                        background: GREEN,
-                        boxShadow: `0 0 0 3px rgba(58,74,38,0.2)`,
+                        background: MOSS,
+                        boxShadow: `0 0 0 3px ${MOSS_20}`,
                       }
                     : isDone
-                      ? { width: 8, height: 8, background: GREEN }
+                      ? { width: 8, height: 8, background: MOSS }
                       : {
                           width: 8,
                           height: 8,
-                          background: "rgba(58,74,38,0.15)",
-                          border: "1.5px solid rgba(58,74,38,0.25)",
+                          background: MOSS_15,
+                          border: `1.5px solid ${MOSS_25}`,
                         }
                 }
               />
               <span
                 className="mt-2 text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat text-center w-14"
                 style={{
-                  color: isActive
-                    ? GREEN
-                    : isDone
-                      ? "rgba(58,74,38,0.65)"
-                      : "rgba(58,74,38,0.3)",
+                  color: isActive ? MOSS : isDone ? MOSS_65 : MOSS_30,
                   fontWeight: isActive ? 700 : isDone ? 600 : 400,
                 }}
               >
@@ -172,7 +168,7 @@ function StepBar({ current }: { current: number }) {
               <motion.div
                 className="flex-1 h-px mx-1 mt-[4px]"
                 animate={{
-                  backgroundColor: isDone ? GREEN : "rgba(58,74,38,0.15)",
+                  backgroundColor: isDone ? MOSS : MOSS_15,
                 }}
                 transition={{ duration: 0.4 }}
               />
@@ -238,7 +234,6 @@ export default function ApplyPage({
   resumeUrl: string | null;
 }) {
   const readOnly = existingData !== null;
-  const router = useRouter();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -373,6 +368,10 @@ export default function ApplyPage({
         if (!valid) return;
       }
     }
+    posthog.capture("application_step_completed", {
+      step_index: step,
+      step_label: STEPS[step].label,
+    });
     setDirection(1);
     setStep((s) => s + 1);
   };
@@ -392,9 +391,11 @@ export default function ApplyPage({
       if (duplicate) {
         setIsDuplicate(true);
       } else {
+        posthog.capture("application_submitted");
         setSubmitSuccess(true);
       }
     } catch (error) {
+      posthog.captureException(error);
       console.error("Submission error:", error);
     } finally {
       setIsSubmitting(false);
@@ -437,21 +438,15 @@ export default function ApplyPage({
           initial={{ opacity: 0, y: 24, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className={`relative z-10 text-center max-w-md w-full rounded-3xl px-10 py-12 ${GLASS_CARD}`}
+          className="glass-card relative z-10 text-center max-w-md w-full rounded-3xl px-10 py-12"
         >
           <div className="flex justify-center">
             <MHacksLogo size={48} variant="green" />
           </div>
-          <h2
-            className="mt-6 font-heading italic text-4xl leading-tight tracking-tight"
-            style={{ color: GREEN }}
-          >
+          <h2 className="mt-6 font-heading italic text-4xl leading-tight tracking-tight text-moss">
             {isDuplicate ? "Already Applied!" : "Application Submitted!"}
           </h2>
-          <p
-            className="mt-4 font-red-hat text-[14px] leading-7"
-            style={{ color: "rgba(58,74,38,0.65)" }}
-          >
+          <p className="mt-4 font-red-hat text-[14px] leading-7 text-moss/65">
             {isDuplicate
               ? "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
               : "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."}
@@ -460,8 +455,7 @@ export default function ApplyPage({
             onClick={() => {
               window.location.href = "/apply";
             }}
-            className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
-            style={{ background: GREEN }}
+            className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
           >
             View Application
           </button>
@@ -538,9 +532,7 @@ export default function ApplyPage({
           transition={{ duration: 0.5, ease: EASE }}
           className="flex items-center justify-between w-full max-w-2xl mb-8"
         >
-          <div
-            className={`flex items-center gap-3 rounded-full px-5 py-2.5 ${GLASS_PILL}`}
-          >
+          <div className="glass-pill flex items-center gap-3 rounded-full px-5 py-2.5">
             <Link
               href="/"
               aria-label="Back to home"
@@ -574,7 +566,7 @@ export default function ApplyPage({
                     : "Failed to save"}
               </span>
             )}
-            <div className={`rounded-full px-4 py-2 ${GLASS_PILL}`}>
+            <div className="glass-pill rounded-full px-4 py-2">
               <span className="font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55">
                 {step + 1} / {STEPS.length}
               </span>
@@ -584,12 +576,9 @@ export default function ApplyPage({
               disabled={isSigningOut}
               onClick={async () => {
                 setIsSigningOut(true);
-                await createClient()
-                  .auth.signOut()
-                  .catch(() => {});
-                router.push("/");
+                await logout();
               }}
-              className={`rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 disabled:opacity-50 ${GLASS_PILL}`}
+              className="glass-pill rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 disabled:opacity-50"
             >
               Sign out
             </button>
@@ -601,22 +590,16 @@ export default function ApplyPage({
           initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, ease: EASE, delay: 0.1 }}
-          className={`w-full max-w-2xl rounded-3xl overflow-hidden ${GLASS_CARD}`}
+          className="glass-card w-full max-w-2xl rounded-3xl overflow-hidden"
         >
           {/* Card header */}
           <div className="px-8 pt-8 pb-6">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <p
-                  className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] mb-1"
-                  style={{ color: "rgba(58,74,38,0.45)" }}
-                >
+                <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] mb-1 text-moss/45">
                   Apply
                 </p>
-                <h1
-                  className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight"
-                  style={{ color: GREEN }}
-                >
+                <h1 className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight text-moss">
                   {STEPS[step].label}
                 </h1>
               </div>
@@ -631,10 +614,7 @@ export default function ApplyPage({
             <StepBar current={step} />
           </div>
 
-          <div
-            className="h-px mx-8"
-            style={{ background: "rgba(58,74,38,0.08)" }}
-          />
+          <div className="h-px mx-8 bg-moss/8" />
 
           {/* Step content */}
           <div className="px-8 py-7">
@@ -643,12 +623,7 @@ export default function ApplyPage({
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, ease: EASE }}
-                className="mb-5 rounded-xl px-4 py-3 font-red-hat text-[13px] font-medium"
-                style={{
-                  background: "rgba(58,74,38,0.07)",
-                  color: GREEN,
-                  border: "1px solid rgba(58,74,38,0.13)",
-                }}
+                className="mb-5 rounded-xl px-4 py-3 font-red-hat text-[13px] font-medium bg-moss/7 text-moss border border-moss/13"
               >
                 Your application has been submitted and is under review. No
                 further changes can be made.
@@ -711,19 +686,12 @@ export default function ApplyPage({
               </AnimatePresence>
 
               {/* Navigation */}
-              <div
-                className="flex items-center gap-3 mt-8 pt-6 border-t"
-                style={{ borderColor: "rgba(58,74,38,0.08)" }}
-              >
+              <div className="flex items-center gap-3 mt-8 pt-6 border-t border-moss/8">
                 {step > 0 && (
                   <button
                     type="button"
                     onClick={goBack}
-                    className="font-red-hat rounded-full border px-6 py-2.5 text-[13px] font-medium transition-colors hover:bg-black/5"
-                    style={{
-                      borderColor: "rgba(58,74,38,0.2)",
-                      color: GREEN,
-                    }}
+                    className="font-red-hat rounded-full border border-moss/20 px-6 py-2.5 text-[13px] font-medium text-moss transition-colors hover:bg-black/5"
                   >
                     Back
                   </button>
@@ -733,8 +701,7 @@ export default function ApplyPage({
                   <button
                     type="button"
                     onClick={goNext}
-                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
-                    style={{ background: GREEN }}
+                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
                   >
                     Continue
                   </button>
@@ -745,8 +712,7 @@ export default function ApplyPage({
                       setDirection(-1);
                       setStep(0);
                     }}
-                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
-                    style={{ background: GREEN }}
+                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
                   >
                     Back to Start
                   </button>
@@ -762,12 +728,11 @@ export default function ApplyPage({
                       }
                       handleSubmit(onSubmit)();
                     }}
-                    className={`font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity ${
+                    className={`font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white bg-moss transition-opacity ${
                       !isComplete || isSubmitting
                         ? "opacity-50 cursor-not-allowed"
                         : "hover:opacity-80"
                     }`}
-                    style={{ background: GREEN }}
                   >
                     {isSubmitting ? "Submitting…" : "Submit Application"}
                   </button>

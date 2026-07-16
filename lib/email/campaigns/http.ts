@@ -14,6 +14,14 @@ export function campaignErrorResponse(error: unknown) {
   }
 
   if (error instanceof Error) {
+    if (error.message === "Unauthorized") {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
+    if (error.message === "Forbidden") {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

@@ -38,16 +38,32 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_SECRET_ACCESS_KEY"
         },
         {
-          "name": "SES_ACCESS_KEY_ID",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_ACCESS_KEY_ID"
+          "name": "ENABLE_EMAIL_CAMPAIGNS",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/ENABLE_EMAIL_CAMPAIGNS"
         },
         {
-          "name": "SES_SECRET_ACCESS_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_SECRET_ACCESS_KEY"
+          "name": "EMAIL_CAMPAIGN_ALLOW_FULL_SENDS",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_ALLOW_FULL_SENDS"
         },
         {
-          "name": "SES_SMTP_PASSWORD",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SES_SMTP_PASSWORD"
+          "name": "AWS_SES_REGION",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_REGION"
+        },
+        {
+          "name": "AWS_SES_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_ACCESS_KEY_ID"
+        },
+        {
+          "name": "AWS_SES_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SECRET_ACCESS_KEY"
+        },
+        {
+          "name": "EMAIL_CAMPAIGN_FROM_EMAIL",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_FROM_EMAIL"
+        },
+        {
+          "name": "EMAIL_CAMPAIGN_FROM_NAME",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_FROM_NAME"
         },
         {
           "name": "DATABASE_URL",
@@ -68,6 +84,14 @@
         {
           "name": "NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/LOGIN_TURNSTILE_SITE_KEY"
+        },
+        {
+          "name": "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"
+        },
+        {
+          "name": "NEXT_PUBLIC_POSTHOG_HOST",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_POSTHOG_HOST"
         }
       ],
       "logConfiguration": {

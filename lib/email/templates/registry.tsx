@@ -40,6 +40,53 @@ function template(
 
 export const emailTemplates = [
   template({
+    id: "mhacks-applications-open",
+    name: "Application update",
+    description:
+      "Application launch email announcing that MHacks 2026 applications are open.",
+    defaultSubject: "MHacks 2026 applications are live",
+    defaultPreviewText:
+      "Applications are open for October 3-4 at the University of Michigan.",
+    variant: "general",
+    defaultContent: {
+      eyebrow: "Application Update",
+      heading: "MHacks 2026 applications are live",
+      intro:
+        "Join 1,000+ builders, creators, and engineers from across the country for 24 hours of building, learning, and hacking at the University of Michigan.",
+      sections: [
+        {
+          id: "what-to-expect",
+          title: "What to expect?",
+          body:
+            "- Workshops, tech talks, and keynotes from leading voices in tech\n" +
+            "- Connect with Michigan's tech community, visiting hackers, and student organizations\n" +
+            "- A weekend of free food, swag, and exploring Ann Arbor\n\n" +
+            "No prior hackathon experience is required. We'll have beginner-friendly workshops and team formation to help you get started.",
+        },
+        {
+          id: "dates",
+          title: "Important dates",
+          body:
+            "**Early application deadline:** August 7, 2026\n\n" +
+            "**Final application deadline:** September 12, 2026\n\n" +
+            "**MHacks 2026:** October 3-4, 2026 at the University of Michigan",
+        },
+        {
+          id: "closing",
+          body:
+            "Whether you're a first-time hacker or a seasoned builder, MHacks is for you. Join us for an unforgettable weekend of building, learning, and connecting with students from across the country.\n\n" +
+            "We review applications holistically, but always encourage you to apply early. We can't wait to welcome you to Ann Arbor this October.",
+        },
+      ],
+      cta: {
+        label: "Start application",
+        url: "https://mhacks.org/apply?utm_source=email&utm_medium=campaign&utm_campaign=mhacks_applications_open",
+      },
+      footerNote:
+        "Questions? Reply to this email or reach out to hackathon@mhacks.org.",
+    },
+  }),
+  template({
     id: "mhacks-announcement",
     name: "MHacks announcement",
     description: "General event updates, reminders, and newsletters.",

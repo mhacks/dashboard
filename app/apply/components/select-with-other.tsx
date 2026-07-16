@@ -33,12 +33,14 @@ export function SelectWithOther({
   placeholder?: string;
   otherPlaceholder?: string;
 }) {
-  // "Other" mode is on when there's a value that doesn't match a known option
-  // (e.g. a previously typed custom value when editing).
-  const [isOther, setIsOther] = useState(
+  // "Other" mode is on when the user chose it, or when an external form update
+  // sets a value that doesn't match a known option.
+  const [isOtherSelected, setIsOtherSelected] = useState(
     () => !!value && !options.some((o) => o.value === value),
   );
 
+  const valueMatchesOption = options.some((o) => o.value === value);
+  const isOther = isOtherSelected || (!!value && !valueMatchesOption);
   const selectValue = isOther ? otherValue : (value ?? "");
 
   return (
@@ -47,10 +49,10 @@ export function SelectWithOther({
         value={selectValue}
         onValueChange={(v) => {
           if (v === otherValue) {
-            setIsOther(true);
+            setIsOtherSelected(true);
             onChange(""); // clear so the user types their own value
           } else {
-            setIsOther(false);
+            setIsOtherSelected(false);
             onChange(v);
           }
         }}

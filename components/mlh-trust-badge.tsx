@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function MlhTrustBadge() {
   return (
     <a
@@ -16,10 +18,14 @@ export default function MlhTrustBadge() {
       target="_blank"
       rel="noreferrer"
     >
-      <img
+      <Image
         src="https://logged-assets.s3.amazonaws.com/trust-badge/2027/mlh-trust-badge-2027-black.svg"
         alt="Major League Hacking 2026 Hackathon Season"
-        style={{ width: "100%" }}
+        width={393}
+        height={688}
+        unoptimized
+        priority
+        className="h-auto w-full"
       />
     </a>
   );

@@ -71,6 +71,7 @@ export const emailTemplateUpsertSchema = z.object({
   content: emailCampaignContentSchema.optional(),
   html: z.string().max(maxHtmlTemplateLength).optional(),
   status: z.string().default("active"),
+  sourceTemplateId: z.string().min(1).default("mhacks-announcement"),
 });
 
 export const htmlTemplateUploadSchema = z.object({
@@ -158,6 +159,7 @@ export const directTestSendSchema = z.object({
 });
 
 export const directBatchSendSchema = z.object({
+  campaignId: z.string().uuid().optional(),
   template: directEmailTemplateSchema,
   recipients: z.string().max(maxRecipientTextLength).default(""),
   cursor: z.number().int().min(0).default(0),

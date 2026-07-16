@@ -1,15 +1,19 @@
 import { type NextRequest } from "next/server";
+import { requireOrganizer } from "@/lib/auth/guards";
 import {
   assertCampaignsEnabled,
   EmailCampaignError,
 } from "@/lib/email/campaigns/config";
 
-export function assertEmailRequestAllowed(request?: NextRequest) {
+export async function assertEmailRequestAllowed(request?: NextRequest) {
+  const organizer = await requireOrganizer();
   assertCampaignsEnabled();
 
   if (request) {
     assertSameOriginMutation(request);
   }
+
+  return organizer;
 }
 
 function assertSameOriginMutation(request: NextRequest) {

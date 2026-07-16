@@ -1,6 +1,6 @@
+import { requireOrganizer } from "@/lib/auth/guards";
 import {
   assertCampaignsEnabled,
-  assertFullCampaignSendingAllowed,
   EmailCampaignError,
   getCampaignLimits,
 } from "@/lib/email/campaigns/config";
@@ -8,23 +8,24 @@ import {
   mergeDataForEmail,
   parseRecipientText,
 } from "@/lib/email/campaigns/recipients";
-import { sanitizeSesError, sendRenderedEmail } from "@/lib/email/campaigns/ses";
-import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
+import {
+  createDirectCampaign,
+  getCampaign,
+  processCampaignBatch,
+  recordCampaignEvent,
+  refreshCampaignCounts,
+  sendSnapshotToEmail,
+  snapshotFromDirectTemplate,
+  upsertRecipientResult,
+  type SendResult,
+} from "@/lib/email/campaigns/service";
 import {
   directBatchSendSchema,
   directEmailTemplateSchema,
   directRecipientParseSchema,
   directSendOneSchema,
   directTestSendSchema,
-  type DirectEmailTemplateInput,
 } from "@/lib/email/types";
-
-interface DirectSendResult {
-  email: string;
-  status: "sent" | "failed";
-  messageId: string | null;
-  error: string | null;
-}
 
 export function parseDirectRecipients(input: unknown) {
   assertCampaignsEnabled();
@@ -36,91 +37,111 @@ export function parseDirectRecipients(input: unknown) {
 }
 
 export async function sendOneDirectEmail(input: unknown) {
+  const organizer = await requireOrganizer();
   assertCampaignsEnabled();
   const body = directSendOneSchema.parse(input);
   const email = body.email.trim().toLowerCase();
-
-  return sendDirectTemplateEmail({
+  const mergeData = buildMergeData(email, body.mergeData);
+  const campaign = await createDirectCampaign({
     template: body.template,
-    email,
-    mergeData: buildMergeData(email, body.mergeData),
+    organizer,
+    recipients: [{ email, mergeData }],
   });
+  const result = await sendSnapshotToEmail(campaign, email, mergeData);
+
+  await upsertRecipientResult(campaign.id, email, mergeData, result);
+  await refreshCampaignCounts(campaign.id, organizer);
+  await recordCampaignEvent({
+    campaignId: campaign.id,
+    organizer,
+    eventType: "direct_single_send",
+    details: {
+      email,
+      status: result.status,
+      messageId: result.messageId,
+      error: result.error,
+    },
+  });
+
+  return result;
 }
 
 export async function sendDirectTestEmails(input: unknown) {
+  const organizer = await requireOrganizer();
   assertCampaignsEnabled();
   const body = directTestSendSchema.parse(input);
   const emails = Array.from(
     new Set(body.emails.map((email) => email.trim().toLowerCase())),
   );
-  const results: DirectSendResult[] = [];
+  const campaignLike = {
+    templateSnapshot: snapshotFromDirectTemplate(body.template),
+    themeSnapshot:
+      body.template.type === "structured"
+        ? (body.template.theme ?? null)
+        : null,
+  };
+  const results: SendResult[] = [];
 
   for (const email of emails) {
     results.push(
-      await sendDirectTemplateEmail({
-        template: body.template,
+      await sendSnapshotToEmail(
+        campaignLike,
         email,
-        mergeData: buildMergeData(email, body.mergeData),
-      }),
+        buildMergeData(email, body.mergeData),
+      ),
     );
   }
+
+  await recordCampaignEvent({
+    campaignId: null,
+    organizer,
+    eventType: "direct_test_send",
+    details: {
+      total: results.length,
+      sent: results.filter((result) => result.status === "sent").length,
+      failed: results.filter((result) => result.status === "failed").length,
+    },
+  });
 
   return results;
 }
 
 export async function sendDirectBatch(input: unknown) {
-  assertFullCampaignSendingAllowed();
+  const organizer = await requireOrganizer();
   const body = directBatchSendSchema.parse(input);
   const parsed = parseRecipientText(body.recipients);
-  const limits = getCampaignLimits();
   enforceRecipientLimit(parsed.emails.length);
 
   if (parsed.emails.length === 0) {
     throw new EmailCampaignError("Add at least one valid recipient", 400);
   }
 
-  const batchRecipients = parsed.recipients.slice(
-    body.cursor,
-    body.cursor + limits.batchSize,
-  );
-  let sentCount = body.sentCount;
-  let failedCount = body.failedCount;
-  const recentFailures = [...body.recentFailures].slice(-10);
-
-  for (const recipient of batchRecipients) {
-    const result = await sendDirectTemplateEmail({
-      template: body.template,
-      email: recipient.email,
-      mergeData: buildMergeData(recipient.email, recipient.mergeData),
-    });
-
-    if (result.status === "sent") {
-      sentCount += 1;
-    } else {
-      failedCount += 1;
-      recentFailures.push({
-        email: result.email,
-        error: result.error,
+  const campaign = body.campaignId
+    ? await getCampaign(body.campaignId)
+    : await createDirectCampaign({
+        template: body.template,
+        organizer,
+        recipients: parsed.recipients.map((recipient) => ({
+          email: recipient.email,
+          mergeData: buildMergeData(recipient.email, recipient.mergeData),
+        })),
       });
-    }
 
-    await sleep(limits.sendDelayMs);
-  }
-
-  const nextCursor = body.cursor + batchRecipients.length;
-  const pendingCount = Math.max(0, parsed.emails.length - nextCursor);
+  const status = await processCampaignBatch(campaign.id);
+  const pendingCount = status.pendingCount;
 
   return {
-    totalRecipients: parsed.emails.length,
-    sentCount,
-    failedCount,
+    campaignId: campaign.id,
+    totalRecipients: status.totalRecipients,
+    sentCount: status.sentCount,
+    failedCount: status.failedCount,
     pendingCount,
-    nextCursor,
+    nextCursor: status.nextCursor,
     complete: pendingCount === 0,
     invalid: parsed.invalid,
     duplicateCount: parsed.duplicateCount,
     columns: parsed.columns,
-    recentFailures: recentFailures.slice(-10),
+    recentFailures: status.recentFailures,
   };
 }
 
@@ -135,60 +156,12 @@ function enforceRecipientLimit(count: number) {
   }
 }
 
-async function sendDirectTemplateEmail({
-  template,
-  email,
-  mergeData,
-}: {
-  template: DirectEmailTemplateInput;
-  email: string;
-  mergeData: Record<string, string>;
-}): Promise<DirectSendResult> {
-  try {
-    const rendered =
-      template.type === "html"
-        ? renderHtmlEmail({
-            subject: template.subject,
-            previewText: template.previewText,
-            html: template.html,
-            mergeData,
-          })
-        : await renderCampaignEmail({
-            templateId: template.templateId,
-            subject: template.subject,
-            previewText: template.previewText,
-            content: template.content,
-            theme: template.theme,
-            mergeData,
-          });
-    const messageId = await sendRenderedEmail({
-      to: email,
-      subject: rendered.subject,
-      html: rendered.html,
-      text: rendered.text,
-    });
-
-    return { email, status: "sent", messageId, error: null };
-  } catch (error) {
-    return {
-      email,
-      status: "failed",
-      messageId: null,
-      error: sanitizeSesError(error),
-    };
-  }
-}
-
 function buildMergeData(email: string, mergeData?: Record<string, string>) {
   return {
     ...mergeDataForEmail(email),
     ...mergeData,
     email,
   };
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function validateDirectEmailTemplate(input: unknown) {
