@@ -11,7 +11,6 @@ type AdminLink = {
   title: string;
   description: string;
   icon: LucideIcon;
-  navLabel?: string;
   isActive?: (pathname: string) => boolean;
 };
 
@@ -21,18 +20,6 @@ type AdminArea = {
   icon: LucideIcon;
   links: AdminLink[];
 };
-
-export type AdminNavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  isActive: (pathname: string) => boolean;
-};
-
-function defaultIsActive(href: string) {
-  return (pathname: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
-}
 
 export const ADMIN_AREAS: AdminArea[] = [
   {
@@ -75,21 +62,10 @@ export const ADMIN_AREAS: AdminArea[] = [
       {
         href: "/admin/team",
         title: "User invites",
-        navLabel: "Team",
         description:
           "Send email invitations and assign organizer or hacker roles.",
         icon: UsersRoundIcon,
-        isActive: (pathname) => pathname.startsWith("/admin/team"),
       },
     ],
   },
 ];
-
-export const ADMIN_NAV_ITEMS: AdminNavItem[] = ADMIN_AREAS.flatMap((area) =>
-  area.links.map((link) => ({
-    href: link.href,
-    label: link.navLabel ?? link.title,
-    icon: link.icon,
-    isActive: link.isActive ?? defaultIsActive(link.href),
-  })),
-);

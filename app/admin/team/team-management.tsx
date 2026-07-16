@@ -16,8 +16,8 @@ import {
   type UserInviteListResult,
   userInviteRoleSchema,
 } from "@/lib/types/user-invitations";
-import { ApplicationReviewHeader } from "@/app/admin/applications/components/application-review-header";
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
+import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import {
   AlertDialog,
@@ -223,11 +223,10 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
 
   return (
     <AdminPageShell>
-      <ApplicationReviewHeader
-          title="Team"
-          description="Invite users by email and assign their portal role."
-          variant="dashboard"
-        />
+      <AdminPageHeader
+        title="User invites"
+        description="Invite users by email and assign their portal role."
+      />
 
         <Card>
           <CardHeader>
