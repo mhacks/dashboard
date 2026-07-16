@@ -40,7 +40,8 @@ import {
 } from "@/components/ui/chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { paginateSlice } from "@/lib/pagination";
-import { ApplicationReviewHeader } from "../components/application-review-header";
+import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
+import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { ListPagination } from "../components/list-pagination";
 import { Meter } from "../components/meter";
 import { SummaryBar } from "../components/summary-bar";
@@ -629,71 +630,69 @@ export default function ApplicationAnalyticsDashboard({
   data: ApplicationAnalyticsData;
 }) {
   return (
-    <main className="min-h-screen bg-background px-4 py-5 text-foreground md:px-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <ApplicationReviewHeader
-          title="Application Analytics"
-          description="Overall applicant demographics, location signals, academic mix, and review score distributions."
-        />
+    <AdminPageShell>
+      <AdminPageHeader
+        title="Application Analytics"
+        description="Overall applicant demographics, location signals, academic mix, and review score distributions."
+      />
 
-        <SummaryBar
-          items={[
-            {
-              label: "Applicants",
-              value: data.totals.applicants,
-              hint: `${data.totals.pending} pending, ${data.totals.reviewed} reviewed, ${data.totals.flagged} flagged.`,
-              icon: <UsersRoundIcon className="size-5" />,
-            },
-            {
-              label: "Average age",
-              value: data.totals.averageAge ?? "N/A",
-              hint:
-                data.totals.youngestAge === null
-                  ? "No applicant age data yet."
-                  : `Range ${data.totals.youngestAge}-${data.totals.oldestAge}.`,
-              icon: <BarChart3Icon className="size-5" />,
-            },
-            {
-              label: "Completed scorecards",
-              value: data.scores.reviewedApplications,
-              hint: "Applications with both effort and builder ratings.",
-              icon: <TrophyIcon className="size-5" />,
-            },
-            {
-              label: "Countries",
-              value: data.locations.countries.length,
-              hint: "Distinct countries represented in applications.",
-              icon: <MapPinnedIcon className="size-5" />,
-            },
-          ]}
-        />
+      <SummaryBar
+        items={[
+          {
+            label: "Applicants",
+            value: data.totals.applicants,
+            hint: `${data.totals.pending} pending, ${data.totals.reviewed} reviewed, ${data.totals.flagged} flagged.`,
+            icon: <UsersRoundIcon className="size-5" />,
+          },
+          {
+            label: "Average age",
+            value: data.totals.averageAge ?? "N/A",
+            hint:
+              data.totals.youngestAge === null
+                ? "No applicant age data yet."
+                : `Range ${data.totals.youngestAge}-${data.totals.oldestAge}.`,
+            icon: <BarChart3Icon className="size-5" />,
+          },
+          {
+            label: "Completed scorecards",
+            value: data.scores.reviewedApplications,
+            hint: "Applications with both effort and builder ratings.",
+            icon: <TrophyIcon className="size-5" />,
+          },
+          {
+            label: "Countries",
+            value: data.locations.countries.length,
+            hint: "Distinct countries represented in applications.",
+            icon: <MapPinnedIcon className="size-5" />,
+          },
+        ]}
+      />
 
-        <Tabs defaultValue="overview">
-          <TabsList variant="line" className="w-full justify-start">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews</TabsTrigger>
-            <TabsTrigger value="demographics">Demographics</TabsTrigger>
-            <TabsTrigger value="academics">Academics</TabsTrigger>
-            <TabsTrigger value="locations">Locations</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="overview">
+        <TabsList variant="line" className="w-full justify-start">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="reviews">Reviews</TabsTrigger>
+          <TabsTrigger value="demographics">Demographics</TabsTrigger>
+          <TabsTrigger value="academics">Academics</TabsTrigger>
+          <TabsTrigger value="locations">Locations</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="overview" className="mt-5">
-            <OverviewTab data={data} />
-          </TabsContent>
-          <TabsContent value="reviews" className="mt-5">
-            <ReviewsTab data={data} />
-          </TabsContent>
-          <TabsContent value="demographics" className="mt-5">
-            <DemographicsTab data={data} />
-          </TabsContent>
-          <TabsContent value="academics" className="mt-5">
-            <AcademicsTab data={data} />
-          </TabsContent>
-          <TabsContent value="locations" className="mt-5">
-            <LocationsTab data={data} />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </main>
+        <TabsContent value="overview" className="mt-5">
+          <OverviewTab data={data} />
+        </TabsContent>
+        <TabsContent value="reviews" className="mt-5">
+          <ReviewsTab data={data} />
+        </TabsContent>
+        <TabsContent value="demographics" className="mt-5">
+          <DemographicsTab data={data} />
+        </TabsContent>
+        <TabsContent value="academics" className="mt-5">
+          <AcademicsTab data={data} />
+        </TabsContent>
+        <TabsContent value="locations" className="mt-5">
+          <LocationsTab data={data} />
+        </TabsContent>
+      </Tabs>
+    </AdminPageShell>
   );
 }

@@ -79,7 +79,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { clampPageIndex, getPageCount, paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
-import { ApplicationReviewHeader } from "./components/application-review-header";
+import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import {
   ApplicationDetailSkeleton,
   ResumePreviewSkeleton,
@@ -1623,7 +1623,7 @@ export default function ApplicationReviewWorkspace({
   return (
     <main className="h-dvh overflow-hidden bg-background text-foreground">
       <div className="flex h-full flex-col">
-        <ApplicationReviewHeader
+        <AdminPageHeader
           title="Application Review"
           variant="workspace"
           footer={

@@ -20,5 +20,5 @@ export function destinationForRole(role: UserRole, next?: string | null) {
     return safeNext?.startsWith("/admin") ? "/apply" : (safeNext ?? "/apply");
   }
 
-  return safeNext ?? "/admin/applications";
+  return safeNext ?? "/admin";
 }
