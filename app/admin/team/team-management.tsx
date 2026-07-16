@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { SearchIcon, Trash2Icon, UsersRoundIcon } from "lucide-react";
+import { SearchIcon, Trash2Icon, UsersRoundIcon, AlertTriangleIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   createUserInvite,
@@ -20,16 +20,6 @@ import { ListPagination } from "@/app/admin/applications/components/list-paginat
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -269,7 +259,75 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
               first sign-in; existing accounts are prompted before their role changes.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-4">
+            {inviteConfirmation ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
+                <div className="flex items-start gap-2">
+                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">
+                      {inviteConfirmation.type === "existing-user"
+                        ? "Change existing user's role?"
+                        : "Replace pending invite?"}
+                    </p>
+                    <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                      {inviteConfirmation.type === "existing-user" ? (
+                        <>
+                          <span className="font-medium text-amber-950 dark:text-amber-100">
+                            {inviteConfirmation.email}
+                          </span>{" "}
+                          already has an account as{" "}
+                          {ROLE_LABELS[inviteConfirmation.currentRole]}. Change
+                          their role to {ROLE_LABELS[inviteConfirmation.role]}?
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-medium text-amber-950 dark:text-amber-100">
+                            {inviteConfirmation.email}
+                          </span>{" "}
+                          already has a pending invite as{" "}
+                          {ROLE_LABELS[inviteConfirmation.pendingRole]}. Revoke
+                          that invite and send a new one as{" "}
+                          {ROLE_LABELS[inviteConfirmation.role]}?
+                        </>
+                      )}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="bg-background"
+                        onClick={() => setInviteConfirmation(null)}
+                      >
+                        {inviteConfirmation.type === "existing-user"
+                          ? "Keep current role"
+                          : "Keep existing invite"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={
+                          inviteConfirmation.type === "existing-user"
+                            ? "default"
+                            : "destructive"
+                        }
+                        disabled={isSubmitting}
+                        onClick={
+                          inviteConfirmation.type === "existing-user"
+                            ? handleConfirmExistingUserRoleChange
+                            : handleConfirmPendingInviteReplacement
+                        }
+                      >
+                        {inviteConfirmation.type === "existing-user"
+                          ? "Change role"
+                          : "Revoke and send new invite"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <form
               onSubmit={handleInviteSubmit}
               className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px_auto]"
@@ -311,72 +369,6 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
             </form>
           </CardContent>
         </Card>
-
-        <AlertDialog
-          open={inviteConfirmation?.type === "existing-user"}
-          onOpenChange={(open) => {
-            if (!open) setInviteConfirmation(null);
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Change existing user&apos;s role?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {inviteConfirmation?.type === "existing-user" && (
-                  <>
-                    <span className="font-medium text-foreground">
-                      {inviteConfirmation.email}
-                    </span>{" "}
-                    already has an account as{" "}
-                    {ROLE_LABELS[inviteConfirmation.currentRole]}. Change their
-                    role to {ROLE_LABELS[inviteConfirmation.role]}?
-                  </>
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep current role</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmExistingUserRoleChange}>
-                Change role
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        <AlertDialog
-          open={inviteConfirmation?.type === "pending-invite"}
-          onOpenChange={(open) => {
-            if (!open) setInviteConfirmation(null);
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Replace pending invite?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {inviteConfirmation?.type === "pending-invite" && (
-                  <>
-                    <span className="font-medium text-foreground">
-                      {inviteConfirmation.email}
-                    </span>{" "}
-                    already has a pending invite as{" "}
-                    {ROLE_LABELS[inviteConfirmation.pendingRole]}. Revoke that
-                    invite and send a new one as{" "}
-                    {ROLE_LABELS[inviteConfirmation.role]}?
-                  </>
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep existing invite</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                onClick={handleConfirmPendingInviteReplacement}
-              >
-                Revoke and send new invite
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
         <Card>
           <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
