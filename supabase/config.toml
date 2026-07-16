@@ -6,6 +6,10 @@ project_id = "dashboard"
 
 # Local dev — everything else uses CLI defaults (ports, Inbucket/Mailpit, etc.)
 
+[local_smtp]
+enabled = true
+smtp_port = 54325
+
 [api]
 schemas = ["public"]
 
