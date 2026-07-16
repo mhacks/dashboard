@@ -4,7 +4,9 @@ import nodemailer, { type Transporter } from "nodemailer";
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "hackathon@mhacks.org";
 const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MHacks Team";
 
-function getTransporter(): Transporter | null {
+let transporter: Transporter | null | undefined;
+
+function createTransporter(): Transporter | null {
   const smtpHost = process.env.SMTP_HOST;
   if (smtpHost) {
     return nodemailer.createTransport({
@@ -29,6 +31,13 @@ function getTransporter(): Transporter | null {
   });
 }
 
+function getTransporter(): Transporter | null {
+  if (transporter === undefined) {
+    transporter = createTransporter();
+  }
+  return transporter;
+}
+
 export async function sendEmail({
   to,
   subject,
@@ -40,10 +49,10 @@ export async function sendEmail({
   text: string;
   html: string;
 }) {
-  const transporter = getTransporter();
-  if (!transporter) return false;
+  const mailTransporter = getTransporter();
+  if (!mailTransporter) return false;
 
-  await transporter.sendMail({
+  await mailTransporter.sendMail({
     from: `${FROM_NAME} <${FROM_EMAIL}>`,
     to,
     subject,

@@ -11,7 +11,6 @@ type AdminLink = {
   title: string;
   description: string;
   icon: LucideIcon;
-  isActive?: (pathname: string) => boolean;
 };
 
 type AdminArea = {
@@ -32,25 +31,18 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Reviews",
         description: "Score pending applications and collaborate live.",
         icon: ClipboardCheckIcon,
-        isActive: (pathname) =>
-          pathname === "/admin/applications" ||
-          /^\/admin\/applications\/app_[a-f0-9]{24}$/.test(pathname),
       },
       {
         href: "/admin/applications/leaderboard",
         title: "Leaderboard",
         description: "Completed reviews by organizer.",
         icon: TrophyIcon,
-        isActive: (pathname) =>
-          pathname.startsWith("/admin/applications/leaderboard"),
       },
       {
         href: "/admin/applications/analytics",
         title: "Analytics",
         description: "Demographics, locations, and score trends.",
         icon: BarChart3Icon,
-        isActive: (pathname) =>
-          pathname.startsWith("/admin/applications/analytics"),
       },
     ],
   },

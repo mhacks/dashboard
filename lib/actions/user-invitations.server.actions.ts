@@ -13,12 +13,10 @@ import {
   sendInviteEmail,
   sendRoleChangeEmail,
 } from "@/lib/email/send-invite-email";
-import {
-  getPendingUserInvite as getPendingUserInviteQuery,
-  listUserInvites as listUserInvitesQuery,
-} from "@/lib/queries/user-invitations";
+import { listUserInvites as listUserInvitesQuery } from "@/lib/queries/user-invitations";
 import {
   type CreateUserInviteResult,
+  coerceInviteDate,
   inviteExpiresAt,
   normalizeInviteEmail,
   userInviteEmailSchema,
@@ -31,10 +29,6 @@ export async function listUserInvites(
   search?: string,
 ) {
   return listUserInvitesQuery(pageIndex, pageSize, search);
-}
-
-export async function getPendingUserInvite(email: string) {
-  return getPendingUserInviteQuery(email);
 }
 
 export async function createUserInvite(
@@ -67,7 +61,7 @@ export async function createUserInvite(
 
   const [[existingUser], [pendingInvite]] = await Promise.all([
     db
-      .select()
+      .select({ id: users.id, role: users.role })
       .from(users)
       .where(sql`lower(${users.email}) = ${normalizedEmail}`)
       .limit(1),
@@ -120,7 +114,8 @@ export async function createUserInvite(
 
     try {
       await sendRoleChangeEmail(normalizedEmail, inviteRole);
-    } catch {
+    } catch (error) {
+      console.error("Failed to send role change email:", error);
       return {
         error: "Role updated, but the notification email could not be sent.",
       };
@@ -130,31 +125,23 @@ export async function createUserInvite(
   }
 
   if (pendingInvite) {
-    await db.transaction(async (tx) => {
-      await tx
-        .update(userInvitations)
-        .set({ revokedAt: new Date() })
-        .where(eq(userInvitations.id, pendingInvite.id));
-
-      await tx.insert(userInvitations).values({
-        email: normalizedEmail,
-        role: inviteRole,
-        invitedBy: organizer.id,
-        expiresAt,
-      });
-    });
-  } else {
-    await db.insert(userInvitations).values({
-      email: normalizedEmail,
-      role: inviteRole,
-      invitedBy: organizer.id,
-      expiresAt,
-    });
+    await db
+      .update(userInvitations)
+      .set({ revokedAt: new Date() })
+      .where(eq(userInvitations.id, pendingInvite.id));
   }
+
+  await db.insert(userInvitations).values({
+    email: normalizedEmail,
+    role: inviteRole,
+    invitedBy: organizer.id,
+    expiresAt,
+  });
 
   try {
     await sendInviteEmail(normalizedEmail, inviteRole, expiresAt);
-  } catch {
+  } catch (error) {
+    console.error("Failed to send invite email:", error);
     return { error: "Invite created, but the email could not be sent." };
   }
 }
@@ -192,12 +179,7 @@ export async function revokeUserInvite(
     return { error: "Invite is already revoked." };
   }
 
-  const expiresAt =
-    invite.expiresAt instanceof Date
-      ? invite.expiresAt
-      : new Date(invite.expiresAt);
-
-  if (expiresAt.getTime() <= Date.now()) {
+  if (coerceInviteDate(invite.expiresAt).getTime() <= Date.now()) {
     return { error: "Expired invites cannot be revoked." };
   }
 

@@ -12,6 +12,14 @@ import {
   userInviteEmailSchema,
 } from "@/lib/types/user-invitations";
 
+function parseInviteEmail(email: string): string | null {
+  const normalizedEmail = normalizeInviteEmail(email);
+  if (!userInviteEmailSchema.safeParse(normalizedEmail).success) {
+    return null;
+  }
+  return normalizedEmail;
+}
+
 function inviteSearchCondition(search: string) {
   const term = `%${search.trim()}%`;
   return or(ilike(userInvitations.email, term), ilike(users.email, term));
@@ -51,16 +59,27 @@ export async function listUserInvites(
     .offset(safePageIndex * safePageSize);
 
   return {
-    items: rows.map((row) => ({
-      id: row.id,
-      email: row.email,
-      role: row.role,
-      acceptedAt: row.acceptedAt,
-      revokedAt: row.revokedAt,
-      expiresAt: row.expiresAt,
-      createdAt: row.createdAt,
-      invitedByEmail: row.invitedByEmail,
-    })),
+    items: rows.map(
+      ({
+        id,
+        email,
+        role,
+        acceptedAt,
+        revokedAt,
+        expiresAt,
+        createdAt,
+        invitedByEmail,
+      }) => ({
+        id,
+        email,
+        role,
+        acceptedAt,
+        revokedAt,
+        expiresAt,
+        createdAt,
+        invitedByEmail,
+      }),
+    ),
     totalCount: rows[0]?.totalCount ?? 0,
   };
 }
@@ -68,10 +87,8 @@ export async function listUserInvites(
 export async function getPendingUserInvite(
   email: string,
 ): Promise<UserRole | null> {
-  const normalizedEmail = normalizeInviteEmail(email);
-  if (!userInviteEmailSchema.safeParse(normalizedEmail).success) {
-    return null;
-  }
+  const normalizedEmail = parseInviteEmail(email);
+  if (!normalizedEmail) return null;
 
   const [invite] = await db
     .select({ role: userInvitations.role })
@@ -86,10 +103,8 @@ export async function acceptPendingUserInvite(
   userId: string,
   email: string,
 ): Promise<UserRole | null> {
-  const normalizedEmail = normalizeInviteEmail(email);
-  if (!userInviteEmailSchema.safeParse(normalizedEmail).success) {
-    return null;
-  }
+  const normalizedEmail = parseInviteEmail(email);
+  if (!normalizedEmail) return null;
 
   const [invite] = await db
     .select({

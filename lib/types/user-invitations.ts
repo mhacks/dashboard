@@ -14,7 +14,10 @@ export const inviteSyncPayloadSchema = z.object({
   sourceUserId: z.uuid(),
 });
 
-export type InviteSyncPayload = z.infer<typeof inviteSyncPayloadSchema>;
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  hacker: "Hacker",
+  organizer: "Organizer",
+};
 
 export function normalizeInviteEmail(email: string) {
   return email.trim().toLowerCase();
@@ -22,6 +25,10 @@ export function normalizeInviteEmail(email: string) {
 
 export function inviteExpiresAt(from = new Date()) {
   return new Date(from.getTime() + INVITE_TTL_MS);
+}
+
+export function coerceInviteDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
 }
 
 export type UserInviteListItem = {
@@ -59,11 +66,9 @@ export function inviteStatus(
 ) {
   if (invite.acceptedAt) return "Accepted";
   if (invite.revokedAt) return "Revoked";
-  const expiresAt =
-    invite.expiresAt instanceof Date
-      ? invite.expiresAt
-      : new Date(invite.expiresAt);
-  if (expiresAt.getTime() <= Date.now()) return "Expired";
+  if (coerceInviteDate(invite.expiresAt).getTime() <= Date.now()) {
+    return "Expired";
+  }
   return "Pending";
 }
 

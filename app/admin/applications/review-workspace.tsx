@@ -36,6 +36,7 @@ import {
 } from "@/lib/actions/application-review.server.actions";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 import { createClient } from "@/lib/supabase/client";
+import { isBenignRealtimeChannelError } from "@/lib/supabase/realtime-errors";
 import {
   reviewCompleteSchema,
   reviewDraftSchema,
@@ -132,17 +133,6 @@ function useIsPhoneLandscape() {
   }, []);
 
   return isPhoneLandscape;
-}
-
-function isBenignRealtimeChannelError(error: unknown) {
-  if (!error) return true;
-
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes("socket closed: 1001") ||
-    message.includes("socket closed") ||
-    message.includes("Channel closed")
-  );
 }
 
 type PresenceMeta = {

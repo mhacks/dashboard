@@ -1,12 +1,15 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { adminPageHeaderClasses } from "./admin-page-header-layout";
+import {
+  adminPageHeaderClasses,
+  type AdminPageHeaderVariant,
+} from "./admin-page-header-layout";
 
 export function AdminPageHeaderSkeleton({
   variant = "workspace",
   withDescription = false,
   withFooter = false,
 }: {
-  variant?: "page" | "workspace";
+  variant?: AdminPageHeaderVariant;
   withDescription?: boolean;
   withFooter?: boolean;
 }) {
