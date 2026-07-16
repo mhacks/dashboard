@@ -58,16 +58,30 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type PendingInviteReplacement = {
-  email: string;
-  role: UserRole;
-  pendingRole: UserRole;
-};
+type InviteConfirmation =
+  | {
+      type: "pending-invite";
+      email: string;
+      role: UserRole;
+      pendingRole: UserRole;
+    }
+  | {
+      type: "existing-user";
+      email: string;
+      role: UserRole;
+      currentRole: UserRole;
+    };
 
 function isPendingInviteResult(
   result: CreateUserInviteResult,
 ): result is Extract<CreateUserInviteResult, { pendingInvite: unknown }> {
   return "pendingInvite" in result;
+}
+
+function isExistingUserResult(
+  result: CreateUserInviteResult,
+): result is Extract<CreateUserInviteResult, { existingUser: unknown }> {
+  return "existingUser" in result;
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -96,8 +110,8 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
   const [role, setRole] = useState<UserRole>("organizer");
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
-  const [pendingInviteReplacement, setPendingInviteReplacement] =
-    useState<PendingInviteReplacement | null>(null);
+  const [inviteConfirmation, setInviteConfirmation] =
+    useState<InviteConfirmation | null>(null);
   const skipSearchEffect = useRef(true);
 
   async function refreshInvites(
@@ -131,13 +145,24 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
   async function sendInvite(
     email: string,
     inviteRole: UserRole,
-    replacePendingInvite = false,
+    options?: {
+      replacePendingInvite?: boolean;
+      changeExistingUserRole?: boolean;
+    },
   ) {
-    const result = await createUserInvite(email, inviteRole, {
-      replacePendingInvite,
-    });
+    const result = await createUserInvite(email, inviteRole, options);
+    if (result && isExistingUserResult(result)) {
+      setInviteConfirmation({
+        type: "existing-user",
+        email,
+        role: inviteRole,
+        currentRole: result.existingUser.role,
+      });
+      return;
+    }
     if (result && isPendingInviteResult(result)) {
-      setPendingInviteReplacement({
+      setInviteConfirmation({
+        type: "pending-invite",
         email,
         role: inviteRole,
         pendingRole: result.pendingInvite.role,
@@ -149,7 +174,9 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
       return;
     }
 
-    toast.success("Invite sent.");
+    toast.success(
+      options?.changeExistingUserRole ? "Role updated." : "Invite sent.",
+    );
     setInviteEmail("");
     setPageIndex(0);
     await refreshInvites(0);
@@ -163,14 +190,19 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     });
   }
 
-  function handleReplacePendingInvite() {
-    if (!pendingInviteReplacement) return;
+  function handleConfirmInviteAction() {
+    if (!inviteConfirmation) return;
 
-    const { email, role: inviteRole } = pendingInviteReplacement;
-    setPendingInviteReplacement(null);
+    const { email, role: inviteRole, type } = inviteConfirmation;
+    setInviteConfirmation(null);
 
     startSubmitTransition(async () => {
-      await sendInvite(email, inviteRole, true);
+      if (type === "existing-user") {
+        await sendInvite(email, inviteRole, { changeExistingUserRole: true });
+        return;
+      }
+
+      await sendInvite(email, inviteRole, { replacePendingInvite: true });
     });
   }
 
@@ -261,35 +293,58 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
         </Card>
 
         <AlertDialog
-          open={pendingInviteReplacement !== null}
+          open={inviteConfirmation !== null}
           onOpenChange={(open) => {
-            if (!open) setPendingInviteReplacement(null);
+            if (!open) setInviteConfirmation(null);
           }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Replace pending invite?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {inviteConfirmation?.type === "existing-user"
+                  ? "Change existing user's role?"
+                  : "Replace pending invite?"}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                {pendingInviteReplacement ? (
+                {inviteConfirmation?.type === "existing-user" ? (
                   <>
                     <span className="font-medium text-foreground">
-                      {pendingInviteReplacement.email}
+                      {inviteConfirmation.email}
+                    </span>{" "}
+                    already has an account as{" "}
+                    {ROLE_LABELS[inviteConfirmation.currentRole]}. Change their
+                    role to {ROLE_LABELS[inviteConfirmation.role]}?
+                  </>
+                ) : inviteConfirmation?.type === "pending-invite" ? (
+                  <>
+                    <span className="font-medium text-foreground">
+                      {inviteConfirmation.email}
                     </span>{" "}
                     already has a pending invite as{" "}
-                    {ROLE_LABELS[pendingInviteReplacement.pendingRole]}. Revoke
-                    that invite and send a new one as{" "}
-                    {ROLE_LABELS[pendingInviteReplacement.role]}?
+                    {ROLE_LABELS[inviteConfirmation.pendingRole]}. Revoke that
+                    invite and send a new one as{" "}
+                    {ROLE_LABELS[inviteConfirmation.role]}?
                   </>
                 ) : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Keep existing invite</AlertDialogCancel>
+              <AlertDialogCancel>
+                {inviteConfirmation?.type === "existing-user"
+                  ? "Keep current role"
+                  : "Keep existing invite"}
+              </AlertDialogCancel>
               <AlertDialogAction
-                variant="destructive"
-                onClick={handleReplacePendingInvite}
+                variant={
+                  inviteConfirmation?.type === "existing-user"
+                    ? "default"
+                    : "destructive"
+                }
+                onClick={handleConfirmInviteAction}
               >
-                Revoke and send new invite
+                {inviteConfirmation?.type === "existing-user"
+                  ? "Change role"
+                  : "Revoke and send new invite"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

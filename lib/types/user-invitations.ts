@@ -25,6 +25,11 @@ export type CreateUserInviteResult =
         id: string;
         role: UserRole;
       };
+    }
+  | {
+      existingUser: {
+        role: UserRole;
+      };
     };
 
 export function inviteStatus(

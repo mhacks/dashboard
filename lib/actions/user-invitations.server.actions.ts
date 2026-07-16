@@ -40,7 +40,10 @@ export async function getPendingUserInvite(email: string) {
 export async function createUserInvite(
   email: string,
   role: UserRole,
-  options?: { replacePendingInvite?: boolean },
+  options?: {
+    replacePendingInvite?: boolean;
+    changeExistingUserRole?: boolean;
+  },
 ): Promise<CreateUserInviteResult | undefined> {
   const organizer = await requireOrganizer();
   const normalizedEmail = normalizeInviteEmail(email);
@@ -56,6 +59,7 @@ export async function createUserInvite(
   const inviteRole = parsedRole.data;
   const expiresAt = inviteExpiresAt();
   const replacePendingInvite = options?.replacePendingInvite ?? false;
+  const changeExistingUserRole = options?.changeExistingUserRole ?? false;
 
   const [[existingUser], [pendingInvite]] = await Promise.all([
     db
@@ -77,7 +81,11 @@ export async function createUserInvite(
     return { error: `This user already has the ${inviteRole} role.` };
   }
 
-  if (pendingInvite && !replacePendingInvite) {
+  if (existingUser && !changeExistingUserRole) {
+    return { existingUser: { role: existingUser.role } };
+  }
+
+  if (pendingInvite && !replacePendingInvite && !existingUser) {
     return { pendingInvite };
   }
 
