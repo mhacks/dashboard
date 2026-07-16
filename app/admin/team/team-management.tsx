@@ -10,10 +10,7 @@ import {
 } from "@/lib/actions/user-invitations.server.actions";
 import { INVITE_PAGE_SIZE } from "@/lib/queries/user-invitations";
 import type { UserRole } from "@/lib/db/schema/users";
-import type {
-  CreateUserInviteResult,
-  UserInviteListResult,
-} from "@/lib/types/user-invitations";
+import type { UserInviteListResult } from "@/lib/types/user-invitations";
 import {
   canRevokeInvite,
   inviteStatus,
@@ -71,18 +68,6 @@ type InviteConfirmation =
       role: UserRole;
       currentRole: UserRole;
     };
-
-function isPendingInviteResult(
-  result: CreateUserInviteResult,
-): result is Extract<CreateUserInviteResult, { pendingInvite: unknown }> {
-  return "pendingInvite" in result;
-}
-
-function isExistingUserResult(
-  result: CreateUserInviteResult,
-): result is Extract<CreateUserInviteResult, { existingUser: unknown }> {
-  return "existingUser" in result;
-}
 
 const ROLE_LABELS: Record<UserRole, string> = {
   hacker: "Hacker",
@@ -151,7 +136,17 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     },
   ) {
     const result = await createUserInvite(email, inviteRole, options);
-    if (result && isExistingUserResult(result)) {
+    if (!result) {
+      toast.success(
+        options?.changeExistingUserRole ? "Role updated." : "Invite sent.",
+      );
+      setInviteEmail("");
+      setPageIndex(0);
+      await refreshInvites(0);
+      return;
+    }
+
+    if ("existingUser" in result) {
       setInviteConfirmation({
         type: "existing-user",
         email,
@@ -160,7 +155,8 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
       });
       return;
     }
-    if (result && isPendingInviteResult(result)) {
+
+    if ("pendingInvite" in result) {
       setInviteConfirmation({
         type: "pending-invite",
         email,
@@ -169,17 +165,8 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
       });
       return;
     }
-    if (result?.error) {
-      toast.error(result.error);
-      return;
-    }
 
-    toast.success(
-      options?.changeExistingUserRole ? "Role updated." : "Invite sent.",
-    );
-    setInviteEmail("");
-    setPageIndex(0);
-    await refreshInvites(0);
+    toast.error(result.error);
   }
 
   function handleInviteSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -190,18 +177,24 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
     });
   }
 
-  function handleConfirmInviteAction() {
-    if (!inviteConfirmation) return;
+  function handleConfirmExistingUserRoleChange() {
+    if (inviteConfirmation?.type !== "existing-user") return;
 
-    const { email, role: inviteRole, type } = inviteConfirmation;
+    const { email, role: inviteRole } = inviteConfirmation;
     setInviteConfirmation(null);
 
     startSubmitTransition(async () => {
-      if (type === "existing-user") {
-        await sendInvite(email, inviteRole, { changeExistingUserRole: true });
-        return;
-      }
+      await sendInvite(email, inviteRole, { changeExistingUserRole: true });
+    });
+  }
 
+  function handleConfirmPendingInviteReplacement() {
+    if (inviteConfirmation?.type !== "pending-invite") return;
+
+    const { email, role: inviteRole } = inviteConfirmation;
+    setInviteConfirmation(null);
+
+    startSubmitTransition(async () => {
       await sendInvite(email, inviteRole, { replacePendingInvite: true });
     });
   }
@@ -246,7 +239,7 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
               Invited users sign in at{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">/login</code>{" "}
               with that email. Invites expire after 7 days. Pending invites apply on
-              first sign-in; existing accounts are updated immediately.
+              first sign-in; existing accounts are prompted before their role changes.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -293,20 +286,16 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
         </Card>
 
         <AlertDialog
-          open={inviteConfirmation !== null}
+          open={inviteConfirmation?.type === "existing-user"}
           onOpenChange={(open) => {
             if (!open) setInviteConfirmation(null);
           }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>
-                {inviteConfirmation?.type === "existing-user"
-                  ? "Change existing user's role?"
-                  : "Replace pending invite?"}
-              </AlertDialogTitle>
+              <AlertDialogTitle>Change existing user&apos;s role?</AlertDialogTitle>
               <AlertDialogDescription>
-                {inviteConfirmation?.type === "existing-user" ? (
+                {inviteConfirmation?.type === "existing-user" && (
                   <>
                     <span className="font-medium text-foreground">
                       {inviteConfirmation.email}
@@ -315,7 +304,29 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
                     {ROLE_LABELS[inviteConfirmation.currentRole]}. Change their
                     role to {ROLE_LABELS[inviteConfirmation.role]}?
                   </>
-                ) : inviteConfirmation?.type === "pending-invite" ? (
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep current role</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmExistingUserRoleChange}>
+                Change role
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
+          open={inviteConfirmation?.type === "pending-invite"}
+          onOpenChange={(open) => {
+            if (!open) setInviteConfirmation(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Replace pending invite?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {inviteConfirmation?.type === "pending-invite" && (
                   <>
                     <span className="font-medium text-foreground">
                       {inviteConfirmation.email}
@@ -325,26 +336,16 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
                     invite and send a new one as{" "}
                     {ROLE_LABELS[inviteConfirmation.role]}?
                   </>
-                ) : null}
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>
-                {inviteConfirmation?.type === "existing-user"
-                  ? "Keep current role"
-                  : "Keep existing invite"}
-              </AlertDialogCancel>
+              <AlertDialogCancel>Keep existing invite</AlertDialogCancel>
               <AlertDialogAction
-                variant={
-                  inviteConfirmation?.type === "existing-user"
-                    ? "default"
-                    : "destructive"
-                }
-                onClick={handleConfirmInviteAction}
+                variant="destructive"
+                onClick={handleConfirmPendingInviteReplacement}
               >
-                {inviteConfirmation?.type === "existing-user"
-                  ? "Change role"
-                  : "Revoke and send new invite"}
+                Revoke and send new invite
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

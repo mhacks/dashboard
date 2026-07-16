@@ -85,7 +85,7 @@ export async function createUserInvite(
     return { existingUser: { role: existingUser.role } };
   }
 
-  if (pendingInvite && !replacePendingInvite && !existingUser) {
+  if (!existingUser && pendingInvite && !replacePendingInvite) {
     return { pendingInvite };
   }
 
