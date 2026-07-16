@@ -43,7 +43,9 @@ export function usePrivateBroadcastChannel<
     if (!realtimeReady || !organizerId) return;
 
     let active = true;
-    const channel = supabase.channel(channelName, { config: { private: true } });
+    const channel = supabase.channel(channelName, {
+      config: { private: true },
+    });
     channelRef.current = channel;
 
     channel.on("broadcast", { event }, ({ payload }) => {

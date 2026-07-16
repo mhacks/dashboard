@@ -2,7 +2,7 @@ import type { UserRole } from "@/lib/db/schema/users";
 import { USER_ROLE_LABELS } from "@/lib/types/user-invitations";
 
 const EMAIL_FONT =
-  'font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;';
+  "font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;";
 
 function escapeHtml(value: string) {
   return value

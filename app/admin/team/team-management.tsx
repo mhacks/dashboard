@@ -150,10 +150,7 @@ export default function TeamManagement({
     channelRef: inviteSyncChannel,
     onRemoteMessage: () => {
       void refreshInvites(pageIndexRef.current).catch((error) => {
-        console.error(
-          "Unable to refresh invites after realtime sync:",
-          error,
-        );
+        console.error("Unable to refresh invites after realtime sync:", error);
       });
     },
     logLabel: "invite sync channel",

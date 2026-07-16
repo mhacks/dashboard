@@ -1,4 +1,11 @@
-import { pgTable, pgPolicy, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  pgPolicy,
+  uuid,
+  text,
+  timestamp,
+  index,
+} from "drizzle-orm/pg-core";
 import { and, gt, isNull, sql } from "drizzle-orm";
 import { authenticatedRole } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";

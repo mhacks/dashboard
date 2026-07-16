@@ -133,9 +133,11 @@ export async function createUserInvite(
     expiresAt,
   });
 
-  void sendInviteEmail(normalizedEmail, inviteRole, expiresAt).catch((error) => {
-    console.error("Failed to send invite email:", error);
-  });
+  void sendInviteEmail(normalizedEmail, inviteRole, expiresAt).catch(
+    (error) => {
+      console.error("Failed to send invite email:", error);
+    },
+  );
 
   return { ok: true };
 }

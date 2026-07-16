@@ -1213,7 +1213,9 @@ export default function ApplicationReviewWorkspace({
                   <div className="mt-1 flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={applicationStatusBadgeClass(item.application.status)}
+                      className={applicationStatusBadgeClass(
+                        item.application.status,
+                      )}
                     >
                       {applicationStatusLabel(item.application.status)}
                     </Badge>
@@ -1271,7 +1273,9 @@ export default function ApplicationReviewWorkspace({
         {activeItem && (
           <Badge
             variant="outline"
-            className={applicationStatusBadgeClass(activeItem.application.status)}
+            className={applicationStatusBadgeClass(
+              activeItem.application.status,
+            )}
           >
             {applicationStatusLabel(activeItem.application.status)}
           </Badge>
