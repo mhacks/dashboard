@@ -43,6 +43,13 @@
       "when": 1784168293290,
       "tag": "20260716021813_handle_new_user_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784168294290,
+      "tag": "20260716021900_defer_invite_acceptance",
+      "breakpoints": true
     }
   ]
 }

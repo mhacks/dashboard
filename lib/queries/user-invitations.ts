@@ -82,3 +82,42 @@ export async function getPendingUserInvite(
 
   return invite?.role ?? null;
 }
+
+export async function acceptPendingUserInvite(
+  userId: string,
+  email: string,
+): Promise<UserRole | null> {
+  const normalizedEmail = normalizeInviteEmail(email);
+  if (!userInviteEmailSchema.safeParse(normalizedEmail).success) {
+    return null;
+  }
+
+  const [invite] = await db
+    .select({
+      id: userInvitations.id,
+      role: userInvitations.role,
+    })
+    .from(userInvitations)
+    .where(pendingInviteForEmail(normalizedEmail))
+    .limit(1);
+
+  if (!invite) {
+    return null;
+  }
+
+  const acceptedAt = new Date();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ role: invite.role })
+      .where(eq(users.id, userId));
+
+    await tx
+      .update(userInvitations)
+      .set({ acceptedAt })
+      .where(eq(userInvitations.id, invite.id));
+  });
+
+  return invite.role;
+}
