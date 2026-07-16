@@ -86,7 +86,7 @@ export function buildInviteEmail({
     "How to sign in:",
     "1. Open the link above.",
     "2. Confirm your email address.",
-    '3. Enter the 6-digit code we send you.',
+    "3. Enter the 6-digit code we send you.",
     "",
     `This invite expires on ${expiration}.`,
     "",

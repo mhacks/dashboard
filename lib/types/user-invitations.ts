@@ -55,10 +55,7 @@ export type CreateUserInviteResult =
     };
 
 export function inviteStatus(
-  invite: Pick<
-    UserInviteListItem,
-    "acceptedAt" | "revokedAt" | "expiresAt"
-  >,
+  invite: Pick<UserInviteListItem, "acceptedAt" | "revokedAt" | "expiresAt">,
 ) {
   if (invite.acceptedAt) return "Accepted";
   if (invite.revokedAt) return "Revoked";
@@ -71,10 +68,7 @@ export function inviteStatus(
 }
 
 export function canRevokeInvite(
-  invite: Pick<
-    UserInviteListItem,
-    "acceptedAt" | "revokedAt" | "expiresAt"
-  >,
+  invite: Pick<UserInviteListItem, "acceptedAt" | "revokedAt" | "expiresAt">,
 ) {
   return inviteStatus(invite) === "Pending";
 }

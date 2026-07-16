@@ -14,10 +14,7 @@ import {
 
 function inviteSearchCondition(search: string) {
   const term = `%${search.trim()}%`;
-  return or(
-    ilike(userInvitations.email, term),
-    ilike(users.email, term),
-  );
+  return or(ilike(userInvitations.email, term), ilike(users.email, term));
 }
 
 export async function listUserInvites(
@@ -30,7 +27,9 @@ export async function listUserInvites(
   const safePageIndex = Math.max(0, pageIndex);
   const safePageSize = Math.min(Math.max(pageSize, 1), 50);
   const trimmedSearch = search.trim().slice(0, 100);
-  const filters = trimmedSearch ? inviteSearchCondition(trimmedSearch) : undefined;
+  const filters = trimmedSearch
+    ? inviteSearchCondition(trimmedSearch)
+    : undefined;
 
   const rows = await db
     .select({

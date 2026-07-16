@@ -9,7 +9,10 @@ import {
   userInvitations,
 } from "@/lib/db/schema/user-invitations";
 import { users, type UserRole } from "@/lib/db/schema/users";
-import { sendInviteEmail, sendRoleChangeEmail } from "@/lib/email/send-invite-email";
+import {
+  sendInviteEmail,
+  sendRoleChangeEmail,
+} from "@/lib/email/send-invite-email";
 import {
   getPendingUserInvite as getPendingUserInviteQuery,
   listUserInvites as listUserInvitesQuery,
@@ -114,7 +117,9 @@ export async function createUserInvite(
     try {
       await sendRoleChangeEmail(normalizedEmail, inviteRole);
     } catch {
-      return { error: "Role updated, but the notification email could not be sent." };
+      return {
+        error: "Role updated, but the notification email could not be sent.",
+      };
     }
 
     return;

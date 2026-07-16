@@ -1,8 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import type { Session } from "@supabase/supabase-js";
-import { SearchIcon, Trash2Icon, UsersRoundIcon, AlertTriangleIcon } from "lucide-react";
+import {
+  SearchIcon,
+  Trash2Icon,
+  UsersRoundIcon,
+  AlertTriangleIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   createUserInvite,
@@ -90,9 +102,7 @@ function formatInviteDate(value: Date | string) {
   });
 }
 
-function inviteStatusBadgeClass(
-  status: ReturnType<typeof inviteStatus>,
-) {
+function inviteStatusBadgeClass(status: ReturnType<typeof inviteStatus>) {
   switch (status) {
     case "Accepted":
       return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/70 dark:bg-green-950/50 dark:text-green-300";
@@ -120,7 +130,9 @@ function inviteMetadata(invite: UserInviteListResult["items"][number]) {
   return parts.join(" · ");
 }
 
-export default function TeamManagement({ initialInvites }: TeamManagementProps) {
+export default function TeamManagement({
+  initialInvites,
+}: TeamManagementProps) {
   const [inviteData, setInviteData] = useState(initialInvites);
   const [pageIndex, setPageIndex] = useState(0);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -388,216 +400,219 @@ export default function TeamManagement({ initialInvites }: TeamManagementProps) 
         description="Invite users by email and assign their portal role."
       />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UsersRoundIcon className="size-5" />
-              Send invite
-            </CardTitle>
-            <CardDescription>
-              Invited users sign in at{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">/login</code>{" "}
-              with that email. Invites expire after 7 days. Pending invites apply on
-              first sign-in; existing accounts are prompted before their role changes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {inviteConfirmation ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-                <div className="flex items-start gap-2">
-                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UsersRoundIcon className="size-5" />
+            Send invite
+          </CardTitle>
+          <CardDescription>
+            Invited users sign in at{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">/login</code>{" "}
+            with that email. Invites expire after 7 days. Pending invites apply
+            on first sign-in; existing accounts are prompted before their role
+            changes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {inviteConfirmation ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {inviteConfirmation.type === "existing-user"
+                      ? "Change existing user's role?"
+                      : "Replace pending invite?"}
+                  </p>
+                  <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                    {inviteConfirmation.type === "existing-user" ? (
+                      <>
+                        <span className="font-medium text-amber-950 dark:text-amber-100">
+                          {inviteConfirmation.email}
+                        </span>{" "}
+                        already has an account as{" "}
+                        {ROLE_LABELS[inviteConfirmation.currentRole]}. Change
+                        their role to {ROLE_LABELS[inviteConfirmation.role]}?
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium text-amber-950 dark:text-amber-100">
+                          {inviteConfirmation.email}
+                        </span>{" "}
+                        already has a pending invite as{" "}
+                        {ROLE_LABELS[inviteConfirmation.pendingRole]}. Revoke
+                        that invite and send a new one as{" "}
+                        {ROLE_LABELS[inviteConfirmation.role]}?
+                      </>
+                    )}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="bg-background"
+                      onClick={() => setInviteConfirmation(null)}
+                    >
                       {inviteConfirmation.type === "existing-user"
-                        ? "Change existing user's role?"
-                        : "Replace pending invite?"}
-                    </p>
-                    <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
-                      {inviteConfirmation.type === "existing-user" ? (
-                        <>
-                          <span className="font-medium text-amber-950 dark:text-amber-100">
-                            {inviteConfirmation.email}
-                          </span>{" "}
-                          already has an account as{" "}
-                          {ROLE_LABELS[inviteConfirmation.currentRole]}. Change
-                          their role to {ROLE_LABELS[inviteConfirmation.role]}?
-                        </>
-                      ) : (
-                        <>
-                          <span className="font-medium text-amber-950 dark:text-amber-100">
-                            {inviteConfirmation.email}
-                          </span>{" "}
-                          already has a pending invite as{" "}
-                          {ROLE_LABELS[inviteConfirmation.pendingRole]}. Revoke
-                          that invite and send a new one as{" "}
-                          {ROLE_LABELS[inviteConfirmation.role]}?
-                        </>
-                      )}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="bg-background"
-                        onClick={() => setInviteConfirmation(null)}
-                      >
-                        {inviteConfirmation.type === "existing-user"
-                          ? "Keep current role"
-                          : "Keep existing invite"}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={
-                          inviteConfirmation.type === "existing-user"
-                            ? "default"
-                            : "destructive"
-                        }
-                        disabled={isSubmitting}
-                        onClick={
-                          inviteConfirmation.type === "existing-user"
-                            ? handleConfirmExistingUserRoleChange
-                            : handleConfirmPendingInviteReplacement
-                        }
-                      >
-                        {inviteConfirmation.type === "existing-user"
-                          ? "Change role"
-                          : "Revoke and send new invite"}
-                      </Button>
-                    </div>
+                        ? "Keep current role"
+                        : "Keep existing invite"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        inviteConfirmation.type === "existing-user"
+                          ? "default"
+                          : "destructive"
+                      }
+                      disabled={isSubmitting}
+                      onClick={
+                        inviteConfirmation.type === "existing-user"
+                          ? handleConfirmExistingUserRoleChange
+                          : handleConfirmPendingInviteReplacement
+                      }
+                    >
+                      {inviteConfirmation.type === "existing-user"
+                        ? "Change role"
+                        : "Revoke and send new invite"}
+                    </Button>
                   </div>
                 </div>
               </div>
-            ) : null}
-            <form
-              onSubmit={handleInviteSubmit}
-              className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px_auto]"
-            >
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="invite-email">Email</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="reviewer@example.com"
-                  value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="invite-role">Role</Label>
-                <Select
-                  value={role}
-                  onValueChange={(value) => setRole(userInviteRoleSchema.parse(value))}
-                >
-                  <SelectTrigger id="invite-role">
-                    <SelectValue placeholder="Choose role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="organizer">Organizer</SelectItem>
-                    <SelectItem value="hacker">Hacker</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || inviteEmail.trim().length === 0}
-                >
-                  {isSubmitting ? "Sending…" : "Send invite"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <CardTitle>Invites</CardTitle>
-              <CardDescription>
-                Pending invites can be revoked before they are accepted or expire.
-              </CardDescription>
             </div>
-            <div className="relative w-full sm:max-w-xs">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          ) : null}
+          <form
+            onSubmit={handleInviteSubmit}
+            className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px_auto]"
+          >
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="invite-email">Email</Label>
               <Input
-                type="search"
-                placeholder="Search by email…"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                className="pl-9"
-                aria-label="Search invites"
+                id="invite-email"
+                type="email"
+                placeholder="reviewer@example.com"
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                required
               />
             </div>
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            {inviteData.totalCount === 0 ? (
-              <p className="px-4 pb-4 text-sm text-muted-foreground">
-                {searchInput.trim()
-                  ? "No invites match your search."
-                  : "No invites yet."}
-              </p>
-            ) : (
-              <>
-                <div className="divide-y divide-border/60">
-                  {inviteData.items.map((invite) => {
-                    const status = inviteStatus(invite);
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select
+                value={role}
+                onValueChange={(value) =>
+                  setRole(userInviteRoleSchema.parse(value))
+                }
+              >
+                <SelectTrigger id="invite-role">
+                  <SelectValue placeholder="Choose role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="organizer">Organizer</SelectItem>
+                  <SelectItem value="hacker">Hacker</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="submit"
+                disabled={isSubmitting || inviteEmail.trim().length === 0}
+              >
+                {isSubmitting ? "Sending…" : "Send invite"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-                    return (
-                      <div
-                        key={invite.id}
-                        className="flex items-start justify-between gap-3 px-4 py-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-sm font-medium">
-                              {invite.email}
-                            </p>
-                            <Badge variant="outline">
-                              {ROLE_LABELS[invite.role]}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className={inviteStatusBadgeClass(status)}
-                            >
-                              {status}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                            {inviteMetadata(invite)}
+      <Card>
+        <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <CardTitle>Invites</CardTitle>
+            <CardDescription>
+              Pending invites can be revoked before they are accepted or expire.
+            </CardDescription>
+          </div>
+          <div className="relative w-full sm:max-w-xs">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search by email…"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              className="pl-9"
+              aria-label="Search invites"
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="px-0 pb-0">
+          {inviteData.totalCount === 0 ? (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">
+              {searchInput.trim()
+                ? "No invites match your search."
+                : "No invites yet."}
+            </p>
+          ) : (
+            <>
+              <div className="divide-y divide-border/60">
+                {inviteData.items.map((invite) => {
+                  const status = inviteStatus(invite);
+
+                  return (
+                    <div
+                      key={invite.id}
+                      className="flex items-start justify-between gap-3 px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-medium">
+                            {invite.email}
                           </p>
-                        </div>
-                        {canRevokeInvite(invite) ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="shrink-0"
-                            aria-label={`Revoke invite for ${invite.email}`}
-                            disabled={
-                              isSubmitting && revokingInviteId === invite.id
-                            }
-                            onClick={() => handleRevokeInvite(invite.id)}
+                          <Badge variant="outline">
+                            {ROLE_LABELS[invite.role]}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={inviteStatusBadgeClass(status)}
                           >
-                            <Trash2Icon className="size-4" />
-                          </Button>
-                        ) : null}
+                            {status}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {inviteMetadata(invite)}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-                <ListPagination
-                  pageIndex={pageIndex}
-                  totalItems={inviteData.totalCount}
-                  pageSize={INVITE_PAGE_SIZE}
-                  onPageChange={handlePageChange}
-                />
-              </>
-            )}
-          </CardContent>
-        </Card>
+                      {canRevokeInvite(invite) ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="shrink-0"
+                          aria-label={`Revoke invite for ${invite.email}`}
+                          disabled={
+                            isSubmitting && revokingInviteId === invite.id
+                          }
+                          onClick={() => handleRevokeInvite(invite.id)}
+                        >
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <ListPagination
+                pageIndex={pageIndex}
+                totalItems={inviteData.totalCount}
+                pageSize={INVITE_PAGE_SIZE}
+                onPageChange={handlePageChange}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
     </AdminPageShell>
   );
 }

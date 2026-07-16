@@ -20,7 +20,10 @@ import { Label } from "@/components/ui/label";
 import { sendOtp, verifyOtp } from "@/lib/actions/auth.server.actions";
 import { getPendingUserInvite } from "@/lib/actions/user-invitations.server.actions";
 import type { UserRole } from "@/lib/db/schema/users";
-import { userInviteEmailSchema, normalizeInviteEmail } from "@/lib/types/user-invitations";
+import {
+  userInviteEmailSchema,
+  normalizeInviteEmail,
+} from "@/lib/types/user-invitations";
 import posthog from "posthog-js";
 
 const emailSchema = z.object({
