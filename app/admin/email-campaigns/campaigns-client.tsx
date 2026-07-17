@@ -80,6 +80,7 @@ interface DirectSendStatus {
 interface TestSendProof {
   token: string;
   expiresAt: string;
+  proofKey: string;
   sentCount: number;
   totalCount: number;
 }
@@ -142,6 +143,10 @@ export default function EmailCampaignsClient({
   const mergeFields = useMemo(
     () => (selectedTemplate ? extractMergeFields(selectedTemplate) : []),
     [selectedTemplate],
+  );
+  const currentTestProofKey = useMemo(
+    () => buildTestSendProofKey(selectedTemplate, theme),
+    [selectedTemplate, theme],
   );
   const effectiveMergePreviewData = useMemo(
     () => ensureMergePreviewData(mergeFields, mergePreviewData),
@@ -663,6 +668,7 @@ export default function EmailCampaignsClient({
         setTestSendProof({
           token: data.testSendToken,
           expiresAt: data.testSendExpiresAt,
+          proofKey: currentTestProofKey,
           sentCount: sent.length,
           totalCount: data.results.length,
         });
@@ -695,7 +701,7 @@ export default function EmailCampaignsClient({
   async function startFullSend() {
     const template = buildDirectSendTemplate(selectedTemplate, theme);
     if (!template) return;
-    const proof = freshTestSendProof(testSendProof);
+    const proof = freshTestSendProof(testSendProof, currentTestProofKey);
 
     if (!proof) {
       const message =
@@ -798,10 +804,6 @@ export default function EmailCampaignsClient({
 
     return () => window.clearTimeout(timer);
   }, [selectedTemplate, theme, effectiveMergePreviewData]);
-
-  useEffect(() => {
-    setTestSendProof(null);
-  }, [selectedTemplateId, selectedTemplate?.updatedAt, theme]);
 
   useEffect(() => {
     if (!toast || toast.tone === "loading") {
@@ -936,7 +938,10 @@ export default function EmailCampaignsClient({
               sendOneEmail={sendOneEmail}
               testEmails={testEmails}
               sendStatus={sendStatus}
-              testSendProof={freshTestSendProof(testSendProof)}
+              testSendProof={freshTestSendProof(
+                testSendProof,
+                currentTestProofKey,
+              )}
               notice={sendNotice}
               busy={busy}
               onRecipientTextChange={(value) => {
@@ -2554,8 +2559,32 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed";
 }
 
-function freshTestSendProof(proof: TestSendProof | null) {
-  if (!proof || Date.parse(proof.expiresAt) <= Date.now()) {
+function buildTestSendProofKey(
+  template: MasterTemplate | null,
+  theme: EmailThemeTokens,
+) {
+  if (!template) {
+    return "no-template";
+  }
+
+  return JSON.stringify({
+    templateId: template.id,
+    updatedAt: template.updatedAt,
+    type: template.type,
+    subject: template.subject,
+    previewText: template.previewText,
+    content: template.content,
+    html: template.html,
+    theme,
+  });
+}
+
+function freshTestSendProof(proof: TestSendProof | null, proofKey: string) {
+  if (
+    !proof ||
+    proof.proofKey !== proofKey ||
+    Date.parse(proof.expiresAt) <= Date.now()
+  ) {
     return null;
   }
 
