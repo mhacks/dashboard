@@ -9,6 +9,7 @@ export class EmailCampaignError extends Error {
 
 const hardMaxRecipients = 2000;
 const hardMaxBatchSize = 25;
+const staleSendingLeaseMs = 30 * 60 * 1000;
 
 export const emailCampaignSender = {
   fromName: "MHacks Team",
@@ -20,21 +21,8 @@ export const emailCampaignLimits = {
   batchSize: hardMaxBatchSize,
   sendDelayMs: 100,
   maxSendRatePerSecond: 14,
+  staleSendingLeaseMs,
 } as const;
-
-const allowFullCampaignSendsInProduction = false;
-
-export function assertFullCampaignSendingAllowed() {
-  if (
-    process.env.NODE_ENV === "production" &&
-    !allowFullCampaignSendsInProduction
-  ) {
-    throw new EmailCampaignError(
-      "Full list sending is disabled for this environment",
-      403,
-    );
-  }
-}
 
 export function getCampaignLimits() {
   return emailCampaignLimits;

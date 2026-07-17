@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
@@ -11,7 +11,6 @@ import {
 } from "@/lib/db/schema/email";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
-  assertFullCampaignSendingAllowed,
   EmailCampaignError,
   getCampaignLimits,
 } from "@/lib/email/campaigns/config";
@@ -246,38 +245,99 @@ export async function renderCampaignPreview(
 
 export async function processCampaignBatch(campaignId: string) {
   const organizer = await requireOrganizer();
-  assertFullCampaignSendingAllowed();
-  const campaign = await getCampaign(campaignId);
   const limits = getCampaignLimits();
+  const { campaign, claimedRecipients } = await db.transaction(async (tx) => {
+    const [campaign] = await tx
+      .select()
+      .from(emailCampaigns)
+      .where(eq(emailCampaigns.id, campaignId))
+      .limit(1)
+      .for("update");
 
-  const pendingRecipients = await db
-    .select()
-    .from(emailCampaignRecipients)
-    .where(
-      sql`${emailCampaignRecipients.campaignId} = ${campaignId}
-      AND ${emailCampaignRecipients.status} = 'pending'`,
-    )
-    .orderBy(asc(emailCampaignRecipients.createdAt))
-    .limit(limits.batchSize);
+    if (!campaign) {
+      throw new EmailCampaignError("Email campaign not found", 404);
+    }
 
-  const now = new Date().toISOString();
-  await db
-    .update(emailCampaigns)
-    .set({
-      status: "sending",
-      startedAt: campaign.startedAt ?? now,
-      updatedByUserId: organizer.id,
-      updatedAt: now,
-    })
-    .where(eq(emailCampaigns.id, campaignId));
+    const staleClaimBefore = new Date(
+      Date.now() - limits.staleSendingLeaseMs,
+    ).toISOString();
+    const now = new Date().toISOString();
 
-  for (const recipient of pendingRecipients) {
+    await tx
+      .update(emailCampaignRecipients)
+      .set({
+        status: "failed",
+        error:
+          "Send attempt expired while marked sending. Verify SES before retrying this recipient.",
+        updatedAt: now,
+      })
+      .where(
+        sql`${emailCampaignRecipients.campaignId} = ${campaignId}
+        AND ${emailCampaignRecipients.status} = 'sending'
+        AND ${emailCampaignRecipients.updatedAt} < ${staleClaimBefore}`,
+      );
+
+    const [activeRecipient] = await tx
+      .select({ id: emailCampaignRecipients.id })
+      .from(emailCampaignRecipients)
+      .where(
+        sql`${emailCampaignRecipients.campaignId} = ${campaignId}
+        AND ${emailCampaignRecipients.status} = 'sending'`,
+      )
+      .limit(1);
+
+    if (activeRecipient) {
+      return { campaign, claimedRecipients: [] };
+    }
+
+    const pendingRecipients = await tx
+      .select()
+      .from(emailCampaignRecipients)
+      .where(
+        sql`${emailCampaignRecipients.campaignId} = ${campaignId}
+        AND ${emailCampaignRecipients.status} = 'pending'`,
+      )
+      .orderBy(asc(emailCampaignRecipients.createdAt))
+      .limit(limits.batchSize);
+
+    await tx
+      .update(emailCampaigns)
+      .set({
+        status: "sending",
+        startedAt: campaign.startedAt ?? now,
+        updatedByUserId: organizer.id,
+        updatedAt: now,
+      })
+      .where(eq(emailCampaigns.id, campaignId));
+
+    if (pendingRecipients.length > 0) {
+      await tx
+        .update(emailCampaignRecipients)
+        .set({
+          status: "sending",
+          error: null,
+          messageId: null,
+          sentAt: null,
+          updatedAt: now,
+        })
+        .where(
+          inArray(
+            emailCampaignRecipients.id,
+            pendingRecipients.map((recipient) => recipient.id),
+          ),
+        );
+    }
+
+    return { campaign, claimedRecipients: pendingRecipients };
+  });
+
+  for (const recipient of claimedRecipients) {
     const result = await sendSnapshotToEmail(
       campaign,
       recipient.email,
       recipient.mergeData,
     );
-    await updateRecipientResult(recipient.id, result);
+    await updateClaimedRecipientResult(recipient.id, result);
     await sleep(limits.sendDelayMs);
   }
 
@@ -287,10 +347,11 @@ export async function processCampaignBatch(campaignId: string) {
     organizer,
     eventType: "batch_processed",
     details: {
-      attempted: pendingRecipients.length,
+      attempted: claimedRecipients.length,
       sentCount: status.sentCount,
       failedCount: status.failedCount,
       pendingCount: status.pendingCount,
+      sendingCount: status.sendingCount,
     },
   });
 
@@ -307,6 +368,11 @@ export async function createDirectCampaign(input: {
   template: DirectEmailTemplateInput;
   recipients: Array<{ email: string; mergeData: EmailRecipientMergeData }>;
   organizer: UserEntry;
+  approvedTestSend?: {
+    templateFingerprint: string;
+    testSendToken: string;
+    testSendExpiresAt: string;
+  };
 }) {
   const now = new Date().toISOString();
   const snapshot = snapshotFromDirectTemplate(input.template);
@@ -349,7 +415,10 @@ export async function createDirectCampaign(input: {
     campaignId: campaign.id,
     organizer: input.organizer,
     eventType: "direct_campaign_created",
-    details: { totalRecipients: input.recipients.length },
+    details: {
+      totalRecipients: input.recipients.length,
+      approvedTestSend: input.approvedTestSend ?? null,
+    },
   });
 
   return campaign;
@@ -535,7 +604,10 @@ export async function upsertRecipientResult(
     });
 }
 
-async function updateRecipientResult(recipientId: string, result: SendResult) {
+async function updateClaimedRecipientResult(
+  recipientId: string,
+  result: SendResult,
+) {
   const now = new Date().toISOString();
 
   await db
@@ -556,7 +628,10 @@ export async function refreshCampaignCounts(
 ) {
   const status = await campaignStatus(campaignId);
   const now = new Date().toISOString();
-  const complete = status.pendingCount === 0 && status.totalRecipients > 0;
+  const complete =
+    status.pendingCount === 0 &&
+    status.sendingCount === 0 &&
+    status.totalRecipients > 0;
   const campaignStatusValue = complete
     ? status.failedCount > 0
       ? "failed"
@@ -601,6 +676,9 @@ async function campaignStatus(campaignId: string) {
   const failedCount = recipients.filter(
     (recipient) => recipient.status === "failed",
   ).length;
+  const sendingCount = recipients.filter(
+    (recipient) => recipient.status === "sending",
+  ).length;
   const pendingCount = recipients.filter(
     (recipient) => recipient.status === "pending",
   ).length;
@@ -617,6 +695,7 @@ async function campaignStatus(campaignId: string) {
     sentCount,
     failedCount,
     pendingCount,
+    sendingCount,
     nextCursor: sentCount + failedCount,
     invalid: [],
     duplicateCount: 0,

@@ -37,6 +37,7 @@ export const emailCampaignStatus = pgEnum("email_campaign_status", [
 
 export const emailRecipientStatus = pgEnum("email_recipient_status", [
   "pending",
+  "sending",
   "sent",
   "failed",
   "skipped",

@@ -62,10 +62,12 @@ interface RecipientSaveResult {
 
 interface DirectSendStatus {
   campaignId?: string;
+  proofKey?: string;
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
   pendingCount: number;
+  sendingCount: number;
   nextCursor: number;
   complete: boolean;
   invalid: string[];
@@ -96,6 +98,8 @@ const templatesStorageKey = "mhacks-email-master-templates";
 const themeStorageKey = "mhacks-email-active-theme";
 const themeStorageVersionKey = "mhacks-email-active-theme-version";
 const currentThemeStorageVersion = "m26-single-font-config";
+const activeSendStatusStorageKey = "mhacks-email-active-send-status";
+const activeTestProofStorageKey = "mhacks-email-active-test-proof";
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
 
@@ -105,6 +109,7 @@ export default function EmailCampaignsClient({
   initialSurface: EmailCampaignSurface;
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
+  const toastIdRef = useRef(0);
   const surface = initialSurface;
   const [templates, setTemplates] = useState<MasterTemplate[]>([]);
   const [campaignLimits, setCampaignLimits] = useState<CampaignLimits>({
@@ -118,9 +123,11 @@ export default function EmailCampaignsClient({
   const [sendOneEmail, setSendOneEmail] = useState("");
   const testEmails = serverManagedTestListLabel;
   const [sendNotice, setSendNotice] = useState("");
-  const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(null);
-  const [testSendProof, setTestSendProof] = useState<TestSendProof | null>(
-    null,
+  const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(() =>
+    loadStoredSendStatus(),
+  );
+  const [testSendProof, setTestSendProof] = useState<TestSendProof | null>(() =>
+    loadStoredTestSendProof(),
   );
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
@@ -148,6 +155,12 @@ export default function EmailCampaignsClient({
     () => buildTestSendProofKey(selectedTemplate, theme),
     [selectedTemplate, theme],
   );
+  const activeTestSendProof = freshTestSendProof(
+    testSendProof,
+    currentTestProofKey,
+  );
+  const activeSendStatus =
+    sendStatus?.proofKey === currentTestProofKey ? sendStatus : null;
   const effectiveMergePreviewData = useMemo(
     () => ensureMergePreviewData(mergeFields, mergePreviewData),
     [mergeFields, mergePreviewData],
@@ -189,10 +202,13 @@ export default function EmailCampaignsClient({
   async function saveTemplateToMaster() {
     if (!selectedTemplate) return;
 
+    const previousTemplateId = selectedTemplate.id;
     setBusy("save-template");
     try {
       const saved = await persistTemplate(selectedTemplate);
-      replaceTemplate(saved);
+      replaceTemplate(saved, previousTemplateId);
+      setSelectedTemplateId(saved.id);
+      clearSendStatus();
       setNotice("Template saved.");
       showToast("success", "Template saved", "Saved to the database.");
     } catch {
@@ -218,6 +234,7 @@ export default function EmailCampaignsClient({
         },
       );
       setTheme(data.theme);
+      clearSendStatus();
       storeTheme(data.theme);
       setNotice("Styles saved.");
       showToast("success", "Styles saved", "Saved to the database.");
@@ -268,6 +285,7 @@ export default function EmailCampaignsClient({
     setTemplates(nextTemplates);
     setSelectedTemplateId(template.id);
     setSelectedSectionIndex(0);
+    clearSendStatus();
     storeTemplates(nextTemplates);
     setNotice("Template created.");
   }
@@ -308,6 +326,7 @@ export default function EmailCampaignsClient({
       const nextTemplates = [data.template, ...templates];
       setTemplates(nextTemplates);
       setSelectedTemplateId(data.template.id);
+      clearSendStatus();
       storeTemplates(nextTemplates);
       setNotice("Template uploaded.");
       showToast("success", "Template uploaded", "Saved to the database.");
@@ -315,6 +334,7 @@ export default function EmailCampaignsClient({
       const nextTemplates = [template, ...templates];
       setTemplates(nextTemplates);
       setSelectedTemplateId(template.id);
+      clearSendStatus();
       storeTemplates(nextTemplates);
       setNotice("Upload kept as a local draft. Database save failed.");
       showToast(
@@ -409,23 +429,54 @@ export default function EmailCampaignsClient({
     setSelectedSectionIndex(nextIndex);
   }
 
-  function replaceTemplate(template: MasterTemplate) {
-    const nextTemplates = templates.map((current) =>
-      current.id === template.id ? template : current,
-    );
+  function replaceTemplate(template: MasterTemplate, previousId = template.id) {
+    let replaced = false;
+    const nextTemplates = templates.map((current) => {
+      if (current.id !== previousId) {
+        return current;
+      }
+
+      replaced = true;
+      return template;
+    });
+
+    if (!replaced) {
+      nextTemplates.unshift(template);
+    }
+
     setTemplates(nextTemplates);
     storeTemplates(nextTemplates);
   }
 
-  function deleteSelectedTemplate() {
+  async function deleteSelectedTemplate() {
     if (!selectedTemplate) return;
-    const nextTemplates = templates.filter(
-      (template) => template.id !== selectedTemplate.id,
-    );
-    setTemplates(nextTemplates);
-    setSelectedTemplateId(nextTemplates[0]?.id ?? "");
-    storeTemplates(nextTemplates);
-    setNotice("Template removed.");
+    const templateToDelete = selectedTemplate;
+
+    setBusy("delete-template");
+    try {
+      if (!isDraftTemplateId(templateToDelete.id)) {
+        await api<{ success: true }>(
+          `/api/admin/email/templates/${templateToDelete.id}`,
+          { method: "DELETE" },
+        );
+      }
+
+      const nextTemplates = templates.filter(
+        (template) => template.id !== templateToDelete.id,
+      );
+      setTemplates(nextTemplates);
+      setSelectedTemplateId(nextTemplates[0]?.id ?? "");
+      clearSendStatus();
+      storeTemplates(nextTemplates);
+      setNotice("Template removed.");
+      showToast("success", "Template removed", "Removed from the database.");
+    } catch (error) {
+      const message = errorMessage(error);
+      setNotice(message);
+      showToast("error", "Template remove failed", message);
+    } finally {
+      setBusy(null);
+    }
   }
 
   function downloadSelectedTemplate() {
@@ -500,6 +551,7 @@ export default function EmailCampaignsClient({
       setTemplates(nextTemplates);
       setSelectedTemplateId(newTemplate.id);
       setSelectedSectionIndex(0);
+      clearSendStatus();
       storeTemplates(nextTemplates);
       setAiDraftText("");
       setNotice("AI draft created as a new template. Review before saving.");
@@ -570,7 +622,7 @@ export default function EmailCampaignsClient({
         },
       );
       setRecipientResult(parsed);
-      setSendStatus(null);
+      clearSendStatus();
       setSendNotice(`${parsed.emails.length} recipients ready.`);
       showToast(
         "success",
@@ -665,7 +717,7 @@ export default function EmailCampaignsClient({
         (result) => result.status !== "sent",
       );
       if (sent.length > 0 && data.testSendToken && data.testSendExpiresAt) {
-        setTestSendProof({
+        commitTestSendProof({
           token: data.testSendToken,
           expiresAt: data.testSendExpiresAt,
           proofKey: currentTestProofKey,
@@ -673,7 +725,7 @@ export default function EmailCampaignsClient({
           totalCount: data.results.length,
         });
       } else {
-        setTestSendProof(null);
+        clearTestSendProof();
       }
       setSendNotice(
         firstFailure?.error
@@ -690,7 +742,7 @@ export default function EmailCampaignsClient({
       );
     } catch (error) {
       const message = errorMessage(error);
-      setTestSendProof(null);
+      clearTestSendProof();
       setSendNotice(message);
       showToast("error", "Test send failed", message);
     } finally {
@@ -701,7 +753,7 @@ export default function EmailCampaignsClient({
   async function startFullSend() {
     const template = buildDirectSendTemplate(selectedTemplate, theme);
     if (!template) return;
-    const proof = freshTestSendProof(testSendProof, currentTestProofKey);
+    const proof = activeTestSendProof;
 
     if (!proof) {
       const message =
@@ -720,11 +772,12 @@ export default function EmailCampaignsClient({
     );
     try {
       let status: DirectSendStatus | null = null;
-      let cursor = 0;
-      let sentCount = 0;
-      let failedCount = 0;
-      let campaignId: string | undefined;
-      let recentFailures: DirectSendStatus["recentFailures"] = [];
+      let cursor = activeSendStatus?.nextCursor ?? 0;
+      let sentCount = activeSendStatus?.sentCount ?? 0;
+      let failedCount = activeSendStatus?.failedCount ?? 0;
+      let campaignId = activeSendStatus?.campaignId;
+      let recentFailures: DirectSendStatus["recentFailures"] =
+        activeSendStatus?.recentFailures ?? [];
 
       for (let batch = 0; batch < 1000; batch += 1) {
         status = await api<DirectSendStatus>("/api/admin/email/send/start", {
@@ -740,11 +793,13 @@ export default function EmailCampaignsClient({
             recentFailures,
           }),
         });
-        setSendStatus(status);
+        commitSendStatus({ ...status, proofKey: currentTestProofKey });
         showToast(
           "loading",
           "Sending list",
-          `${status.sentCount} sent, ${status.failedCount} failed, ${status.pendingCount} pending.`,
+          `${status.sentCount} sent, ${status.failedCount} failed, ${status.pendingCount} pending${
+            status.sendingCount ? `, ${status.sendingCount} sending` : ""
+          }.`,
         );
         cursor = status.nextCursor;
         sentCount = status.sentCount;
@@ -755,18 +810,26 @@ export default function EmailCampaignsClient({
         if (status.complete) {
           break;
         }
+
+        if (status.sendingCount > 0) {
+          break;
+        }
       }
 
       setSendNotice(
         status
-          ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
+          ? status.complete
+            ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
+            : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending. Wait for the active batch to finish before continuing.`
           : "Send complete.",
       );
       showToast(
-        status?.failedCount ? "error" : "success",
-        "List send complete",
+        status?.complete && !status.failedCount ? "success" : "error",
+        status?.complete ? "List send complete" : "List send paused",
         status
-          ? `${status.sentCount} sent, ${status.failedCount} failed.`
+          ? status.complete
+            ? `${status.sentCount} sent, ${status.failedCount} failed.`
+            : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending.`
           : "Send complete.",
       );
     } catch (error) {
@@ -778,9 +841,41 @@ export default function EmailCampaignsClient({
     }
   }
 
+  function commitSendStatus(status: DirectSendStatus) {
+    setSendStatus(status);
+    storeSendStatus(status);
+  }
+
+  function clearSendStatus() {
+    setSendStatus(null);
+    removeStoredSendStatus();
+  }
+
+  function commitTestSendProof(proof: TestSendProof) {
+    setTestSendProof(proof);
+    storeTestSendProof(proof);
+  }
+
+  function clearTestSendProof() {
+    setTestSendProof(null);
+    removeStoredTestSendProof();
+  }
+
+  function selectTemplate(templateId: string) {
+    setSelectedTemplateId(templateId);
+    setSelectedSectionIndex(0);
+    clearSendStatus();
+  }
+
+  function updateTheme(nextTheme: EmailThemeTokens) {
+    setTheme(nextTheme);
+    clearSendStatus();
+  }
+
   function showToast(tone: ToastTone, title: string, description?: string) {
+    toastIdRef.current += 1;
     setToast({
-      id: Date.now(),
+      id: toastIdRef.current,
       tone,
       title,
       description,
@@ -865,8 +960,7 @@ export default function EmailCampaignsClient({
                   key={template.id}
                   type="button"
                   onClick={() => {
-                    setSelectedTemplateId(template.id);
-                    setSelectedSectionIndex(0);
+                    selectTemplate(template.id);
                   }}
                   className={`w-full rounded-lg border p-3 text-left transition ${
                     selectedTemplateId === template.id
@@ -926,7 +1020,7 @@ export default function EmailCampaignsClient({
             <StylesPanel
               theme={theme}
               busy={busy}
-              onThemeChange={setTheme}
+              onThemeChange={updateTheme}
               onSaveStyles={() => void saveStyles()}
             />
           ) : (
@@ -937,17 +1031,14 @@ export default function EmailCampaignsClient({
               recipientResult={recipientResult}
               sendOneEmail={sendOneEmail}
               testEmails={testEmails}
-              sendStatus={sendStatus}
-              testSendProof={freshTestSendProof(
-                testSendProof,
-                currentTestProofKey,
-              )}
+              sendStatus={activeSendStatus}
+              testSendProof={activeTestSendProof}
               notice={sendNotice}
               busy={busy}
               onRecipientTextChange={(value) => {
                 setRecipientText(value);
                 setRecipientResult(null);
-                setSendStatus(null);
+                clearSendStatus();
               }}
               onCheckRecipients={() => void checkRecipientList()}
               onSendOneEmailChange={setSendOneEmail}
@@ -1541,7 +1632,9 @@ function SendPanel({
   const fullSendUnlocked = Boolean(testSendProof);
   const recipientInputDisabled = !fullSendUnlocked || Boolean(busy);
   const fullSendReady = Boolean(
-    templateCanSend && recipientText.trim() && testSendProof,
+    templateCanSend &&
+    testSendProof &&
+    (recipientText.trim() || sendStatus?.campaignId),
   );
 
   return (
@@ -1606,6 +1699,9 @@ function SendPanel({
             <Metric label="Recipients" value={sendStatus.totalRecipients} />
             <Metric label="Sent" value={sendStatus.sentCount} />
             <Metric label="Failed" value={sendStatus.failedCount} />
+            {sendStatus.sendingCount ? (
+              <Metric label="Sending" value={sendStatus.sendingCount} />
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -1727,6 +1823,9 @@ function SendPanel({
               <p className="mt-2 text-sm text-muted-foreground">
                 {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
                 {sendStatus.failedCount} failed
+                {sendStatus.sendingCount
+                  ? `, ${sendStatus.sendingCount} sending`
+                  : ""}
               </p>
             ) : testSendProof ? (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -1818,7 +1917,9 @@ function SendProgress({
               ? "Send complete"
               : "Send progress";
   const detail = sendStatus
-    ? `${sendStatus.sentCount} sent, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending`
+    ? `${sendStatus.sentCount} sent, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
+        sendStatus.sendingCount ? `, ${sendStatus.sendingCount} sending` : ""
+      }`
     : "Working on the server...";
 
   return (
@@ -2078,7 +2179,7 @@ async function persistTemplate(template: MasterTemplate) {
     sourceTemplateId: template.sourceTemplateId,
   };
 
-  if (template.id.startsWith("seed-") || template.id.startsWith("local-")) {
+  if (isDraftTemplateId(template.id)) {
     const data = await api<{ template: MasterTemplate }>(
       "/api/admin/email/templates",
       {
@@ -2097,6 +2198,10 @@ async function persistTemplate(template: MasterTemplate) {
     },
   );
   return data.template;
+}
+
+function isDraftTemplateId(templateId: string) {
+  return templateId.startsWith("seed-") || templateId.startsWith("local-");
 }
 
 async function api<T>(
@@ -2458,6 +2563,33 @@ function storeTheme(theme: EmailThemeTokens) {
     currentThemeStorageVersion,
   );
   window.localStorage.setItem(themeStorageKey, JSON.stringify(theme));
+}
+
+function loadStoredSendStatus() {
+  return readStorage<DirectSendStatus | null>(activeSendStatusStorageKey, null);
+}
+
+function storeSendStatus(status: DirectSendStatus) {
+  window.localStorage.setItem(
+    activeSendStatusStorageKey,
+    JSON.stringify(status),
+  );
+}
+
+function removeStoredSendStatus() {
+  window.localStorage.removeItem(activeSendStatusStorageKey);
+}
+
+function loadStoredTestSendProof() {
+  return readStorage<TestSendProof | null>(activeTestProofStorageKey, null);
+}
+
+function storeTestSendProof(proof: TestSendProof) {
+  window.localStorage.setItem(activeTestProofStorageKey, JSON.stringify(proof));
+}
+
+function removeStoredTestSendProof() {
+  window.localStorage.removeItem(activeTestProofStorageKey);
 }
 
 function extractMergeFields(template: MasterTemplate) {

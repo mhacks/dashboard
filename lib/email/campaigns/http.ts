@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { EmailCampaignError } from "@/lib/email/campaigns/config";
 
 export function campaignJson(data: unknown, init?: ResponseInit) {
@@ -10,6 +11,13 @@ export function campaignErrorResponse(error: unknown) {
     return NextResponse.json(
       { error: error.message },
       { status: error.status },
+    );
+  }
+
+  if (error instanceof ZodError) {
+    return NextResponse.json(
+      { error: "Invalid email campaign request", issues: error.issues },
+      { status: 400 },
     );
   }
 
