@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Copy,
+  Download,
   Laptop,
   ListChecks,
   Loader2,
@@ -76,6 +77,13 @@ interface DirectSendStatus {
   }>;
 }
 
+interface TestSendProof {
+  token: string;
+  expiresAt: string;
+  sentCount: number;
+  totalCount: number;
+}
+
 interface ToastState {
   id: number;
   tone: ToastTone;
@@ -87,6 +95,8 @@ const templatesStorageKey = "mhacks-email-master-templates";
 const themeStorageKey = "mhacks-email-active-theme";
 const themeStorageVersionKey = "mhacks-email-active-theme-version";
 const currentThemeStorageVersion = "m26-single-font-config";
+const serverManagedTestListLabel =
+  "Server-managed required organizer test list";
 
 export default function EmailCampaignsClient({
   initialSurface,
@@ -105,9 +115,12 @@ export default function EmailCampaignsClient({
   const [recipientResult, setRecipientResult] =
     useState<RecipientSaveResult | null>(null);
   const [sendOneEmail, setSendOneEmail] = useState("");
-  const [testEmails, setTestEmails] = useState("");
+  const testEmails = serverManagedTestListLabel;
   const [sendNotice, setSendNotice] = useState("");
   const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(null);
+  const [testSendProof, setTestSendProof] = useState<TestSendProof | null>(
+    null,
+  );
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [theme, setTheme] = useState<EmailThemeTokens>(defaultEmailTheme);
@@ -410,6 +423,38 @@ export default function EmailCampaignsClient({
     setNotice("Template removed.");
   }
 
+  function downloadSelectedTemplate() {
+    if (!selectedTemplate) return;
+
+    const baseName = slugifyFilename(selectedTemplate.name || "email-template");
+
+    if (selectedTemplate.type === "html") {
+      downloadTextFile({
+        filename: `${baseName}.html`,
+        mimeType: "text/html;charset=utf-8",
+        content: selectedTemplate.html ?? "",
+      });
+      showToast("success", "Template downloaded", `${baseName}.html`);
+      return;
+    }
+
+    downloadTextFile({
+      filename: `${baseName}.json`,
+      mimeType: "application/json;charset=utf-8",
+      content: JSON.stringify(
+        {
+          schema: "mhacks-email-template/v1",
+          exportedAt: new Date().toISOString(),
+          template: selectedTemplate,
+          theme,
+        },
+        null,
+        2,
+      ),
+    });
+    showToast("success", "Template downloaded", `${baseName}.json`);
+  }
+
   async function copyAiTemplateContext() {
     if (!selectedTemplate) return;
 
@@ -587,16 +632,12 @@ export default function EmailCampaignsClient({
     const template = buildDirectSendTemplate(selectedTemplate, theme);
     if (!template) return;
 
-    const emails = parseEmailList(testEmails);
-
     setBusy("test-send");
-    setSendNotice(
-      `Sending ${emails.length} test email${emails.length === 1 ? "" : "s"}...`,
-    );
+    setSendNotice("Sending required test emails...");
     showToast(
       "loading",
       "Sending test email",
-      `${emails.length} test address${emails.length === 1 ? "" : "es"} queued.`,
+      "Required server-managed test addresses queued.",
     );
     try {
       const data = await api<{
@@ -605,11 +646,12 @@ export default function EmailCampaignsClient({
           messageId: string | null;
           error: string | null;
         }>;
+        testSendToken: string | null;
+        testSendExpiresAt: string | null;
       }>("/api/admin/email/send/test", {
         method: "POST",
         body: JSON.stringify({
           template,
-          emails,
           mergeData: effectiveMergePreviewData,
         }),
       });
@@ -617,6 +659,16 @@ export default function EmailCampaignsClient({
       const firstFailure = data.results.find(
         (result) => result.status !== "sent",
       );
+      if (sent.length > 0 && data.testSendToken && data.testSendExpiresAt) {
+        setTestSendProof({
+          token: data.testSendToken,
+          expiresAt: data.testSendExpiresAt,
+          sentCount: sent.length,
+          totalCount: data.results.length,
+        });
+      } else {
+        setTestSendProof(null);
+      }
       setSendNotice(
         firstFailure?.error
           ? `${sent.length}/${data.results.length} test emails sent. ${firstFailure.error}`
@@ -632,6 +684,7 @@ export default function EmailCampaignsClient({
       );
     } catch (error) {
       const message = errorMessage(error);
+      setTestSendProof(null);
       setSendNotice(message);
       showToast("error", "Test send failed", message);
     } finally {
@@ -642,6 +695,15 @@ export default function EmailCampaignsClient({
   async function startFullSend() {
     const template = buildDirectSendTemplate(selectedTemplate, theme);
     if (!template) return;
+    const proof = freshTestSendProof(testSendProof);
+
+    if (!proof) {
+      const message =
+        "Run a successful test send before starting a full list send.";
+      setSendNotice(message);
+      showToast("error", "Test send required", message);
+      return;
+    }
 
     setBusy("start-send");
     setSendNotice("Sending...");
@@ -665,6 +727,7 @@ export default function EmailCampaignsClient({
             campaignId,
             template,
             recipients: recipientText,
+            testSendToken: proof.token,
             cursor,
             sentCount,
             failedCount,
@@ -735,6 +798,10 @@ export default function EmailCampaignsClient({
 
     return () => window.clearTimeout(timer);
   }, [selectedTemplate, theme, effectiveMergePreviewData]);
+
+  useEffect(() => {
+    setTestSendProof(null);
+  }, [selectedTemplateId, selectedTemplate?.updatedAt, theme]);
 
   useEffect(() => {
     if (!toast || toast.tone === "loading") {
@@ -833,6 +900,7 @@ export default function EmailCampaignsClient({
               mergePreviewData={effectiveMergePreviewData}
               busy={busy}
               onSaveTemplate={() => void saveTemplateToMaster()}
+              onDownloadTemplate={downloadSelectedTemplate}
               onDeleteTemplate={deleteSelectedTemplate}
               aiDraftText={aiDraftText}
               onAiDraftTextChange={setAiDraftText}
@@ -868,6 +936,7 @@ export default function EmailCampaignsClient({
               sendOneEmail={sendOneEmail}
               testEmails={testEmails}
               sendStatus={sendStatus}
+              testSendProof={freshTestSendProof(testSendProof)}
               notice={sendNotice}
               busy={busy}
               onRecipientTextChange={(value) => {
@@ -878,7 +947,6 @@ export default function EmailCampaignsClient({
               onCheckRecipients={() => void checkRecipientList()}
               onSendOneEmailChange={setSendOneEmail}
               onSendOne={() => void sendOneRecipient()}
-              onTestEmailsChange={setTestEmails}
               onTestSend={() => void sendTestEmails()}
               onStartSend={() => void startFullSend()}
             />
@@ -949,6 +1017,7 @@ function BuilderPanel({
   mergePreviewData,
   busy,
   onSaveTemplate,
+  onDownloadTemplate,
   onDeleteTemplate,
   aiDraftText,
   onAiDraftTextChange,
@@ -971,6 +1040,7 @@ function BuilderPanel({
   mergePreviewData: Record<string, string>;
   busy: string | null;
   onSaveTemplate: () => void;
+  onDownloadTemplate: () => void;
   onDeleteTemplate: () => void;
   aiDraftText: string;
   onAiDraftTextChange: (value: string) => void;
@@ -1011,6 +1081,14 @@ function BuilderPanel({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="ghost"
+            className={adminSecondaryButtonClass}
+            onClick={onDownloadTemplate}
+          >
+            <Download />
+            Download
+          </Button>
           <Button
             variant="ghost"
             className={adminDangerButtonClass}
@@ -1422,13 +1500,13 @@ function SendPanel({
   sendOneEmail,
   testEmails,
   sendStatus,
+  testSendProof,
   notice,
   busy,
   onRecipientTextChange,
   onCheckRecipients,
   onSendOneEmailChange,
   onSendOne,
-  onTestEmailsChange,
   onTestSend,
   onStartSend,
 }: {
@@ -1439,13 +1517,13 @@ function SendPanel({
   sendOneEmail: string;
   testEmails: string;
   sendStatus: DirectSendStatus | null;
+  testSendProof: TestSendProof | null;
   notice: string;
   busy: string | null;
   onRecipientTextChange: (value: string) => void;
   onCheckRecipients: () => void;
   onSendOneEmailChange: (value: string) => void;
   onSendOne: () => void;
-  onTestEmailsChange: (value: string) => void;
   onTestSend: () => void;
   onStartSend: () => void;
 }) {
@@ -1455,6 +1533,11 @@ function SendPanel({
     (selectedTemplate.type === "html" || selectedTemplate.content),
   );
   const validatedRecipients = recipientResult?.emails.length ?? 0;
+  const fullSendUnlocked = Boolean(testSendProof);
+  const recipientInputDisabled = !fullSendUnlocked || Boolean(busy);
+  const fullSendReady = Boolean(
+    templateCanSend && recipientText.trim() && testSendProof,
+  );
 
   return (
     <div className="space-y-5">
@@ -1537,7 +1620,7 @@ function SendPanel({
           <Button
             variant="ghost"
             className={adminSecondaryButtonClass}
-            disabled={!recipientText.trim() || Boolean(busy)}
+            disabled={recipientInputDisabled || !recipientText.trim()}
             onClick={onCheckRecipients}
           >
             <Users />
@@ -1545,11 +1628,17 @@ function SendPanel({
           </Button>
         </div>
         <textarea
-          className={cn(textareaClass, "mt-3 min-h-36 text-xs")}
+          className={cn(
+            textareaClass,
+            "mt-3 min-h-36 text-xs disabled:cursor-not-allowed disabled:opacity-60",
+          )}
           value={recipientText}
+          disabled={recipientInputDisabled}
           onChange={(event) => onRecipientTextChange(event.target.value)}
           placeholder={
-            "email,name,travel_reimbursement\nhacker@umich.edu,Hacker,150.00"
+            fullSendUnlocked
+              ? "email,name,travel_reimbursement\nhacker@umich.edu,Hacker,150.00"
+              : "Run the required test send before adding recipients."
           }
         />
         {recipientResult ? (
@@ -1597,17 +1686,18 @@ function SendPanel({
             </p>
             <div className="mt-2 flex gap-2">
               <input
-                className={inputClass}
+                className={cn(
+                  inputClass,
+                  "cursor-not-allowed bg-muted/40 text-muted-foreground",
+                )}
                 value={testEmails}
-                onChange={(event) => onTestEmailsChange(event.target.value)}
-                placeholder="test1@email.com, test2@email.com"
+                readOnly
+                placeholder={serverManagedTestListLabel}
               />
               <Button
                 variant="ghost"
                 className={adminSecondaryButtonClass}
-                disabled={
-                  !templateCanSend || !testEmails.trim() || Boolean(busy)
-                }
+                disabled={!templateCanSend || Boolean(busy)}
                 onClick={onTestSend}
               >
                 <ListChecks />
@@ -1633,18 +1723,27 @@ function SendPanel({
                 {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
                 {sendStatus.failedCount} failed
               </p>
+            ) : testSendProof ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Test passed: {testSendProof.sentCount}/
+                {testSendProof.totalCount} sent. Full send unlocked until{" "}
+                {formatTime(testSendProof.expiresAt)}.
+              </p>
             ) : validatedRecipients > 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                {validatedRecipients} checked recipients ready to send.
+                {validatedRecipients} checked recipients ready. Run a successful
+                test send to unlock full send.
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Run a successful test send before sending the full list.
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               className={adminPrimaryButtonClass}
-              disabled={
-                !templateCanSend || !recipientText.trim() || Boolean(busy)
-              }
+              disabled={!fullSendReady || Boolean(busy)}
               onClick={onStartSend}
             >
               <Play />
@@ -2416,17 +2515,6 @@ function defaultMergeValue(field: string) {
   return defaultMergeSamples[field] ?? `Sample ${field.replaceAll("_", " ")}`;
 }
 
-function parseEmailList(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(/[\n,;\t ]+/)
-        .map((email) => email.trim().toLowerCase())
-        .filter(Boolean),
-    ),
-  );
-}
-
 function buildDirectSendTemplate(
   template: MasterTemplate | null,
   theme: EmailThemeTokens,
@@ -2464,6 +2552,50 @@ function buildDirectSendTemplate(
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed";
+}
+
+function freshTestSendProof(proof: TestSendProof | null) {
+  if (!proof || Date.parse(proof.expiresAt) <= Date.now()) {
+    return null;
+  }
+
+  return proof;
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function slugifyFilename(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "email-template"
+  );
+}
+
+function downloadTextFile({
+  filename,
+  mimeType,
+  content,
+}: {
+  filename: string;
+  mimeType: string;
+  content: string;
+}) {
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function readStorage<T>(key: string, fallback: T): T {

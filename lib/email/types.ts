@@ -154,7 +154,7 @@ export const directSendOneSchema = z.object({
 
 export const directTestSendSchema = z.object({
   template: directEmailTemplateSchema,
-  emails: z.array(z.string().email()).min(1).max(20),
+  emails: z.array(z.string().email()).max(20).default([]),
   mergeData: z.record(z.string(), z.string()).optional(),
 });
 
@@ -162,6 +162,7 @@ export const directBatchSendSchema = z.object({
   campaignId: z.string().uuid().optional(),
   template: directEmailTemplateSchema,
   recipients: z.string().max(maxRecipientTextLength).default(""),
+  testSendToken: z.string().uuid().optional(),
   cursor: z.number().int().min(0).default(0),
   sentCount: z.number().int().min(0).default(0),
   failedCount: z.number().int().min(0).default(0),

@@ -1,8 +1,13 @@
+import { createHash, randomUUID } from "node:crypto";
+import { and, desc, eq } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
+import { db } from "@/lib/db";
+import { emailCampaignEvents } from "@/lib/db/schema/email";
 import {
   EmailCampaignError,
   getCampaignLimits,
 } from "@/lib/email/campaigns/config";
+import { requiredEmailCampaignTestRecipients } from "@/lib/email/campaigns/constants";
 import {
   mergeDataForEmail,
   parseRecipientText,
@@ -24,7 +29,11 @@ import {
   directRecipientParseSchema,
   directSendOneSchema,
   directTestSendSchema,
+  type DirectEmailTemplateInput,
 } from "@/lib/email/types";
+
+const successfulTestProofWindowMs = 30 * 60 * 1000;
+const maxRecentTestProofEvents = 25;
 
 export function parseDirectRecipients(input: unknown) {
   const body = directRecipientParseSchema.parse(input);
@@ -66,9 +75,8 @@ export async function sendOneDirectEmail(input: unknown) {
 export async function sendDirectTestEmails(input: unknown) {
   const organizer = await requireOrganizer();
   const body = directTestSendSchema.parse(input);
-  const emails = Array.from(
-    new Set(body.emails.map((email) => email.trim().toLowerCase())),
-  );
+  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const recipients = requiredEmailCampaignTestRecipients;
   const campaignLike = {
     templateSnapshot: snapshotFromDirectTemplate(body.template),
     themeSnapshot:
@@ -78,15 +86,28 @@ export async function sendDirectTestEmails(input: unknown) {
   };
   const results: SendResult[] = [];
 
-  for (const email of emails) {
+  for (const recipient of recipients) {
     results.push(
       await sendSnapshotToEmail(
         campaignLike,
-        email,
-        buildMergeData(email, body.mergeData),
+        recipient.email,
+        buildMergeData(recipient.email, {
+          ...body.mergeData,
+          ...recipient.mergeData,
+        }),
       ),
     );
   }
+
+  const sentCount = results.filter((result) => result.status === "sent").length;
+  const failedCount = results.filter(
+    (result) => result.status === "failed",
+  ).length;
+  const testSendToken =
+    results.length > 0 && failedCount === 0 ? randomUUID() : null;
+  const testSendExpiresAt = testSendToken
+    ? new Date(Date.now() + successfulTestProofWindowMs).toISOString()
+    : null;
 
   await recordCampaignEvent({
     campaignId: null,
@@ -94,12 +115,20 @@ export async function sendDirectTestEmails(input: unknown) {
     eventType: "direct_test_send",
     details: {
       total: results.length,
-      sent: results.filter((result) => result.status === "sent").length,
-      failed: results.filter((result) => result.status === "failed").length,
+      sent: sentCount,
+      failed: failedCount,
+      templateFingerprint,
+      testSendToken,
+      testSendExpiresAt,
+      requiredTestRecipients: recipients.map((recipient) => recipient.email),
     },
   });
 
-  return results;
+  return {
+    results,
+    testSendToken,
+    testSendExpiresAt,
+  };
 }
 
 export async function sendDirectBatch(input: unknown) {
@@ -110,6 +139,14 @@ export async function sendDirectBatch(input: unknown) {
 
   if (parsed.emails.length === 0) {
     throw new EmailCampaignError("Add at least one valid recipient", 400);
+  }
+
+  if (!body.campaignId) {
+    await assertSuccessfulTestSend({
+      organizer,
+      template: body.template,
+      testSendToken: body.testSendToken,
+    });
   }
 
   const campaign = body.campaignId
@@ -150,6 +187,90 @@ function enforceRecipientLimit(count: number) {
       400,
     );
   }
+}
+
+async function assertSuccessfulTestSend({
+  organizer,
+  template,
+  testSendToken,
+}: {
+  organizer: Awaited<ReturnType<typeof requireOrganizer>>;
+  template: DirectEmailTemplateInput;
+  testSendToken: string | undefined;
+}) {
+  if (!testSendToken) {
+    throw new EmailCampaignError(
+      "Run a successful test send before starting a full list send",
+      428,
+    );
+  }
+
+  const expectedFingerprint = fingerprintDirectTemplate(template);
+  const now = Date.now();
+  const events = await db
+    .select({
+      details: emailCampaignEvents.details,
+    })
+    .from(emailCampaignEvents)
+    .where(
+      and(
+        eq(emailCampaignEvents.actorUserId, organizer.id),
+        eq(emailCampaignEvents.eventType, "direct_test_send"),
+      ),
+    )
+    .orderBy(desc(emailCampaignEvents.createdAt))
+    .limit(maxRecentTestProofEvents);
+
+  const hasMatchingProof = events.some(({ details }) => {
+    if (
+      details.testSendToken !== testSendToken ||
+      details.templateFingerprint !== expectedFingerprint ||
+      typeof details.testSendExpiresAt !== "string" ||
+      typeof details.sent !== "number" ||
+      details.sent < 1
+    ) {
+      return false;
+    }
+
+    return Date.parse(details.testSendExpiresAt) > now;
+  });
+
+  if (!hasMatchingProof) {
+    throw new EmailCampaignError(
+      "Run a fresh successful test send before starting a full list send",
+      428,
+    );
+  }
+}
+
+function fingerprintDirectTemplate(template: DirectEmailTemplateInput) {
+  const payload =
+    template.type === "structured"
+      ? {
+          snapshot: snapshotFromDirectTemplate(template),
+          theme: template.theme ?? null,
+        }
+      : {
+          snapshot: snapshotFromDirectTemplate(template),
+          theme: null,
+        };
+
+  return createHash("sha256").update(stableStringify(payload)).digest("hex");
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
 }
 
 function buildMergeData(email: string, mergeData?: Record<string, string>) {
