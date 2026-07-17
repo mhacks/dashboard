@@ -141,7 +141,11 @@ export async function sendDirectBatch(input: unknown) {
     throw new EmailCampaignError("Add at least one valid recipient", 400);
   }
 
-  if (!body.campaignId) {
+  const campaign = body.campaignId
+    ? await getValidatedDirectCampaignContinuation(body.campaignId)
+    : null;
+
+  if (!campaign) {
     await assertSuccessfulTestSend({
       organizer,
       template: body.template,
@@ -149,22 +153,22 @@ export async function sendDirectBatch(input: unknown) {
     });
   }
 
-  const campaign = body.campaignId
-    ? await getCampaign(body.campaignId)
-    : await createDirectCampaign({
-        template: body.template,
-        organizer,
-        recipients: parsed.recipients.map((recipient) => ({
-          email: recipient.email,
-          mergeData: buildMergeData(recipient.email, recipient.mergeData),
-        })),
-      });
+  const campaignToSend =
+    campaign ??
+    (await createDirectCampaign({
+      template: body.template,
+      organizer,
+      recipients: parsed.recipients.map((recipient) => ({
+        email: recipient.email,
+        mergeData: buildMergeData(recipient.email, recipient.mergeData),
+      })),
+    }));
 
-  const status = await processCampaignBatch(campaign.id);
+  const status = await processCampaignBatch(campaignToSend.id);
   const pendingCount = status.pendingCount;
 
   return {
-    campaignId: campaign.id,
+    campaignId: campaignToSend.id,
     totalRecipients: status.totalRecipients,
     sentCount: status.sentCount,
     failedCount: status.failedCount,
@@ -187,6 +191,19 @@ function enforceRecipientLimit(count: number) {
       400,
     );
   }
+}
+
+async function getValidatedDirectCampaignContinuation(campaignId: string) {
+  const campaign = await getCampaign(campaignId);
+
+  if (!campaign.isDirectSend || !campaign.startedAt) {
+    throw new EmailCampaignError(
+      "Run a successful test send before starting a full list send",
+      428,
+    );
+  }
+
+  return campaign;
 }
 
 async function assertSuccessfulTestSend({

@@ -117,14 +117,6 @@ export const recipientTextSchema = z.object({
   recipients: z.string().default(""),
 });
 
-export const sendOneSchema = z.object({
-  email: z.string().email(),
-});
-
-export const testSendSchema = z.object({
-  emails: z.array(z.string().email()).min(1).max(20),
-});
-
 export const directEmailTemplateSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("structured"),

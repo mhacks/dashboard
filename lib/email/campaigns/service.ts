@@ -244,65 +244,6 @@ export async function renderCampaignPreview(
   });
 }
 
-export async function sendOneCampaignEmail(campaignId: string, email: string) {
-  const organizer = await requireOrganizer();
-  const campaign = await getCampaign(campaignId);
-  const normalizedEmail = email.trim().toLowerCase();
-  const mergeData = buildMergeData(normalizedEmail);
-  const result = await sendSnapshotToEmail(
-    campaign,
-    normalizedEmail,
-    mergeData,
-  );
-
-  await upsertRecipientResult(campaignId, normalizedEmail, mergeData, result);
-  await refreshCampaignCounts(campaignId, organizer);
-  await recordCampaignEvent({
-    campaignId,
-    organizer,
-    eventType: "single_send",
-    details: {
-      email: normalizedEmail,
-      status: result.status,
-      messageId: result.messageId,
-      error: result.error,
-    },
-  });
-
-  return result;
-}
-
-export async function sendTestCampaignEmails(
-  campaignId: string,
-  emails: string[],
-) {
-  const organizer = await requireOrganizer();
-  const campaign = await getCampaign(campaignId);
-  const uniqueEmails = Array.from(
-    new Set(emails.map((email) => email.trim().toLowerCase())),
-  );
-
-  const results: SendResult[] = [];
-  for (const email of uniqueEmails) {
-    results.push(
-      await sendSnapshotToEmail(campaign, email, buildMergeData(email)),
-    );
-  }
-
-  await recordCampaignEvent({
-    campaignId,
-    organizer,
-    eventType: "test_send",
-    details: {
-      total: results.length,
-      sent: results.filter((result) => result.status === "sent").length,
-      failed: results.filter((result) => result.status === "failed").length,
-    },
-  });
-
-  return results;
-}
-
 export async function processCampaignBatch(campaignId: string) {
   const organizer = await requireOrganizer();
   assertFullCampaignSendingAllowed();
@@ -354,29 +295,6 @@ export async function processCampaignBatch(campaignId: string) {
   });
 
   return status;
-}
-
-export async function retryFailedRecipients(campaignId: string) {
-  const organizer = await requireOrganizer();
-  const now = new Date().toISOString();
-
-  await db.update(emailCampaignRecipients).set({
-    status: "pending",
-    error: null,
-    messageId: null,
-    sentAt: null,
-    updatedAt: now,
-  }).where(sql`${emailCampaignRecipients.campaignId} = ${campaignId}
-      AND ${emailCampaignRecipients.status} = 'failed'`);
-
-  await recordCampaignEvent({
-    campaignId,
-    organizer,
-    eventType: "failed_recipients_requeued",
-    details: {},
-  });
-
-  return processCampaignBatch(campaignId);
 }
 
 export async function getCampaignStatus(campaignId: string) {
