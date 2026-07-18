@@ -71,7 +71,7 @@ function Code({ children }: { children: string }) {
   );
 }
 
-const SERVER_URL = "https://mhacks.org/api/mcp/mcp";
+const SERVER_URL = "https://mhacks.org/mcp";
 
 export default function HowToMcpPage() {
   return (

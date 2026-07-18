@@ -1,4 +1,4 @@
-// app/api/mcp/[transport]/route.ts
+// app/mcp/route.ts
 //
 // MCP server that lets authenticated agents apply to MHacks on a user's behalf.
 // Auth is OAuth 2.1 (Supabase GoTrue as the Authorization Server): every request
@@ -392,10 +392,12 @@ const baseHandler = createMcpHandler(
     ].join("\n"),
   },
   {
-    // Must match this file's directory (app/api/mcp/) — mcp-handler can't
-    // introspect its own route path, so this has to be kept in sync by hand
-    // if the route ever moves.
-    basePath: "/api/mcp",
+    // Empty basePath + this file living at app/mcp/route.ts (a literal,
+    // non-dynamic route) makes the streamable-HTTP endpoint exactly "/mcp" —
+    // mcp-handler always appends "/mcp" to basePath, so basePath must stay
+    // "" here. SSE/message transports are intentionally not served (no
+    // [transport] catch-all), since no client we document uses them.
+    basePath: "",
     maxDuration: 60,
     verboseLogs: true,
   },

@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   // Exact match or a real path segment underneath — plain `.startsWith`
-  // would also match unintended siblings like `/api/mcp-evil` or
+  // would also match unintended siblings like `/mcp-evil` or
   // `/loginx` if such a route ever gets added.
   const isPathOrChild = (base: string) =>
     pathname === base || pathname.startsWith(`${base}/`);
@@ -42,7 +42,7 @@ export async function proxy(request: NextRequest) {
     // MCP endpoints authenticate via bearer token (withMcpAuth), not cookies —
     // they must return their own 401 + WWW-Authenticate challenge instead of
     // this middleware's HTML redirect, or OAuth discovery can never start.
-    isPathOrChild("/api/mcp") ||
+    isPathOrChild("/mcp") ||
     isPathOrChild("/.well-known") ||
     // /oauth/consent does its own auth check and redirects to /login with the
     // full query string (authorization_id) preserved; this middleware's
