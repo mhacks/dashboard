@@ -6,6 +6,7 @@
 // token — never from a tool argument. Validation + persistence are shared with
 // the web form via lib/actions/application-form.actions.ts.
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 import {
   baseApplicationSchema,
@@ -41,22 +42,36 @@ function requireUserId(extra: ToolExtra): string {
 }
 
 // Stronger guard for tools that read/write application data or identity:
-// on top of the (locally-verified, revocation-blind) token check above,
-// confirms the token's underlying Supabase session still exists. Revoking a
-// connected app deletes that session, but the access token itself stays
-// signature-valid until it expires (up to 1hr) — this closes that gap for
-// the tools where a stale-but-unexpired token actually matters. Not applied
-// to apply_get_schema, which is static and carries no user data — the
-// cheaper check is enough there.
-async function requireActiveUserId(extra: ToolExtra): Promise<string> {
-  const userId = requireUserId(extra);
+// on top of the (locally-verified, revocation-blind) token check in
+// requireUserId, confirms the token's underlying Supabase session still
+// exists. Revoking a connected app deletes that session, but the access
+// token itself stays signature-valid until it expires (up to 1hr) — this
+// closes that gap for the tools where a stale-but-unexpired token actually
+// matters. Not applied to apply_get_schema, which is static and carries no
+// user data — the cheaper check is enough there.
+//
+// Split from requireUserId (rather than one combined async function) so
+// every gated tool can rate-limit on the cheap, JWT-derived userId *before*
+// paying for this DB round trip. Checking the rate limit after this call
+// would mean a rate-limited retry loop still hits the database once per
+// rejected call — exactly the load the rate limiter exists to blunt.
+async function assertSessionActive(extra: ToolExtra): Promise<void> {
   const sessionId = extra?.authInfo?.extra?.sessionId;
-  if (typeof sessionId !== "string" || !(await isSessionActive(sessionId))) {
+
+  let active: boolean;
+  try {
+    active = typeof sessionId === "string" && (await isSessionActive(sessionId));
+  } catch (error) {
+    throw new Error("Unable to verify session status — try again shortly.", {
+      cause: error,
+    });
+  }
+
+  if (!active) {
     throw new Error(
       "Unauthorized: this connection has been revoked. Reconnect to continue.",
     );
   }
-  return userId;
 }
 
 function jsonText(value: unknown) {
@@ -76,29 +91,44 @@ function errorText(text: string) {
 // or writes user data (whoami, apply_get_draft, apply_save_draft,
 // apply_submit, apply_status, apply_get_resume_upload_url) — not just the
 // two write tools this used to cover. Not distributed: this app runs on AWS
-// ECS Fargate (task-definition.json), and `rateLimitHits` is a plain
-// in-memory Map, so each running task keeps its own independent counter. If
-// the service ever runs more than one task, the effective per-user limit is
-// (limit × task count), not the number below — this repo doesn't define
-// desiredCount/autoscaling, so that's worth confirming directly against the
-// actual ECS service config rather than assumed. This blunts naive agent
-// retry loops rather than being an airtight guard; if real abuse shows up,
-// add an ALB/WAF rate-based rule in front of this route (or move to a
-// shared store) instead of hardening this further.
-const rateLimitHits = new Map<string, number[]>();
+// ECS Fargate (task-definition.json), and RateLimiterMemory keeps its counters
+// in this process's own memory, so each running task has its own independent
+// counter. If the service ever runs more than one task, the effective
+// per-user limit is (points × task count), not the number below — this repo
+// doesn't define desiredCount/autoscaling, so that's worth confirming
+// directly against the actual ECS service config rather than assumed. This
+// blunts naive agent retry loops rather than being an airtight guard; if real
+// abuse shows up, add an ALB/WAF rate-based rule in front of this route (or
+// move to a shared store, e.g. RateLimiterPostgres) instead of hardening this
+// further.
+//
+// One RateLimiterMemory instance per tool (rather than one shared instance
+// keyed by `${tool}:${userId}`) so each tool's points/duration are just
+// config, not string-built keys — and so the library's own internal key
+// expiry (rather than a hand-rolled Map that never shrinks) is what reclaims
+// memory for users who stop calling a given tool.
+const RATE_LIMITERS = {
+  whoami: new RateLimiterMemory({ points: 30, duration: 60 }),
+  get_draft: new RateLimiterMemory({ points: 30, duration: 60 }),
+  save_draft: new RateLimiterMemory({ points: 20, duration: 60 }),
+  submit: new RateLimiterMemory({ points: 5, duration: 60 }),
+  status: new RateLimiterMemory({ points: 30, duration: 60 }),
+  resume_upload_url: new RateLimiterMemory({ points: 10, duration: 60 }),
+} as const;
 
-function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const recent = (rateLimitHits.get(key) ?? []).filter(
-    (t) => now - t < windowMs,
-  );
-  if (recent.length >= limit) {
-    rateLimitHits.set(key, recent);
+// RateLimiterMemory has no I/O of its own, so the only way `.consume()` ever
+// rejects is "no points left" (a RateLimiterRes, not an Error) — safe to
+// collapse to a plain boolean here.
+async function checkRateLimit(
+  limiter: RateLimiterMemory,
+  key: string,
+): Promise<boolean> {
+  try {
+    await limiter.consume(key);
+    return true;
+  } catch {
     return false;
   }
-  recent.push(now);
-  rateLimitHits.set(key, recent);
-  return true;
 }
 
 // Computed once at module load rather than per-call — z.toJSONSchema() isn't
@@ -184,12 +214,13 @@ const baseHandler = createMcpHandler(
       },
       async (_input, extra) => {
         const authInfo = (extra as ToolExtra)?.authInfo;
-        const userId = await requireActiveUserId(extra as ToolExtra);
-        if (!checkRateLimit(`whoami:${userId}`, 30, 60_000)) {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.whoami, userId))) {
           return errorText(
             "Too many requests in the last minute — wait a bit before trying again.",
           );
         }
+        await assertSessionActive(extra as ToolExtra);
         return jsonText({
           userId,
           email: authInfo?.extra?.email,
@@ -225,12 +256,13 @@ const baseHandler = createMcpHandler(
         inputSchema: {},
       },
       async (_input, extra) => {
-        const userId = await requireActiveUserId(extra as ToolExtra);
-        if (!checkRateLimit(`get_draft:${userId}`, 30, 60_000)) {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.get_draft, userId))) {
           return errorText(
             "Too many requests in the last minute — wait a bit before trying again.",
           );
         }
+        await assertSessionActive(extra as ToolExtra);
         const draft = await getDraftForUser(userId);
         // The web form silently creates an empty-`{}` draft row for every
         // visitor (autosave-on-mount) — that's a row existing, not the user
@@ -256,12 +288,13 @@ const baseHandler = createMcpHandler(
         inputSchema: draftInputShape,
       },
       async (input, extra) => {
-        const userId = await requireActiveUserId(extra as ToolExtra);
-        if (!checkRateLimit(`save_draft:${userId}`, 20, 60_000)) {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.save_draft, userId))) {
           return errorText(
             "Too many draft saves in the last minute — wait a bit before checkpointing again.",
           );
         }
+        await assertSessionActive(extra as ToolExtra);
         const existingDraft = await getDraftForUser(userId);
         const merged: Record<string, unknown> = { ...existingDraft, ...input };
         await saveDraftForUser(
@@ -281,12 +314,13 @@ const baseHandler = createMcpHandler(
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
-        const userId = await requireActiveUserId(extra as ToolExtra);
-        if (!checkRateLimit(`submit:${userId}`, 5, 60_000)) {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.submit, userId))) {
           return errorText(
             "Too many submit attempts in the last minute — wait a bit before trying again.",
           );
         }
+        await assertSessionActive(extra as ToolExtra);
         // Check for an existing application before doing anything else — no
         // point validating input, or walking the user through MLH consent,
         // for a submission the DB is just going to reject anyway. This is a
@@ -367,12 +401,13 @@ const baseHandler = createMcpHandler(
         inputSchema: {},
       },
       async (_input, extra) => {
-        const userId = await requireActiveUserId(extra as ToolExtra);
-        if (!checkRateLimit(`status:${userId}`, 30, 60_000)) {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.status, userId))) {
           return errorText(
             "Too many requests in the last minute — wait a bit before trying again.",
           );
         }
+        await assertSessionActive(extra as ToolExtra);
         const row = await getApplicationStatusForUser(userId);
         if (!row) return jsonText({ hasApplication: false });
         return jsonText({
@@ -400,12 +435,13 @@ const baseHandler = createMcpHandler(
         },
       },
       async ({ fileSizeBytes }, extra) => {
-        const userId = await requireActiveUserId(extra as ToolExtra);
-        if (!checkRateLimit(`resume_upload_url:${userId}`, 10, 60_000)) {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.resume_upload_url, userId))) {
           return errorText(
             "Too many upload URL requests in the last minute — wait a bit before trying again.",
           );
         }
+        await assertSessionActive(extra as ToolExtra);
         const { uploadUrl, key } = await getResumeUploadUrl(
           userId,
           fileSizeBytes,
