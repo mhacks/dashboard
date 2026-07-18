@@ -2,22 +2,48 @@
 
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { RESUMES_BUCKET, s3, resumeKeyBelongsToUser } from "@/lib/aws/s3";
+import {
+  RESUMES_BUCKET,
+  s3,
+  resumeKeyBelongsToUser,
+  MAX_RESUME_SIZE_BYTES,
+} from "@/lib/aws/s3";
 import { createClient } from "@/lib/supabase/server";
 
 // One fixed key per user, not one per call — a caller invoking this tool
 // repeatedly (e.g. an agent retry-looping) reuses the same S3 object instead
 // of accumulating a new one on every call, since nothing here ever deletes
 // old objects. No versioning: the latest upload replaces whatever was there.
+//
+// Unlike /api/upload-resume (which buffers the file server-side and can just
+// check its size), this URL lets the caller PUT straight to S3 — we never
+// see the bytes, so size can't be checked after the fact. `fileSizeBytes`
+// gets baked into the presigned request as ContentLength, which S3 enforces
+// as an exact match: the real PUT's Content-Length header (which HTTP
+// clients set from the actual body automatically) must equal what was
+// signed, or the request is rejected. So a caller can't declare a small size
+// and then upload something bigger — the true size has to be declared
+// upfront, and we cap that declaration here.
 export async function getResumeUploadUrl(
   userId: string,
+  fileSizeBytes: number,
 ): Promise<{ uploadUrl: string; key: string }> {
+  if (!Number.isInteger(fileSizeBytes) || fileSizeBytes <= 0) {
+    throw new Error("fileSizeBytes must be a positive integer");
+  }
+  if (fileSizeBytes > MAX_RESUME_SIZE_BYTES) {
+    throw new Error(
+      `Resume exceeds the ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB limit`,
+    );
+  }
+
   const key = `resumes/${userId}.pdf`;
 
   const command = new PutObjectCommand({
     Bucket: RESUMES_BUCKET,
     Key: key,
     ContentType: "application/pdf",
+    ContentLength: fileSizeBytes,
   });
 
   const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });

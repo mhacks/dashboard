@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
+import { RESUMES_BUCKET, s3, MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { createClient } from "@/lib/supabase/server";
 import { getPostHogClient } from "@/lib/posthog-server";
-
-const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -25,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (file.type !== "application/pdf") {
     return NextResponse.json({ error: "File must be a PDF" }, { status: 400 });
   }
-  if (file.size > MAX_SIZE) {
+  if (file.size > MAX_RESUME_SIZE_BYTES) {
     return NextResponse.json(
       { error: "File exceeds 10 MB limit" },
       { status: 400 },

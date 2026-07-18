@@ -19,6 +19,7 @@ import {
   getDraftForUser,
 } from "@/lib/actions/application-form.actions";
 import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
+import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
@@ -359,18 +360,29 @@ const baseHandler = createMcpHandler(
       "apply_get_resume_upload_url",
       {
         title: "Get resume upload URL",
-        description:
-          "Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage `key`. Upload the PDF bytes directly to `uploadUrl` yourself (e.g. `curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>`), then pass the returned `key` as the `resume` field of apply_submit. Safe to call again if you need a new URL (e.g. the previous one expired) — it always points at the same resume slot, so re-uploading replaces rather than duplicates. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at mhacks.org/apply instead, then re-check with apply_get_draft.",
-        inputSchema: {},
+        description: `Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage \`key\`. Requires \`fileSizeBytes\` — the exact size of the PDF you're about to upload (e.g. from a filesystem stat) — capped at ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB; the presigned URL is only valid for that exact byte count, so a mismatched or oversized upload will be rejected by S3, not silently truncated or allowed through. Upload the PDF bytes directly to \`uploadUrl\` yourself (e.g. \`curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>\`), then pass the returned \`key\` as the \`resume\` field of apply_submit. Safe to call again if you need a new URL (e.g. the previous one expired or the file size changed) — it always points at the same resume slot, so re-uploading replaces rather than duplicates. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at mhacks.org/apply instead, then re-check with apply_get_draft.`,
+        inputSchema: {
+          fileSizeBytes: z
+            .number()
+            .int()
+            .positive()
+            .max(
+              MAX_RESUME_SIZE_BYTES,
+              `Resume exceeds the ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB limit`,
+            ),
+        },
       },
-      async (_input, extra) => {
+      async ({ fileSizeBytes }, extra) => {
         const userId = await requireActiveUserId(extra as ToolExtra);
         if (!checkRateLimit(`resume_upload_url:${userId}`, 10, 60_000)) {
           return errorText(
             "Too many upload URL requests in the last minute — wait a bit before trying again.",
           );
         }
-        const { uploadUrl, key } = await getResumeUploadUrl(userId);
+        const { uploadUrl, key } = await getResumeUploadUrl(
+          userId,
+          fileSizeBytes,
+        );
         return jsonText({
           uploadUrl,
           key,

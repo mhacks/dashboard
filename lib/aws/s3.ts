@@ -2,6 +2,12 @@ import { S3Client } from "@aws-sdk/client-s3";
 
 export const RESUMES_BUCKET = process.env.RESUMES_BUCKET!;
 
+// Shared by every path that accepts a resume upload — /api/upload-resume
+// (buffers the file server-side and checks this directly) and
+// getResumeUploadUrl (signs a presigned PUT capped to this via ContentLength)
+// — so the limit can't drift out of sync between them.
+export const MAX_RESUME_SIZE_BYTES = 10 * 1024 * 1024;
+
 const credentials = {
   accessKeyId: process.env.RESUMES_ACCESS_KEY_ID!,
   secretAccessKey: process.env.RESUMES_SECRET_ACCESS_KEY!,
