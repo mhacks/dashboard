@@ -72,11 +72,19 @@ function errorText(text: string) {
   };
 }
 
-// Best-effort, per-instance rate limiting for the two write tools. Not
-// distributed — each serverless instance keeps its own counter — so this
-// blunts naive agent retry loops rather than being an airtight guard. If real
-// abuse shows up, add a Vercel Firewall rate-limit rule in front of this
-// route instead of hardening this further.
+// Best-effort, per-instance rate limiting, applied to every tool that reads
+// or writes user data (whoami, apply_get_draft, apply_save_draft,
+// apply_submit, apply_status, apply_get_resume_upload_url) — not just the
+// two write tools this used to cover. Not distributed: this app runs on AWS
+// ECS Fargate (task-definition.json), and `rateLimitHits` is a plain
+// in-memory Map, so each running task keeps its own independent counter. If
+// the service ever runs more than one task, the effective per-user limit is
+// (limit × task count), not the number below — this repo doesn't define
+// desiredCount/autoscaling, so that's worth confirming directly against the
+// actual ECS service config rather than assumed. This blunts naive agent
+// retry loops rather than being an airtight guard; if real abuse shows up,
+// add an ALB/WAF rate-based rule in front of this route (or move to a
+// shared store) instead of hardening this further.
 const rateLimitHits = new Map<string, number[]>();
 
 function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
