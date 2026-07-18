@@ -8,7 +8,11 @@ import {
   resumeKeyBelongsToUser,
   MAX_RESUME_SIZE_BYTES,
 } from "@/lib/aws/s3";
-import { createClient } from "@/lib/supabase/server";
+import { requireSessionUser } from "@/lib/auth/guards";
+import { getPostHogClient } from "@/lib/posthog-server";
+import { isPdfBuffer } from "@/lib/resume";
+
+const RESUME_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;
 
 // One fixed key per user, not one per call — a caller invoking this tool
 // repeatedly (e.g. an agent retry-looping) reuses the same S3 object instead
@@ -52,22 +56,92 @@ export async function getResumeUploadUrl(
   return { uploadUrl, key };
 }
 
-// Called directly from a client component (academic-information.tsx) as well
-// as from server components that already resolved their own user — so `key`
-// must never be trusted as-is. Identity is re-derived from the session here
+// Web upload path (academic-information.tsx) — a single browser-driven
+// upload is a much smaller, rarer load than a potentially-looping agent, so
+// buffering the file into this container's memory here is an acceptable
+// tradeoff for the extra validation (magic-byte check) it buys. The MCP path
+// above stays presigned-URL-only for the reasons in its own comment.
+export async function uploadResume(
+  formData: FormData,
+): Promise<{ error: string } | { key: string }> {
+  const { id: userId } = await requireSessionUser();
+  const file = formData.get("file");
+
+  if (!(file instanceof File)) {
+    return { error: "No file provided" };
+  }
+  if (file.type !== "application/pdf") {
+    return { error: "File must be a PDF" };
+  }
+  if (file.size > MAX_RESUME_SIZE_BYTES) {
+    return {
+      error: `File exceeds ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB limit`,
+    };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (!isPdfBuffer(buffer)) {
+    return { error: "File must be a valid PDF" };
+  }
+
+  const key = `resumes/${userId}.pdf`;
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: RESUMES_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: "application/pdf",
+      ContentLength: buffer.length,
+    }),
+  );
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "resume_uploaded",
+    properties: { file_size_bytes: file.size },
+  });
+  await posthog.flush();
+
+  return { key };
+}
+
+async function canDownloadResume(
+  key: string,
+  userId: string,
+  role: string,
+): Promise<boolean> {
+  if (role === "organizer") return true;
+  return resumeKeyBelongsToUser(key, userId);
+}
+
+// Called from client components, server components, and the admin review
+// workspace (organizers viewing other users' resumes) — so `key` must never
+// be trusted as-is. Identity (and role) is re-derived from the session here
 // rather than taking a userId param, since a param can be passed wrong (or,
 // if this were ever reachable from an untrusted caller, spoofed); re-deriving
 // it means the check holds regardless of what the caller believes the key is.
-export async function getResumeDownloadUrl(key: string): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function getResumeDownloadUrl(
+  key: string,
+  disposition: "inline" | "attachment" = "inline",
+): Promise<string> {
+  const user = await requireSessionUser();
 
-  if (!user || !resumeKeyBelongsToUser(key, user.id)) {
+  if (!(await canDownloadResume(key, user.id, user.role))) {
     throw new Error("Resume not found");
   }
 
-  const command = new GetObjectCommand({ Bucket: RESUMES_BUCKET, Key: key });
-  return getSignedUrl(s3, command, { expiresIn: 604800 });
+  const command = new GetObjectCommand({
+    Bucket: RESUMES_BUCKET,
+    Key: key,
+    ResponseContentDisposition:
+      disposition === "attachment"
+        ? 'attachment; filename="resume.pdf"'
+        : 'inline; filename="resume.pdf"',
+    ResponseContentType: "application/pdf",
+  });
+  return getSignedUrl(s3, command, {
+    expiresIn: RESUME_DOWNLOAD_URL_TTL_SECONDS,
+  });
 }

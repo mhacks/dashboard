@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { destinationForRole } from "@/lib/auth/redirects";
+import { getSessionUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { getPostHogClient } from "@/lib/posthog-server";
 
@@ -64,8 +66,6 @@ export async function verifyOtp(
     await posthog.flush();
   }
 
-  // Only allow relative same-origin paths; reject anything else.
-  const destination =
-    next && next.startsWith("/") && !next.startsWith("/login") ? next : "/";
-  redirect(destination);
+  const user = await getSessionUser();
+  redirect(destinationForRole(user?.role ?? "hacker", next));
 }

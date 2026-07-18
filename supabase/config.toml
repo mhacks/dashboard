@@ -34,7 +34,7 @@ allow_dynamic_registration = true
 # Production uses AWS S3, not Supabase Storage.
 [db.seed]
 enabled = true
-sql_paths = ["./seed.sql"]
+sql_paths = ["./seed.sql", "./seeds/application-review-demo.sql"]
 
 # OTP login — signInWithOtp / verifyOtp (app/login/page.tsx)
 [auth.email.template.magic_link]

@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import ApplyPage from "./application-form";
 import ApplicationFormSkeleton from "./application-form-skeleton";
-import { createClient } from "@/lib/supabase/server";
+import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
   hackerApplicants,
@@ -12,14 +11,7 @@ import {
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 
 export default async function ApplicationFormPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const userId = user.id;
+  const { id: userId } = await requireSessionUser();
 
   let existingApp = null;
   try {
