@@ -10,6 +10,7 @@ import {
   type HackerApplicantRow,
 } from "@/lib/db/schema/applications";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
 
 // Core application logic, parameterized by `userId`, shared by both the web
 // form (cookie-authenticated server actions) and the MCP server (OAuth
@@ -40,6 +41,17 @@ export async function submitHackerApplicationForUser(
   source: "web" | "mcp",
 ): Promise<{ duplicate: boolean }> {
   const parsed = hackerApplicationSchema.parse(data);
+
+  // `resume` is a plain client-suppliable string (an S3 key), never
+  // otherwise checked against who it was issued to — without this, a
+  // caller could reference another user's key and have it stored against
+  // their own application (and later resolved to a real download URL for
+  // someone else's resume). See lib/aws/s3.ts.
+  if (!resumeKeyBelongsToUser(parsed.resume, userId)) {
+    throw new Error(
+      "Resume must come from your own upload — get a fresh upload URL and try again.",
+    );
+  }
 
   const result = await db
     .insert(hackerApplicants)
@@ -75,6 +87,15 @@ export async function saveDraftForUser(
   userId: string,
   data: Partial<HackerApplicationFormData>,
 ): Promise<void> {
+  if (
+    typeof data.resume === "string" &&
+    !resumeKeyBelongsToUser(data.resume, userId)
+  ) {
+    throw new Error(
+      "Resume must come from your own upload — get a fresh upload URL and try again.",
+    );
+  }
+
   await db
     .insert(hackerApplicationDrafts)
     .values({ userId, data: data as Record<string, unknown> })

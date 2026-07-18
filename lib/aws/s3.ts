@@ -27,3 +27,20 @@ export const s3 =
         ...clientOptions,
         region: process.env.RESUMES_REGION ?? "us-east-2",
       });
+
+// Resume keys come in two shapes depending on upload path: `resumes/{userId}/...`
+// (apply_get_resume_upload_url, MCP) and `resumes/{userId}.pdf` (/api/upload-resume,
+// web form). Both are scoped by prefix, never validated to actually belong to
+// the account they're attached to — `resume` is a plain client-suppliable string
+// everywhere it's stored (draft, submitted application), so without this check
+// a user could reference another user's key and either read their resume via a
+// generated download URL, or have someone else's key silently attached to their
+// own application. Checking for `/` or `.` right after the id stops one user's
+// id from prefix-matching a different (longer) id — moot for same-length UUIDs,
+// but keeps the check correct regardless of id format.
+export function resumeKeyBelongsToUser(key: string, userId: string): boolean {
+  const prefix = `resumes/${userId}`;
+  if (!key.startsWith(prefix)) return false;
+  const next = key[prefix.length];
+  return next === "/" || next === ".";
+}
