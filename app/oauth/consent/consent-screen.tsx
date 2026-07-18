@@ -23,6 +23,23 @@ interface ConsentDetails {
   redirect_uri: string;
 }
 
+// `details.scope` is whatever OAuth scope string the connecting client chose
+// to request (e.g. a client could request just "openid email" to look
+// low-risk) — but lib/mcp/auth.ts grants every verified token the same fixed
+// MCP_SCOPES (["application:write"]) regardless of what was requested, so
+// the raw scope string does not reflect what the client can actually do.
+// Showing it as-is would let a client understate its own access on this
+// screen. Instead, show the real, fixed capability set every approved
+// connection gets — this list must stay in sync with the tools registered
+// in app/mcp/route.ts.
+const GRANTED_CAPABILITIES = [
+  "See your MHacks identity (user ID and email)",
+  "View your application status and draft, if any",
+  "Save and edit your draft application",
+  "Submit your MHacks application on your behalf — this is final and cannot be undone from the app",
+  "Request a link to upload a resume to your account",
+];
+
 export function ConsentScreen({
   authorizationId,
   details,
@@ -31,7 +48,6 @@ export function ConsentScreen({
   details: ConsentDetails;
 }) {
   const [isPending, startTransition] = useTransition();
-  const scopes = details.scope.split(" ").filter(Boolean);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4">
@@ -57,14 +73,30 @@ export function ConsentScreen({
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4">
-          <ul
-            className="font-red-hat text-[13px] list-disc pl-5"
-            style={{ color: "rgba(58,74,38,0.8)" }}
-          >
-            {scopes.map((scope) => (
-              <li key={scope}>{scope}</li>
-            ))}
-          </ul>
+          <div>
+            <p
+              className="font-red-hat text-[11px] uppercase tracking-wide mb-1"
+              style={{ color: "rgba(58,74,38,0.55)" }}
+            >
+              This app will be able to
+            </p>
+            <ul
+              className="font-red-hat text-[13px] list-disc pl-5 flex flex-col gap-1"
+              style={{ color: "rgba(58,74,38,0.8)" }}
+            >
+              {GRANTED_CAPABILITIES.map((capability) => (
+                <li key={capability}>{capability}</li>
+              ))}
+            </ul>
+            <p
+              className="font-red-hat text-[11px] mt-2"
+              style={{ color: "rgba(58,74,38,0.55)" }}
+            >
+              Every app you approve gets this same full access — MHacks
+              doesn&apos;t currently support granting a narrower set of
+              permissions.
+            </p>
+          </div>
 
           <div
             className="rounded-md border px-3 py-2"
