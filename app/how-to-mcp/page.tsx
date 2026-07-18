@@ -6,12 +6,12 @@
 // app/account/connections currently is.
 import NavBar from "@/components/navbar";
 import SiteFooter from "@/components/site-footer";
+import AsciiBackground from "@/components/ascii-background";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 const GREEN = "#3A4A26";
 const GREEN_SOFT = "rgba(58,74,38,0.6)";
 const BORDER = "#c8d4a8";
-const CARD_BG = "#faf9f4";
 
 function Section({
   title,
@@ -21,7 +21,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="border-[#c8d4a8]" style={{ backgroundColor: CARD_BG }}>
+    <Card className="border border-[#c8d4a8]/70 bg-[#faf9f4]/80 shadow-[0_16px_48px_-24px_rgba(58,74,38,0.4)] ring-0 backdrop-blur-md">
       <CardHeader>
         <h2
           className="font-heading italic text-2xl sm:text-3xl tracking-tight"
@@ -75,18 +75,39 @@ const SERVER_URL = "https://mhacks.org/mcp";
 
 export default function HowToMcpPage() {
   return (
-    <div style={{ backgroundColor: "#efe9d4" }}>
+    <div className="relative">
+      {/* Same scroll-reactive ascii-flower field as the landing page, painting
+          the side gutters and leaving the center column clear for content. */}
+      <AsciiBackground />
       <NavBar />
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 pt-32 pb-20 flex flex-col gap-8">
-        <div className="flex flex-col gap-3">
+        <div className="relative flex flex-col gap-3">
+          {/* Soft bloom behind the title — a quiet nod to the landing hero. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 left-1/2 -z-[1] h-72 w-[36rem] max-w-[90vw] -translate-x-1/2 rounded-full blur-3xl"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(255,170,216,0.28), rgba(190,220,255,0.22) 55%, transparent 72%)",
+            }}
+          />
+          <p
+            className="font-red-hat text-[12px] font-semibold uppercase tracking-[0.22em]"
+            style={{ color: GREEN_SOFT }}
+          >
+            Model Context Protocol
+          </p>
           <h1
-            className="font-heading italic text-4xl sm:text-5xl tracking-tight"
+            className="font-heading italic text-4xl sm:text-6xl leading-[0.95] tracking-tight"
             style={{ color: GREEN }}
           >
             Connect an AI agent to MHacks
           </h1>
-          <p className="font-red-hat text-[15px]" style={{ color: GREEN_SOFT }}>
+          <p
+            className="font-red-hat text-[16px] leading-relaxed max-w-2xl"
+            style={{ color: GREEN_SOFT }}
+          >
             MHacks has an MCP server that lets you apply through Claude, Codex,
             or any other MCP-capable agent instead of filling out the web form
             by hand. Your agent can read the application schema, save a draft,
@@ -219,8 +240,8 @@ export default function HowToMcpPage() {
               , then it&apos;ll confirm it landed before continuing.
             </li>
             <li>
-              <strong>Revoking access:</strong> you can see and any agent&apos;s
-              access at{" "}
+              <strong>Revoking access:</strong> you can see and revoke any
+              agent&apos;s access at{" "}
               <a href="/account/connections" className="underline">
                 mhacks.org/account/connections
               </a>{" "}

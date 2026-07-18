@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,20 @@ export function ConnectionsList({ grants }: { grants: Grant[] }) {
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4">
-      <Card className="relative z-10 w-full max-w-sm bg-[#faf9f4] border-[#c8d4a8]">
+    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+      <Image
+        src="/mhacks_blue_auth_bg.png"
+        alt=""
+        fill
+        className="object-cover object-center"
+        priority
+      />
+      {/* Soft wash so the card lifts off the busy photo without hiding it. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25"
+      />
+      <Card className="relative z-10 w-full max-w-sm bg-[#faf9f4]/95 border-[#c8d4a8] shadow-[0_24px_64px_-24px_rgba(31,42,22,0.55)] backdrop-blur-sm">
         <CardHeader className="flex flex-col items-center pb-2">
           <MHacksLogo size={48} variant="green" />
           <h1
