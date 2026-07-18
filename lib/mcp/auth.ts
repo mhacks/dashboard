@@ -1,5 +1,7 @@
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { sql } from "drizzle-orm";
+import { db } from "@/lib/db";
 
 // Scopes this MCP server recognizes. A token must carry `application:write`
 // (enforced via `requiredScopes` in withMcpAuth) to call the mutating tools.
@@ -53,9 +55,27 @@ export async function verifyToken(
       extra: {
         userId: claims.sub,
         email: claims.email,
+        sessionId:
+          typeof claims.session_id === "string" ? claims.session_id : undefined,
       },
     };
   } catch {
     return undefined;
   }
+}
+
+// `getClaims` (above) is a self-contained JWT check — locally against JWKS
+// under an asymmetric signing key, so it never touches the database and
+// can't see that a session was revoked (see agents/mcp-auth.md §8). Revoking
+// an OAuth grant deletes the corresponding row from Supabase's own
+// `auth.sessions` table, so checking that row directly is the only way to
+// get a live answer. Used as an extra guard on tools that read/write
+// application data or identity, not on every call — it costs a DB
+// round-trip, so it's reserved for where a stale-but-unexpired token
+// actually matters.
+export async function isSessionActive(sessionId: string): Promise<boolean> {
+  const rows = await db.execute(
+    sql`select 1 from auth.sessions where id = ${sessionId} limit 1`,
+  );
+  return rows.length > 0;
 }

@@ -19,7 +19,7 @@ import {
   getDraftForUser,
 } from "@/lib/actions/application-form.actions";
 import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
-import { verifyToken } from "@/lib/mcp/auth";
+import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -35,6 +35,25 @@ function requireUserId(extra: ToolExtra): string {
   const userId = extra?.authInfo?.extra?.userId;
   if (typeof userId !== "string") {
     throw new Error("Unauthorized: missing user identity");
+  }
+  return userId;
+}
+
+// Stronger guard for tools that read/write application data or identity:
+// on top of the (locally-verified, revocation-blind) token check above,
+// confirms the token's underlying Supabase session still exists. Revoking a
+// connected app deletes that session, but the access token itself stays
+// signature-valid until it expires (up to 1hr) — this closes that gap for
+// the tools where a stale-but-unexpired token actually matters. Not applied
+// to apply_get_schema, which is static and carries no user data — the
+// cheaper check is enough there.
+async function requireActiveUserId(extra: ToolExtra): Promise<string> {
+  const userId = requireUserId(extra);
+  const sessionId = extra?.authInfo?.extra?.sessionId;
+  if (typeof sessionId !== "string" || !(await isSessionActive(sessionId))) {
+    throw new Error(
+      "Unauthorized: this connection has been revoked. Reconnect to continue.",
+    );
   }
   return userId;
 }
@@ -149,7 +168,7 @@ const baseHandler = createMcpHandler(
       },
       async (_input, extra) => {
         const authInfo = (extra as ToolExtra)?.authInfo;
-        const userId = requireUserId(extra as ToolExtra);
+        const userId = await requireActiveUserId(extra as ToolExtra);
         return jsonText({
           userId,
           email: authInfo?.extra?.email,
@@ -178,7 +197,7 @@ const baseHandler = createMcpHandler(
         inputSchema: {},
       },
       async (_input, extra) => {
-        const userId = requireUserId(extra as ToolExtra);
+        const userId = await requireActiveUserId(extra as ToolExtra);
         const draft = await getDraftForUser(userId);
         // The web form silently creates an empty-`{}` draft row for every
         // visitor (autosave-on-mount) — that's a row existing, not the user
@@ -204,7 +223,7 @@ const baseHandler = createMcpHandler(
         inputSchema: draftInputShape,
       },
       async (input, extra) => {
-        const userId = requireUserId(extra as ToolExtra);
+        const userId = await requireActiveUserId(extra as ToolExtra);
         if (!checkRateLimit(`save_draft:${userId}`, 20, 60_000)) {
           return errorText(
             "Too many draft saves in the last minute — wait a bit before checkpointing again.",
@@ -229,7 +248,7 @@ const baseHandler = createMcpHandler(
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
-        const userId = requireUserId(extra as ToolExtra);
+        const userId = await requireActiveUserId(extra as ToolExtra);
         if (!checkRateLimit(`submit:${userId}`, 5, 60_000)) {
           return errorText(
             "Too many submit attempts in the last minute — wait a bit before trying again.",
@@ -315,7 +334,7 @@ const baseHandler = createMcpHandler(
         inputSchema: {},
       },
       async (_input, extra) => {
-        const userId = requireUserId(extra as ToolExtra);
+        const userId = await requireActiveUserId(extra as ToolExtra);
         const row = await getApplicationStatusForUser(userId);
         if (!row) return jsonText({ hasApplication: false });
         return jsonText({
@@ -335,7 +354,7 @@ const baseHandler = createMcpHandler(
         inputSchema: { fileName: z.string().min(1) },
       },
       async ({ fileName }, extra) => {
-        const userId = requireUserId(extra as ToolExtra);
+        const userId = await requireActiveUserId(extra as ToolExtra);
         const { uploadUrl, key } = await getResumeUploadUrl(userId, fileName);
         return jsonText({
           uploadUrl,

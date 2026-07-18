@@ -219,8 +219,8 @@ export default function HowToMcpPage() {
               , then it&apos;ll confirm it landed before continuing.
             </li>
             <li>
-              <strong>Revoking access:</strong> you can see and revoke any
-              agent&apos;s access at{" "}
+              <strong>Revoking access:</strong> you can see and any agent&apos;s
+              access at{" "}
               <a href="/account/connections" className="underline">
                 mhacks.org/account/connections
               </a>{" "}
