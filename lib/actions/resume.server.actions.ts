@@ -5,12 +5,14 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { RESUMES_BUCKET, s3, resumeKeyBelongsToUser } from "@/lib/aws/s3";
 import { createClient } from "@/lib/supabase/server";
 
+// One fixed key per user, not one per call — a caller invoking this tool
+// repeatedly (e.g. an agent retry-looping) reuses the same S3 object instead
+// of accumulating a new one on every call, since nothing here ever deletes
+// old objects. No versioning: the latest upload replaces whatever was there.
 export async function getResumeUploadUrl(
   userId: string,
-  fileName: string,
 ): Promise<{ uploadUrl: string; key: string }> {
-  const sanitized = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-  const key = `resumes/${userId}/${Date.now()}-${sanitized}`;
+  const key = `resumes/${userId}.pdf`;
 
   const command = new PutObjectCommand({
     Bucket: RESUMES_BUCKET,

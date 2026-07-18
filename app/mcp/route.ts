@@ -198,6 +198,11 @@ const baseHandler = createMcpHandler(
       },
       async (_input, extra) => {
         const userId = await requireActiveUserId(extra as ToolExtra);
+        if (!checkRateLimit(`get_draft:${userId}`, 30, 60_000)) {
+          return errorText(
+            "Too many requests in the last minute — wait a bit before trying again.",
+          );
+        }
         const draft = await getDraftForUser(userId);
         // The web form silently creates an empty-`{}` draft row for every
         // visitor (autosave-on-mount) — that's a row existing, not the user
@@ -335,6 +340,11 @@ const baseHandler = createMcpHandler(
       },
       async (_input, extra) => {
         const userId = await requireActiveUserId(extra as ToolExtra);
+        if (!checkRateLimit(`status:${userId}`, 30, 60_000)) {
+          return errorText(
+            "Too many requests in the last minute — wait a bit before trying again.",
+          );
+        }
         const row = await getApplicationStatusForUser(userId);
         if (!row) return jsonText({ hasApplication: false });
         return jsonText({
@@ -350,12 +360,17 @@ const baseHandler = createMcpHandler(
       {
         title: "Get resume upload URL",
         description:
-          "Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage `key`. Upload the PDF bytes directly to `uploadUrl` yourself (e.g. `curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>`), then pass the returned `key` as the `resume` field of apply_submit. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at mhacks.org/apply instead, then re-check with apply_get_draft.",
-        inputSchema: { fileName: z.string().min(1) },
+          "Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage `key`. Upload the PDF bytes directly to `uploadUrl` yourself (e.g. `curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>`), then pass the returned `key` as the `resume` field of apply_submit. Safe to call again if you need a new URL (e.g. the previous one expired) — it always points at the same resume slot, so re-uploading replaces rather than duplicates. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at mhacks.org/apply instead, then re-check with apply_get_draft.",
+        inputSchema: {},
       },
-      async ({ fileName }, extra) => {
+      async (_input, extra) => {
         const userId = await requireActiveUserId(extra as ToolExtra);
-        const { uploadUrl, key } = await getResumeUploadUrl(userId, fileName);
+        if (!checkRateLimit(`resume_upload_url:${userId}`, 10, 60_000)) {
+          return errorText(
+            "Too many upload URL requests in the last minute — wait a bit before trying again.",
+          );
+        }
+        const { uploadUrl, key } = await getResumeUploadUrl(userId);
         return jsonText({
           uploadUrl,
           key,
