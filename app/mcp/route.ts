@@ -471,10 +471,43 @@ const baseHandler = createMcpHandler(
 // Require a verified Supabase token carrying the application:write scope. On an
 // unauthenticated request this responds 401 + WWW-Authenticate pointing at the
 // protected-resource metadata, which kicks off the client's OAuth flow.
-const handler = withMcpAuth(baseHandler, verifyToken, {
+const authHandler = withMcpAuth(baseHandler, verifyToken, {
   required: true,
   requiredScopes: ["application:write"],
   resourceMetadataPath: "/.well-known/oauth-protected-resource",
 });
 
-export { handler as GET, handler as POST };
+// mcp-handler reads the entire request body (req.json()/req.text()) into
+// memory before any tool-level Zod validation ever runs, with no size limit
+// of its own — a legitimate tool call is a few KB, but nothing upstream
+// stops a call to any tool from carrying an oversized field (e.g. a
+// multi-hundred-MB string in whatWouldYouDo). That gets buffered into this
+// container's memory before .max(600) ever gets a chance to reject it — the
+// same failure class the resume upload had before it moved to S3, except
+// this container (only 512MB, shared across every concurrent request — see
+// MAX_RESUME_SIZE_BYTES in lib/aws/s3.ts) is genuinely in the request path
+// for every /mcp call, unlike resume uploads now. Rejecting on a declared
+// Content-Length well over any legitimate payload closes the common case
+// cheaply, before mcp-handler ever touches the body. It does NOT catch a
+// request that omits Content-Length (chunked transfer) or lies about it —
+// that would need a streaming read with a hard byte-count abort, not just a
+// header check.
+const MAX_MCP_REQUEST_BYTES = 256 * 1024;
+
+async function withBodySizeLimit(
+  req: Parameters<typeof authHandler>[0],
+): ReturnType<typeof authHandler> {
+  const contentLength = req.headers.get("content-length");
+  if (contentLength !== null) {
+    const declaredBytes = Number(contentLength);
+    if (declaredBytes > MAX_MCP_REQUEST_BYTES) {
+      return new Response(JSON.stringify({ error: "Request body too large" }), {
+        status: 413,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+  return authHandler(req);
+}
+
+export { withBodySizeLimit as GET, withBodySizeLimit as POST };
