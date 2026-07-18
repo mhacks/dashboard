@@ -8,9 +8,11 @@ import {
   CheckCircle2,
   Copy,
   Download,
+  FileText,
   Laptop,
   ListChecks,
   Loader2,
+  Palette,
   Play,
   Plus,
   Save,
@@ -22,17 +24,23 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AdminHeaderActions } from "@/app/admin/components/admin-header-actions";
+import { adminPageHeaderClasses } from "@/app/admin/components/admin-page-header-layout";
 import { Button } from "@/components/ui/button";
-import { defaultEmailTheme } from "@/lib/email/theme";
 import type { EmailCampaignContent, EmailThemeTokens } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
+import {
+  deleteEmailTemplateAction,
+  saveEmailTemplateAction,
+  saveEmailThemeAction,
+} from "./actions";
 
 type PreviewMode = "desktop" | "mobile";
 export type EmailCampaignSurface = "builder" | "styles" | "send";
 type TemplateType = "structured" | "html";
 type ToastTone = "loading" | "success" | "error" | "info";
 
-interface MasterTemplate {
+export interface MasterTemplate {
   id: string;
   name: string;
   type: TemplateType;
@@ -51,6 +59,20 @@ interface CampaignLimits {
   batchSize: number;
   sendDelayMs: number;
   maxSendRatePerSecond?: number;
+}
+
+interface CampaignSummary {
+  id: string;
+  name: string;
+  status: string;
+  subject: string;
+  previewText: string;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  isDirectSend: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface RecipientSaveResult {
@@ -102,21 +124,36 @@ const activeSendStatusStorageKey = "mhacks-email-active-send-status";
 const activeTestProofStorageKey = "mhacks-email-active-test-proof";
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
+const emailCampaignViews: Array<{
+  value: EmailCampaignSurface;
+  label: string;
+  icon: typeof FileText;
+}> = [
+  { value: "builder", label: "Builder", icon: FileText },
+  { value: "styles", label: "Styles", icon: Palette },
+  { value: "send", label: "Send", icon: Send },
+];
 
 export default function EmailCampaignsClient({
   initialSurface,
+  initialTemplates,
+  initialTheme,
+  initialCampaigns,
+  initialCampaignLimits,
 }: {
   initialSurface: EmailCampaignSurface;
+  initialTemplates: MasterTemplate[];
+  initialTheme: EmailThemeTokens;
+  initialCampaigns: CampaignSummary[];
+  initialCampaignLimits: CampaignLimits;
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const toastIdRef = useRef(0);
-  const surface = initialSurface;
-  const [templates, setTemplates] = useState<MasterTemplate[]>([]);
-  const [campaignLimits, setCampaignLimits] = useState<CampaignLimits>({
-    maxRecipients: 2000,
-    batchSize: 25,
-    sendDelayMs: 100,
-  });
+  const [surface, setSurface] = useState<EmailCampaignSurface>(initialSurface);
+  const [templates, setTemplates] =
+    useState<MasterTemplate[]>(initialTemplates);
+  const [campaignLimits] = useState<CampaignLimits>(initialCampaignLimits);
+  const [campaigns] = useState<CampaignSummary[]>(initialCampaigns);
   const [recipientText, setRecipientText] = useState("");
   const [recipientResult, setRecipientResult] =
     useState<RecipientSaveResult | null>(null);
@@ -129,9 +166,11 @@ export default function EmailCampaignsClient({
   const [testSendProof, setTestSendProof] = useState<TestSendProof | null>(() =>
     loadStoredTestSendProof(),
   );
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState(
+    initialTemplates[0]?.id ?? "",
+  );
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
-  const [theme, setTheme] = useState<EmailThemeTokens>(defaultEmailTheme);
+  const [theme, setTheme] = useState<EmailThemeTokens>(initialTheme);
   const [mergePreviewData, setMergePreviewData] = useState<
     Record<string, string>
   >({});
@@ -165,39 +204,6 @@ export default function EmailCampaignsClient({
     () => ensureMergePreviewData(mergeFields, mergePreviewData),
     [mergeFields, mergePreviewData],
   );
-  async function loadWorkspace() {
-    setBusy("load");
-    try {
-      const [templateData, themeData, campaignData] = await Promise.all([
-        api<{ templates: MasterTemplate[]; theme: EmailThemeTokens }>(
-          "/api/admin/email/templates",
-        ),
-        api<{ theme: EmailThemeTokens }>("/api/admin/email/themes"),
-        api<{
-          limits: CampaignLimits;
-        }>("/api/admin/email/campaigns"),
-      ]);
-      const localTemplates = loadStoredTemplates();
-      const localTheme = loadStoredTheme();
-      const nextTemplates = mergeTemplates(
-        templateData.templates,
-        localTemplates,
-      );
-      const nextTheme = localTheme ?? themeData.theme;
-
-      setTemplates(nextTemplates);
-      setTheme(nextTheme);
-      setCampaignLimits(campaignData.limits);
-      setSelectedTemplateId(nextTemplates[0]?.id ?? "");
-    } catch {
-      const fallbackTemplates = loadStoredTemplates();
-      setTemplates(fallbackTemplates);
-      setTheme(loadStoredTheme() ?? defaultEmailTheme);
-      setSelectedTemplateId(fallbackTemplates[0]?.id ?? "");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function saveTemplateToMaster() {
     if (!selectedTemplate) return;
@@ -226,16 +232,10 @@ export default function EmailCampaignsClient({
   async function saveStyles() {
     setBusy("save-styles");
     try {
-      const data = await api<{ theme: EmailThemeTokens }>(
-        "/api/admin/email/themes",
-        {
-          method: "POST",
-          body: JSON.stringify(theme),
-        },
-      );
-      setTheme(data.theme);
+      const savedTheme = await saveEmailThemeAction(theme);
+      setTheme(savedTheme);
       clearSendStatus();
-      storeTheme(data.theme);
+      storeTheme(savedTheme);
       setNotice("Styles saved.");
       showToast("success", "Styles saved", "Saved to the database.");
     } catch {
@@ -308,24 +308,10 @@ export default function EmailCampaignsClient({
 
     setBusy("upload");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("name", template.name);
-      formData.append("description", template.description);
-      formData.append("subject", template.subject);
-      formData.append("previewText", template.previewText);
-
-      const data = await api<{ template: MasterTemplate }>(
-        "/api/admin/email/templates/upload-html",
-        {
-          method: "POST",
-          body: formData,
-          skipJsonHeader: true,
-        },
-      );
-      const nextTemplates = [data.template, ...templates];
+      const savedTemplate = await persistTemplate(template);
+      const nextTemplates = [savedTemplate, ...templates];
       setTemplates(nextTemplates);
-      setSelectedTemplateId(data.template.id);
+      setSelectedTemplateId(savedTemplate.id);
       clearSendStatus();
       storeTemplates(nextTemplates);
       setNotice("Template uploaded.");
@@ -455,10 +441,7 @@ export default function EmailCampaignsClient({
     setBusy("delete-template");
     try {
       if (!isDraftTemplateId(templateToDelete.id)) {
-        await api<{ success: true }>(
-          `/api/admin/email/templates/${templateToDelete.id}`,
-          { method: "DELETE" },
-        );
+        await deleteEmailTemplateAction(templateToDelete.id);
       }
 
       const nextTemplates = templates.filter(
@@ -872,6 +855,18 @@ export default function EmailCampaignsClient({
     clearSendStatus();
   }
 
+  function changeSurface(nextSurface: EmailCampaignSurface) {
+    setSurface(nextSurface);
+
+    const url = new URL(window.location.href);
+    if (nextSurface === "builder") {
+      url.searchParams.delete("view");
+    } else {
+      url.searchParams.set("view", nextSurface);
+    }
+    window.history.pushState(null, "", `${url.pathname}${url.search}`);
+  }
+
   function showToast(tone: ToastTone, title: string, description?: string) {
     toastIdRef.current += 1;
     setToast({
@@ -883,12 +878,34 @@ export default function EmailCampaignsClient({
   }
 
   useEffect(() => {
+    function handlePopState() {
+      setSurface(parseEmailCampaignSurface(window.location.search));
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadWorkspace();
+      const localTemplates = loadStoredTemplates();
+      const localTheme = loadStoredTheme();
+      const nextTemplates = mergeTemplates(initialTemplates, localTemplates);
+
+      setTemplates(nextTemplates);
+      setSelectedTemplateId((current) =>
+        nextTemplates.some((template) => template.id === current)
+          ? current
+          : nextTemplates[0]?.id || "",
+      );
+
+      if (localTheme) {
+        setTheme(localTheme);
+      }
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [initialTemplates]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -914,7 +931,8 @@ export default function EmailCampaignsClient({
   const previewWidth = previewMode === "desktop" ? 720 : 390;
 
   return (
-    <div className="font-red-hat flex min-h-0 flex-col gap-4">
+    <div className="font-red-hat flex min-h-0 flex-col gap-5">
+      <EmailCampaignHeader activeView={surface} onViewChange={changeSurface} />
       <div className="grid w-full gap-4 md:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_minmax(420px,0.9fr)]">
         <aside className="md:self-stretch">
           <section className={cn(adminPanelClass, "p-4 md:sticky md:top-4")}>
@@ -1027,6 +1045,7 @@ export default function EmailCampaignsClient({
             <SendPanel
               selectedTemplate={selectedTemplate}
               limits={campaignLimits}
+              recentCampaignCount={campaigns.length}
               recipientText={recipientText}
               recipientResult={recipientResult}
               sendOneEmail={sendOneEmail}
@@ -1101,6 +1120,74 @@ export default function EmailCampaignsClient({
       </div>
       <ToastSnackbar toast={toast} onDismiss={() => setToast(null)} />
     </div>
+  );
+}
+
+function EmailCampaignHeader({
+  activeView,
+  onViewChange,
+}: {
+  activeView: EmailCampaignSurface;
+  onViewChange: (view: EmailCampaignSurface) => void;
+}) {
+  const classes = adminPageHeaderClasses("page");
+
+  return (
+    <header className={classes.header}>
+      <div className={classes.row}>
+        <div className="min-w-0">
+          <p className="font-red-hat text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
+            MHacks Organizer
+          </p>
+          <h1 className={classes.title}>Email Campaigns</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Build reusable templates, preview merge fields, and send CSV-based
+            campaigns.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <EmailCampaignViewNav
+            activeView={activeView}
+            onViewChange={onViewChange}
+          />
+          <AdminHeaderActions />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function EmailCampaignViewNav({
+  activeView,
+  onViewChange,
+}: {
+  activeView: EmailCampaignSurface;
+  onViewChange: (view: EmailCampaignSurface) => void;
+}) {
+  return (
+    <nav
+      aria-label="Email campaign workspace"
+      className="flex flex-wrap items-center gap-2"
+    >
+      {emailCampaignViews.map(({ value, label, icon: Icon }) => {
+        const active = activeView === value;
+
+        return (
+          <Button
+            key={value}
+            type="button"
+            variant={active ? "default" : "outline"}
+            size="sm"
+            className={cn(!active && "bg-card text-muted-foreground")}
+            aria-current={active ? "page" : undefined}
+            onClick={() => onViewChange(value)}
+          >
+            <Icon className="size-4" />
+            {label}
+          </Button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -1591,6 +1678,7 @@ function MergeFieldsPanel({
 function SendPanel({
   selectedTemplate,
   limits,
+  recentCampaignCount,
   recipientText,
   recipientResult,
   sendOneEmail,
@@ -1608,6 +1696,7 @@ function SendPanel({
 }: {
   selectedTemplate: MasterTemplate | null;
   limits: CampaignLimits;
+  recentCampaignCount: number;
   recipientText: string;
   recipientResult: RecipientSaveResult | null;
   sendOneEmail: string;
@@ -1686,6 +1775,10 @@ function SendPanel({
               {limits.maxSendRatePerSecond
                 ? ` max ${limits.maxSendRatePerSecond}/sec`
                 : ""}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {recentCampaignCount} recent campaign
+              {recentCampaignCount === 1 ? "" : "s"} loaded
             </p>
           </div>
         </div>
@@ -2179,29 +2272,24 @@ async function persistTemplate(template: MasterTemplate) {
     sourceTemplateId: template.sourceTemplateId,
   };
 
-  if (isDraftTemplateId(template.id)) {
-    const data = await api<{ template: MasterTemplate }>(
-      "/api/admin/email/templates",
-      {
-        method: "POST",
-        body: JSON.stringify(payload),
-      },
-    );
-    return data.template;
-  }
-
-  const data = await api<{ template: MasterTemplate }>(
-    `/api/admin/email/templates/${template.id}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    },
-  );
-  return data.template;
+  return saveEmailTemplateAction({
+    templateId: isDraftTemplateId(template.id) ? undefined : template.id,
+    template: payload,
+  });
 }
 
 function isDraftTemplateId(templateId: string) {
   return templateId.startsWith("seed-") || templateId.startsWith("local-");
+}
+
+function parseEmailCampaignSurface(search: string): EmailCampaignSurface {
+  const view = new URLSearchParams(search).get("view");
+
+  if (view === "styles" || view === "send") {
+    return view;
+  }
+
+  return "builder";
 }
 
 async function api<T>(

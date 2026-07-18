@@ -1,22 +1,15 @@
-import Link from "next/link";
-import { FileTextIcon, PaletteIcon, SendIcon } from "lucide-react";
-import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { getCampaignLimits } from "@/lib/email/campaigns/config";
+import { listCampaigns } from "@/lib/email/campaigns/service";
+import { defaultEmailTheme } from "@/lib/email/theme";
+import {
+  getActiveTheme,
+  getSeedMasterTemplates,
+  listMasterTemplates,
+} from "@/lib/email/templates/master-service";
 import EmailCampaignsClient, {
   type EmailCampaignSurface,
 } from "./campaigns-client";
-
-const emailCampaignViews: Array<{
-  value: EmailCampaignSurface;
-  label: string;
-  icon: typeof FileTextIcon;
-}> = [
-  { value: "builder", label: "Builder", icon: FileTextIcon },
-  { value: "styles", label: "Styles", icon: PaletteIcon },
-  { value: "send", label: "Send", icon: SendIcon },
-];
 
 export default async function EmailCampaignsPage({
   searchParams,
@@ -25,55 +18,18 @@ export default async function EmailCampaignsPage({
 }) {
   const params = await searchParams;
   const activeView = parseEmailCampaignView(params?.view);
+  const { templates, theme, campaigns } = await loadInitialEmailWorkspace();
 
   return (
     <AdminPageShell width="full">
-      <AdminPageHeader
-        title="Email Campaigns"
-        description="Build reusable templates, preview merge fields, and send CSV-based campaigns."
-        actions={<EmailCampaignViewNav activeView={activeView} />}
+      <EmailCampaignsClient
+        initialSurface={activeView}
+        initialTemplates={templates}
+        initialTheme={theme}
+        initialCampaigns={campaigns}
+        initialCampaignLimits={getCampaignLimits()}
       />
-      <EmailCampaignsClient initialSurface={activeView} />
     </AdminPageShell>
-  );
-}
-
-function EmailCampaignViewNav({
-  activeView,
-}: {
-  activeView: EmailCampaignSurface;
-}) {
-  return (
-    <nav
-      aria-label="Email campaign workspace"
-      className="flex flex-wrap items-center gap-2"
-    >
-      {emailCampaignViews.map(({ value, label, icon: Icon }) => {
-        const active = activeView === value;
-
-        return (
-          <Button
-            key={value}
-            asChild
-            variant={active ? "default" : "outline"}
-            size="sm"
-            className={cn(!active && "bg-card text-muted-foreground")}
-          >
-            <Link
-              href={
-                value === "builder"
-                  ? "/admin/email-campaigns"
-                  : `/admin/email-campaigns?view=${value}`
-              }
-              aria-current={active ? "page" : undefined}
-            >
-              <Icon className="size-4" />
-              {label}
-            </Link>
-          </Button>
-        );
-      })}
-    </nav>
   );
 }
 
@@ -87,4 +43,39 @@ function parseEmailCampaignView(
   }
 
   return "builder";
+}
+
+async function loadInitialEmailWorkspace() {
+  const [templateResult, themeResult, campaignResult] =
+    await Promise.allSettled([
+      listMasterTemplates(),
+      getActiveTheme(),
+      listCampaigns(),
+    ]);
+
+  for (const result of [templateResult, themeResult, campaignResult]) {
+    if (result.status === "rejected" && isAuthGateError(result.reason)) {
+      throw result.reason;
+    }
+  }
+
+  return {
+    templates:
+      templateResult.status === "fulfilled"
+        ? templateResult.value.templates
+        : getSeedMasterTemplates(),
+    theme:
+      themeResult.status === "fulfilled"
+        ? themeResult.value.theme
+        : defaultEmailTheme,
+    campaigns:
+      campaignResult.status === "fulfilled" ? campaignResult.value : [],
+  };
+}
+
+function isAuthGateError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.message === "Unauthorized" || error.message === "Forbidden")
+  );
 }
