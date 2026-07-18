@@ -486,28 +486,91 @@ const authHandler = withMcpAuth(baseHandler, verifyToken, {
 // same failure class the resume upload had before it moved to S3, except
 // this container (only 512MB, shared across every concurrent request — see
 // MAX_RESUME_SIZE_BYTES in lib/aws/s3.ts) is genuinely in the request path
-// for every /mcp call, unlike resume uploads now. Rejecting on a declared
-// Content-Length well over any legitimate payload closes the common case
-// cheaply, before mcp-handler ever touches the body. It does NOT catch a
-// request that omits Content-Length (chunked transfer) or lies about it —
-// that would need a streaming read with a hard byte-count abort, not just a
-// header check.
+// for every /mcp call, unlike resume uploads now.
 const MAX_MCP_REQUEST_BYTES = 256 * 1024;
+
+function tooLargeResponse(): Response {
+  return new Response(JSON.stringify({ error: "Request body too large" }), {
+    status: 413,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Reads the body ourselves, chunk by chunk, aborting the instant the running
+// total crosses the limit — so a request is never buffered past it,
+// regardless of what (if anything) it declared. This is the authoritative
+// guard: it also catches chunked-transfer requests (no Content-Length at
+// all) and a client that simply lies about a small declared length while
+// streaming more — cases the header check below can't see, since it only
+// ever inspects a client-supplied number rather than counting real bytes.
+async function readBodyWithLimit(
+  req: Request,
+  limitBytes: number,
+): Promise<{ ok: true; body: Uint8Array | null } | { ok: false }> {
+  if (!req.body) return { ok: true, body: null };
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limitBytes) {
+      await reader.cancel();
+      return { ok: false };
+    }
+    chunks.push(value);
+  }
+  if (total === 0) return { ok: true, body: null };
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, body };
+}
 
 async function withBodySizeLimit(
   req: Parameters<typeof authHandler>[0],
 ): ReturnType<typeof authHandler> {
+  // Fast path: reject an honestly-declared oversized request off the header
+  // alone, before opening a stream reader at all — cheaper than the
+  // byte-counted read below for the common case (a naive retry loop or an
+  // agent that just sends something huge, not someone deliberately evading
+  // the check).
   const contentLength = req.headers.get("content-length");
-  if (contentLength !== null) {
-    const declaredBytes = Number(contentLength);
-    if (declaredBytes > MAX_MCP_REQUEST_BYTES) {
-      return new Response(JSON.stringify({ error: "Request body too large" }), {
-        status: 413,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  if (contentLength !== null && Number(contentLength) > MAX_MCP_REQUEST_BYTES) {
+    return tooLargeResponse();
   }
-  return authHandler(req);
+
+  // Authoritative path: count real bytes as they arrive, regardless of what
+  // (if anything) Content-Length claimed.
+  const result = await readBodyWithLimit(req, MAX_MCP_REQUEST_BYTES);
+  if (!result.ok) return tooLargeResponse();
+
+  // The original `req`'s body stream is now fully consumed (or was never
+  // read, if this GET request never had one) — mcp-handler needs to read
+  // the body itself, so hand it a fresh Request built from the buffered
+  // bytes rather than the exhausted original.
+  const headers = new Headers(req.headers);
+  if (result.body) {
+    headers.set("content-length", String(result.body.byteLength));
+  } else {
+    headers.delete("content-length");
+  }
+  const rebuilt = new Request(req.url, {
+    method: req.method,
+    headers,
+    // .buffer, not the Uint8Array itself: it's a fresh ArrayBuffer sized to
+    // exactly `total` bytes (built via `new Uint8Array(total)` above, never
+    // sliced from a larger one), and BodyInit's typed-array typing doesn't
+    // accept ReadableStreamDefaultReader's generic Uint8Array<ArrayBufferLike>.
+    body: (result.body?.buffer as ArrayBuffer | undefined) ?? undefined,
+  });
+  return authHandler(rebuilt);
 }
 
 export { withBodySizeLimit as GET, withBodySizeLimit as POST };
