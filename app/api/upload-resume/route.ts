@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
   }
   if (file.size > MAX_RESUME_SIZE_BYTES) {
     return NextResponse.json(
-      { error: "File exceeds 10 MB limit" },
+      {
+        error: `File exceeds ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB limit`,
+      },
       { status: 400 },
     );
   }

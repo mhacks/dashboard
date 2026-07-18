@@ -26,7 +26,7 @@ import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
-const MAX_RESUME_SIZE = 10 * 1024 * 1024; // 10 MB — mirrors the upload API limit
+const MAX_RESUME_SIZE = 1 * 1024 * 1024; // 1 MB — mirrors MAX_RESUME_SIZE_BYTES in lib/aws/s3.ts
 
 const countryValueForUniversity = (country: string) =>
   countries.find(
@@ -216,7 +216,7 @@ const AcademicInformation = ({
                 if (!file) return;
                 if (file.size > MAX_RESUME_SIZE) {
                   setUploadError(
-                    "Your resume is larger than 10 MB. Please upload a smaller PDF.",
+                    "Your resume is larger than 1 MB. Please upload a smaller PDF.",
                   );
                   setUploadState("error");
                   e.target.value = "";
@@ -258,7 +258,7 @@ const AcademicInformation = ({
             />
             {uploadState === "idle" && (
               <p className="font-red-hat text-xs text-muted-foreground">
-                Upload your resume as a PDF (max 10 MB)
+                Upload your resume as a PDF (max 1 MB)
               </p>
             )}
             {uploadState === "uploading" && (

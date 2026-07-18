@@ -2,11 +2,15 @@ import { S3Client } from "@aws-sdk/client-s3";
 
 export const RESUMES_BUCKET = process.env.RESUMES_BUCKET!;
 
-// Shared by every path that accepts a resume upload — /api/upload-resume
-// (buffers the file server-side and checks this directly) and
-// getResumeUploadUrl (signs a presigned PUT capped to this via ContentLength)
-// — so the limit can't drift out of sync between them.
-export const MAX_RESUME_SIZE_BYTES = 10 * 1024 * 1024;
+// Shared by every path that accepts a resume upload (currently just
+// /api/upload-resume, which buffers the whole file into the container's own
+// memory before checking this) so the limit can't drift out of sync across
+// callers. Kept low on purpose: this runs on an ECS Fargate task with only
+// 512MB total memory (task-definition.json) shared across every concurrent
+// request, and each buffered upload currently costs ~2x its size in memory
+// (the parsed File's buffer, plus a separate Buffer copy) — a smaller cap
+// keeps a burst of concurrent uploads further from exhausting that budget.
+export const MAX_RESUME_SIZE_BYTES = 1 * 1024 * 1024;
 
 const credentials = {
   accessKeyId: process.env.RESUMES_ACCESS_KEY_ID!,

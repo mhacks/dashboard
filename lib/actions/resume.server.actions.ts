@@ -15,15 +15,16 @@ import { createClient } from "@/lib/supabase/server";
 // of accumulating a new one on every call, since nothing here ever deletes
 // old objects. No versioning: the latest upload replaces whatever was there.
 //
-// Unlike /api/upload-resume (which buffers the file server-side and can just
-// check its size), this URL lets the caller PUT straight to S3 — we never
-// see the bytes, so size can't be checked after the fact. `fileSizeBytes`
-// gets baked into the presigned request as ContentLength, which S3 enforces
-// as an exact match: the real PUT's Content-Length header (which HTTP
-// clients set from the actual body automatically) must equal what was
-// signed, or the request is rejected. So a caller can't declare a small size
-// and then upload something bigger — the true size has to be declared
-// upfront, and we cap that declaration here.
+// Uploads go straight from the caller to S3 — this container never buffers
+// the file (see agents/mcp-auth.md-adjacent discussion: the ECS task this
+// runs on has only 512MB memory shared across every concurrent request, so
+// receiving upload bytes here at all is a real crash risk under concurrent
+// load; S3 absorbs that entirely and independently). `fileSizeBytes` gets
+// baked into the presigned request as ContentLength, which S3 enforces as an
+// exact match: the real PUT's Content-Length header (which HTTP clients set
+// from the actual body automatically) must equal what was signed, or the
+// request is rejected — so a caller can't declare a small size and upload
+// something bigger. The true size has to be declared upfront, capped here.
 export async function getResumeUploadUrl(
   userId: string,
   fileSizeBytes: number,

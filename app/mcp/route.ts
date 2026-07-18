@@ -93,6 +93,13 @@ function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   return true;
 }
 
+// Computed once at module load rather than per-call — z.toJSONSchema() isn't
+// free, and apply_get_schema has no per-user rate limit (it returns the same
+// output to everyone, so there's no identity to key one on). Caching it
+// means repeated calls just return an already-built object instead of
+// redoing the work every time.
+const APPLICATION_JSON_SCHEMA = z.toJSONSchema(hackerApplicationSchema);
+
 // Fields the schema requires to be `true`. baseApplicationSchema's own
 // .refine(v => v === true) on these would already reject `false` via the
 // MCP SDK's automatic inputSchema validation — *before* this handler ever
@@ -170,6 +177,11 @@ const baseHandler = createMcpHandler(
       async (_input, extra) => {
         const authInfo = (extra as ToolExtra)?.authInfo;
         const userId = await requireActiveUserId(extra as ToolExtra);
+        if (!checkRateLimit(`whoami:${userId}`, 30, 60_000)) {
+          return errorText(
+            "Too many requests in the last minute — wait a bit before trying again.",
+          );
+        }
         return jsonText({
           userId,
           email: authInfo?.extra?.email,
@@ -186,7 +198,14 @@ const baseHandler = createMcpHandler(
           "Returns the JSON Schema for an MHacks hacker application — all required fields, allowed values, and word/character limits. Call this first to learn what to collect from the user before drafting or submitting.",
         inputSchema: {},
       },
-      async () => jsonText(z.toJSONSchema(hackerApplicationSchema)),
+      // No requireUserId here — no user data involved, and it's the same
+      // output for everyone, so there's no per-user identity to gate. The
+      // real cost was recomputing z.toJSONSchema() from scratch on every
+      // call; APPLICATION_JSON_SCHEMA below computes it once at module load
+      // instead, so repeated calls (rate-limited or not) are just returning
+      // a cached object — a rate limit would only cap how often you pay a
+      // cost that no longer exists.
+      async () => jsonText(APPLICATION_JSON_SCHEMA),
     );
 
     server.registerTool(
@@ -250,7 +269,7 @@ const baseHandler = createMcpHandler(
       {
         title: "Submit hacker application",
         description:
-          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be an S3 key returned by apply_get_resume_upload_url.",
+          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be the storage key returned by apply_get_resume_upload_url.",
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
