@@ -60,7 +60,8 @@ async function assertSessionActive(extra: ToolExtra): Promise<void> {
 
   let active: boolean;
   try {
-    active = typeof sessionId === "string" && (await isSessionActive(sessionId));
+    active =
+      typeof sessionId === "string" && (await isSessionActive(sessionId));
   } catch (error) {
     throw new Error("Unable to verify session status — try again shortly.", {
       cause: error,
