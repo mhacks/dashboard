@@ -120,3 +120,15 @@ export async function sendEmail({
     throw emailSendError(error);
   }
 }
+
+export async function sendBulkEmail(
+  emails: string[],
+  subject: string,
+  body: string,
+): Promise<void> {
+  await Promise.allSettled(
+    emails.map((email) =>
+      sendEmail({ to: email, subject, text: body, html: body }),
+    ),
+  );
+}

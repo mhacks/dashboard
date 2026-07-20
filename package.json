@@ -24,6 +24,7 @@
     "db:migrate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit migrate"
   },
   "dependencies": {
+    "@aws-sdk/client-pinpoint-sms-voice-v2": "^3.1092.0",
     "@aws-sdk/client-s3": "^3.1092.0",
     "@aws-sdk/client-sesv2": "^3.1106.0",
     "@aws-sdk/s3-request-presigner": "^3.1092.0",

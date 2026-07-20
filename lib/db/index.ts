@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as applicationsSchema from "./schema/applications";
 import * as blacklistSchema from "./schema/blacklist";
+import * as broadcastsSchema from "./schema/broadcasts";
 import * as emailSchema from "./schema/email";
 import * as reimbursementsSchema from "./schema/reimbursements";
 import * as rsvpsSchema from "./schema/rsvps";
@@ -17,6 +18,7 @@ export const db = drizzle({
   schema: {
     ...applicationsSchema,
     ...blacklistSchema,
+    ...broadcastsSchema,
     ...emailSchema,
     ...reimbursementsSchema,
     ...rsvpsSchema,
