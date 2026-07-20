@@ -60,7 +60,26 @@ export async function updateSession(request: NextRequest) {
 
   const user = data?.claims;
   const { pathname } = request.nextUrl;
-  const isPublicPath = pathname === "/" || pathname.startsWith("/login");
+  // Exact match or a real path segment underneath — plain `.startsWith`
+  // would also match unintended siblings like `/mcp-evil` or
+  // `/loginx` if such a route ever gets added.
+  const isPathOrChild = (base: string) =>
+    pathname === base || pathname.startsWith(`${base}/`);
+  const isPublicPath =
+    pathname === "/" ||
+    isPathOrChild("/login") ||
+    // MCP endpoints authenticate via bearer token (withMcpAuth), not cookies —
+    // they must return their own 401 + WWW-Authenticate challenge instead of
+    // this middleware's redirect, or OAuth discovery can never start.
+    isPathOrChild("/mcp") ||
+    isPathOrChild("/.well-known") ||
+    // /oauth/consent does its own auth check and redirects to /login with the
+    // full query string (authorization_id) preserved; the redirect below only
+    // forwards `pathname`, which would drop it.
+    isPathOrChild("/oauth/consent") ||
+    // Public docs page explaining how to connect an AI agent to the MCP
+    // server — needs to be readable before/without logging in.
+    isPathOrChild("/how-to-mcp");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

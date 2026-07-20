@@ -1,0 +1,624 @@
+// app/mcp/route.ts
+//
+// MCP server that lets authenticated agents apply to MHacks on a user's behalf.
+// Auth is OAuth 2.1 (Supabase GoTrue as the Authorization Server): every request
+// must carry a verified bearer token, and the user identity comes from that
+// token — never from a tool argument. Validation + persistence are shared with
+// the web form via lib/actions/application-form.actions.ts.
+import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import { RateLimiterMemory } from "rate-limiter-flexible";
+import { z } from "zod";
+import {
+  baseApplicationSchema,
+  hackerApplicationSchema,
+  type HackerApplicationFormData,
+} from "@/lib/types/applications";
+import {
+  submitHackerApplicationForUser,
+  saveDraftForUser,
+  getApplicationStatusForUser,
+  getDraftForUser,
+} from "@/lib/actions/application-form.actions";
+import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
+import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
+import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
+
+// The verified token's identity is attached by withMcpAuth and surfaced to tool
+// callbacks as `extra.authInfo`.
+type ToolExtra = {
+  authInfo?: {
+    clientId?: string;
+    scopes?: string[];
+    extra?: Record<string, unknown>;
+  };
+};
+
+function requireUserId(extra: ToolExtra): string {
+  const userId = extra?.authInfo?.extra?.userId;
+  if (typeof userId !== "string") {
+    throw new Error("Unauthorized: missing user identity");
+  }
+  return userId;
+}
+
+// Stronger guard for tools that read/write application data or identity:
+// on top of the (locally-verified, revocation-blind) token check in
+// requireUserId, confirms the token's underlying Supabase session still
+// exists. Revoking a connected app deletes that session, but the access
+// token itself stays signature-valid until it expires (up to 1hr) — this
+// closes that gap for the tools where a stale-but-unexpired token actually
+// matters. Not applied to apply_get_schema, which is static and carries no
+// user data — the cheaper check is enough there.
+//
+// Split from requireUserId (rather than one combined async function) so
+// every gated tool can rate-limit on the cheap, JWT-derived userId *before*
+// paying for this DB round trip. Checking the rate limit after this call
+// would mean a rate-limited retry loop still hits the database once per
+// rejected call — exactly the load the rate limiter exists to blunt.
+async function assertSessionActive(extra: ToolExtra): Promise<void> {
+  const sessionId = extra?.authInfo?.extra?.sessionId;
+
+  let active: boolean;
+  try {
+    active =
+      typeof sessionId === "string" && (await isSessionActive(sessionId));
+  } catch (error) {
+    throw new Error("Unable to verify session status — try again shortly.", {
+      cause: error,
+    });
+  }
+
+  if (!active) {
+    throw new Error(
+      "Unauthorized: this connection has been revoked. Reconnect to continue.",
+    );
+  }
+}
+
+function jsonText(value: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
+  };
+}
+
+function errorText(text: string) {
+  return {
+    isError: true,
+    content: [{ type: "text" as const, text }],
+  };
+}
+
+// Best-effort, per-instance rate limiting, applied to every tool that reads
+// or writes user data (whoami, apply_get_draft, apply_save_draft,
+// apply_submit, apply_status, apply_get_resume_upload_url) — not just the
+// two write tools this used to cover. Not distributed: this app runs on AWS
+// ECS Fargate (task-definition.json), and RateLimiterMemory keeps its counters
+// in this process's own memory, so each running task has its own independent
+// counter. If the service ever runs more than one task, the effective
+// per-user limit is (points × task count), not the number below — this repo
+// doesn't define desiredCount/autoscaling, so that's worth confirming
+// directly against the actual ECS service config rather than assumed. This
+// blunts naive agent retry loops rather than being an airtight guard; if real
+// abuse shows up, add an ALB/WAF rate-based rule in front of this route (or
+// move to a shared store, e.g. RateLimiterPostgres) instead of hardening this
+// further.
+//
+// One RateLimiterMemory instance per tool (rather than one shared instance
+// keyed by `${tool}:${userId}`) so each tool's points/duration are just
+// config, not string-built keys — and so the library's own internal key
+// expiry (rather than a hand-rolled Map that never shrinks) is what reclaims
+// memory for users who stop calling a given tool.
+const RATE_LIMITERS = {
+  whoami: new RateLimiterMemory({ points: 30, duration: 60 }),
+  get_draft: new RateLimiterMemory({ points: 30, duration: 60 }),
+  save_draft: new RateLimiterMemory({ points: 20, duration: 60 }),
+  submit: new RateLimiterMemory({ points: 5, duration: 60 }),
+  status: new RateLimiterMemory({ points: 30, duration: 60 }),
+  resume_upload_url: new RateLimiterMemory({ points: 10, duration: 60 }),
+} as const;
+
+// RateLimiterMemory has no I/O of its own, so the only way `.consume()` ever
+// rejects is "no points left" (a RateLimiterRes, not an Error) — safe to
+// collapse to a plain boolean here.
+async function checkRateLimit(
+  limiter: RateLimiterMemory,
+  key: string,
+): Promise<boolean> {
+  try {
+    await limiter.consume(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Computed once at module load rather than per-call — z.toJSONSchema() isn't
+// free, and apply_get_schema has no per-user rate limit (it returns the same
+// output to everyone, so there's no identity to key one on). Caching it
+// means repeated calls just return an already-built object instead of
+// redoing the work every time.
+const APPLICATION_JSON_SCHEMA = z.toJSONSchema(hackerApplicationSchema);
+
+// Fields the schema requires to be `true`. baseApplicationSchema's own
+// .refine(v => v === true) on these would already reject `false` via the
+// MCP SDK's automatic inputSchema validation — *before* this handler ever
+// runs — producing a generic buried-in-a-list Zod error instead of an
+// actionable one. So apply_submit's inputSchema (SUBMIT_INPUT_SHAPE below)
+// swaps these fields for plain z.boolean(), letting `false` reach
+// the handler, where the check below returns one unambiguous sentence
+// telling the agent exactly what to do next. submitHackerApplicationForUser
+// still re-validates against the full schema (including these refines) as
+// the authoritative gate, so this is a UX fix, not a loosening of what's
+// actually enforced.
+const CONSENT_FIELDS = [
+  ["mlhCodeOfConduct", "the MLH Code of Conduct"],
+  ["mlhPrivacyPolicy", "sharing your information with MLH"],
+  ["mlhEmails", "receiving emails from MLH"],
+  ["notAiSlop", "that the application isn't AI slop"],
+] as const;
+
+const SUBMIT_INPUT_SHAPE = {
+  ...baseApplicationSchema.shape,
+  mlhCodeOfConduct: z.boolean(),
+  mlhPrivacyPolicy: z.boolean(),
+  mlhEmails: z.boolean(),
+  notAiSlop: z.boolean(),
+  confirm: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set to true only after showing the user the full application returned by a prior confirm:false/omitted call and getting their explicit yes. Omit or false to get a preview without submitting.",
+    ),
+};
+
+// `.partial()` alone only allows fields to be *omitted* (undefined); it
+// rejects `null`. The draft-save tool needs `null` to mean "clear this
+// field", so every field is also made nullable. Submission-time-only
+// constraints (essay word counts, MLH must-be-true, phone E.164 format)
+// don't belong on a draft — an in-progress essay or an unanswered MLH
+// question is a normal, legitimate thing to checkpoint — so those fields
+// get lenient draft-safe replacements instead of reusing the strict
+// submit-time schema. Full validation still happens exactly once, at
+// submit time, via hackerApplicationSchema.parse in
+// submitHackerApplicationForUser.
+const DRAFT_LENIENT_OVERRIDES: Partial<
+  Record<keyof HackerApplicationFormData, z.ZodTypeAny>
+> = {
+  phoneNumber: z.string(),
+  whatWouldYouDo: z.string().max(600),
+  whyMhacks: z.string().max(1200),
+  hillToDieOn: z.string().max(80),
+  mlhCodeOfConduct: z.boolean(),
+  mlhPrivacyPolicy: z.boolean(),
+  mlhEmails: z.boolean(),
+  notAiSlop: z.boolean(),
+};
+
+const draftInputShape = Object.fromEntries(
+  Object.entries(baseApplicationSchema.shape).map(([key, fieldSchema]) => [
+    key,
+    (
+      DRAFT_LENIENT_OVERRIDES[key as keyof HackerApplicationFormData] ??
+      (fieldSchema as z.ZodTypeAny)
+    )
+      .nullable()
+      .optional(),
+  ]),
+) as Record<string, z.ZodTypeAny>;
+
+const baseHandler = createMcpHandler(
+  (server) => {
+    server.registerTool(
+      "whoami",
+      {
+        title: "Get authenticated identity",
+        description:
+          "Returns the identity of the currently authenticated MHacks account — user ID, email, and the OAuth client this session authenticated through. Call this to confirm which account you're connected as, e.g. before applying on the user's behalf.",
+        inputSchema: {},
+      },
+      async (_input, extra) => {
+        const authInfo = (extra as ToolExtra)?.authInfo;
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.whoami, userId))) {
+          return errorText(
+            "Too many requests in the last minute — wait a bit before trying again.",
+          );
+        }
+        await assertSessionActive(extra as ToolExtra);
+        return jsonText({
+          userId,
+          email: authInfo?.extra?.email,
+          clientId: authInfo?.clientId,
+        });
+      },
+    );
+
+    server.registerTool(
+      "apply_get_schema",
+      {
+        title: "Get application schema",
+        description:
+          "Returns the JSON Schema for an MHacks hacker application — all required fields, allowed values, and word/character limits. Call this first to learn what to collect from the user before drafting or submitting.",
+        inputSchema: {},
+      },
+      // No requireUserId here — no user data involved, and it's the same
+      // output for everyone, so there's no per-user identity to gate. The
+      // real cost was recomputing z.toJSONSchema() from scratch on every
+      // call; APPLICATION_JSON_SCHEMA below computes it once at module load
+      // instead, so repeated calls (rate-limited or not) are just returning
+      // a cached object — a rate limit would only cap how often you pay a
+      // cost that no longer exists.
+      async () => jsonText(APPLICATION_JSON_SCHEMA),
+    );
+
+    server.registerTool(
+      "apply_get_draft",
+      {
+        title: "Get application draft",
+        description:
+          "Returns the authenticated user's in-progress application draft, if any (e.g. started on the web form or in a previous chat). Call this before interviewing the user so you only ask about fields that are still missing — never re-ask what's already saved. `resumeUploaded` tells you whether a resume is already on file, so you can skip that step. If `resumeUploaded` is false: if you can execute HTTP requests yourself, use apply_get_resume_upload_url; otherwise tell the user to upload their resume at mhacks.org/apply and call apply_get_draft again afterward to confirm it's on file.",
+        inputSchema: {},
+      },
+      async (_input, extra) => {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.get_draft, userId))) {
+          return errorText(
+            "Too many requests in the last minute — wait a bit before trying again.",
+          );
+        }
+        await assertSessionActive(extra as ToolExtra);
+        const draft = await getDraftForUser(userId);
+        // The web form silently creates an empty-`{}` draft row for every
+        // visitor (autosave-on-mount) — that's a row existing, not the user
+        // having answered anything. Treat an empty object the same as no
+        // draft, or an agent will wrongly believe questions are answered.
+        if (!draft || Object.keys(draft).length === 0) {
+          return jsonText({ hasDraft: false });
+        }
+        return jsonText({
+          hasDraft: true,
+          draft,
+          resumeUploaded: typeof draft.resume === "string" && !!draft.resume,
+        });
+      },
+    );
+
+    server.registerTool(
+      "apply_save_draft",
+      {
+        title: "Save application draft",
+        description:
+          "Saves partial application progress for the authenticated user. Every field is optional. Fields you pass are shallow-merged into the existing draft (not replaced) — only the fields you include are changed, everything else already saved is preserved. Pass `null` for a field to clear it. Use this to checkpoint answers as you collect them.",
+        inputSchema: draftInputShape,
+      },
+      async (input, extra) => {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.save_draft, userId))) {
+          return errorText(
+            "Too many draft saves in the last minute — wait a bit before checkpointing again.",
+          );
+        }
+        await assertSessionActive(extra as ToolExtra);
+        const existingDraft = await getDraftForUser(userId);
+        const merged: Record<string, unknown> = { ...existingDraft, ...input };
+        await saveDraftForUser(
+          userId,
+          merged as Partial<HackerApplicationFormData>,
+        );
+        return jsonText({ saved: true });
+      },
+    );
+
+    server.registerTool(
+      "apply_submit",
+      {
+        title: "Submit hacker application",
+        description:
+          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) and notAiSlop (the user's confirmation that this application is not AI slop) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be the storage key returned by apply_get_resume_upload_url.",
+        inputSchema: SUBMIT_INPUT_SHAPE,
+      },
+      async (input, extra) => {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.submit, userId))) {
+          return errorText(
+            "Too many submit attempts in the last minute — wait a bit before trying again.",
+          );
+        }
+        await assertSessionActive(extra as ToolExtra);
+        // Check for an existing application before doing anything else — no
+        // point validating input, or walking the user through MLH consent,
+        // for a submission the DB is just going to reject anyway. This is a
+        // pre-flight optimization, not the source of truth: the unique
+        // constraint + onConflictDoNothing in submitHackerApplicationForUser
+        // remains the authoritative duplicate guard against races between
+        // this check and the insert.
+        const existing = await getApplicationStatusForUser(userId);
+        if (existing) {
+          return jsonText({
+            submitted: false,
+            duplicate: true,
+            message:
+              "You have already submitted an application. Applications cannot be edited, withdrawn, or resubmitted from this tool.",
+          });
+        }
+        for (const [field, label] of CONSENT_FIELDS) {
+          if (input[field] === false) {
+            return errorText(
+              `You must accept ${label} to apply. Get the user's explicit "yes" and set ${field} to true before calling apply_submit again.`,
+            );
+          }
+        }
+        // Structural review gate: the first call (confirm omitted/false)
+        // never touches the database. It only validates the consent
+        // booleans above and hands the full application back so the agent
+        // has something concrete to show the user — actual submission only
+        // happens on a second, explicit confirm: true call. This doesn't
+        // (and can't) force an agent to literally render the preview, but
+        // it guarantees the data round-trips through the conversation
+        // before anything irreversible happens, rather than relying purely
+        // on the tool description being followed.
+        if (input.confirm !== true) {
+          return jsonText({
+            confirmed: false,
+            application: input,
+            message:
+              "Not submitted yet. Show every field above to the user verbatim, get their explicit confirmation, then call apply_submit again with confirm: true to submit — this cannot be undone.",
+          });
+        }
+        try {
+          const { duplicate } = await submitHackerApplicationForUser(
+            userId,
+            input,
+            "mcp",
+          );
+          return jsonText(
+            duplicate
+              ? {
+                  submitted: false,
+                  duplicate: true,
+                  message: "You have already submitted an application.",
+                }
+              : { submitted: true, duplicate: false },
+          );
+        } catch (err) {
+          if (err instanceof z.ZodError) {
+            return errorText(
+              "Validation failed — fix these and retry:\n" +
+                err.issues
+                  .map((i) => `- ${i.path.join(".") || "(root)"}: ${i.message}`)
+                  .join("\n"),
+            );
+          }
+          return errorText(
+            err instanceof Error ? err.message : "Failed to submit application",
+          );
+        }
+      },
+    );
+
+    server.registerTool(
+      "apply_status",
+      {
+        title: "Get application status",
+        description:
+          "Returns the authenticated user's submitted application and its review status (pending / reviewed / flagged), or indicates that no application exists yet.",
+        inputSchema: {},
+      },
+      async (_input, extra) => {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.status, userId))) {
+          return errorText(
+            "Too many requests in the last minute — wait a bit before trying again.",
+          );
+        }
+        await assertSessionActive(extra as ToolExtra);
+        const row = await getApplicationStatusForUser(userId);
+        if (!row) return jsonText({ hasApplication: false });
+        return jsonText({
+          hasApplication: true,
+          status: row.status,
+          application: row,
+        });
+      },
+    );
+
+    server.registerTool(
+      "apply_get_resume_upload_url",
+      {
+        title: "Get resume upload URL",
+        description: `Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage \`key\`. Requires \`fileSizeBytes\` — the exact size of the PDF you're about to upload (e.g. from a filesystem stat) — capped at ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB; the presigned URL is only valid for that exact byte count, so a mismatched or oversized upload will be rejected by S3, not silently truncated or allowed through. Upload the PDF bytes directly to \`uploadUrl\` yourself (e.g. \`curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>\`), then pass the returned \`key\` as the \`resume\` field of apply_submit. Safe to call again if you need a new URL (e.g. the previous one expired or the file size changed) — it always points at the same resume slot, so re-uploading replaces rather than duplicates. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at mhacks.org/apply instead, then re-check with apply_get_draft.`,
+        inputSchema: {
+          fileSizeBytes: z
+            .number()
+            .int()
+            .positive()
+            .max(
+              MAX_RESUME_SIZE_BYTES,
+              `Resume exceeds the ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB limit`,
+            ),
+        },
+      },
+      async ({ fileSizeBytes }, extra) => {
+        const userId = requireUserId(extra as ToolExtra);
+        if (!(await checkRateLimit(RATE_LIMITERS.resume_upload_url, userId))) {
+          return errorText(
+            "Too many upload URL requests in the last minute — wait a bit before trying again.",
+          );
+        }
+        await assertSessionActive(extra as ToolExtra);
+        const { uploadUrl, key } = await getResumeUploadUrl(
+          userId,
+          fileSizeBytes,
+        );
+        return jsonText({
+          uploadUrl,
+          key,
+          contentType: "application/pdf",
+          expiresInSeconds: 300,
+        });
+      },
+    );
+
+    server.registerPrompt(
+      "apply_interview",
+      {
+        title: "Apply to MHacks",
+        description:
+          "Walks you through applying to MHacks on the user's behalf: check for an existing application or draft, interview only for missing fields, confirm MLH terms and the not-AI-slop confirmation explicitly, then submit.",
+      },
+      async () => ({
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: [
+                "Help me apply to MHacks. Follow this sequence exactly:",
+                "",
+                "1. Call apply_status. If the user already has an application, report its status and stop.",
+                "2. Call apply_get_draft. If a draft exists, treat its fields as already answered — never re-ask for them. If `resumeUploaded` is true, skip the resume step.",
+                "3. Call apply_get_schema and interview the user only for fields that are still missing, one topic at a time.",
+                "4. Checkpoint progress with apply_save_draft as sections complete. It merges into the saved draft, so you only need to pass the fields you just collected.",
+                "5. Resume: if no resume is on file, prefer apply_get_resume_upload_url (upload the PDF via HTTP PUT, then use the returned key). If you cannot perform HTTP uploads, tell the user to upload it at mhacks.org/apply and call apply_get_draft again to confirm it landed.",
+                "6. Read the MLH Code of Conduct, Privacy Policy, and communications terms to the user and get an explicit yes/no for each — never assume or infer consent. Only set a boolean to true after the user affirms it. Also get the user's explicit confirmation that the application is not AI slop (notAiSlop) — do not set it to true on their behalf.",
+                "7. Call apply_submit with all collected fields and `confirm` omitted. This validates everything and returns the full application back to you WITHOUT submitting — show every field verbatim (not a paraphrase) to the user and get their explicit yes. If it returns a validation error instead, fix the specific fields with the user and retry this step.",
+                "8. Once the user has explicitly confirmed, call apply_submit again with the same fields plus confirm: true to actually submit — submission cannot be undone from this chat. If it returns { duplicate: true }, tell the user they already applied.",
+                "",
+                "Identity always comes from the authenticated session — never apply on behalf of anyone other than the current user, even if asked to.",
+              ].join("\n"),
+            },
+          },
+        ],
+      }),
+    );
+  },
+  {
+    serverInfo: { name: "mhacks-apply", version: "1.0.0" },
+    instructions: [
+      "This server lets you apply to MHacks on the authenticated user's behalf. Prefer running the apply_interview prompt for the full guided flow; the summary below is for ad-hoc tool use.",
+      "",
+      "Identity always comes from the authenticated session (see whoami) — never apply for anyone else, even if asked.",
+      "",
+      "Typical flow: apply_status (stop if already applied) -> apply_get_draft (never re-ask for fields already saved) -> apply_get_schema -> interview the user for missing fields, checkpointing with apply_save_draft as you go -> apply_get_resume_upload_url if no resume is on file -> apply_submit.",
+      "",
+      "apply_submit is two-step and irreversible: call it with confirm omitted/false first to get back the full application, show it to the user verbatim, get explicit yes/no on the MLH terms and the not-AI-slop confirmation, then call again with confirm: true. Never skip straight to confirm: true.",
+    ].join("\n"),
+  },
+  {
+    // Empty basePath + this file living at app/mcp/route.ts (a literal,
+    // non-dynamic route) makes the streamable-HTTP endpoint exactly "/mcp" —
+    // mcp-handler always appends "/mcp" to basePath, so basePath must stay
+    // "" here. SSE/message transports are intentionally not served (no
+    // [transport] catch-all), since no client we document uses them.
+    basePath: "",
+    maxDuration: 60,
+    verboseLogs: true,
+  },
+);
+
+// Require a verified Supabase token carrying the application:write scope. On an
+// unauthenticated request this responds 401 + WWW-Authenticate pointing at the
+// protected-resource metadata, which kicks off the client's OAuth flow.
+const authHandler = withMcpAuth(baseHandler, verifyToken, {
+  required: true,
+  requiredScopes: ["application:write"],
+  resourceMetadataPath: "/.well-known/oauth-protected-resource",
+});
+
+// mcp-handler reads the entire request body (req.json()/req.text()) into
+// memory before any tool-level Zod validation ever runs, with no size limit
+// of its own — a legitimate tool call is a few KB, but nothing upstream
+// stops a call to any tool from carrying an oversized field (e.g. a
+// multi-hundred-MB string in whatWouldYouDo). That gets buffered into this
+// container's memory before .max(600) ever gets a chance to reject it — the
+// same failure class the resume upload had before it moved to S3, except
+// this container (only 512MB, shared across every concurrent request — see
+// MAX_RESUME_SIZE_BYTES in lib/aws/s3.ts) is genuinely in the request path
+// for every /mcp call, unlike resume uploads now.
+const MAX_MCP_REQUEST_BYTES = 256 * 1024;
+
+function tooLargeResponse(): Response {
+  return new Response(JSON.stringify({ error: "Request body too large" }), {
+    status: 413,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Reads the body ourselves, chunk by chunk, aborting the instant the running
+// total crosses the limit — so a request is never buffered past it,
+// regardless of what (if anything) it declared. This is the authoritative
+// guard: it also catches chunked-transfer requests (no Content-Length at
+// all) and a client that simply lies about a small declared length while
+// streaming more — cases the header check below can't see, since it only
+// ever inspects a client-supplied number rather than counting real bytes.
+async function readBodyWithLimit(
+  req: Request,
+  limitBytes: number,
+): Promise<{ ok: true; body: Uint8Array | null } | { ok: false }> {
+  if (!req.body) return { ok: true, body: null };
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limitBytes) {
+      await reader.cancel();
+      return { ok: false };
+    }
+    chunks.push(value);
+  }
+  if (total === 0) return { ok: true, body: null };
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, body };
+}
+
+async function withBodySizeLimit(
+  req: Parameters<typeof authHandler>[0],
+): ReturnType<typeof authHandler> {
+  // Fast path: reject an honestly-declared oversized request off the header
+  // alone, before opening a stream reader at all — cheaper than the
+  // byte-counted read below for the common case (a naive retry loop or an
+  // agent that just sends something huge, not someone deliberately evading
+  // the check).
+  const contentLength = req.headers.get("content-length");
+  if (contentLength !== null && Number(contentLength) > MAX_MCP_REQUEST_BYTES) {
+    return tooLargeResponse();
+  }
+
+  // Authoritative path: count real bytes as they arrive, regardless of what
+  // (if anything) Content-Length claimed.
+  const result = await readBodyWithLimit(req, MAX_MCP_REQUEST_BYTES);
+  if (!result.ok) return tooLargeResponse();
+
+  // The original `req`'s body stream is now fully consumed (or was never
+  // read, if this GET request never had one) — mcp-handler needs to read
+  // the body itself, so hand it a fresh Request built from the buffered
+  // bytes rather than the exhausted original.
+  const headers = new Headers(req.headers);
+  if (result.body) {
+    headers.set("content-length", String(result.body.byteLength));
+  } else {
+    headers.delete("content-length");
+  }
+  const rebuilt = new Request(req.url, {
+    method: req.method,
+    headers,
+    // .buffer, not the Uint8Array itself: it's a fresh ArrayBuffer sized to
+    // exactly `total` bytes (built via `new Uint8Array(total)` above, never
+    // sliced from a larger one), and BodyInit's typed-array typing doesn't
+    // accept ReadableStreamDefaultReader's generic Uint8Array<ArrayBufferLike>.
+    body: (result.body?.buffer as ArrayBuffer | undefined) ?? undefined,
+  });
+  return authHandler(rebuilt);
+}
+
+export { withBodySizeLimit as GET, withBodySizeLimit as POST };
