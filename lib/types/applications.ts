@@ -124,6 +124,13 @@ export const baseApplicationSchema = z.object({
     .refine((val) => val === true, "You must agree to receive emails from MLH")
     .describe("Must be true — the applicant must explicitly agree."),
   sponsorEmails: z.boolean().optional(),
+  notAiSlop: z
+    .boolean()
+    .refine(
+      (val) => val === true,
+      "You must confirm your application is not AI slop",
+    )
+    .describe("Must be true — the applicant must explicitly confirm."),
 });
 
 export const hackerApplicationSchema = baseApplicationSchema;

@@ -22,7 +22,7 @@ import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
 // submitting the application implies acceptance — so drop them before writing.
 export type ApplicationDbValues = Omit<
   HackerApplicationFormData,
-  "mlhCodeOfConduct" | "mlhPrivacyPolicy" | "mlhEmails"
+  "mlhCodeOfConduct" | "mlhPrivacyPolicy" | "mlhEmails" | "notAiSlop"
 >;
 
 export function toDbValues(
@@ -32,6 +32,7 @@ export function toDbValues(
   delete (values as Partial<HackerApplicationFormData>).mlhCodeOfConduct;
   delete (values as Partial<HackerApplicationFormData>).mlhPrivacyPolicy;
   delete (values as Partial<HackerApplicationFormData>).mlhEmails;
+  delete (values as Partial<HackerApplicationFormData>).notAiSlop;
   return values;
 }
 

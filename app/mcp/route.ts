@@ -144,16 +144,17 @@ const APPLICATION_JSON_SCHEMA = z.toJSONSchema(hackerApplicationSchema);
 // MCP SDK's automatic inputSchema validation — *before* this handler ever
 // runs — producing a generic buried-in-a-list Zod error instead of an
 // actionable one. So apply_submit's inputSchema (SUBMIT_INPUT_SHAPE below)
-// swaps these three fields for plain z.boolean(), letting `false` reach
+// swaps these fields for plain z.boolean(), letting `false` reach
 // the handler, where the check below returns one unambiguous sentence
 // telling the agent exactly what to do next. submitHackerApplicationForUser
 // still re-validates against the full schema (including these refines) as
 // the authoritative gate, so this is a UX fix, not a loosening of what's
 // actually enforced.
-const MLH_CONSENT_FIELDS = [
+const CONSENT_FIELDS = [
   ["mlhCodeOfConduct", "the MLH Code of Conduct"],
   ["mlhPrivacyPolicy", "sharing your information with MLH"],
   ["mlhEmails", "receiving emails from MLH"],
+  ["notAiSlop", "that the application isn't AI slop"],
 ] as const;
 
 const SUBMIT_INPUT_SHAPE = {
@@ -161,6 +162,7 @@ const SUBMIT_INPUT_SHAPE = {
   mlhCodeOfConduct: z.boolean(),
   mlhPrivacyPolicy: z.boolean(),
   mlhEmails: z.boolean(),
+  notAiSlop: z.boolean(),
   confirm: z
     .boolean()
     .optional()
@@ -189,6 +191,7 @@ const DRAFT_LENIENT_OVERRIDES: Partial<
   mlhCodeOfConduct: z.boolean(),
   mlhPrivacyPolicy: z.boolean(),
   mlhEmails: z.boolean(),
+  notAiSlop: z.boolean(),
 };
 
 const draftInputShape = Object.fromEntries(
@@ -311,7 +314,7 @@ const baseHandler = createMcpHandler(
       {
         title: "Submit hacker application",
         description:
-          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be the storage key returned by apply_get_resume_upload_url.",
+          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) and notAiSlop (the user's confirmation that this application is not AI slop) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be the storage key returned by apply_get_resume_upload_url.",
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
@@ -338,7 +341,7 @@ const baseHandler = createMcpHandler(
               "You have already submitted an application. Applications cannot be edited, withdrawn, or resubmitted from this tool.",
           });
         }
-        for (const [field, label] of MLH_CONSENT_FIELDS) {
+        for (const [field, label] of CONSENT_FIELDS) {
           if (input[field] === false) {
             return errorText(
               `You must accept ${label} to apply. Get the user's explicit "yes" and set ${field} to true before calling apply_submit again.`,
@@ -461,7 +464,7 @@ const baseHandler = createMcpHandler(
       {
         title: "Apply to MHacks",
         description:
-          "Walks you through applying to MHacks on the user's behalf: check for an existing application or draft, interview only for missing fields, confirm MLH terms explicitly, then submit.",
+          "Walks you through applying to MHacks on the user's behalf: check for an existing application or draft, interview only for missing fields, confirm MLH terms and the not-AI-slop confirmation explicitly, then submit.",
       },
       async () => ({
         messages: [
@@ -477,7 +480,7 @@ const baseHandler = createMcpHandler(
                 "3. Call apply_get_schema and interview the user only for fields that are still missing, one topic at a time.",
                 "4. Checkpoint progress with apply_save_draft as sections complete. It merges into the saved draft, so you only need to pass the fields you just collected.",
                 "5. Resume: if no resume is on file, prefer apply_get_resume_upload_url (upload the PDF via HTTP PUT, then use the returned key). If you cannot perform HTTP uploads, tell the user to upload it at mhacks.org/apply and call apply_get_draft again to confirm it landed.",
-                "6. Read the MLH Code of Conduct, Privacy Policy, and communications terms to the user and get an explicit yes/no for each — never assume or infer consent. Only set a boolean to true after the user affirms it.",
+                "6. Read the MLH Code of Conduct, Privacy Policy, and communications terms to the user and get an explicit yes/no for each — never assume or infer consent. Only set a boolean to true after the user affirms it. Also get the user's explicit confirmation that the application is not AI slop (notAiSlop) — do not set it to true on their behalf.",
                 "7. Call apply_submit with all collected fields and `confirm` omitted. This validates everything and returns the full application back to you WITHOUT submitting — show every field verbatim (not a paraphrase) to the user and get their explicit yes. If it returns a validation error instead, fix the specific fields with the user and retry this step.",
                 "8. Once the user has explicitly confirmed, call apply_submit again with the same fields plus confirm: true to actually submit — submission cannot be undone from this chat. If it returns { duplicate: true }, tell the user they already applied.",
                 "",
@@ -498,7 +501,7 @@ const baseHandler = createMcpHandler(
       "",
       "Typical flow: apply_status (stop if already applied) -> apply_get_draft (never re-ask for fields already saved) -> apply_get_schema -> interview the user for missing fields, checkpointing with apply_save_draft as you go -> apply_get_resume_upload_url if no resume is on file -> apply_submit.",
       "",
-      "apply_submit is two-step and irreversible: call it with confirm omitted/false first to get back the full application, show it to the user verbatim, get explicit yes/no on the MLH terms, then call again with confirm: true. Never skip straight to confirm: true.",
+      "apply_submit is two-step and irreversible: call it with confirm omitted/false first to get back the full application, show it to the user verbatim, get explicit yes/no on the MLH terms and the not-AI-slop confirmation, then call again with confirm: true. Never skip straight to confirm: true.",
     ].join("\n"),
   },
   {

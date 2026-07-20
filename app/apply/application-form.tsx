@@ -76,7 +76,7 @@ const STEPS: Array<{
   { label: "Socials", fields: [] },
   {
     label: "Agreements",
-    fields: ["mlhCodeOfConduct", "mlhPrivacyPolicy", "mlhEmails"],
+    fields: ["mlhCodeOfConduct", "mlhPrivacyPolicy", "mlhEmails", "notAiSlop"],
   },
 ];
 
@@ -116,6 +116,7 @@ const SECTION_OF_FIELD: Partial<
   mlhPrivacyPolicy: "Agreements",
   mlhEmails: "Agreements",
   sponsorEmails: "Agreements",
+  notAiSlop: "Agreements",
 };
 
 // Max number of section names to spell out in the "please complete" message
@@ -215,6 +216,7 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
     mlhPrivacyPolicy: true,
     mlhEmails: true,
     sponsorEmails: row.sponsorEmails ?? false,
+    notAiSlop: true,
   };
 }
 
@@ -295,6 +297,7 @@ export default function ApplyPage({
           mlhPrivacyPolicy: draft.mlhPrivacyPolicy ?? false,
           mlhEmails: draft.mlhEmails ?? false,
           sponsorEmails: draft.sponsorEmails ?? false,
+          notAiSlop: draft.notAiSlop ?? false,
         },
   });
 
