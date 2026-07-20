@@ -251,7 +251,10 @@ type ClientId = (typeof CLIENTS)[number]["id"];
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <li className="flex gap-4 border-b py-3.5" style={{ borderColor: HAIRLINE }}>
+    <li
+      className="flex gap-4 border-b py-3.5"
+      style={{ borderColor: HAIRLINE }}
+    >
       <span
         className="mt-0.5 font-mono text-[13px] font-semibold tracking-[0.08em]"
         style={{ color: MOSS_FAINT }}
@@ -271,17 +274,15 @@ function ClientPanel({ client }: { client: ClientId }) {
           Works in Claude.ai on the web and in Claude Desktop.
         </p>
         <ol className="flex flex-col">
-          <Step n={1}>
-            Go to Settings → Connectors → Add custom connector.
-          </Step>
+          <Step n={1}>Go to Settings → Connectors → Add custom connector.</Step>
           <Step n={2}>Paste the server URL above.</Step>
           <Step n={3}>
-            Claude will open a login page — sign in with your email (MHacks
-            uses a one-time code sent to your inbox, no password).
+            Claude will open a login page — sign in with your email (MHacks uses
+            a one-time code sent to your inbox, no password).
           </Step>
           <Step n={4}>
-            Approve the connection when prompted. You&apos;ll see what Claude
-            is requesting access to before you approve.
+            Approve the connection when prompted. You&apos;ll see what Claude is
+            requesting access to before you approve.
           </Step>
         </ol>
       </div>
@@ -337,8 +338,15 @@ function ConnectSection() {
   const reduced = useReducedMotion();
   return (
     <section className="flex flex-col gap-6">
-      <SectionHeading eyebrow="Connect" title="Point your client at the server" />
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="MCP client">
+      <SectionHeading
+        eyebrow="Connect"
+        title="Point your client at the server"
+      />
+      <div
+        className="flex flex-wrap gap-2"
+        role="tablist"
+        aria-label="MCP client"
+      >
         {CLIENTS.map((c) => {
           const active = c.id === client;
           return (
@@ -528,7 +536,10 @@ const SPEC_ROWS = [
 function DevSection() {
   return (
     <section className="flex flex-col gap-6">
-      <SectionHeading eyebrow="Developers" title="Building a custom integration" />
+      <SectionHeading
+        eyebrow="Developers"
+        title="Building a custom integration"
+      />
       <div
         className="font-red-hat flex flex-col gap-4 text-[15px] leading-relaxed"
         style={{ color: MOSS }}
@@ -627,9 +638,9 @@ export default function HowToMcpPage() {
             >
               MHacks has an MCP server that lets you apply through Claude,
               Codex, or any other MCP-capable agent instead of filling out the
-              web form by hand. Your agent can read the application schema,
-              save a draft, ask you questions, upload your resume, and submit —
-              all tied to your real, logged-in MHacks account.
+              web form by hand. Your agent can read the application schema, save
+              a draft, ask you questions, upload your resume, and submit — all
+              tied to your real, logged-in MHacks account.
             </p>
           </Reveal>
 

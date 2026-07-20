@@ -160,9 +160,9 @@ const Agreements = ({
               className="text-sm leading-normal cursor-pointer"
             >
               <span>
-                I confirm that my application is not AI slop. I understand
-                that if AI-generated content causes any fields to be filled
-                out incorrectly, my application may be rejected.
+                I confirm that my application is not AI slop. I understand that
+                if AI-generated content causes any fields to be filled out
+                incorrectly, my application may be rejected.
                 <span className="text-destructive"> *</span>
               </span>
             </Label>
