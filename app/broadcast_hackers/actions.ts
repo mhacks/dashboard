@@ -1,31 +1,43 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema/users";
+import { hackerApplicants } from "@/lib/db/schema/applications";
+import { broadcastLogs } from "@/lib/db/schema/broadcasts";
+import { getSessionUser } from "@/lib/auth/session";
+import { sendBulkEmail } from "@/lib/aws/ses.placeholder";
+import { sendBulkSMS } from "@/lib/aws/sms.placeholder";
 
-export async function broadcastEmail(formData: FormData) {
+export async function broadcastAll(formData: FormData) {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser || sessionUser.role !== "organizer") {
+    throw new Error("Unauthorized");
+  }
+
   const subject = formData.get("subject") as string;
   const body = formData.get("body") as string;
-  send_all_email_stub(subject, body);
-  log_broadcast_stub("email", body, subject);
-  redirect("/broadcast_hackers/success?channel=email");
-}
 
-export async function broadcastSms(formData: FormData) {
-  const message = formData.get("message") as string;
-  send_all_sms_stub(message);
-  log_broadcast_stub("sms", message);
-  redirect("/broadcast_hackers/success?channel=sms");
-}
+  const emailRows = await db.select({ email: users.email }).from(users);
+  const smsRows = await db
+    .select({ phoneNumber: hackerApplicants.phoneNumber })
+    .from(hackerApplicants);
 
-function send_all_email_stub(subject: string, body: string) {
-  console.log("[EMAIL STUB] subject:", subject);
-  console.log("[EMAIL STUB] body:", body);
-}
+  const emails = emailRows.map((r) => r.email);
+  const phoneNumbers = smsRows.map((r) => r.phoneNumber);
 
-function send_all_sms_stub(message: string) {
-  console.log("[SMS STUB] message:", message);
-}
+  await Promise.all([
+    sendBulkEmail(emails, subject, body),
+    sendBulkSMS(phoneNumbers, body),
+  ]);
 
-function log_broadcast_stub(channel: "email" | "sms", body: string, subject?: string) {
-  console.log("[BROADCAST LOG STUB] channel:", channel, "subject:", subject, "body:", body);
+  await db.insert(broadcastLogs).values({
+    subject,
+    body,
+    sentBy: sessionUser.id,
+    broadcastedToEmail: emails,
+    broadcastedToText: phoneNumbers,
+  });
+
+  redirect("/broadcast_hackers/success");
 }
