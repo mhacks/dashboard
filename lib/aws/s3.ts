@@ -5,12 +5,14 @@ export const RESUMES_BUCKET = process.env.RESUMES_BUCKET!;
 // Shared by every path that accepts a resume upload (currently just
 // /api/upload-resume, which buffers the whole file into the container's own
 // memory before checking this) so the limit can't drift out of sync across
-// callers. Kept low on purpose: this runs on an ECS Fargate task with only
-// 512MB total memory (task-definition.json) shared across every concurrent
-// request, and each buffered upload currently costs ~2x its size in memory
-// (the parsed File's buffer, plus a separate Buffer copy) — a smaller cap
-// keeps a burst of concurrent uploads further from exhausting that budget.
-export const MAX_RESUME_SIZE_BYTES = 1 * 1024 * 1024;
+// callers. 5MB balances two constraints: scanned or design-tool PDFs
+// commonly run 1–3MB (a 1MB cap rejects real resumes), while this runs on
+// an ECS Fargate task with only 512MB total memory (task-definition.json)
+// shared across every concurrent request, and each buffered upload
+// currently costs ~2x its size in memory (the parsed File's buffer, plus a
+// separate Buffer copy) — so the cap can't return to the old 10MB without
+// a burst of concurrent uploads threatening that budget.
+export const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
 
 const credentials = {
   accessKeyId: process.env.RESUMES_ACCESS_KEY_ID!,

@@ -29,7 +29,7 @@ import {
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
-const MAX_RESUME_SIZE = 1 * 1024 * 1024; // 1 MB — mirrors MAX_RESUME_SIZE_BYTES in lib/aws/s3.ts
+const MAX_RESUME_SIZE = 5 * 1024 * 1024; // 5 MB — mirrors MAX_RESUME_SIZE_BYTES in lib/aws/s3.ts
 
 const countryValueForUniversity = (country: string) =>
   countries.find(
@@ -219,7 +219,7 @@ const AcademicInformation = ({
                 if (!file) return;
                 if (file.size > MAX_RESUME_SIZE) {
                   setUploadError(
-                    "Your resume is larger than 1 MB. Please upload a smaller PDF.",
+                    "Your resume is larger than 5 MB. Please upload a smaller PDF.",
                   );
                   setUploadState("error");
                   e.target.value = "";
@@ -258,7 +258,7 @@ const AcademicInformation = ({
             />
             {uploadState === "idle" && (
               <p className="font-red-hat text-xs text-muted-foreground">
-                Upload your resume as a PDF (max 1 MB)
+                Upload your resume as a PDF (max 5 MB)
               </p>
             )}
             {uploadState === "uploading" && (
