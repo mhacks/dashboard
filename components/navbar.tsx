@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import Link from "next/link";
 import { useApplicationsOpen } from "./use-applications-open";
 import posthog from "posthog-js";
 
@@ -168,7 +169,7 @@ export default function NavBar({
               flexShrink: 0,
             }}
           >
-            <a href="/">
+            <Link href="/">
               <Image
                 src="/mhacks_logo.png"
                 alt="MHacks"
@@ -176,7 +177,7 @@ export default function NavBar({
                 height={24}
                 className="brightness-[1.4] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] block"
               />
-            </a>
+            </Link>
             <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
           </div>
 
