@@ -22,19 +22,29 @@ const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
 });
 
 const links = [
-  { href: "#about", label: "About" },
-  // { href: "#tracks", label: "Tracks" },
-  { href: "#timeline", label: "Dates" },
-  { href: "#sponsors", label: "Sponsors" },
-  { href: "#faqs", label: "FAQ" },
+  { href: "/#about", label: "About" },
+  // { href: "/#tracks", label: "Tracks" },
+  { href: "/#timeline", label: "Dates" },
+  { href: "/#sponsors", label: "Sponsors" },
+  { href: "/#faqs", label: "FAQ" },
+  { href: "/how-to-mcp", label: "Agent" },
 ];
 
-export default function NavBar() {
+export default function NavBar({
+  forceShowLogo = false,
+}: {
+  /** Pages without their own top-left hero logo (unlike the landing page's
+      hero) have nothing for the IntersectionObserver below to watch, so the
+      navbar logo would never appear. Set this to show it immediately. */
+  forceShowLogo?: boolean;
+} = {}) {
   const [open, setOpen] = useState(false);
-  const [showLogo, setShowLogo] = useState(false);
+  const [showLogo, setShowLogo] = useState(forceShowLogo);
   const applicationsOpen = useApplicationsOpen();
 
   useEffect(() => {
+    if (forceShowLogo) return;
+
     const heroLogo = document.getElementById("hero-logo");
     if (!heroLogo) return;
 
@@ -45,7 +55,7 @@ export default function NavBar() {
 
     observer.observe(heroLogo);
     return () => observer.disconnect();
-  }, []);
+  }, [forceShowLogo]);
 
   useEffect(() => {
     let rafId = 0;
@@ -158,7 +168,7 @@ export default function NavBar() {
               flexShrink: 0,
             }}
           >
-            <a href="#">
+            <a href="/">
               <Image
                 src="/mhacks_logo.png"
                 alt="MHacks"

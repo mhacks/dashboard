@@ -27,6 +27,7 @@ import {
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import posthog from "posthog-js";
+import { Bot } from "lucide-react";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -597,22 +598,31 @@ export default function ApplyPage({
         >
           {/* Card header */}
           <div className="px-8 pt-8 pb-6">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] mb-1 text-moss/45">
-                  Apply
-                </p>
-                <h1 className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight text-moss">
-                  {STEPS[step].label}
-                </h1>
+            <div className="mb-6">
+              <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] mb-1 text-moss/45">
+                Apply
+              </p>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center flex-wrap gap-3">
+                  <h1 className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight text-moss">
+                    {STEPS[step].label}
+                  </h1>
+                  <Image
+                    src="/yellow_flower.png"
+                    alt=""
+                    width={68}
+                    height={68}
+                    className="opacity-30 rotate-[-18deg] pointer-events-none select-none shrink-0"
+                  />
+                </div>
+                <Link
+                  href="/how-to-mcp"
+                  className="flex shrink-0 items-center gap-1.5 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white whitespace-nowrap rounded-full bg-moss px-4 py-2 transition-opacity hover:opacity-80"
+                >
+                  <Bot className="h-3.5 w-3.5" />
+                  Apply with an agent →
+                </Link>
               </div>
-              <Image
-                src="/yellow_flower.png"
-                alt=""
-                width={68}
-                height={68}
-                className="opacity-30 rotate-[-18deg] pointer-events-none select-none shrink-0 mt-1"
-              />
             </div>
             <StepBar current={step} />
           </div>

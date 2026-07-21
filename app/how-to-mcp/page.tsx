@@ -3,24 +3,24 @@
 // Public docs page: how to connect an AI agent (Claude, Codex, or any
 // custom MCP client) to the MHacks MCP server. Content is adapted from
 // mcp-docs/INSTRUCTIONS.md (kept as the repo-internal reference) with an
-// added Codex section and a developer-facing auth explanation. Not linked
-// from nav yet — reachable by direct URL only, same as
-// app/account/connections currently is.
+// added Codex section and a developer-facing auth explanation. Linked
+// from the navbar as "MCP".
 //
-// Visual language mirrors the landing page: moss-on-paper, Instrument
-// Serif italics, Red Hat body, Geist Mono for everything the machine
-// says, ◆ eyebrows and dotted leaders from the Timeline section. The one
-// dark element is the hero terminal — a staged agent session, since the
-// page's subject is literally an agent talking to this server.
+// Visual language mirrors the landing page: moss-on-paper, Red Hat
+// throughout (headings included), Geist Mono for everything the machine
+// says, and dotted leaders from the Timeline section. A photo fades in
+// down the side gutters (see GutterPhoto), leaving the center column
+// clear for content. The one dark element is the hero terminal — a
+// staged agent session, since the page's subject is literally an agent
+// talking to this server.
 
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import NavBar from "@/components/navbar";
 import SiteFooter from "@/components/site-footer";
-import AsciiBackground from "@/components/ascii-background";
 
 const MOSS = "#3A4A26";
-const MOSS_SOFT = "rgba(58,74,38,0.6)";
+const MOSS_SOFT = "rgba(58,74,38,0.8)";
 const MOSS_FAINT = "rgba(58,74,38,0.45)";
 const HAIRLINE = "rgba(58,74,38,0.14)";
 const LEADER = "rgba(58,74,38,0.25)";
@@ -29,7 +29,7 @@ const PINE = "#1c2513"; // terminal panel — the page's single dark surface
 const PARCHMENT = "#ebe4ce"; // terminal foreground, same as hero title
 const SAGE = "#bec59b";
 
-const SERVER_URL = "https://mhacks.org/mcp";
+const SERVER_URL = "https://www.mhacks.org/mcp";
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 
 /* ── shared building blocks ─────────────────────────────────────────── */
@@ -65,33 +65,14 @@ function Reveal({
   );
 }
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="font-red-hat flex items-center gap-2 text-[12px] font-light uppercase tracking-[0.3em]"
-      style={{ color: "rgba(58,74,38,0.5)" }}
-    >
-      <span>◆</span>
-      {children}
-    </p>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-}: {
-  eyebrow: string;
-  title: string;
-}) {
+function SectionHeading({ title }: { title: string }) {
   return (
     <div
       className="flex flex-col gap-3 border-t pt-8"
       style={{ borderColor: HAIRLINE }}
     >
-      <Eyebrow>{eyebrow}</Eyebrow>
       <h2
-        className="font-heading italic text-3xl sm:text-4xl tracking-tight"
+        className="font-red-hat italic text-3xl sm:text-4xl tracking-tight"
         style={{ color: MOSS }}
       >
         {title}
@@ -100,13 +81,26 @@ function SectionHeading({
   );
 }
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({
+  text,
+  emphasized = false,
+}: {
+  text: string;
+  emphasized?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
     const id = setTimeout(() => setCopied(false), 1800);
     return () => clearTimeout(id);
   }, [copied]);
+  const style = copied
+    ? emphasized
+      ? { backgroundColor: CREAM, borderColor: CREAM, color: MOSS }
+      : { backgroundColor: MOSS, borderColor: MOSS, color: CREAM }
+    : emphasized
+      ? { borderColor: "rgba(239,233,212,0.5)", color: CREAM }
+      : { borderColor: LEADER, color: MOSS_SOFT };
   return (
     <button
       type="button"
@@ -114,11 +108,7 @@ function CopyButton({ text }: { text: string }) {
         navigator.clipboard?.writeText(text).then(() => setCopied(true));
       }}
       className="shrink-0 rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.15em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3A4A26]"
-      style={
-        copied
-          ? { backgroundColor: MOSS, borderColor: MOSS, color: CREAM }
-          : { borderColor: LEADER, color: MOSS_SOFT }
-      }
+      style={style}
       aria-label={copied ? "Copied" : "Copy to clipboard"}
     >
       {copied ? "copied ✓" : "copy"}
@@ -126,19 +116,36 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function CodeBlock({ children }: { children: string }) {
+function CodeBlock({
+  children,
+  emphasized = false,
+}: {
+  children: string;
+  /** The one call site the page most wants a visitor's eye to land on —
+      a solid moss fill instead of the usual cream, so it reads as the
+      main focal point rather than blending into the section. */
+  emphasized?: boolean;
+}) {
   return (
     <div
-      className="flex items-center gap-3 rounded-lg border px-4 py-3"
-      style={{ borderColor: LEADER, backgroundColor: CREAM }}
+      className={
+        emphasized
+          ? "flex items-center gap-3 rounded-lg border px-4 py-3.5 shadow-[0_12px_32px_-12px_rgba(58,74,38,0.55)]"
+          : "flex items-center gap-3 rounded-lg border px-4 py-3"
+      }
+      style={
+        emphasized
+          ? { borderColor: MOSS, backgroundColor: MOSS }
+          : { borderColor: LEADER, backgroundColor: CREAM }
+      }
     >
       <code
-        className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-[13px] leading-relaxed"
-        style={{ color: MOSS }}
+        className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-[13px] leading-relaxed sm:text-[14px]"
+        style={{ color: emphasized ? CREAM : MOSS }}
       >
         {children}
       </code>
-      <CopyButton text={children} />
+      <CopyButton text={children} emphasized={emphasized} />
     </div>
   );
 }
@@ -338,10 +345,7 @@ function ConnectSection() {
   const reduced = useReducedMotion();
   return (
     <section className="flex flex-col gap-6">
-      <SectionHeading
-        eyebrow="Connect"
-        title="Point your client at the server"
-      />
+      <SectionHeading title="Point your client at the server" />
       <div
         className="flex flex-wrap gap-2"
         role="tablist"
@@ -409,7 +413,7 @@ const PROMPTS = [
 function PromptsSection() {
   return (
     <section className="flex flex-col gap-6">
-      <SectionHeading eyebrow="Use it" title="Just talk to your agent" />
+      <SectionHeading title="Just talk to your agent" />
       <div className="flex flex-col">
         {PROMPTS.map((p) => (
           <Reveal key={p.quote}>
@@ -418,7 +422,7 @@ function PromptsSection() {
               style={{ borderColor: HAIRLINE }}
             >
               <p
-                className="font-heading italic text-xl sm:text-2xl tracking-tight"
+                className="font-red-hat italic text-xl sm:text-2xl tracking-tight"
                 style={{ color: MOSS }}
               >
                 “{p.quote}”
@@ -494,7 +498,7 @@ const AUTH_FACTS: { lead: string; body: React.ReactNode }[] = [
 function AuthSection() {
   return (
     <section className="flex flex-col gap-6">
-      <SectionHeading eyebrow="Trust" title="How auth works" />
+      <SectionHeading title="How auth works" />
       <ul className="flex flex-col gap-5">
         {AUTH_FACTS.map((f, i) => (
           <Reveal key={i}>
@@ -536,10 +540,7 @@ const SPEC_ROWS = [
 function DevSection() {
   return (
     <section className="flex flex-col gap-6">
-      <SectionHeading
-        eyebrow="Developers"
-        title="Building a custom integration"
-      />
+      <SectionHeading title="Building a custom integration" />
       <div
         className="font-red-hat flex flex-col gap-4 text-[15px] leading-relaxed"
         style={{ color: MOSS }}
@@ -602,15 +603,139 @@ function DevSection() {
   );
 }
 
+/* ── troubleshooting FAQ ─────────────────────────────────────────────── */
+
+const FAQS: { q: string; a: React.ReactNode }[] = [
+  {
+    q: 'My client is asking me for a "Client ID"',
+    a: (
+      <>
+        Make sure you&apos;re using the exact URL above. Most clients
+        self-register automatically via Dynamic Client Registration — yours
+        asking for one specifically means the client itself doesn&apos;t
+        implement dynamic registration (not something on our end). Contact the
+        MHacks team for a manually-issued client ID in that case.
+      </>
+    ),
+  },
+];
+
+function FaqItem({
+  question,
+  children,
+  defaultOpen = false,
+}: {
+  question: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const reduced = useReducedMotion();
+  return (
+    <div className="border-b" style={{ borderColor: HAIRLINE }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3A4A26]"
+      >
+        <span
+          className="font-red-hat text-[15px] font-semibold leading-relaxed"
+          style={{ color: MOSS }}
+        >
+          {question}
+        </span>
+        <span
+          aria-hidden
+          className="shrink-0 font-mono text-[16px] transition-transform duration-300"
+          style={{
+            color: MOSS_FAINT,
+            transform: open ? "rotate(45deg)" : "rotate(0deg)",
+          }}
+        >
+          +
+        </span>
+      </button>
+      <motion.div
+        initial={false}
+        animate={
+          reduced
+            ? undefined
+            : { height: open ? "auto" : 0, opacity: open ? 1 : 0 }
+        }
+        transition={{ duration: 0.3, ease: EASE }}
+        className="overflow-hidden"
+        style={reduced ? { display: open ? "block" : "none" } : undefined}
+      >
+        <p
+          className="font-red-hat pb-4 text-[15px] leading-relaxed"
+          style={{ color: MOSS_SOFT }}
+        >
+          {children}
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+
+function TroubleshootingSection() {
+  return (
+    <section className="flex flex-col gap-6">
+      <SectionHeading title="Trouble connecting" />
+      <div className="flex flex-col">
+        {FAQS.map((f, i) => (
+          <FaqItem key={i} question={f.q}>
+            {f.a}
+          </FaqItem>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── gutter photo ────────────────────────────────────────────────────── */
+
+// Same clear-band math as the old ascii-flower field: content gets a
+// min(940px, viewport - 64px) clear band down the middle, and whatever's
+// left on either side is gutter. Fixed position (not scroll-linked) since
+// a static photo doesn't need the flowers' scroll-driven redraw.
+const GUTTER_WIDTH =
+  "max(0px, calc((100vw - min(940px, calc(100vw - 64px))) / 2))";
+
+function GutterPhoto() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+      <div
+        className="absolute inset-y-0 left-0"
+        style={{
+          width: GUTTER_WIDTH,
+          backgroundImage: "url(/idk_what_this_is.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "left center",
+          opacity: 0.55,
+        }}
+      />
+      <div
+        className="absolute inset-y-0 right-0"
+        style={{
+          width: GUTTER_WIDTH,
+          backgroundImage: "url(/idk_what_this_is.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "right center",
+          opacity: 0.55,
+        }}
+      />
+    </div>
+  );
+}
+
 /* ── page ───────────────────────────────────────────────────────────── */
 
 export default function HowToMcpPage() {
   return (
     <div className="relative">
-      {/* Same scroll-reactive ascii-flower field as the landing page, painting
-          the side gutters and leaving the center column clear for content. */}
-      <AsciiBackground />
-      <NavBar />
+      <GutterPhoto />
+      <NavBar forceShowLogo />
 
       <div className="mx-auto flex max-w-3xl flex-col gap-16 px-4 pt-32 pb-24 sm:px-6">
         {/* ── Hero ── */}
@@ -625,9 +750,8 @@ export default function HowToMcpPage() {
             }}
           />
           <Reveal onLoad className="flex flex-col gap-3">
-            <Eyebrow>Model Context Protocol</Eyebrow>
             <h1
-              className="font-heading italic text-4xl leading-[0.95] tracking-tight sm:text-6xl"
+              className="font-red-hat italic text-4xl leading-[0.95] tracking-tight sm:text-6xl"
               style={{ color: MOSS }}
             >
               Connect an AI agent to&nbsp;MHacks
@@ -655,32 +779,17 @@ export default function HowToMcpPage() {
             >
               Server URL — use it exactly as written, in any client below
             </p>
-            <CodeBlock>{SERVER_URL}</CodeBlock>
+            <CodeBlock emphasized>{SERVER_URL}</CodeBlock>
           </Reveal>
         </div>
 
         <ConnectSection />
         <PromptsSection />
         <AuthSection />
-        <DevSection />
+        {/* <DevSection /> */}
 
-        {/* ── Troubleshooting footnote ── */}
-        <section className="flex flex-col gap-6">
-          <SectionHeading eyebrow="Stuck?" title="Trouble connecting" />
-          <p
-            className="font-red-hat text-[15px] leading-relaxed"
-            style={{ color: MOSS_SOFT }}
-          >
-            Make sure you&apos;re using the exact URL above. Most clients
-            self-register automatically via Dynamic Client Registration. If
-            yours specifically asks you to supply a &ldquo;Client ID&rdquo;,
-            that means the client itself doesn&apos;t implement dynamic
-            registration (not something on our end) — contact the MHacks team
-            for a manually-issued client ID in that case.
-          </p>
-        </section>
+        {/* <TroubleshootingSection /> */}
       </div>
-
       <SiteFooter />
     </div>
   );
