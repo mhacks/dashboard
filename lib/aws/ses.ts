@@ -125,10 +125,12 @@ export async function sendBulkEmail(
   emails: string[],
   subject: string,
   body: string,
-): Promise<void> {
-  await Promise.allSettled(
+): Promise<{ succeeded: string[] }> {
+  const results = await Promise.allSettled(
     emails.map((email) =>
       sendEmail({ to: email, subject, text: body, html: body }),
     ),
   );
+  const succeeded = emails.filter((_, i) => results[i].status === "fulfilled");
+  return { succeeded };
 }

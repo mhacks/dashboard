@@ -20,8 +20,8 @@ const client = new PinpointSMSVoiceV2Client({
 export async function sendBulkSMS(
   phoneNumbers: string[],
   message: string
-): Promise<void> {
-  await Promise.allSettled(
+): Promise<{ succeeded: string[] }> {
+  const results = await Promise.allSettled(
     phoneNumbers.map((phone) =>
       client.send(
         new SendTextMessageCommand({
@@ -32,4 +32,8 @@ export async function sendBulkSMS(
       )
     )
   );
+  const succeeded = phoneNumbers.filter(
+    (_, i) => results[i].status === "fulfilled"
+  );
+  return { succeeded };
 }

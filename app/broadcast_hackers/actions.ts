@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { hackerApplicants } from "@/lib/db/schema/applications";
@@ -18,15 +19,20 @@ export async function broadcastAll(formData: FormData) {
   const subject = formData.get("subject") as string;
   const body = formData.get("body") as string;
 
-  const emailRows = await db.select({ email: users.email }).from(users);
+  const emailRows = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.role, "hacker"));
   const smsRows = await db
     .select({ phoneNumber: hackerApplicants.phoneNumber })
     .from(hackerApplicants);
 
-  const emails = emailRows.map((r) => r.email);
-  const phoneNumbers = smsRows.map((r) => r.phoneNumber);
+  const emails = emailRows.map((r) => r.email).filter((e) => e.length > 0);
+  const phoneNumbers = smsRows
+    .map((r) => r.phoneNumber)
+    .filter((p) => p.length > 0);
 
-  await Promise.all([
+  const [emailResults, smsResults] = await Promise.all([
     sendBulkEmail(emails, subject, body),
     sendBulkSMS(phoneNumbers, body),
   ]);
@@ -35,8 +41,8 @@ export async function broadcastAll(formData: FormData) {
     subject,
     body,
     sentBy: sessionUser.id,
-    broadcastedToEmail: emails,
-    broadcastedToText: phoneNumbers,
+    broadcastedToEmail: emailResults.succeeded,
+    broadcastedToText: smsResults.succeeded,
   });
 
   redirect("/broadcast_hackers/success");
