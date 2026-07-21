@@ -18,8 +18,8 @@ export async function sendBulkEmail(
   emails: string[],
   subject: string,
   body: string
-): Promise<void> {
-  await Promise.allSettled(
+): Promise<{ succeeded: string[] }> {
+  const results = await Promise.allSettled(
     emails.map((email) =>
       client.send(
         new SendEmailCommand({
@@ -33,4 +33,6 @@ export async function sendBulkEmail(
       )
     )
   );
+  const succeeded = emails.filter((_, i) => results[i].status === "fulfilled");
+  return { succeeded };
 }

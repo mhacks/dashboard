@@ -27,12 +27,11 @@ export async function GET(
   }
 
   const isEmail = type === "email";
-  const title = isEmail ? "sent to email" : "sent to text";
   const items: string[] = isEmail
     ? (log.broadcastedToEmail as string[]) ?? []
     : (log.broadcastedToText as string[]) ?? [];
 
-  return new NextResponse([title, ...items].join("\n"), {
+  return new NextResponse(items.join("\n"), {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 }
