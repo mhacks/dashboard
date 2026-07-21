@@ -29,6 +29,41 @@
       "when": 1784082737209,
       "tag": "20260715023217_is_organizer_realtime_and_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784168292290,
+      "tag": "20260716021812_user_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784168293290,
+      "tag": "20260716021813_handle_new_user_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784168294290,
+      "tag": "20260716021900_defer_invite_acceptance",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784171630726,
+      "tag": "20260716031350_user_invites_realtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784254560000,
+      "tag": "20260717043600_user_invitations_indexes",
+      "breakpoints": true
     }
   ]
 }

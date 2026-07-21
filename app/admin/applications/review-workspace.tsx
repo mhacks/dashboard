@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMounted } from "@/hooks/use-mounted";
-import type { Session } from "@supabase/supabase-js";
+import { useCoalescedAsync } from "@/hooks/use-coalesced-async";
+import { useOrganizerRealtimeSession } from "@/hooks/use-organizer-realtime-session";
+import { usePrivateBroadcastChannel } from "@/hooks/use-private-broadcast-channel";
 import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels";
 import {
   Controller,
@@ -23,7 +25,6 @@ import {
   InboxIcon,
   ListFilterIcon,
   RefreshCwIcon,
-  SearchIcon,
   SmartphoneIcon,
   UserRoundIcon,
   type LucideIcon,
@@ -35,10 +36,16 @@ import {
   markApplicationReviewed,
 } from "@/lib/actions/application-review.server.actions";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
+import { formatMonthDay, formatShortDate } from "@/lib/format/dates";
 import { createClient } from "@/lib/supabase/client";
+import { isBenignRealtimeChannelError } from "@/lib/supabase/realtime-errors";
+import { sendPrivateBroadcast } from "@/lib/supabase/realtime-broadcast";
+import { applicationStatusBadgeClass } from "@/lib/utils/badge-classes";
 import {
   reviewCompleteSchema,
   reviewDraftSchema,
+  REVIEW_SYNC_CHANNEL,
+  REVIEW_SYNC_EVENT,
   reviewSyncPayloadSchema,
   type ReviewCounts,
   type ReviewWorkspaceData,
@@ -69,7 +76,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -80,6 +86,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { clampPageIndex, getPageCount, paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
+import { InlineWarningNotice } from "@/app/admin/components/warning-callout";
+import { SearchField } from "@/app/admin/components/search-field";
 import {
   ApplicationDetailSkeleton,
   ResumePreviewSkeleton,
@@ -91,8 +99,6 @@ import {
   formatReviewDisplayValue,
 } from "./display-formatters";
 import { ReviewEventTimeline } from "./review-event-timeline";
-
-type Organizer = { id: string; email: string };
 
 type StatusFilter = "all" | "pending" | "reviewed" | "flagged";
 type MobileView = "list" | "detail";
@@ -134,17 +140,6 @@ function useIsPhoneLandscape() {
   return isPhoneLandscape;
 }
 
-function isBenignRealtimeChannelError(error: unknown) {
-  if (!error) return true;
-
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes("socket closed: 1001") ||
-    message.includes("socket closed") ||
-    message.includes("Channel closed")
-  );
-}
-
 type PresenceMeta = {
   userId: string;
   email: string;
@@ -156,8 +151,6 @@ const REVIEW_WORKSPACE_PANEL_IDS = [
   "application-detail",
   "scorecard",
 ] as const;
-const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
-const REVIEW_SYNC_EVENT = "review_updated";
 
 const PANEL_LAYOUT_STORAGE: LayoutStorage = {
   getItem(key) {
@@ -271,16 +264,6 @@ function applicantName(item: ReviewListSummaryItem | ReviewListItem) {
   const name =
     `${item.application.firstName} ${item.application.lastName}`.trim();
   return name || item.application.applicantEmail || "Unnamed applicant";
-}
-
-function statusClassName(status: ReviewListItem["application"]["status"]) {
-  if (status === "reviewed") {
-    return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/70 dark:bg-green-950/50 dark:text-green-300";
-  }
-  if (status === "flagged") {
-    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-300";
-  }
-  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300";
 }
 
 function ReviewBadge({ review }: { review: ReviewRecord | null }) {
@@ -611,9 +594,8 @@ export default function ApplicationReviewWorkspace({
   >(null);
   const [pendingApplicationSwitch, setPendingApplicationSwitch] =
     useState<ReviewListSummaryItem | null>(null);
-  const [organizer, setOrganizer] = useState<Organizer | null>(null);
-  const [realtimeReady, setRealtimeReady] = useState(false);
   const supabase = useMemo(() => createClient(), []);
+  const { organizer, realtimeReady } = useOrganizerRealtimeSession(supabase);
   const selectedIdRef = useRef(selectedId);
   const serverUpdatedAt = useRef<string | null>(
     initialSelectedDetail?.review?.updatedAt ??
@@ -665,69 +647,6 @@ export default function ApplicationReviewWorkspace({
     panelIds: [...REVIEW_WORKSPACE_PANEL_IDS],
     storage: PANEL_LAYOUT_STORAGE,
   });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function syncSession(
-      session: Session | null,
-      mode: "full" | "refresh",
-    ) {
-      if (!session?.access_token) {
-        await supabase.realtime.setAuth(null);
-        if (cancelled) return;
-        setOrganizer(null);
-        setRealtimeReady(false);
-        return;
-      }
-
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-      if (cancelled || error || !user) {
-        await supabase.realtime.setAuth(null);
-        setOrganizer(null);
-        setRealtimeReady(false);
-        return;
-      }
-
-      if (mode === "refresh") {
-        await supabase.realtime.setAuth(session.access_token);
-        return;
-      }
-
-      setRealtimeReady(false);
-      await supabase.realtime.setAuth(session.access_token);
-      if (cancelled) return;
-
-      setOrganizer({ id: user.id, email: user.email ?? "" });
-      setRealtimeReady(true);
-    }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
-        void syncSession(session, "full");
-        return;
-      }
-
-      if (event === "TOKEN_REFRESHED") {
-        void syncSession(session, "refresh");
-        return;
-      }
-
-      if (event === "SIGNED_OUT") {
-        void syncSession(null, "full");
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -845,21 +764,25 @@ export default function ApplicationReviewWorkspace({
 
   const broadcastReviewUpdate = useCallback(
     async (applicationId: string) => {
-      await reviewSyncChannel.current?.send({
-        type: "broadcast",
-        event: REVIEW_SYNC_EVENT,
-        payload: {
-          applicationId,
-          sourceUserId: organizer?.id ?? "",
-        },
+      if (!organizer?.id) return;
+
+      await sendPrivateBroadcast(reviewSyncChannel.current, REVIEW_SYNC_EVENT, {
+        applicationId,
+        sourceUserId: organizer.id,
       });
     },
-    [organizer?.id],
+    [organizer],
   );
 
   const refreshReviewFromServer = useCallback(
     async (applicationId: string) => {
-      const detail = await getApplicationReviewDetail(applicationId);
+      const isSelected = selectedIdRef.current === applicationId;
+      const [detail, events] = await Promise.all([
+        getApplicationReviewDetail(applicationId),
+        isSelected
+          ? getApplicationReviewEvents(applicationId)
+          : Promise.resolve(null),
+      ]);
 
       setItems((current) =>
         current.map((item) =>
@@ -869,7 +792,7 @@ export default function ApplicationReviewWorkspace({
         ),
       );
 
-      if (selectedIdRef.current !== applicationId) return;
+      if (!isSelected || selectedIdRef.current !== applicationId) return;
 
       setSelectedDetail(detail);
       if (form.formState.isDirty) {
@@ -878,13 +801,39 @@ export default function ApplicationReviewWorkspace({
         applyReviewForm(detail);
       }
 
-      const events = await getApplicationReviewEvents(applicationId);
-      if (selectedIdRef.current === applicationId) {
+      if (events && selectedIdRef.current === applicationId) {
         setReviewEvents(events);
       }
     },
     [applyReviewForm, form.formState.isDirty, markReviewConflict],
   );
+
+  const scheduleRefreshReview = useCoalescedAsync(
+    async (applicationId: string) => {
+      try {
+        await refreshReviewFromServer(applicationId);
+      } catch (error) {
+        console.error(
+          "Unable to refresh application after review sync:",
+          error,
+        );
+      }
+    },
+  );
+
+  usePrivateBroadcastChannel({
+    supabase,
+    channelName: REVIEW_SYNC_CHANNEL,
+    event: REVIEW_SYNC_EVENT,
+    payloadSchema: reviewSyncPayloadSchema,
+    organizerId: organizer?.id,
+    realtimeReady,
+    channelRef: reviewSyncChannel,
+    onRemoteMessage: (payload) => {
+      scheduleRefreshReview(payload.applicationId);
+    },
+    logLabel: "review sync channel",
+  });
 
   function applyApplicationSwitch(item: ReviewListSummaryItem) {
     setSelectedId(item.application.id);
@@ -955,47 +904,6 @@ export default function ApplicationReviewWorkspace({
     if (reviewEvents.length > 0) setReviewEvents([]);
     if (reviewEventsLoadedId !== null) setReviewEventsLoadedId(null);
   }
-
-  useEffect(() => {
-    if (!realtimeReady || !organizer) return;
-
-    let active = true;
-    let channel: ReviewSyncChannel | null = null;
-
-    channel = supabase.channel(REVIEW_SYNC_CHANNEL, {
-      config: { private: true },
-    });
-    if (!active) {
-      supabase.removeChannel(channel);
-      return;
-    }
-    reviewSyncChannel.current = channel;
-
-    channel.on("broadcast", { event: REVIEW_SYNC_EVENT }, ({ payload }) => {
-      const parsed = reviewSyncPayloadSchema.safeParse(payload);
-      if (!parsed.success) return;
-      if (parsed.data.sourceUserId === organizer.id) return;
-
-      void refreshReviewFromServer(parsed.data.applicationId).catch((error) => {
-        console.error(
-          "Unable to refresh application after review sync:",
-          error,
-        );
-      });
-    });
-
-    channel.subscribe((status, err) => {
-      if (!active || status !== "CHANNEL_ERROR") return;
-      if (isBenignRealtimeChannelError(err)) return;
-      console.error("Unable to subscribe to review sync channel:", err);
-    });
-
-    return () => {
-      active = false;
-      reviewSyncChannel.current = null;
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [organizer, realtimeReady, refreshReviewFromServer, supabase]);
 
   const clearResumeExpiryTimer = useCallback(() => {
     if (resumeExpiryTimer.current) {
@@ -1279,15 +1187,11 @@ export default function ApplicationReviewWorkspace({
             <StatusFilterTab value="flagged" count={counts.flagged} />
           </TabsList>
         </Tabs>
-        <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search applications"
-            className="pl-8"
-          />
-        </div>
+        <SearchField
+          placeholder="Search applications"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filteredItems.length === 0 ? (
@@ -1313,19 +1217,15 @@ export default function ApplicationReviewWorkspace({
                       {applicantName(item)}
                     </p>
                     <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {new Date(item.application.createdAt).toLocaleDateString(
-                        undefined,
-                        {
-                          month: "short",
-                          day: "numeric",
-                        },
-                      )}
+                      {formatMonthDay(item.application.createdAt)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={statusClassName(item.application.status)}
+                      className={applicationStatusBadgeClass(
+                        item.application.status,
+                      )}
                     >
                       {applicationStatusLabel(item.application.status)}
                     </Badge>
@@ -1383,7 +1283,9 @@ export default function ApplicationReviewWorkspace({
         {activeItem && (
           <Badge
             variant="outline"
-            className={statusClassName(activeItem.application.status)}
+            className={applicationStatusBadgeClass(
+              activeItem.application.status,
+            )}
           >
             {applicationStatusLabel(activeItem.application.status)}
           </Badge>
@@ -1406,7 +1308,7 @@ export default function ApplicationReviewWorkspace({
                   </h2>
                   <Badge
                     variant="outline"
-                    className={statusClassName(
+                    className={applicationStatusBadgeClass(
                       selectedDetail.application.status,
                     )}
                   >
@@ -1417,9 +1319,7 @@ export default function ApplicationReviewWorkspace({
                   {selectedDetail.application.applicantEmail ??
                     "No applicant email"}{" "}
                   · submitted{" "}
-                  {new Date(
-                    selectedDetail.application.createdAt,
-                  ).toLocaleDateString()}
+                  {formatShortDate(selectedDetail.application.createdAt)}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <QuickLink
@@ -1437,17 +1337,9 @@ export default function ApplicationReviewWorkspace({
                 </div>
               </div>
               {activeReviewers.length > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-                  <div className="flex items-center gap-2 font-medium">
-                    <EyeIcon className="size-4" />
-                    Currently viewing
-                  </div>
-                  <p className="mt-1 text-xs">
-                    {activeReviewers
-                      .map((reviewer) => reviewer.email)
-                      .join(", ")}
-                  </p>
-                </div>
+                <InlineWarningNotice icon={EyeIcon} title="Currently viewing">
+                  {activeReviewers.map((reviewer) => reviewer.email).join(", ")}
+                </InlineWarningNotice>
               )}
             </div>
 
@@ -1969,15 +1861,13 @@ function ScorecardForm({
       />
 
       {activeReviewers.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-200">
-          <div className="flex items-center gap-2 font-medium">
-            <AlertTriangleIcon className="size-4" />
-            Another organizer is here
-          </div>
-          <p className="mt-1 text-xs">
-            {activeReviewers.map((reviewer) => reviewer.email).join(", ")}
-          </p>
-        </div>
+        <InlineWarningNotice
+          icon={AlertTriangleIcon}
+          title="Another organizer is here"
+          className="p-3"
+        >
+          {activeReviewers.map((reviewer) => reviewer.email).join(", ")}
+        </InlineWarningNotice>
       )}
 
       <Button

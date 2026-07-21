@@ -8,12 +8,3 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
   );
 }
-
-export async function ensureRealtimeAuth(
-  supabase: ReturnType<typeof createClient>,
-) {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  await supabase.realtime.setAuth(session?.access_token ?? null);
-}

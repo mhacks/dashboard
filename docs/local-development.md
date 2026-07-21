@@ -26,13 +26,13 @@ touch the remote (e.g. `supabase config push`) — see
 `pnpm db:start` (= `supabase start` + env generation) boots a full Supabase stack in
 Docker:
 
-| Service  | URL                             | Purpose                                   |
-| -------- | ------------------------------- | ----------------------------------------- |
-| Postgres | `127.0.0.1:54322`               | the database (`DATABASE_URL` points here) |
-| API/Auth | `127.0.0.1:54321`               | what the auth clients talk to             |
-| Storage  | `127.0.0.1:54321/storage/v1/s3` | S3-compatible API for resume uploads      |
-| Studio   | `127.0.0.1:54323`               | Supabase Studio — DB GUI                  |
-| Mailpit  | `127.0.0.1:54324`               | catches outgoing email locally            |
+| Service  | URL                                    | Purpose                                   |
+| -------- | -------------------------------------- | ----------------------------------------- |
+| Postgres | `127.0.0.1:54322`                      | the database (`DATABASE_URL` points here) |
+| API/Auth | `127.0.0.1:54321`                      | what the auth clients talk to             |
+| Storage  | `127.0.0.1:54321/storage/v1/s3`        | S3-compatible API for resume uploads      |
+| Studio   | `127.0.0.1:54323`                      | Supabase Studio — DB GUI                  |
+| Mailpit  | `127.0.0.1:54324` (UI), `54325` (SMTP) | catches outgoing email locally            |
 
 ```bash
 pnpm db:start       # boot Supabase in Docker + write .env.local
@@ -81,6 +81,22 @@ and every `pnpm db:reset` (after migrations). No separate seed script is needed.
 
 To add another local bucket, add an `insert into storage.buckets` statement to
 `supabase/seed.sql`, run `pnpm db:reset`, and update `RESUMES_BUCKET` in `.env.local`.
+
+### App email (local)
+
+Invite and role-change emails go through [`lib/aws/ses.ts`](../lib/aws/ses.ts) via
+Nodemailer. The same code runs in every environment; `.env.local` sets `SMTP_HOST` so
+the client uses Mailpit instead of AWS SES. Production uses `SES_ACCESS_KEY_ID` /
+`SES_SECRET_ACCESS_KEY` — see [Remote development](./remote-development.md).
+
+**Env wiring** — [`scripts/gen-env-local.sh`](../scripts/gen-env-local.sh) writes:
+
+| Variable    | Purpose                         |
+| ----------- | ------------------------------- |
+| `SMTP_HOST` | `127.0.0.1` — selects Mailpit   |
+| `SMTP_PORT` | `54325` — Supabase Mailpit SMTP |
+
+View captured emails at `http://127.0.0.1:54324`.
 
 ## 2. Change the schema
 

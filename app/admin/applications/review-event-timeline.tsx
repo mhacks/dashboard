@@ -6,6 +6,14 @@ import type {
   ReviewAuditEventRecord,
   ReviewEventRecord,
 } from "@/lib/types/application-reviews";
+import {
+  applicationStatusBadgeClass,
+  reviewEventTypeBadgeClass,
+} from "@/lib/utils/badge-classes";
+import {
+  formatShortDateTime,
+  formatTimelineTimestamp,
+} from "@/lib/format/dates";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { paginateSlice } from "@/lib/pagination";
@@ -31,54 +39,9 @@ function isAuditEvent(event: TimelineEvent): event is ReviewAuditEventRecord {
   return "applicationName" in event;
 }
 
-function formatEventTimestamp(value: string, compact: true): string;
-function formatEventTimestamp(
-  value: string,
-  compact?: false,
-): { date: string; time: string };
-function formatEventTimestamp(value: string, compact = false) {
-  const date = new Date(value);
-  if (compact) {
-    return date.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }
-
-  return {
-    date: date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    }),
-    time: date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
-  };
-}
-
-function eventTypeBadgeClass(eventType: ReviewEventRecord["eventType"]) {
-  if (eventType === "review_completed") {
-    return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/70 dark:bg-green-950/50 dark:text-green-300";
-  }
-  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300";
-}
-
 function eventTypeLabel(eventType: ReviewEventRecord["eventType"]) {
   if (eventType === "review_completed") return "Completed";
   return "Draft saved";
-}
-
-function statusBadgeClass(status: ReviewAuditEventRecord["applicationStatus"]) {
-  if (status === "reviewed") {
-    return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/70 dark:bg-green-950/50 dark:text-green-300";
-  }
-  if (status === "flagged") {
-    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/50 dark:text-amber-300";
-  }
-  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300";
 }
 
 function ChangeChip({
@@ -125,7 +88,7 @@ function ChangeChip({
 
 function CompactReviewEventRow({ event }: { event: TimelineEvent }) {
   const changes = Object.entries(event.changes);
-  const timestamp = formatEventTimestamp(event.createdAt, true);
+  const timestamp = formatShortDateTime(event.createdAt);
 
   return (
     <div className="min-w-0 space-y-2 py-3">
@@ -133,14 +96,14 @@ function CompactReviewEventRow({ event }: { event: TimelineEvent }) {
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <Badge
             variant="outline"
-            className={eventTypeBadgeClass(event.eventType)}
+            className={reviewEventTypeBadgeClass(event.eventType)}
           >
             {eventTypeLabel(event.eventType)}
           </Badge>
           {isAuditEvent(event) ? (
             <Badge
               variant="outline"
-              className={statusBadgeClass(event.applicationStatus)}
+              className={applicationStatusBadgeClass(event.applicationStatus)}
             >
               {applicationStatusLabel(event.applicationStatus)}
             </Badge>
@@ -187,7 +150,7 @@ export function ReviewEventRow({
   }
 
   const changes = Object.entries(event.changes);
-  const timestamp = formatEventTimestamp(event.createdAt);
+  const timestamp = formatTimelineTimestamp(event.createdAt);
 
   return (
     <div className="relative flex min-w-0 gap-3 px-4 py-3">
@@ -220,14 +183,14 @@ export function ReviewEventRow({
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge
             variant="outline"
-            className={eventTypeBadgeClass(event.eventType)}
+            className={reviewEventTypeBadgeClass(event.eventType)}
           >
             {eventTypeLabel(event.eventType)}
           </Badge>
           {isAuditEvent(event) ? (
             <Badge
               variant="outline"
-              className={statusBadgeClass(event.applicationStatus)}
+              className={applicationStatusBadgeClass(event.applicationStatus)}
             >
               {applicationStatusLabel(event.applicationStatus)}
             </Badge>

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { destinationForRole } from "@/lib/auth/redirects";
 import { getSessionUser } from "@/lib/auth/session";
+import { acceptPendingUserInvite } from "@/lib/queries/user-invitations";
 import { createClient } from "@/lib/supabase/server";
 import { getPostHogClient } from "@/lib/posthog-server";
 
@@ -57,6 +58,8 @@ export async function verifyOtp(
   if (error) return { error: error.message };
 
   if (data.user) {
+    await acceptPendingUserInvite(data.user.id, email);
+
     const posthog = getPostHogClient();
     posthog.capture({
       distinctId: data.user.id,

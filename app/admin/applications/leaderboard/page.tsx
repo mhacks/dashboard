@@ -6,6 +6,7 @@ import {
   UsersRoundIcon,
 } from "lucide-react";
 import { getApplicationReviewLeaderboard } from "@/lib/queries/application-review";
+import { formatShortDateTime } from "@/lib/format/dates";
 import type { ReviewLeaderboardRow } from "@/lib/types/application-reviews";
 import {
   Card,
@@ -21,16 +22,6 @@ import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { Meter } from "../components/meter";
 import { SummaryBar } from "../components/summary-bar";
 import { AuditActivityFeed } from "./audit-activity-feed";
-
-function formatDate(value: string | null) {
-  if (!value) return "No activity yet";
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 function rankIcon(index: number) {
   if (index === 0) {
@@ -87,7 +78,10 @@ function LeaderboardRow({
           <div className="min-w-0">
             <p className="truncate font-medium">{row.reviewerEmail}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Last completed {formatDate(row.lastActivityAt)}
+              Last completed{" "}
+              {row.lastActivityAt
+                ? formatShortDateTime(row.lastActivityAt)
+                : "No activity yet"}
             </p>
           </div>
         </div>

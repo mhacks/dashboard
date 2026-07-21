@@ -2,6 +2,7 @@ import {
   BarChart3Icon,
   ClipboardCheckIcon,
   TrophyIcon,
+  UsersRoundIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,6 +43,20 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Analytics",
         description: "Demographics, locations, and score trends.",
         icon: BarChart3Icon,
+      },
+    ],
+  },
+  {
+    title: "Team",
+    description: "Invite users and manage portal access.",
+    icon: UsersRoundIcon,
+    links: [
+      {
+        href: "/admin/team",
+        title: "User invites",
+        description:
+          "Send email invitations and assign organizer or hacker roles.",
+        icon: UsersRoundIcon,
       },
     ],
   },

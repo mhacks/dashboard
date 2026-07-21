@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { AdminHeaderActions } from "./admin-header-actions";
-import { adminPageHeaderClasses } from "./admin-page-header-layout";
+import {
+  adminPageHeaderClasses,
+  type AdminPageHeaderVariant,
+} from "./admin-page-header-layout";
 
 export function AdminPageHeader({
   title,
@@ -10,7 +13,7 @@ export function AdminPageHeader({
 }: {
   title: string;
   description?: string;
-  variant?: "page" | "workspace";
+  variant?: AdminPageHeaderVariant;
   footer?: ReactNode;
 }) {
   const classes = adminPageHeaderClasses(variant);
