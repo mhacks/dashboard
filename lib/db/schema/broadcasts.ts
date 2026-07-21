@@ -6,7 +6,7 @@ export const broadcastLogs = pgTable("broadcast_logs", {
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
-  sentBy: uuid("sent_by").references(() => users.id),
+  sentBy: uuid("sent_by").references(() => users.id, { onDelete: "set null" }),
   broadcastedToEmail: jsonb("broadcasted_to_email").$type<string[]>().notNull().default([]),
   broadcastedToText: jsonb("broadcasted_to_text").$type<string[]>().notNull().default([]),
 }).enableRLS();
