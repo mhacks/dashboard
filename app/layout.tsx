@@ -38,7 +38,7 @@ const redHatDisplay = Red_Hat_Display({
 export const metadata: Metadata = {
   title: "MHacks 2026",
   description:
-    "Michigan's premier student hackathon — 36 hours, limitless ideas.",
+    "Michigan's premier student hackathon — 24 hours, limitless ideas.",
 };
 
 export default function RootLayout({
