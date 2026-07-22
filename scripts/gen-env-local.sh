@@ -19,6 +19,8 @@ get_var() {
 
 DB_URL=$(get_var DB_URL)
 API_URL=$(get_var API_URL)
+# Newer CLI versions omit API_URL; fall back to the known local default
+[[ -z "$API_URL" ]] && API_URL="http://127.0.0.1:54321"
 PUBLISHABLE_KEY=$(get_var PUBLISHABLE_KEY)
 S3_ACCESS_KEY=$(get_var S3_PROTOCOL_ACCESS_KEY_ID)
 S3_SECRET_KEY=$(get_var S3_PROTOCOL_ACCESS_KEY_SECRET)
@@ -27,7 +29,6 @@ S3_REGION=$(get_var S3_PROTOCOL_REGION)
 
 missing=()
 [[ -z "$DB_URL" ]] && missing+=("DATABASE_URL")
-[[ -z "$API_URL" ]] && missing+=("NEXT_PUBLIC_SUPABASE_URL")
 [[ -z "$PUBLISHABLE_KEY" ]] && missing+=("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
 [[ -z "$S3_ACCESS_KEY" ]] && missing+=("S3_PROTOCOL_ACCESS_KEY_ID")
 [[ -z "$S3_SECRET_KEY" ]] && missing+=("S3_PROTOCOL_ACCESS_KEY_SECRET")
