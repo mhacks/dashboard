@@ -324,9 +324,7 @@ function ClientPanel({ client }: { client: ClientId }) {
           <code className="font-mono text-[13px]">~/.codex/config.toml</code>:
         </p>
         <CodeBlock>{`[mcp_servers.mhacks]\nurl = "${SERVER_URL}"`}</CodeBlock>
-        <p>
-          Then log in and approve access with:
-        </p>
+        <p>Then log in and approve access with:</p>
         <CodeBlock>{`codex mcp login mhacks`}</CodeBlock>
         <p>
           Codex will open a browser window for the same email one-time-code
