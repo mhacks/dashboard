@@ -324,9 +324,11 @@ function ClientPanel({ client }: { client: ClientId }) {
           <code className="font-mono text-[13px]">~/.codex/config.toml</code>:
         </p>
         <CodeBlock>{`[mcp_servers.mhacks]\nurl = "${SERVER_URL}"`}</CodeBlock>
+        <p>Then log in and approve access with:</p>
+        <CodeBlock>{`codex mcp login mhacks`}</CodeBlock>
         <p>
-          Codex will open a browser window to log in (same email one-time-code
-          flow) and approve access the first time it calls the server.
+          Codex will open a browser window for the same email one-time-code
+          flow.
         </p>
       </div>
     );
@@ -529,16 +531,25 @@ function AuthSection() {
 
 /* ── gutter photo ────────────────────────────────────────────────────── */
 
-// Same clear-band math as the old ascii-flower field: content gets a
-// min(940px, viewport - 64px) clear band down the middle, and whatever's
-// left on either side is gutter. Fixed position (not scroll-linked) since
-// a static photo doesn't need the flowers' scroll-driven redraw.
-const GUTTER_WIDTH =
-  "max(0px, calc((100vw - min(940px, calc(100vw - 64px))) / 2))";
+// The clear band must never run narrower than the content column, or text
+// spills past it into the photo. The content column is `max-w-3xl` (768px)
+// with `sm:px-6` (24px/side = 48px total) padding — the gutter photo only
+// ever renders at sm and up, so those are the only numbers that matter
+// here. MIN_GAP is extra breathing room on top of that: pure cream between
+// the text and the photo, never the two touching edge-to-edge. Below the
+// viewport where that gap can be honored, the photo clamps to 0 and just
+// isn't shown — "disappear" is the fallback, not the padding. Fixed
+// position (not scroll-linked) since a static photo doesn't need the
+// flowers' scroll-driven redraw.
+const MIN_GAP = 32;
+const GUTTER_WIDTH = `max(0px, calc((100vw - min(768px, calc(100vw - 48px))) / 2 - ${MIN_GAP}px))`;
 
 function GutterPhoto() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 -z-10 hidden sm:block"
+    >
       <div
         className="absolute inset-y-0 left-0"
         style={{
@@ -585,7 +596,7 @@ export default function HowToMcpPage() {
           />
           <Reveal onLoad className="flex flex-col gap-3">
             <h1
-              className="font-red-hat italic text-4xl leading-[0.95] tracking-tight sm:text-6xl"
+              className="font-red-hat italic text-4xl leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl"
               style={{ color: MOSS }}
             >
               Connect an AI agent to&nbsp;MHacks
