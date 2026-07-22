@@ -251,6 +251,7 @@ const CLIENTS = [
   { id: "claude", label: "Claude.ai" },
   { id: "claude-code", label: "Claude Code" },
   { id: "codex", label: "Codex CLI" },
+  { id: "chatgpt", label: "ChatGPT" },
   { id: "other", label: "Other" },
 ] as const;
 
@@ -305,6 +306,40 @@ function ClientPanel({ client }: { client: ClientId }) {
           <code className="font-mono text-[13px]">mhacks</code>, and
           authenticate — same email login + approval as Claude.ai.
         </p>
+      </div>
+    );
+  }
+  if (client === "chatgpt") {
+    return (
+      <div className="flex flex-col gap-2">
+        {/*
+          Best-effort: based on ChatGPT's custom-connector flow as of this
+          assistant's knowledge cutoff (Jan 2026), which lives behind
+          Developer mode and requires a Plus/Pro/Team/Enterprise account.
+          ChatGPT's connector UI moves around — verify against current
+          OpenAI docs before treating this as authoritative.
+        */}
+        <p style={{ color: MOSS_SOFT }}>
+          Requires a ChatGPT plan that supports custom connectors
+          (Plus, Pro, Team, or Enterprise).
+        </p>
+        <ol className="flex flex-col">
+          <Step n={1}>
+            Go to Settings → Connectors → Advanced, and turn on Developer
+            mode.
+          </Step>
+          <Step n={2}>
+            Back in Connectors, choose Create and paste the server URL above.
+          </Step>
+          <Step n={3}>
+            ChatGPT will open a login page — sign in with your email (MHacks
+            uses a one-time code, no password) and approve the connection.
+          </Step>
+          <Step n={4}>
+            In a chat, open the connector picker (the “+” or tools menu) and
+            enable the MHacks connector so the model can call it.
+          </Step>
+        </ol>
       </div>
     );
   }
@@ -529,16 +564,25 @@ function AuthSection() {
 
 /* ── gutter photo ────────────────────────────────────────────────────── */
 
-// Same clear-band math as the old ascii-flower field: content gets a
-// min(940px, viewport - 64px) clear band down the middle, and whatever's
-// left on either side is gutter. Fixed position (not scroll-linked) since
-// a static photo doesn't need the flowers' scroll-driven redraw.
-const GUTTER_WIDTH =
-  "max(0px, calc((100vw - min(940px, calc(100vw - 64px))) / 2))";
+// The clear band must never run narrower than the content column, or text
+// spills past it into the photo. The content column is `max-w-3xl` (768px)
+// with `sm:px-6` (24px/side = 48px total) padding — the gutter photo only
+// ever renders at sm and up, so those are the only numbers that matter
+// here. MIN_GAP is extra breathing room on top of that: pure cream between
+// the text and the photo, never the two touching edge-to-edge. Below the
+// viewport where that gap can be honored, the photo clamps to 0 and just
+// isn't shown — "disappear" is the fallback, not the padding. Fixed
+// position (not scroll-linked) since a static photo doesn't need the
+// flowers' scroll-driven redraw.
+const MIN_GAP = 32;
+const GUTTER_WIDTH = `max(0px, calc((100vw - min(768px, calc(100vw - 48px))) / 2 - ${MIN_GAP}px))`;
 
 function GutterPhoto() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 -z-10 hidden sm:block"
+    >
       <div
         className="absolute inset-y-0 left-0"
         style={{
@@ -585,7 +629,7 @@ export default function HowToMcpPage() {
           />
           <Reveal onLoad className="flex flex-col gap-3">
             <h1
-              className="font-red-hat italic text-4xl leading-[0.95] tracking-tight sm:text-6xl"
+              className="font-red-hat italic text-4xl leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl"
               style={{ color: MOSS }}
             >
               Connect an AI agent to&nbsp;MHacks
