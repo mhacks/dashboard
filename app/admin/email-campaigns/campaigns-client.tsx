@@ -2345,7 +2345,7 @@ function buildAiTemplateContext(
             ],
             cta: {
               label: "optional CTA label",
-              url: "optional http(s) URL",
+              url: "optional plain http(s) or mailto URL; Markdown link syntax is accepted and normalized",
             },
             footerNote: "optional footer note",
           },
@@ -2517,10 +2517,13 @@ function parseAiContentDraft(
       throw new Error("CTA must include label and url.");
     }
 
-    assertHttpUrl(draft.cta.url);
+    const ctaUrl = normalizeDraftUrl(
+      boundedString(draft.cta.url, "CTA URL", 500, true),
+    );
+    assertEmailLinkUrl(ctaUrl);
     content.cta = {
       label: boundedString(draft.cta.label, "CTA label", 80, true),
-      url: boundedString(draft.cta.url, "CTA URL", 500, true),
+      url: ctaUrl,
     };
   }
 
@@ -2565,17 +2568,26 @@ function assertSafeHtml(html: string) {
   }
 }
 
-function assertHttpUrl(url: string) {
+function normalizeDraftUrl(value: string) {
+  const markdownLink = value.match(/^\[[^\]]+]\(([^)]+)\)$/);
+  return markdownLink ? markdownLink[1].trim() : value;
+}
+
+function assertEmailLinkUrl(url: string) {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    if (
+      parsed.protocol === "http:" ||
+      parsed.protocol === "https:" ||
+      parsed.protocol === "mailto:"
+    ) {
       return;
     }
   } catch {
     // handled below
   }
 
-  throw new Error("CTA URL must use http or https.");
+  throw new Error("CTA URL must use http, https, or mailto.");
 }
 
 function boundedString(

@@ -2,18 +2,20 @@ import { z } from "zod";
 
 const maxRecipientTextLength = 300_000;
 const maxHtmlTemplateLength = 500_000;
-const httpUrlSchema = z
+const emailLinkUrlSchema = z
   .string()
   .url()
   .refine(
     (value) => {
       try {
-        return ["http:", "https:"].includes(new URL(value).protocol);
+        return ["http:", "https:", "mailto:"].includes(
+          new URL(value).protocol,
+        );
       } catch {
         return false;
       }
     },
-    { message: "URL must use http or https" },
+    { message: "URL must use http, https, or mailto" },
   );
 
 export const emailBodySectionSchema = z.object({
@@ -25,7 +27,7 @@ export const emailBodySectionSchema = z.object({
 
 export const emailCtaSchema = z.object({
   label: z.string().min(1),
-  url: httpUrlSchema,
+  url: emailLinkUrlSchema,
 });
 
 export const emailCampaignContentSchema = z.object({

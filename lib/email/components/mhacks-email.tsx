@@ -63,7 +63,7 @@ export function EmailSection({
       ) : (
         body.split("\n").map((line, index) => (
           <Text key={`${line}-${index}`} style={paragraphStyle(theme)}>
-            {renderInlineText(line)}
+            {renderInlineText(line, theme)}
           </Text>
         ))
       )}
@@ -71,8 +71,10 @@ export function EmailSection({
   );
 }
 
-function renderInlineText(value: string) {
-  const parts = value.split(/(\*\*[^*]+\*\*)/g);
+function renderInlineText(value: string, theme: EmailThemeTokens) {
+  const parts = value.split(
+    /(\*\*[^*]+\*\*|\[[^\]]+]\((?:https?:\/\/|mailto:)[^)]+\))/g,
+  );
 
   return parts.map((part, index) => {
     if (part.startsWith("**") && part.endsWith("**")) {
@@ -80,6 +82,21 @@ function renderInlineText(value: string) {
         <strong key={`${part}-${index}`} style={strongStyle}>
           {part.slice(2, -2)}
         </strong>
+      );
+    }
+
+    const markdownLink = part.match(
+      /^\[([^\]]+)]\(((?:https?:\/\/|mailto:)[^)]+)\)$/,
+    );
+    if (markdownLink) {
+      return (
+        <Link
+          key={`${part}-${index}`}
+          href={markdownLink[2]}
+          style={inlineLinkStyle(theme)}
+        >
+          {markdownLink[1]}
+        </Link>
       );
     }
 
@@ -132,7 +149,9 @@ export function EmailFooter({
 }) {
   return (
     <Section>
-      {note ? <Text style={smallStyle(theme)}>{note}</Text> : null}
+      {note ? (
+        <Text style={smallStyle(theme)}>{renderInlineText(note, theme)}</Text>
+      ) : null}
       <Hr style={footerRule} />
       <Row style={footerRow}>
         <Column style={footerColumn}>
@@ -208,6 +227,12 @@ const strongStyle = {
   color: "#050505",
   fontWeight: "700",
 };
+
+const inlineLinkStyle = (theme: EmailThemeTokens) => ({
+  color: theme.green,
+  fontWeight: "700",
+  textDecoration: "underline",
+});
 
 const smallStyle = (theme: EmailThemeTokens) => ({
   color: theme.muted,
