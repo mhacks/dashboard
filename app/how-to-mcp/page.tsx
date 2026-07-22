@@ -251,6 +251,7 @@ const CLIENTS = [
   { id: "claude", label: "Claude.ai" },
   { id: "claude-code", label: "Claude Code" },
   { id: "codex", label: "Codex CLI" },
+  { id: "chatgpt", label: "ChatGPT" },
   { id: "other", label: "Other" },
 ] as const;
 
@@ -305,6 +306,40 @@ function ClientPanel({ client }: { client: ClientId }) {
           <code className="font-mono text-[13px]">mhacks</code>, and
           authenticate — same email login + approval as Claude.ai.
         </p>
+      </div>
+    );
+  }
+  if (client === "chatgpt") {
+    return (
+      <div className="flex flex-col gap-2">
+        {/*
+          Best-effort: based on ChatGPT's custom-connector flow as of this
+          assistant's knowledge cutoff (Jan 2026), which lives behind
+          Developer mode and requires a Plus/Pro/Team/Enterprise account.
+          ChatGPT's connector UI moves around — verify against current
+          OpenAI docs before treating this as authoritative.
+        */}
+        <p style={{ color: MOSS_SOFT }}>
+          Requires a ChatGPT plan that supports custom connectors
+          (Plus, Pro, Team, or Enterprise).
+        </p>
+        <ol className="flex flex-col">
+          <Step n={1}>
+            Go to Settings → Connectors → Advanced, and turn on Developer
+            mode.
+          </Step>
+          <Step n={2}>
+            Back in Connectors, choose Create and paste the server URL above.
+          </Step>
+          <Step n={3}>
+            ChatGPT will open a login page — sign in with your email (MHacks
+            uses a one-time code, no password) and approve the connection.
+          </Step>
+          <Step n={4}>
+            In a chat, open the connector picker (the “+” or tools menu) and
+            enable the MHacks connector so the model can call it.
+          </Step>
+        </ol>
       </div>
     );
   }
@@ -527,184 +562,27 @@ function AuthSection() {
   );
 }
 
-/* ── developer spec ─────────────────────────────────────────────────── */
-
-const SPEC_ROWS = [
-  { term: "Transport", value: "MCP Streamable HTTP" },
-  { term: "Auth", value: "OAuth 2.1 · Supabase Auth" },
-  { term: "PKCE", value: "required" },
-  { term: "Registration", value: "dynamic (RFC 7591)" },
-  { term: "Scope", value: "application:write" },
-];
-
-function DevSection() {
-  return (
-    <section className="flex flex-col gap-6">
-      <SectionHeading title="Building a custom integration" />
-      <div
-        className="font-red-hat flex flex-col gap-4 text-[15px] leading-relaxed"
-        style={{ color: MOSS }}
-      >
-        <p>
-          Any developer can build their own client against this server. The
-          short version:
-        </p>
-        <div className="flex flex-col">
-          {SPEC_ROWS.map((row) => (
-            <div
-              key={row.term}
-              className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b px-1 py-3"
-              style={{ borderColor: HAIRLINE }}
-            >
-              <span
-                className="font-mono text-[12px] uppercase tracking-[0.15em]"
-                style={{ color: MOSS_FAINT }}
-              >
-                {row.term}
-              </span>
-              <span
-                className="hidden flex-1 -translate-y-1 border-b border-dotted sm:block"
-                style={{ borderColor: LEADER }}
-              />
-              <span
-                className="font-mono text-[13px] font-semibold tracking-[0.04em]"
-                style={{ color: MOSS }}
-              >
-                {row.value}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p style={{ color: MOSS_SOFT }}>
-          The Authorization Server is Supabase Auth — not this app. An
-          unauthenticated request gets a{" "}
-          <code className="font-mono text-[13px]">401</code> with a{" "}
-          <code className="font-mono text-[13px]">WWW-Authenticate</code> header
-          pointing at{" "}
-          <code className="font-mono text-[13px]">
-            /.well-known/oauth-protected-resource
-          </code>
-          , which in turn points at Supabase&apos;s own{" "}
-          <code className="font-mono text-[13px]">
-            /.well-known/oauth-authorization-server
-          </code>{" "}
-          for the standard discovery, authorize, and token endpoints.
-        </p>
-        <p style={{ color: MOSS_SOFT }}>
-          Your client can self-register a{" "}
-          <code className="font-mono text-[13px]">client_id</code> via Dynamic
-          Client Registration instead of needing one issued manually — most MCP
-          clients (Claude.ai, Claude Code, etc.) do this automatically. Identity
-          always comes from the verified token, never from a value the client
-          supplies.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/* ── troubleshooting FAQ ─────────────────────────────────────────────── */
-
-const FAQS: { q: string; a: React.ReactNode }[] = [
-  {
-    q: 'My client is asking me for a "Client ID"',
-    a: (
-      <>
-        Make sure you&apos;re using the exact URL above. Most clients
-        self-register automatically via Dynamic Client Registration — yours
-        asking for one specifically means the client itself doesn&apos;t
-        implement dynamic registration (not something on our end). Contact the
-        MHacks team for a manually-issued client ID in that case.
-      </>
-    ),
-  },
-];
-
-function FaqItem({
-  question,
-  children,
-  defaultOpen = false,
-}: {
-  question: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  const reduced = useReducedMotion();
-  return (
-    <div className="border-b" style={{ borderColor: HAIRLINE }}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3A4A26]"
-      >
-        <span
-          className="font-red-hat text-[15px] font-semibold leading-relaxed"
-          style={{ color: MOSS }}
-        >
-          {question}
-        </span>
-        <span
-          aria-hidden
-          className="shrink-0 font-mono text-[16px] transition-transform duration-300"
-          style={{
-            color: MOSS_FAINT,
-            transform: open ? "rotate(45deg)" : "rotate(0deg)",
-          }}
-        >
-          +
-        </span>
-      </button>
-      <motion.div
-        initial={false}
-        animate={
-          reduced
-            ? undefined
-            : { height: open ? "auto" : 0, opacity: open ? 1 : 0 }
-        }
-        transition={{ duration: 0.3, ease: EASE }}
-        className="overflow-hidden"
-        style={reduced ? { display: open ? "block" : "none" } : undefined}
-      >
-        <p
-          className="font-red-hat pb-4 text-[15px] leading-relaxed"
-          style={{ color: MOSS_SOFT }}
-        >
-          {children}
-        </p>
-      </motion.div>
-    </div>
-  );
-}
-
-function TroubleshootingSection() {
-  return (
-    <section className="flex flex-col gap-6">
-      <SectionHeading title="Trouble connecting" />
-      <div className="flex flex-col">
-        {FAQS.map((f, i) => (
-          <FaqItem key={i} question={f.q}>
-            {f.a}
-          </FaqItem>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 /* ── gutter photo ────────────────────────────────────────────────────── */
 
-// Same clear-band math as the old ascii-flower field: content gets a
-// min(940px, viewport - 64px) clear band down the middle, and whatever's
-// left on either side is gutter. Fixed position (not scroll-linked) since
-// a static photo doesn't need the flowers' scroll-driven redraw.
-const GUTTER_WIDTH =
-  "max(0px, calc((100vw - min(940px, calc(100vw - 64px))) / 2))";
+// The clear band must never run narrower than the content column, or text
+// spills past it into the photo. The content column is `max-w-3xl` (768px)
+// with `sm:px-6` (24px/side = 48px total) padding — the gutter photo only
+// ever renders at sm and up, so those are the only numbers that matter
+// here. MIN_GAP is extra breathing room on top of that: pure cream between
+// the text and the photo, never the two touching edge-to-edge. Below the
+// viewport where that gap can be honored, the photo clamps to 0 and just
+// isn't shown — "disappear" is the fallback, not the padding. Fixed
+// position (not scroll-linked) since a static photo doesn't need the
+// flowers' scroll-driven redraw.
+const MIN_GAP = 32;
+const GUTTER_WIDTH = `max(0px, calc((100vw - min(768px, calc(100vw - 48px))) / 2 - ${MIN_GAP}px))`;
 
 function GutterPhoto() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 -z-10 hidden sm:block"
+    >
       <div
         className="absolute inset-y-0 left-0"
         style={{
@@ -751,7 +629,7 @@ export default function HowToMcpPage() {
           />
           <Reveal onLoad className="flex flex-col gap-3">
             <h1
-              className="font-red-hat italic text-4xl leading-[0.95] tracking-tight sm:text-6xl"
+              className="font-red-hat italic text-4xl leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl"
               style={{ color: MOSS }}
             >
               Connect an AI agent to&nbsp;MHacks
@@ -786,9 +664,6 @@ export default function HowToMcpPage() {
         <ConnectSection />
         <PromptsSection />
         <AuthSection />
-        {/* <DevSection /> */}
-
-        {/* <TroubleshootingSection /> */}
       </div>
       <SiteFooter />
     </div>
