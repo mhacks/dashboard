@@ -359,8 +359,12 @@ function ClientPanel({ client }: { client: ClientId }) {
         </p>
         <CodeBlock>{`[mcp_servers.mhacks]\nurl = "${SERVER_URL}"`}</CodeBlock>
         <p>
-          Codex will open a browser window to log in (same email one-time-code
-          flow) and approve access the first time it calls the server.
+          Then log in and approve access with:
+        </p>
+        <CodeBlock>{`codex mcp login mhacks`}</CodeBlock>
+        <p>
+          Codex will open a browser window for the same email one-time-code
+          flow.
         </p>
       </div>
     );
