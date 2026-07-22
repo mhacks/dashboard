@@ -320,13 +320,12 @@ function ClientPanel({ client }: { client: ClientId }) {
           OpenAI docs before treating this as authoritative.
         */}
         <p style={{ color: MOSS_SOFT }}>
-          Requires a ChatGPT plan that supports custom connectors
-          (Plus, Pro, Team, or Enterprise).
+          Requires a ChatGPT plan that supports custom connectors (Plus, Pro,
+          Team, or Enterprise).
         </p>
         <ol className="flex flex-col">
           <Step n={1}>
-            Go to Settings → Connectors → Advanced, and turn on Developer
-            mode.
+            Go to Settings → Connectors → Advanced, and turn on Developer mode.
           </Step>
           <Step n={2}>
             Back in Connectors, choose Create and paste the server URL above.
