@@ -251,7 +251,6 @@ const CLIENTS = [
   { id: "claude", label: "Claude.ai" },
   { id: "claude-code", label: "Claude Code" },
   { id: "codex", label: "Codex CLI" },
-  { id: "chatgpt", label: "ChatGPT" },
   { id: "other", label: "Other" },
 ] as const;
 
@@ -306,39 +305,6 @@ function ClientPanel({ client }: { client: ClientId }) {
           <code className="font-mono text-[13px]">mhacks</code>, and
           authenticate — same email login + approval as Claude.ai.
         </p>
-      </div>
-    );
-  }
-  if (client === "chatgpt") {
-    return (
-      <div className="flex flex-col gap-2">
-        {/*
-          Best-effort: based on ChatGPT's custom-connector flow as of this
-          assistant's knowledge cutoff (Jan 2026), which lives behind
-          Developer mode and requires a Plus/Pro/Team/Enterprise account.
-          ChatGPT's connector UI moves around — verify against current
-          OpenAI docs before treating this as authoritative.
-        */}
-        <p style={{ color: MOSS_SOFT }}>
-          Requires a ChatGPT plan that supports custom connectors (Plus, Pro,
-          Team, or Enterprise).
-        </p>
-        <ol className="flex flex-col">
-          <Step n={1}>
-            Go to Settings → Connectors → Advanced, and turn on Developer mode.
-          </Step>
-          <Step n={2}>
-            Back in Connectors, choose Create and paste the server URL above.
-          </Step>
-          <Step n={3}>
-            ChatGPT will open a login page — sign in with your email (MHacks
-            uses a one-time code, no password) and approve the connection.
-          </Step>
-          <Step n={4}>
-            In a chat, open the connector picker (the “+” or tools menu) and
-            enable the MHacks connector so the model can call it.
-          </Step>
-        </ol>
       </div>
     );
   }
