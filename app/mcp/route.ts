@@ -11,7 +11,6 @@ import {
   PostHogMCPAnalyticsProperty,
   type BeforeSendFn,
 } from "@posthog/mcp";
-import { PostHog } from "posthog-node";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 import {
@@ -28,6 +27,7 @@ import {
 import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
 import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -39,9 +39,14 @@ type ToolExtra = {
   };
 };
 
-function requireUserId(extra: ToolExtra): string {
+function getUserIdFromExtra(extra: ToolExtra): string | null {
   const userId = extra?.authInfo?.extra?.userId;
-  if (typeof userId !== "string") {
+  return typeof userId === "string" ? userId : null;
+}
+
+function requireUserId(extra: ToolExtra): string {
+  const userId = getUserIdFromExtra(extra);
+  if (!userId) {
     throw new Error("Unauthorized: missing user identity");
   }
   return userId;
@@ -212,39 +217,26 @@ const draftInputShape = Object.fromEntries(
   ]),
 ) as Record<string, z.ZodTypeAny>;
 
-const posthog = process.env.POSTHOG_PROJECT_TOKEN
-  ? new PostHog(process.env.POSTHOG_PROJECT_TOKEN, {
-      host: process.env.POSTHOG_HOST ?? "https://us.i.posthog.com",
-      flushAt: 1,
-      flushInterval: 0,
-      enableExceptionAutocapture: true,
-    })
-  : null;
-
-// Tool arguments/responses routinely carry applicant PII (essays, phone
-// numbers, resume S3 keys, presigned upload URLs) — strip them before
-// they're sent to PostHog rather than relying on @posthog/mcp's generic
-// binary/sensitive-key sanitization, which has no awareness of this app's
-// specific fields. Everything else ($mcp_tool_name, duration, error type,
-// distinct_id, etc.) is kept.
+// Tool args/responses can contain applicant PII (essays, phone, resume keys,
+// presigned URLs). Server actions never send raw payloads; strip these fields
+// from MCP instrumentation the same way.
 const redactMcpPayloads: BeforeSendFn = (event) => {
-  delete event.properties[PostHogMCPAnalyticsProperty.Parameters];
-  delete event.properties[PostHogMCPAnalyticsProperty.Response];
+  if (event.properties) {
+    delete event.properties[PostHogMCPAnalyticsProperty.Parameters];
+    delete event.properties[PostHogMCPAnalyticsProperty.Response];
+  }
   return event;
 };
 
 const baseHandler = createMcpHandler(
   (server) => {
-    if (posthog) {
-      instrument(server, posthog, {
-        identify: async (_request, extra) => {
-          const userId = (extra as ToolExtra)?.authInfo?.extra?.userId;
-          if (typeof userId !== "string") return null;
-          return { distinctId: userId };
-        },
-        beforeSend: redactMcpPayloads,
-      });
-    }
+    instrument(server, getPostHogClient(), {
+      identify: async (_request, extra) => {
+        const userId = getUserIdFromExtra(extra as ToolExtra);
+        return userId ? { distinctId: userId } : null;
+      },
+      beforeSend: redactMcpPayloads,
+    });
     server.registerTool(
       "whoami",
       {
@@ -658,14 +650,4 @@ async function withBodySizeLimit(
   return authHandler(rebuilt);
 }
 
-async function withPostHogFlush(
-  req: Parameters<typeof withBodySizeLimit>[0],
-): ReturnType<typeof withBodySizeLimit> {
-  try {
-    return await withBodySizeLimit(req);
-  } finally {
-    if (posthog) await posthog.flush();
-  }
-}
-
-export { withPostHogFlush as GET, withPostHogFlush as POST };
+export { withBodySizeLimit as GET, withBodySizeLimit as POST };

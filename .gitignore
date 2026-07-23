@@ -47,5 +47,3 @@ next-env.d.ts
 
 .vscode
 .claude
-
-.env.local
