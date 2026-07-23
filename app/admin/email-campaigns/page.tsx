@@ -1,6 +1,5 @@
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { getCampaignLimits } from "@/lib/email/campaigns/config";
-import { listCampaigns } from "@/lib/email/campaigns/service";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import {
   getActiveTheme,
@@ -18,7 +17,7 @@ export default async function EmailCampaignsPage({
 }) {
   const params = await searchParams;
   const activeView = parseEmailCampaignView(params?.view);
-  const { templates, theme, campaigns } = await loadInitialEmailWorkspace();
+  const { templates, theme } = await loadInitialEmailWorkspace();
 
   return (
     <AdminPageShell width="full">
@@ -26,7 +25,6 @@ export default async function EmailCampaignsPage({
         initialSurface={activeView}
         initialTemplates={templates}
         initialTheme={theme}
-        initialCampaigns={campaigns}
         initialCampaignLimits={getCampaignLimits()}
       />
     </AdminPageShell>
@@ -46,14 +44,12 @@ function parseEmailCampaignView(
 }
 
 async function loadInitialEmailWorkspace() {
-  const [templateResult, themeResult, campaignResult] =
-    await Promise.allSettled([
-      listMasterTemplates(),
-      getActiveTheme(),
-      listCampaigns(),
-    ]);
+  const [templateResult, themeResult] = await Promise.allSettled([
+    listMasterTemplates(),
+    getActiveTheme(),
+  ]);
 
-  for (const result of [templateResult, themeResult, campaignResult]) {
+  for (const result of [templateResult, themeResult]) {
     if (result.status === "rejected" && isAuthGateError(result.reason)) {
       throw result.reason;
     }
@@ -68,8 +64,6 @@ async function loadInitialEmailWorkspace() {
       themeResult.status === "fulfilled"
         ? themeResult.value.theme
         : defaultEmailTheme,
-    campaigns:
-      campaignResult.status === "fulfilled" ? campaignResult.value : [],
   };
 }
 

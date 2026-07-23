@@ -61,20 +61,6 @@ interface CampaignLimits {
   maxSendRatePerSecond?: number;
 }
 
-interface CampaignSummary {
-  id: string;
-  name: string;
-  status: string;
-  subject: string;
-  previewText: string;
-  totalRecipients: number;
-  sentCount: number;
-  failedCount: number;
-  isDirectSend: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 interface RecipientSaveResult {
   emails: string[];
   invalid: string[];
@@ -83,8 +69,9 @@ interface RecipientSaveResult {
 }
 
 interface DirectSendStatus {
-  campaignId?: string;
+  runId: string;
   proofKey?: string;
+  staleBatchCursor?: number;
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
@@ -121,6 +108,7 @@ const themeStorageKey = "mhacks-email-active-theme";
 const themeStorageVersionKey = "mhacks-email-active-theme-version";
 const currentThemeStorageVersion = "m26-single-font-config";
 const activeSendStatusStorageKey = "mhacks-email-active-send-status";
+const activeSendRecipientsStorageKey = "mhacks-email-active-send-recipients";
 const activeTestProofStorageKey = "mhacks-email-active-test-proof";
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
@@ -138,13 +126,11 @@ export default function EmailCampaignsClient({
   initialSurface,
   initialTemplates,
   initialTheme,
-  initialCampaigns,
   initialCampaignLimits,
 }: {
   initialSurface: EmailCampaignSurface;
   initialTemplates: MasterTemplate[];
   initialTheme: EmailThemeTokens;
-  initialCampaigns: CampaignSummary[];
   initialCampaignLimits: CampaignLimits;
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
@@ -153,8 +139,9 @@ export default function EmailCampaignsClient({
   const [templates, setTemplates] =
     useState<MasterTemplate[]>(initialTemplates);
   const [campaignLimits] = useState<CampaignLimits>(initialCampaignLimits);
-  const [campaigns] = useState<CampaignSummary[]>(initialCampaigns);
-  const [recipientText, setRecipientText] = useState("");
+  const [recipientText, setRecipientText] = useState(() =>
+    loadStoredSendRecipients(),
+  );
   const [recipientResult, setRecipientResult] =
     useState<RecipientSaveResult | null>(null);
   const [sendOneEmail, setSendOneEmail] = useState("");
@@ -755,18 +742,36 @@ export default function EmailCampaignsClient({
     );
     try {
       let status: DirectSendStatus | null = null;
+      const runId = activeSendStatus?.runId ?? crypto.randomUUID();
       let cursor = activeSendStatus?.nextCursor ?? 0;
       let sentCount = activeSendStatus?.sentCount ?? 0;
       let failedCount = activeSendStatus?.failedCount ?? 0;
-      let campaignId = activeSendStatus?.campaignId;
       let recentFailures: DirectSendStatus["recentFailures"] =
         activeSendStatus?.recentFailures ?? [];
+
+      if (!activeSendStatus) {
+        commitSendStatus({
+          runId,
+          proofKey: currentTestProofKey,
+          totalRecipients: recipientResult?.emails.length ?? 0,
+          sentCount,
+          failedCount,
+          pendingCount: recipientResult?.emails.length ?? 0,
+          sendingCount: 0,
+          nextCursor: cursor,
+          complete: false,
+          invalid: recipientResult?.invalid ?? [],
+          duplicateCount: recipientResult?.duplicateCount ?? 0,
+          columns: recipientResult?.columns,
+          recentFailures,
+        });
+      }
 
       for (let batch = 0; batch < 1000; batch += 1) {
         status = await api<DirectSendStatus>("/api/admin/email/send/start", {
           method: "POST",
           body: JSON.stringify({
-            campaignId,
+            runId,
             template,
             recipients: recipientText,
             testSendToken: proof.token,
@@ -787,10 +792,13 @@ export default function EmailCampaignsClient({
         cursor = status.nextCursor;
         sentCount = status.sentCount;
         failedCount = status.failedCount;
-        campaignId = status.campaignId;
         recentFailures = status.recentFailures;
 
         if (status.complete) {
+          break;
+        }
+
+        if (status.staleBatchCursor !== undefined) {
           break;
         }
 
@@ -803,6 +811,8 @@ export default function EmailCampaignsClient({
         status
           ? status.complete
             ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
+            : status.staleBatchCursor !== undefined
+              ? "A batch may have partially sent before completion was recorded. Verify SES, then resolve the checked batch."
             : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending. Wait for the active batch to finish before continuing.`
           : "Send complete.",
       );
@@ -812,9 +822,15 @@ export default function EmailCampaignsClient({
         status
           ? status.complete
             ? `${status.sentCount} sent, ${status.failedCount} failed.`
+            : status.staleBatchCursor !== undefined
+              ? "Verify SES delivery for the stuck batch before resolving it."
             : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending.`
           : "Send complete.",
       );
+
+      if (status?.complete) {
+        clearCompletedSend();
+      }
     } catch (error) {
       const message = errorMessage(error);
       setSendNotice(message);
@@ -832,6 +848,69 @@ export default function EmailCampaignsClient({
   function clearSendStatus() {
     setSendStatus(null);
     removeStoredSendStatus();
+  }
+
+  function clearCompletedSend() {
+    setRecipientText("");
+    setRecipientResult(null);
+    removeStoredSendRecipients();
+    removeStoredSendStatus();
+  }
+
+  async function resolveStaleBatch() {
+    const template = buildDirectSendTemplate(selectedTemplate, theme);
+    const status = activeSendStatus;
+
+    if (!template || !status || status.staleBatchCursor === undefined) {
+      const message =
+        "Select the original template and keep the recipient list loaded before resolving this batch.";
+      setSendNotice(message);
+      showToast("error", "Cannot resolve batch", message);
+      return;
+    }
+
+    setBusy("start-send");
+    setSendNotice("Resolving checked batch...");
+    try {
+      const nextStatus = await api<DirectSendStatus>(
+        "/api/admin/email/send/start",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            runId: status.runId,
+            template,
+            recipients: recipientText,
+            cursor: status.nextCursor,
+            sentCount: status.sentCount,
+            failedCount: status.failedCount,
+            recentFailures: status.recentFailures,
+            resolveStaleBatch: { cursor: status.staleBatchCursor },
+          }),
+        },
+      );
+
+      commitSendStatus({ ...nextStatus, proofKey: currentTestProofKey });
+      if (nextStatus.complete) {
+        clearCompletedSend();
+        setSendNotice(
+          `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
+        );
+        showToast(
+          nextStatus.failedCount ? "error" : "success",
+          "List send complete",
+          `${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
+        );
+      } else {
+        setSendNotice("Checked batch resolved. Continue the send when ready.");
+        showToast("info", "Batch resolved", "The run can continue now.");
+      }
+    } catch (error) {
+      const message = errorMessage(error);
+      setSendNotice(message);
+      showToast("error", "Resolve failed", message);
+    } finally {
+      setBusy(null);
+    }
   }
 
   function commitTestSendProof(proof: TestSendProof) {
@@ -1045,7 +1124,6 @@ export default function EmailCampaignsClient({
             <SendPanel
               selectedTemplate={selectedTemplate}
               limits={campaignLimits}
-              recentCampaignCount={campaigns.length}
               recipientText={recipientText}
               recipientResult={recipientResult}
               sendOneEmail={sendOneEmail}
@@ -1056,6 +1134,7 @@ export default function EmailCampaignsClient({
               busy={busy}
               onRecipientTextChange={(value) => {
                 setRecipientText(value);
+                storeSendRecipients(value);
                 setRecipientResult(null);
                 clearSendStatus();
               }}
@@ -1064,6 +1143,7 @@ export default function EmailCampaignsClient({
               onSendOne={() => void sendOneRecipient()}
               onTestSend={() => void sendTestEmails()}
               onStartSend={() => void startFullSend()}
+              onResolveStaleBatch={() => void resolveStaleBatch()}
             />
           )}
         </section>
@@ -1142,7 +1222,7 @@ function EmailCampaignHeader({
           <h1 className={classes.title}>Email Campaigns</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Build reusable templates, preview merge fields, and send CSV-based
-            campaigns.
+            emails.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -1678,7 +1758,6 @@ function MergeFieldsPanel({
 function SendPanel({
   selectedTemplate,
   limits,
-  recentCampaignCount,
   recipientText,
   recipientResult,
   sendOneEmail,
@@ -1693,10 +1772,10 @@ function SendPanel({
   onSendOne,
   onTestSend,
   onStartSend,
+  onResolveStaleBatch,
 }: {
   selectedTemplate: MasterTemplate | null;
   limits: CampaignLimits;
-  recentCampaignCount: number;
   recipientText: string;
   recipientResult: RecipientSaveResult | null;
   sendOneEmail: string;
@@ -1711,6 +1790,7 @@ function SendPanel({
   onSendOne: () => void;
   onTestSend: () => void;
   onStartSend: () => void;
+  onResolveStaleBatch: () => void;
 }) {
   const sendRate = Math.floor(1000 / Math.max(1, limits.sendDelayMs));
   const templateCanSend = Boolean(
@@ -1721,9 +1801,7 @@ function SendPanel({
   const fullSendUnlocked = Boolean(testSendProof);
   const recipientInputDisabled = !fullSendUnlocked || Boolean(busy);
   const fullSendReady = Boolean(
-    templateCanSend &&
-    testSendProof &&
-    (recipientText.trim() || sendStatus?.campaignId),
+    templateCanSend && testSendProof && recipientText.trim(),
   );
 
   return (
@@ -1775,10 +1853,6 @@ function SendPanel({
               {limits.maxSendRatePerSecond
                 ? ` max ${limits.maxSendRatePerSecond}/sec`
                 : ""}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {recentCampaignCount} recent campaign
-              {recentCampaignCount === 1 ? "" : "s"} loaded
             </p>
           </div>
         </div>
@@ -1919,6 +1993,9 @@ function SendPanel({
                 {sendStatus.sendingCount
                   ? `, ${sendStatus.sendingCount} sending`
                   : ""}
+                {sendStatus.staleBatchCursor !== undefined
+                  ? ". Verify SES for the stuck batch before resolving it."
+                  : ""}
               </p>
             ) : testSendProof ? (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -1940,12 +2017,27 @@ function SendPanel({
           <div className="flex flex-wrap gap-2">
             <Button
               className={adminPrimaryButtonClass}
-              disabled={!fullSendReady || Boolean(busy)}
+              disabled={
+                !fullSendReady ||
+                Boolean(busy) ||
+                sendStatus?.staleBatchCursor !== undefined
+              }
               onClick={onStartSend}
             >
               <Play />
               {busy === "start-send" ? "Sending..." : "Start send"}
             </Button>
+            {sendStatus?.staleBatchCursor !== undefined ? (
+              <Button
+                variant="ghost"
+                className={adminSecondaryButtonClass}
+                disabled={Boolean(busy)}
+                onClick={onResolveStaleBatch}
+              >
+                <ListChecks />
+                Resolve checked batch
+              </Button>
+            ) : null}
           </div>
         </div>
         {sendStatus?.recentFailures.length ? (
@@ -2678,6 +2770,18 @@ function storeSendStatus(status: DirectSendStatus) {
 
 function removeStoredSendStatus() {
   window.localStorage.removeItem(activeSendStatusStorageKey);
+}
+
+function loadStoredSendRecipients() {
+  return window.localStorage.getItem(activeSendRecipientsStorageKey) ?? "";
+}
+
+function storeSendRecipients(recipients: string) {
+  window.localStorage.setItem(activeSendRecipientsStorageKey, recipients);
+}
+
+function removeStoredSendRecipients() {
+  window.localStorage.removeItem(activeSendRecipientsStorageKey);
 }
 
 function loadStoredTestSendProof() {

@@ -105,20 +105,6 @@ export const emailRenderPreviewSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export const campaignUpsertSchema = z.object({
-  name: z.string().min(1).max(120),
-  templateId: z.string().min(1),
-  subject: z.string().min(1).max(180),
-  previewText: z.string().max(220).default(""),
-  content: emailCampaignContentSchema,
-  templateSnapshot: z.unknown().optional(),
-  themeSnapshot: emailThemeTokensSchema.optional(),
-});
-
-export const recipientTextSchema = z.object({
-  recipients: z.string().default(""),
-});
-
 export const directEmailTemplateSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("structured"),
@@ -153,13 +139,18 @@ export const directTestSendSchema = z.object({
 });
 
 export const directBatchSendSchema = z.object({
-  campaignId: z.string().uuid().optional(),
+  runId: z.string().uuid(),
   template: directEmailTemplateSchema,
   recipients: z.string().max(maxRecipientTextLength).default(""),
-  testSendToken: z.string().uuid().optional(),
+  testSendToken: z.string().optional(),
   cursor: z.number().int().min(0).default(0),
   sentCount: z.number().int().min(0).default(0),
   failedCount: z.number().int().min(0).default(0),
+  resolveStaleBatch: z
+    .object({
+      cursor: z.number().int().min(0),
+    })
+    .optional(),
   recentFailures: z
     .array(
       z.object({
@@ -172,7 +163,6 @@ export const directBatchSendSchema = z.object({
 
 export type EmailCampaignContent = z.infer<typeof emailCampaignContentSchema>;
 export type EmailBodySection = z.infer<typeof emailBodySectionSchema>;
-export type CampaignUpsertInput = z.infer<typeof campaignUpsertSchema>;
 export type EmailThemeTokens = z.infer<typeof emailThemeTokensSchema>;
 export type EmailTemplateUpsertInput = z.infer<
   typeof emailTemplateUpsertSchema
