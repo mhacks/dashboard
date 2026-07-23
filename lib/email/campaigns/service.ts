@@ -274,7 +274,7 @@ export async function processCampaignBatch(campaignId: string) {
       .where(
         sql`${emailCampaignRecipients.campaignId} = ${campaignId}
         AND ${emailCampaignRecipients.status} = 'sending'
-        AND ${emailCampaignRecipients.updatedAt} < ${staleClaimBefore}`,
+        AND ${emailCampaignRecipients.updatedAt} < ${staleClaimBefore}::timestamptz`,
       );
 
     const [activeRecipient] = await tx

@@ -30,11 +30,28 @@ export function campaignErrorResponse(error: unknown) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: campaignUnexpectedError(error) },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json(
     { error: "Unexpected email campaign error" },
     { status: 500 },
   );
+}
+
+function campaignUnexpectedError(error: Error) {
+  const cause = error.cause;
+
+  if (
+    error.message.startsWith("Failed query:") &&
+    cause instanceof Error &&
+    cause.message
+  ) {
+    return `Database error: ${cause.message}`;
+  }
+
+  return error.message;
 }
