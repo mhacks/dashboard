@@ -14,7 +14,7 @@
     "start": "node --env-file=.env.local .next/standalone/server.js",
     "lint": "eslint",
     "format": "prettier --write .",
-    "prepare": "git config core.hooksPath .githooks || true",
+    "prepare": "husky",
     "db:start": "supabase start && bash scripts/gen-env-local.sh",
     "db:env": "bash scripts/gen-env-local.sh",
     "db:stop": "supabase stop",
@@ -76,9 +76,15 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.1.6",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
     "prettier": "^3.9.4",
     "supabase": "^2.109.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3"
+  },
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown",
+    "*.{cjs,cts,js,jsx,mjs,mts,ts,tsx}": "eslint --fix"
   }
 }
