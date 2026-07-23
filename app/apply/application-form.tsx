@@ -395,7 +395,6 @@ export default function ApplyPage({
       if (duplicate) {
         setIsDuplicate(true);
       } else {
-        posthog.capture("application_submitted");
         setSubmitSuccess(true);
       }
     } catch (error) {
