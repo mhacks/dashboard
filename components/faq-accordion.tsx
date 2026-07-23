@@ -21,7 +21,7 @@ const faqs = [
   },
   {
     q: "How much does MHacks cost?",
-    a: "MHacks is completely free to attend. We cover meals, snacks, and event resources throughout the entire 36-hour event, thanks to our generous sponsors.",
+    a: "MHacks is completely free to attend. We cover meals, snacks, and event resources throughout the entire 24-hour event, thanks to our generous sponsors.",
   },
   {
     q: "How do teams work?",

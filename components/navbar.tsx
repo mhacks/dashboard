@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import Link from "next/link";
 import { useApplicationsOpen } from "./use-applications-open";
 import posthog from "posthog-js";
 
@@ -22,19 +23,29 @@ const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
 });
 
 const links = [
-  { href: "#about", label: "About" },
-  // { href: "#tracks", label: "Tracks" },
-  { href: "#timeline", label: "Dates" },
-  { href: "#sponsors", label: "Sponsors" },
-  { href: "#faqs", label: "FAQ" },
+  { href: "/#about", label: "About" },
+  // { href: "/#tracks", label: "Tracks" },
+  { href: "/#timeline", label: "Dates" },
+  { href: "/#sponsors", label: "Sponsors" },
+  { href: "/#faqs", label: "FAQ" },
+  { href: "/how-to-mcp", label: "Agent" },
 ];
 
-export default function NavBar() {
+export default function NavBar({
+  forceShowLogo = false,
+}: {
+  /** Pages without their own top-left hero logo (unlike the landing page's
+      hero) have nothing for the IntersectionObserver below to watch, so the
+      navbar logo would never appear. Set this to show it immediately. */
+  forceShowLogo?: boolean;
+} = {}) {
   const [open, setOpen] = useState(false);
-  const [showLogo, setShowLogo] = useState(false);
+  const [showLogo, setShowLogo] = useState(forceShowLogo);
   const applicationsOpen = useApplicationsOpen();
 
   useEffect(() => {
+    if (forceShowLogo) return;
+
     const heroLogo = document.getElementById("hero-logo");
     if (!heroLogo) return;
 
@@ -45,7 +56,7 @@ export default function NavBar() {
 
     observer.observe(heroLogo);
     return () => observer.disconnect();
-  }, []);
+  }, [forceShowLogo]);
 
   useEffect(() => {
     let rafId = 0;
@@ -158,7 +169,7 @@ export default function NavBar() {
               flexShrink: 0,
             }}
           >
-            <a href="#">
+            <Link href="/">
               <Image
                 src="/mhacks_logo.png"
                 alt="MHacks"
@@ -166,7 +177,7 @@ export default function NavBar() {
                 height={24}
                 className="brightness-[1.4] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] block"
               />
-            </a>
+            </Link>
             <div className="ml-5 h-[4px] w-[4px] rounded-full bg-white/70 flex-shrink-0" />
           </div>
 

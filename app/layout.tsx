@@ -38,7 +38,7 @@ const redHatDisplay = Red_Hat_Display({
 export const metadata: Metadata = {
   title: "MHacks 2026",
   description:
-    "Michigan's premier student hackathon — 36 hours, limitless ideas.",
+    "Michigan's premier student hackathon — 24 hours, limitless ideas.",
 };
 
 export default function RootLayout({
@@ -48,6 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <meta name="apple-mobile-web-app-title" content="MHacks" />
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${redHatDisplay.variable} antialiased`}
         suppressHydrationWarning

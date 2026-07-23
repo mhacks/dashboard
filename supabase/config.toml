@@ -24,6 +24,11 @@ verify_enabled = true
 enable_confirmations = true
 max_frequency = "1m0s"
 
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/oauth/consent"
+allow_dynamic_registration = true
+
 # Local resume bucket: supabase/seed.sql (runs on start/reset). Do not add
 # [storage.buckets.*] here — seed buckets --linked would provision on remote.
 # Production uses AWS S3, not Supabase Storage.

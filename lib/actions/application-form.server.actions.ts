@@ -1,69 +1,18 @@
 "use server";
-import {
-  HackerApplicationFormData,
-  hackerApplicationSchema,
-} from "@/lib/types/applications";
-import { db } from "@/lib/db";
-import { eq } from "drizzle-orm";
-import {
-  hackerApplicants,
-  hackerApplicationDrafts,
-} from "@/lib/db/schema/applications";
+import { HackerApplicationFormData } from "@/lib/types/applications";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { getPostHogClient } from "@/lib/posthog-server";
-
-// The MLH agreement checkboxes are validated in the form but not stored —
-// submitting the application implies acceptance — so drop them before writing.
-type ApplicationDbValues = Omit<
-  HackerApplicationFormData,
-  "mlhCodeOfConduct" | "mlhPrivacyPolicy" | "mlhEmails"
->;
-
-function toDbValues(parsed: HackerApplicationFormData): ApplicationDbValues {
-  const values = { ...parsed };
-  delete (values as Partial<HackerApplicationFormData>).mlhCodeOfConduct;
-  delete (values as Partial<HackerApplicationFormData>).mlhPrivacyPolicy;
-  delete (values as Partial<HackerApplicationFormData>).mlhEmails;
-  return values;
-}
+import {
+  submitHackerApplicationForUser,
+  saveDraftForUser,
+} from "@/lib/actions/application-form.actions";
 
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
 ): Promise<{ duplicate: boolean }> => {
   const { id: userId } = await requireSessionUser();
-  const parsed = hackerApplicationSchema.parse(data);
-  if (parsed.resume !== `resumes/${userId}.pdf`) {
-    throw new Error("Invalid resume");
-  }
 
   try {
-    const result = await db
-      .insert(hackerApplicants)
-      .values({ ...toDbValues(parsed), userId })
-      .onConflictDoNothing()
-      .returning({ id: hackerApplicants.id });
-
-    if (result.length > 0) {
-      await db
-        .delete(hackerApplicationDrafts)
-        .where(eq(hackerApplicationDrafts.userId, userId));
-
-      const posthog = getPostHogClient();
-      posthog.capture({
-        distinctId: userId,
-        event: "application_submitted",
-        properties: {
-          university: parsed.university,
-          degree: parsed.degree,
-          graduation_year: parsed.graduationYear,
-          transportation_type: parsed.transportationType,
-          needs_travel_reimbursement: parsed.needsTravelReimbursement,
-        },
-      });
-      await posthog.flush();
-    }
-
-    return { duplicate: result.length === 0 };
+    return await submitHackerApplicationForUser(userId, data, "web");
   } catch (error) {
     console.error("Unable to submit Hacker Application:", error);
     throw new Error(
@@ -77,20 +26,8 @@ export const saveDraft = async (
 ): Promise<void> => {
   const { id: userId } = await requireSessionUser();
 
-  if (data.resume !== undefined && data.resume !== `resumes/${userId}.pdf`) {
-    throw new Error("Invalid resume");
-  }
-
   try {
-    await db
-      .insert(hackerApplicationDrafts)
-      .values({ userId, data: data as Record<string, unknown> })
-      .onConflictDoUpdate({
-        target: hackerApplicationDrafts.userId,
-        set: {
-          data: data as Record<string, unknown>,
-        },
-      });
+    await saveDraftForUser(userId, data);
   } catch (error) {
     console.error("Unable to save draft:", error);
     throw new Error(

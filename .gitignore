@@ -43,5 +43,7 @@ next-env.d.ts
 
 # utils
 /agents/
+.mcp.json
 
 .vscode
+
