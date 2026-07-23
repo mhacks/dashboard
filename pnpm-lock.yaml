@@ -38,6 +38,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.26.0
         version: 1.26.0(zod@4.4.3)
+      '@posthog/mcp':
+        specifier: 0.9.1
+        version: 0.9.1(@modelcontextprotocol/sdk@1.26.0(zod@4.4.3))(posthog-node@5.41.0)
       '@supabase/ssr':
         specifier: ^0.10.3
         version: 0.10.3(@supabase/supabase-js@2.110.0)
@@ -1271,8 +1274,21 @@ packages:
   '@posthog/core@1.40.2':
     resolution: {integrity: sha512-H12j7O9iHGvpK9t2ko8W4pvfbV1pBDxrsWC1LA6yp2RhzwvC4T3sWhu+AekDQJSRSrJEWlB0t/Ueq9QhPSq7FQ==}
 
+  '@posthog/core@1.44.0':
+    resolution: {integrity: sha512-uE+mdKvetxNQC6gWQf4MHIH8bGt+JN6z7ho0A4G3t9G1VGQTx9wHYHNwkKf3gzi+1oAXS9ej2VVY4pjWUU2PWg==}
+
+  '@posthog/mcp@0.9.1':
+    resolution: {integrity: sha512-7gqU5jc5XbgGkOj58XitQIQTHkqtk/DT0agKChof57N3aODeJ7+3nYBZ+hLx4pVpKNuaVmGduJ1zfF14vJk7jQ==}
+    engines: {node: ^20.20.0 || >=22.22.0}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.26.0'
+      posthog-node: ^5.0.0
+
   '@posthog/types@1.393.0':
     resolution: {integrity: sha512-vzWeEJZ7ERQhFRoQYaP5jzN1JvIu46UJyHXsuv+dTGW2r3sMgREOhNxXLZjmFHwZ8/FOHQoyqqQmXTCXZSfMSg==}
+
+  '@posthog/types@1.397.1':
+    resolution: {integrity: sha512-W/LpWbKVaaUnfZKuFuHa+Dg03D+fC87cM+PQbG+59JcSPW8F0JcBtSoXmpfrqbpuxUToMo+gktutrUkAb/KQBw==}
 
   '@radix-ui/number@1.1.2':
     resolution: {integrity: sha512-ceTwaxc4I5IOi97DgCotl3pqiyRGvffcc0oOsE2dQYaJOFIDsDt4VWG6xEbg1QePv9QWausCEIppud/tJ1wNig==}
@@ -5958,7 +5974,19 @@ snapshots:
     dependencies:
       '@posthog/types': 1.393.0
 
+  '@posthog/core@1.44.0':
+    dependencies:
+      '@posthog/types': 1.397.1
+
+  '@posthog/mcp@0.9.1(@modelcontextprotocol/sdk@1.26.0(zod@4.4.3))(posthog-node@5.41.0)':
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.26.0(zod@4.4.3)
+      '@posthog/core': 1.44.0
+      posthog-node: 5.41.0
+
   '@posthog/types@1.393.0': {}
+
+  '@posthog/types@1.397.1': {}
 
   '@radix-ui/number@1.1.2': {}
 
