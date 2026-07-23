@@ -6,7 +6,11 @@
 // token — never from a tool argument. Validation + persistence are shared with
 // the web form via lib/actions/application-form.actions.ts.
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import { instrument } from "@posthog/mcp";
+import {
+  instrument,
+  PostHogMCPAnalyticsProperty,
+  type BeforeSendFn,
+} from "@posthog/mcp";
 import { PostHog } from "posthog-node";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
@@ -217,6 +221,18 @@ const posthog = process.env.POSTHOG_PROJECT_TOKEN
     })
   : null;
 
+// Tool arguments/responses routinely carry applicant PII (essays, phone
+// numbers, resume S3 keys, presigned upload URLs) — strip them before
+// they're sent to PostHog rather than relying on @posthog/mcp's generic
+// binary/sensitive-key sanitization, which has no awareness of this app's
+// specific fields. Everything else ($mcp_tool_name, duration, error type,
+// distinct_id, etc.) is kept.
+const redactMcpPayloads: BeforeSendFn = (event) => {
+  delete event.properties[PostHogMCPAnalyticsProperty.Parameters];
+  delete event.properties[PostHogMCPAnalyticsProperty.Response];
+  return event;
+};
+
 const baseHandler = createMcpHandler(
   (server) => {
     if (posthog) {
@@ -226,6 +242,7 @@ const baseHandler = createMcpHandler(
           if (typeof userId !== "string") return null;
           return { distinctId: userId };
         },
+        beforeSend: redactMcpPayloads,
       });
     }
     server.registerTool(
