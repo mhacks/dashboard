@@ -813,7 +813,7 @@ export default function EmailCampaignsClient({
             ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
             : status.staleBatchCursor !== undefined
               ? "A batch may have partially sent before completion was recorded. Verify SES, then resolve the checked batch."
-            : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending. Wait for the active batch to finish before continuing.`
+              : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending. Wait for the active batch to finish before continuing.`
           : "Send complete.",
       );
       showToast(
@@ -824,7 +824,7 @@ export default function EmailCampaignsClient({
             ? `${status.sentCount} sent, ${status.failedCount} failed.`
             : status.staleBatchCursor !== undefined
               ? "Verify SES delivery for the stuck batch before resolving it."
-            : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending.`
+              : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending.`
           : "Send complete.",
       );
 

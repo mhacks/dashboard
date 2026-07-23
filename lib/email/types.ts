@@ -8,9 +8,7 @@ const emailLinkUrlSchema = z
   .refine(
     (value) => {
       try {
-        return ["http:", "https:", "mailto:"].includes(
-          new URL(value).protocol,
-        );
+        return ["http:", "https:", "mailto:"].includes(new URL(value).protocol);
       } catch {
         return false;
       }

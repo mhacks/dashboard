@@ -195,8 +195,7 @@ export async function sendDirectBatch(input: unknown) {
     await sleep(limits.sendDelayMs);
   }
 
-  const sentCount =
-    results.filter((result) => result.status === "sent").length;
+  const sentCount = results.filter((result) => result.status === "sent").length;
   const failedResults = results.filter((result) => result.status === "failed");
   const failedCount = failedResults.length;
   const recentFailures = [
@@ -365,7 +364,10 @@ async function completeSendBatch({
       completedAt: now,
     })
     .where(
-      and(eq(emailSendBatches.runId, runId), eq(emailSendBatches.cursor, cursor)),
+      and(
+        eq(emailSendBatches.runId, runId),
+        eq(emailSendBatches.cursor, cursor),
+      ),
     );
 }
 
@@ -395,7 +397,10 @@ async function updateSendBatchProgress({
       updatedAt: now,
     })
     .where(
-      and(eq(emailSendBatches.runId, runId), eq(emailSendBatches.cursor, cursor)),
+      and(
+        eq(emailSendBatches.runId, runId),
+        eq(emailSendBatches.cursor, cursor),
+      ),
     );
 }
 
@@ -470,10 +475,9 @@ async function resolveStaleSendBatch({
       .set({
         status: "complete",
         failedCount: batch.failedCount + unverifiedCount,
-        recentFailures: [
-          ...batch.recentFailures,
-          ...unverifiedFailures,
-        ].slice(-10),
+        recentFailures: [...batch.recentFailures, ...unverifiedFailures].slice(
+          -10,
+        ),
         updatedAt: now,
         completedAt: now,
       })
@@ -542,7 +546,9 @@ async function sendRunStatus(
   );
   let nextCursor = 0;
 
-  for (const batch of completedBatches.sort((left, right) => left.cursor - right.cursor)) {
+  for (const batch of completedBatches.sort(
+    (left, right) => left.cursor - right.cursor,
+  )) {
     if (batch.cursor !== nextCursor) {
       break;
     }
