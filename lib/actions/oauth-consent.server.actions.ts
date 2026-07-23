@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
 
 // Consent-page actions for Supabase's native OAuth 2.1 Server (see
@@ -14,10 +15,21 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function approveAuthorization(authorizationId: string) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { data, error } =
     await supabase.auth.oauth.approveAuthorization(authorizationId);
   if (error || !data?.redirect_url) {
     throw new Error(error?.message ?? "Failed to approve authorization");
+  }
+  if (user) {
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "mcp_connected",
+    });
+    await posthog.flush();
   }
   redirect(data.redirect_url);
 }
