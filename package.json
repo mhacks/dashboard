@@ -14,6 +14,7 @@
     "start": "node --env-file=.env.local .next/standalone/server.js",
     "lint": "eslint",
     "format": "prettier --write .",
+    "prepare": "git config core.hooksPath .githooks || true",
     "db:start": "supabase start && bash scripts/gen-env-local.sh",
     "db:env": "bash scripts/gen-env-local.sh",
     "db:stop": "supabase stop",
