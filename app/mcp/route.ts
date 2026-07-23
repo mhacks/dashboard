@@ -6,6 +6,8 @@
 // token — never from a tool argument. Validation + persistence are shared with
 // the web form via lib/actions/application-form.actions.ts.
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import { instrument } from "@posthog/mcp";
+import { PostHog } from "posthog-node";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 import {
@@ -206,8 +208,26 @@ const draftInputShape = Object.fromEntries(
   ]),
 ) as Record<string, z.ZodTypeAny>;
 
+const posthog = process.env.POSTHOG_PROJECT_TOKEN
+  ? new PostHog(process.env.POSTHOG_PROJECT_TOKEN, {
+      host: process.env.POSTHOG_HOST ?? "https://us.i.posthog.com",
+      flushAt: 1,
+      flushInterval: 0,
+      enableExceptionAutocapture: true,
+    })
+  : null;
+
 const baseHandler = createMcpHandler(
   (server) => {
+    if (posthog) {
+      instrument(server, posthog, {
+        identify: async (_request, extra) => {
+          const userId = (extra as ToolExtra)?.authInfo?.extra?.userId;
+          if (typeof userId !== "string") return null;
+          return { distinctId: userId };
+        },
+      });
+    }
     server.registerTool(
       "whoami",
       {
@@ -621,4 +641,14 @@ async function withBodySizeLimit(
   return authHandler(rebuilt);
 }
 
-export { withBodySizeLimit as GET, withBodySizeLimit as POST };
+async function withPostHogFlush(
+  req: Parameters<typeof withBodySizeLimit>[0],
+): ReturnType<typeof withBodySizeLimit> {
+  try {
+    return await withBodySizeLimit(req);
+  } finally {
+    if (posthog) await posthog.flush();
+  }
+}
+
+export { withPostHogFlush as GET, withPostHogFlush as POST };
