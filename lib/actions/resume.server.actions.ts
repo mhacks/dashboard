@@ -10,7 +10,7 @@ import {
 } from "@/lib/aws/s3";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { getPostHogClient } from "@/lib/posthog-server";
-import { isPdfBuffer } from "@/lib/resume";
+import { isPdfBuffer, resumeKeyForUser } from "@/lib/resume";
 
 const RESUME_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;
 
@@ -42,7 +42,7 @@ export async function getResumeUploadUrl(
     );
   }
 
-  const key = `resumes/${userId}.pdf`;
+  const key = resumeKeyForUser(userId);
 
   const command = new PutObjectCommand({
     Bucket: RESUMES_BUCKET,
@@ -84,7 +84,7 @@ export async function uploadResume(
     return { error: "File must be a valid PDF" };
   }
 
-  const key = `resumes/${userId}.pdf`;
+  const key = resumeKeyForUser(userId);
 
   await s3.send(
     new PutObjectCommand({
@@ -100,7 +100,7 @@ export async function uploadResume(
   posthog.capture({
     distinctId: userId,
     event: "resume_uploaded",
-    properties: { file_size_bytes: file.size },
+    properties: { file_size_bytes: file.size, source: "web" },
   });
   await posthog.flush();
 
