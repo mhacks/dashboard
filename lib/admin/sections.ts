@@ -1,6 +1,7 @@
 import {
   BarChart3Icon,
   ClipboardCheckIcon,
+  MailIcon,
   TrophyIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -42,6 +43,20 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Analytics",
         description: "Demographics, locations, and score trends.",
         icon: BarChart3Icon,
+      },
+    ],
+  },
+  {
+    title: "Communications",
+    description: "Create and send organizer-managed email updates.",
+    icon: MailIcon,
+    links: [
+      {
+        href: "/admin/email-campaigns",
+        title: "Email Campaigns",
+        description:
+          "Build templates, preview merge fields, and send CSV lists.",
+        icon: MailIcon,
       },
     ],
   },

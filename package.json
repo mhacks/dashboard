@@ -23,6 +23,7 @@
     "db:migrate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit migrate"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1079.0",
     "@aws-sdk/client-s3": "^3.1079.0",
     "@aws-sdk/s3-request-presigner": "^3.1079.0",
     "@dnd-kit/core": "^6.3.1",
@@ -56,6 +57,8 @@
     "react": "19.2.3",
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.3",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
     "react-hook-form": "^7.80.0",
     "react-resizable-panels": "^4.12.0",
     "recharts": "^3.9.1",

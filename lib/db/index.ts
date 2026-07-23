@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as applicationsSchema from "./schema/applications";
+import * as emailSchema from "./schema/email";
 import * as usersSchema from "./schema/users";
 
 // Disable prefetch — prepared statements are not supported in Supabase's
@@ -9,5 +10,5 @@ const client = postgres(process.env.DATABASE_URL ?? "", { prepare: false });
 
 export const db = drizzle({
   client,
-  schema: { ...applicationsSchema, ...usersSchema },
+  schema: { ...applicationsSchema, ...emailSchema, ...usersSchema },
 });
