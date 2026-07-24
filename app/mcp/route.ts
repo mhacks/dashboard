@@ -6,6 +6,11 @@
 // token — never from a tool argument. Validation + persistence are shared with
 // the web form via lib/actions/application-form.actions.ts.
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import {
+  instrument,
+  PostHogMCPAnalyticsProperty,
+  type BeforeSendFn,
+} from "@posthog/mcp";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 import {
@@ -22,6 +27,7 @@ import {
 import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
 import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -33,9 +39,14 @@ type ToolExtra = {
   };
 };
 
-function requireUserId(extra: ToolExtra): string {
+function getUserIdFromExtra(extra: ToolExtra): string | null {
   const userId = extra?.authInfo?.extra?.userId;
-  if (typeof userId !== "string") {
+  return typeof userId === "string" ? userId : null;
+}
+
+function requireUserId(extra: ToolExtra): string {
+  const userId = getUserIdFromExtra(extra);
+  if (!userId) {
     throw new Error("Unauthorized: missing user identity");
   }
   return userId;
@@ -206,8 +217,26 @@ const draftInputShape = Object.fromEntries(
   ]),
 ) as Record<string, z.ZodTypeAny>;
 
+// Tool args/responses can contain applicant PII (essays, phone, resume keys,
+// presigned URLs). Server actions never send raw payloads; strip these fields
+// from MCP instrumentation the same way.
+const redactMcpPayloads: BeforeSendFn = (event) => {
+  if (event.properties) {
+    delete event.properties[PostHogMCPAnalyticsProperty.Parameters];
+    delete event.properties[PostHogMCPAnalyticsProperty.Response];
+  }
+  return event;
+};
+
 const baseHandler = createMcpHandler(
   (server) => {
+    instrument(server, getPostHogClient(), {
+      identify: async (_request, extra) => {
+        const userId = getUserIdFromExtra(extra as ToolExtra);
+        return userId ? { distinctId: userId } : null;
+      },
+      beforeSend: redactMcpPayloads,
+    });
     server.registerTool(
       "whoami",
       {
