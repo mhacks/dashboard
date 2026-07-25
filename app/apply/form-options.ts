@@ -7,6 +7,7 @@ export const ethnicityOptions = [
   { value: "pacific-islander", label: "Native Hawaiian or Pacific Islander" },
   { value: "white", label: "White" },
   { value: "multiracial", label: "Multiracial (please describe)" },
+  { value: "decline", label: "Prefer not to say" },
 ];
 
 export const countries = [

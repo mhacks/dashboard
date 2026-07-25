@@ -14,6 +14,7 @@ const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
   { value: "female", label: "Female" },
   { value: "other", label: "Other" },
+  { value: "decline", label: "Prefer not to say" },
 ];
 
 const OPTION_LABELS = new Map(
