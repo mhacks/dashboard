@@ -3,20 +3,25 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { AgentTerminal } from "@/components/landing/AgentTerminal";
+import { PillTabGroup } from "@/components/landing/PillTabGroup";
 import { CopyChip, CommandBlock } from "@/components/landing/CopyBlock";
 import { asset } from "@/lib/landing/asset";
-import { cn } from "@/lib/utils";
-import { INTRO, MACHINE_MD, PROMPTS, SERVER_URL } from "./content";
-
-type Mode = "human" | "machine";
-type ClientId = "claude" | "claude-code" | "codex" | "other";
+import { DOT_PAPER_BG, GRAIN_240 } from "@/lib/landing/textures";
+import {
+  AUTH_NOTES,
+  CLIENT_GUIDES,
+  CLIENT_IDS,
+  INTRO,
+  MACHINE_MD,
+  PROMPTS,
+  SERVER_URL,
+  type AuthNotePart,
+  type ClientBlock,
+  type ClientId,
+  type RichSegment,
+} from "./content";
 
 const HAIRLINE = "rgba(58,74,38,0.14)";
-
-/* Dense film grain tile (same recipe as the footer) laid over the backdrop
-   photo so it reads like printed paper rather than a raw photograph. */
-const GRAIN =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
 function Rise({
   children,
@@ -65,72 +70,91 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
   );
 }
 
-const CLIENT_TABS: { id: ClientId; label: string }[] = [
-  { id: "claude", label: "Claude.ai" },
-  { id: "claude-code", label: "Claude Code" },
-  { id: "codex", label: "Codex CLI" },
-  { id: "other", label: "Other" },
-];
+type Mode = "human" | "machine";
+
+function RichText({ segments }: { segments: RichSegment[] }) {
+  return (
+    <>
+      {segments.map((segment, i) =>
+        typeof segment === "string" ? (
+          <span key={i}>{segment}</span>
+        ) : (
+          <code key={i} className="font-mono text-[13px]">
+            {segment.code}
+          </code>
+        ),
+      )}
+    </>
+  );
+}
+
+function ClientSetupBlocks({ blocks }: { blocks: ClientBlock[] }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {blocks.map((block, i) => {
+        switch (block.type) {
+          case "p":
+            return (
+              <p key={i} className={i === 0 ? "text-moss-700/80" : undefined}>
+                {block.text}
+              </p>
+            );
+          case "p-rich":
+            return (
+              <p key={i}>
+                <RichText segments={block.segments} />
+              </p>
+            );
+          case "cmd":
+            return (
+              <CommandBlock key={i}>
+                {block.template.replaceAll("${SERVER_URL}", SERVER_URL)}
+              </CommandBlock>
+            );
+          case "steps":
+            return (
+              <div key={i} className="flex flex-col gap-2">
+                {block.intro && (
+                  <p className="text-moss-700/80">{block.intro}</p>
+                )}
+                <ol className="flex flex-col">
+                  {block.items.map((item, n) => (
+                    <Step key={n} n={n + 1}>
+                      {item}
+                    </Step>
+                  ))}
+                </ol>
+              </div>
+            );
+        }
+      })}
+    </div>
+  );
+}
+
+function AuthNoteBody({ parts }: { parts: AuthNotePart[] }) {
+  return (
+    <>
+      {parts.map((part, i) =>
+        typeof part === "string" ? (
+          <span key={i}>{part}</span>
+        ) : (
+          <a
+            key={i}
+            href={part.href}
+            data-cursor="hover"
+            className="text-moss-700 underline underline-offset-2"
+          >
+            {part.text}
+          </a>
+        ),
+      )}
+    </>
+  );
+}
 
 function ClientInstructions({ client }: { client: ClientId }) {
-  if (client === "claude") {
-    return (
-      <div className="flex flex-col gap-2">
-        <p className="text-moss-700/80">
-          Works in Claude.ai on the web and in Claude Desktop.
-        </p>
-        <ol className="flex flex-col">
-          <Step n={1}>Go to Settings → Connectors → Add custom connector.</Step>
-          <Step n={2}>Paste the server URL above.</Step>
-          <Step n={3}>
-            Claude will open a login page. Sign in with your email (MHacks uses
-            a one-time code sent to your inbox, no password).
-          </Step>
-          <Step n={4}>
-            Approve the connection when prompted. You&rsquo;ll see what Claude
-            is requesting access to before you approve.
-          </Step>
-        </ol>
-      </div>
-    );
-  }
-  if (client === "claude-code") {
-    return (
-      <div className="flex flex-col gap-4">
-        <CommandBlock>{`claude mcp add --transport http mhacks ${SERVER_URL}`}</CommandBlock>
-        <p>
-          Then inside a session, run{" "}
-          <code className="font-mono text-[13px]">/mcp</code>, select{" "}
-          <code className="font-mono text-[13px]">mhacks</code>, and
-          authenticate with the same email login and approval as Claude.ai.
-        </p>
-      </div>
-    );
-  }
-  if (client === "codex") {
-    return (
-      <div className="flex flex-col gap-4">
-        <p>
-          Add the server to{" "}
-          <code className="font-mono text-[13px]">~/.codex/config.toml</code>:
-        </p>
-        <CommandBlock>{`[mcp_servers.mhacks]\nurl = "${SERVER_URL}"`}</CommandBlock>
-        <p>Then log in and approve access with:</p>
-        <CommandBlock>codex mcp login mhacks</CommandBlock>
-        <p>
-          Codex will open a browser window for the same email one-time-code
-          flow.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <p>
-      Any client that supports the MCP Streamable HTTP transport and OAuth 2.1
-      can connect using the same server URL. You&rsquo;ll go through the same
-      email-login-and-approve flow regardless of client.
-    </p>
-  );
+  return <ClientSetupBlocks blocks={CLIENT_GUIDES[client].blocks} />;
 }
 
 function ClientTabs() {
@@ -138,34 +162,15 @@ function ClientTabs() {
   return (
     <section className="flex flex-col gap-6">
       <SectionTitle title="Point your client at the server" />
-      <div
-        className="flex flex-wrap gap-2"
-        role="tablist"
-        aria-label="MCP client"
-      >
-        {CLIENT_TABS.map((tab) => {
-          const active = tab.id === client;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              data-cursor="hover"
-              onClick={() => setClient(tab.id)}
-              className={cn(
-                "rounded-pill border px-4 py-1.5 font-mono text-[12px] uppercase tracking-[0.15em] transition-colors",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss-700",
-                active
-                  ? "border-moss-700 bg-moss-700 text-cream"
-                  : "border-[rgba(29,36,18,0.25)] text-moss-700/80 hover:border-moss-700",
-              )}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <PillTabGroup
+        value={client}
+        onValueChange={setClient}
+        ariaLabel="MCP client"
+        options={CLIENT_IDS.map((id) => ({
+          value: id,
+          label: CLIENT_GUIDES[id].label,
+        }))}
+      />
       <motion.div
         key={client}
         initial={{ opacity: 0, y: 8 }}
@@ -178,58 +183,6 @@ function ClientTabs() {
     </section>
   );
 }
-
-const AUTH_NOTES: { lead: string; body: React.ReactNode }[] = [
-  {
-    lead: "Your identity comes from your login, not from anything you tell the agent.",
-    body: "Whatever email you authenticate with is the account the application is tied to. An agent can't submit on someone else's behalf.",
-  },
-  {
-    lead: "Submission is final.",
-    body: "There's currently no MCP tool to edit or withdraw a submitted application, so review it with your agent before confirming.",
-  },
-  {
-    lead: "You'll be asked to explicitly agree",
-    body: "to the MLH Code of Conduct, Privacy Policy, and communications terms before submission. Your agent should read these to you and ask for a clear yes/no, not assume.",
-  },
-  {
-    lead: "Resume upload usually won't happen through the agent.",
-    body: (
-      <>
-        Uploading requires the agent to make its own HTTP request with the
-        file&rsquo;s raw bytes. Attaching a PDF to the chat only lets the agent
-        read it. Coding-agent clients with their own network access (Claude
-        Code, Codex, Cursor) can do this; standard Claude.ai / Claude Desktop
-        chat can&rsquo;t, so expect your agent to tell you to upload your resume
-        yourself at{" "}
-        <a
-          href="https://www.mhacks.org/apply"
-          data-cursor="hover"
-          className="text-moss-700 underline underline-offset-2"
-        >
-          mhacks.org/apply
-        </a>
-        , then it&rsquo;ll confirm it landed before continuing.
-      </>
-    ),
-  },
-  {
-    lead: "You can revoke access at any time.",
-    body: (
-      <>
-        See and revoke any agent&rsquo;s access at{" "}
-        <a
-          href="https://www.mhacks.org/account/connections"
-          data-cursor="hover"
-          className="text-moss-700 underline underline-offset-2"
-        >
-          mhacks.org/account/connections
-        </a>
-        .
-      </>
-    ),
-  },
-];
 
 function HumanMode() {
   return (
@@ -282,8 +235,8 @@ function HumanMode() {
       <section className="flex flex-col gap-6">
         <SectionTitle title="How auth works" />
         <ul className="flex flex-col gap-5">
-          {AUTH_NOTES.map((note, i) => (
-            <Rise key={i}>
+          {AUTH_NOTES.map((note) => (
+            <Rise key={note.lead}>
               <li className="flex gap-3">
                 <span
                   aria-hidden
@@ -295,7 +248,7 @@ function HumanMode() {
                   <strong className="font-semibold text-moss-700">
                     {note.lead}
                   </strong>{" "}
-                  {note.body}
+                  <AuthNoteBody parts={note.parts} />
                 </p>
               </li>
             </Rise>
@@ -339,21 +292,20 @@ export function HowToMcp() {
   const [mode, setMode] = useState<Mode>("human");
 
   return (
-    <div data-nav-theme="light" className="relative">
+    <div className="relative">
       {/* Backdrop: aerial terraces behind the same frosted veil as the hero
           (blur values match HeroReveal's, painted on an oversized plate so
           the blur never samples past the edges). Fixed so the paper scrolls
           over it. */}
       <div aria-hidden className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -inset-[12%] [filter:blur(7px)_brightness(0.84)_saturate(1.1)] md:[filter:blur(22px)_brightness(0.82)_saturate(1.12)_contrast(1.04)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={asset("/footer/footer-pastel.jpg")}
-            alt=""
-            draggable={false}
-            className="h-full w-full object-cover"
-          />
-        </div>
+        {/* Blur baked into the image — no live CSS filter mid-scroll. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={asset("/footer/footer-pastel-soft.jpg")}
+          alt=""
+          draggable={false}
+          className="h-full w-full object-cover object-[68%_12%]"
+        />
         <div
           className="absolute inset-0"
           style={{
@@ -364,7 +316,7 @@ export function HowToMcp() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: GRAIN,
+            backgroundImage: GRAIN_240,
             backgroundSize: "240px 240px",
             mixBlendMode: "overlay",
             opacity: 0.55,
@@ -379,41 +331,23 @@ export function HowToMcp() {
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 rounded-[22px]"
-            style={{
-              backgroundImage:
-                "radial-gradient(rgba(58,74,38,0.12) 1px, transparent 1.4px)",
-              backgroundSize: "26px 26px",
-            }}
+            style={DOT_PAPER_BG}
           />
 
           <div className="relative flex flex-col gap-10 px-6 py-10 sm:px-12 sm:py-14 md:px-16">
             {/* Mode toggle — sits at the top of the paper and scrolls away
                 with it */}
             <div className="-mb-4 flex justify-end">
-              <div
-                role="tablist"
-                aria-label="Reading mode"
-                className="inline-flex rounded-pill border border-[rgba(29,36,18,0.14)] bg-[rgba(251,250,244,0.85)] p-1 shadow-e-2 backdrop-blur-md"
-              >
-                {(["human", "machine"] as Mode[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="tab"
-                    aria-selected={mode === m}
-                    data-cursor="hover"
-                    onClick={() => setMode(m)}
-                    className={cn(
-                      "rounded-pill px-3.5 py-1 font-mono text-[11px] uppercase tracking-[0.15em] transition-colors",
-                      mode === m
-                        ? "bg-moss-700 text-cream"
-                        : "text-moss-700/70 hover:text-moss-700",
-                    )}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+              <PillTabGroup
+                value={mode}
+                onValueChange={setMode}
+                ariaLabel="Reading mode"
+                variant="segmented"
+                options={[
+                  { value: "human", label: "human" },
+                  { value: "machine", label: "machine" },
+                ]}
+              />
             </div>
 
             {mode === "human" ? <HumanMode /> : <MachineMode />}

@@ -14,15 +14,11 @@ import { Typewriter } from "@/components/landing/Typewriter";
 import { DeadlineCountdown } from "@/components/landing/DeadlineCountdown";
 import { AsciiGlow } from "@/components/landing/AsciiGlow";
 import { CtaButton } from "@/components/landing/cta-button";
-import { prefersReducedMotion } from "@/lib/utils";
-import { scrollToHash } from "@/lib/landing/scroll";
+import { useMobileLayout } from "@/lib/landing/useMobileLayout";
 import { asset } from "@/lib/landing/asset";
-
-/* Static film grain tile — masks the blurred plate's pixelation. Lives on the
-   section (not inside the transforming stage) with no blend mode, so it
-   composites once instead of every tilt/scroll frame. */
-const GRAIN =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.8'/></svg>\")";
+import { GRAIN_140 } from "@/lib/landing/textures";
+import { scrollToHash } from "@/lib/landing/scroll";
+import { prefersReducedMotion } from "@/lib/utils";
 
 /* Hero backdrop variants, switched by the icon buttons above the countdown.
    `src: null` keeps HeroReveal's default multi-resolution meadow set. The
@@ -54,6 +50,7 @@ type HeroBgId = (typeof HERO_BGS)[number]["id"];
 export function Hero() {
   const ref = useRef<HTMLElement | null>(null);
   const reducedRef = useRef(false);
+  const mobile = useMobileLayout();
   const [bgId, setBgId] = useState<HeroBgId>("leaf");
 
   useEffect(() => {
@@ -100,15 +97,8 @@ export function Hero() {
   const bgScale = useTransform(scrollYProgress, [0, 1], [1.02, 1.14]);
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "-6%"]);
 
-  const activeBg = HERO_BGS.find((b) => b.id === bgId)!;
-  const bgProps = activeBg.src
-    ? {
-        src: asset(activeBg.src),
-        src768: asset(activeBg.src),
-        src2560: asset(activeBg.src),
-        src3840: asset(activeBg.src),
-      }
-    : {};
+  const activeBg = HERO_BGS.find((b) => b.id === bgId) ?? HERO_BGS[0];
+  const bgProps = activeBg.src ? { src: asset(activeBg.src) } : {};
   // The meta row tracks the title's drift so the lockup stays intact while fading.
   const metaOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
 
@@ -116,7 +106,6 @@ export function Hero() {
     <section
       ref={ref}
       id="top"
-      data-nav-theme="hero"
       data-cursor-box="You"
       data-cursor-zone
       className="relative z-[4] w-full overflow-hidden"
@@ -150,10 +139,7 @@ export function Hero() {
         className="pointer-events-none absolute inset-0 z-[3]"
         style={{ x: starX, y: starY }}
       >
-        <AsciiGlow />
-        {/* Mobile gets a second, denser field: with the lighter blur the
-            ASCII overlay carries the "digitized" treatment there */}
-        <AsciiGlow className="md:hidden" cell={14} density={0.55} />
+        <AsciiGlow cell={mobile ? 14 : 22} density={mobile ? 0.55 : 0.34} />
       </motion.div>
 
       {/* MLH trust badge, resting on the hero's top edge — scrolls away with
@@ -186,7 +172,7 @@ export function Hero() {
         aria-hidden
         className="absolute inset-0 z-[2] pointer-events-none"
         style={{
-          backgroundImage: GRAIN,
+          backgroundImage: GRAIN_140,
           backgroundSize: "140px 140px",
           opacity: 0.38,
         }}

@@ -1,12 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import {
-  motion,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-} from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { SplitReveal } from "@/components/landing/SplitReveal";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
@@ -14,6 +9,8 @@ import { AgentTerminal } from "@/components/landing/AgentTerminal";
 import { CommandBlock } from "@/components/landing/CopyBlock";
 import { CtaButton } from "@/components/landing/cta-button";
 import { SERVER_URL } from "@/app/(marketing)/how-to-mcp/content";
+import { StackedSheet } from "@/components/landing/StackedSheet";
+import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
 import { asset } from "@/lib/landing/asset";
 
 /**
@@ -24,25 +21,13 @@ import { asset } from "@/lib/landing/asset";
 export function Agent() {
   const ref = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
-
-  // Black-eyed Susan garland: rooted offscreen left, drifts right into place
-  // as the sheet scrolls in (mirror of the Schedule garland's entrance).
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "start start"],
-  });
-  const garlandX = useTransform(
-    scrollYProgress,
-    [0.08, 0.92],
-    ["-62vw", "0vw"],
-  );
+  const garlandX = useGarlandEntrance(ref, "right");
 
   return (
-    <section
+    <StackedSheet
       ref={ref}
       id="agent"
-      data-nav-theme="light"
-      className="relative z-[8] -mt-14 md:-mt-20 flex min-h-screen flex-col justify-center overflow-hidden rounded-t-[40px] md:rounded-t-[48px] bg-parchment px-6 py-24 md:px-[8vw] md:py-32"
+      className="z-[8] flex min-h-screen flex-col justify-center bg-parchment px-6 py-24 md:px-[8vw] md:py-32"
     >
       <FlowerStamps tone="light" />
 
@@ -118,6 +103,6 @@ export function Agent() {
 
         <AgentTerminal className="w-full max-w-[560px] justify-self-center md:justify-self-end" />
       </div>
-    </section>
+    </StackedSheet>
   );
 }

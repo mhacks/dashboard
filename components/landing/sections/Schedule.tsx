@@ -1,17 +1,14 @@
 "use client";
 
 import { useRef } from "react";
-import {
-  motion,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-} from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { SplitReveal } from "@/components/landing/SplitReveal";
 import { DotGridReactive } from "@/components/landing/DotGridReactive";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
 import { DEADLINES } from "@/lib/landing/deadlines";
+import { StackedSheet } from "@/components/landing/StackedSheet";
+import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
 import { asset } from "@/lib/landing/asset";
 
 /**
@@ -40,21 +37,13 @@ const ROWS = DEADLINES.map((d) => ({
 export function Schedule() {
   const ref = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
-
-  // White lily-of-the-valley garland: peeks from the right edge and drifts
-  // left into place as the sheet scrolls in (mirror of the Sponsors branch).
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "start start"],
-  });
-  const garlandX = useTransform(scrollYProgress, [0.08, 0.92], ["62vw", "0vw"]);
+  const garlandX = useGarlandEntrance(ref, "left");
 
   return (
-    <section
+    <StackedSheet
       ref={ref}
       id="timeline"
-      data-nav-theme="dark"
-      className="relative z-[7] -mt-14 md:-mt-20 flex min-h-screen flex-col justify-center overflow-hidden rounded-t-[40px] md:rounded-t-[48px] bg-moss-900 text-cream px-6 md:px-[8vw] py-24 md:py-32"
+      className="z-[7] flex min-h-screen flex-col justify-center bg-moss-900 text-cream px-6 md:px-[8vw] py-24 md:py-32"
     >
       {/* Vignette: darker toward the edges so the schedule rows glow */}
       <div
@@ -67,7 +56,7 @@ export function Schedule() {
       />
 
       {/* Dot lattice that swells and brightens around the cursor */}
-      <DotGridReactive />
+      <DotGridReactive stackPause />
 
       <FlowerStamps tone="dark" />
 
@@ -173,6 +162,6 @@ export function Schedule() {
           </motion.li>
         ))}
       </ol>
-    </section>
+    </StackedSheet>
   );
 }

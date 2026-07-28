@@ -5,22 +5,16 @@ import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { Logo } from "@/components/landing/Logo";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
-import { scrollToHash } from "@/lib/landing/scroll";
+import { stackedSheetClassName } from "@/components/landing/StackedSheet";
+import {
+  FOOTER_NAV_ITEMS,
+  handleMarketingNavClick,
+  isMarketingHome,
+  resolveMarketingHref,
+} from "@/lib/landing/nav";
 import { asset } from "@/lib/landing/asset";
-
-const LINKS = [
-  { label: "About", href: "#about" },
-  { label: "Sponsors", href: "#sponsors" },
-  { label: "Timeline", href: "#timeline" },
-  { label: "Agent", href: "/how-to-mcp" },
-  { label: "FAQ", href: "#faq" },
-  { label: "Contact", href: "mailto:hello@mhacks.org" },
-];
-
-/* Dense film grain tile (SVG turbulence) — layered twice over the blurred
-   backdrop so it reads like sun-bleached sandy paper. */
-const GRAIN =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+import { GRAIN_240 } from "@/lib/landing/textures";
+import { cn } from "@/lib/utils";
 
 /**
  * Footer as the last sheet in the stack: rounded top corners over the
@@ -32,11 +26,11 @@ export function Footer() {
   const reduced = useReducedMotion();
   // The footer also renders on /how-to-mcp — from there, hash links route
   // back to the home page's section instead of a dead in-page anchor.
-  const onHome = usePathname() === "/";
+  const onHome = isMarketingHome(usePathname());
   return (
     <footer
-      data-nav-theme="dark"
-      className="relative z-[10] -mt-14 md:-mt-20 overflow-hidden rounded-t-[40px] md:rounded-t-[48px] bg-moss-900 text-cream"
+      id="footer"
+      className={cn(stackedSheetClassName, "z-[10] bg-moss-900 text-cream")}
     >
       {/* Sandy-pastel backdrop: pre-blurred pastel photo, a soft tint for
           text contrast, then two passes of dense grain for the paper tooth. */}
@@ -65,7 +59,7 @@ export function Footer() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: GRAIN,
+            backgroundImage: GRAIN_240,
             backgroundSize: "240px 240px",
             mixBlendMode: "overlay",
             opacity: 0.7,
@@ -74,7 +68,7 @@ export function Footer() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: GRAIN,
+            backgroundImage: GRAIN_240,
             backgroundSize: "150px 150px",
             opacity: 0.16,
           }}
@@ -141,18 +135,13 @@ export function Footer() {
             className="flex flex-wrap justify-center gap-x-6 gap-y-3 text-[15px] [text-shadow:0_1px_12px_rgba(29,36,18,0.45)] md:gap-8"
             aria-label="Footer"
           >
-            {LINKS.map((l) => (
+            {FOOTER_NAV_ITEMS.map((l) => (
               <Link
                 key={l.href}
-                href={l.href.startsWith("#") && !onHome ? `/${l.href}` : l.href}
+                href={resolveMarketingHref(l.href, onHome)}
                 data-cursor="hover"
                 className="opacity-85 transition-opacity hover:opacity-100 hover:underline underline-offset-4"
-                onClick={(e) => {
-                  if (l.href.startsWith("#") && onHome) {
-                    e.preventDefault();
-                    scrollToHash(l.href);
-                  }
-                }}
+                onClick={(e) => handleMarketingNavClick(l.href, onHome, e)}
               >
                 {l.label}
               </Link>

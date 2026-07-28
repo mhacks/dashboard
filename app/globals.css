@@ -310,7 +310,7 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-.marketing-site a {
+.marketing-site a:not([data-slot="button"]) {
   color: inherit;
   text-decoration: none;
 }
@@ -329,36 +329,11 @@
   font-family: var(--font-red-hat-mono), ui-monospace, monospace;
 }
 
-.marketing-site .eyebrow {
-  font-family: var(--font-red-hat-mono), ui-monospace, monospace;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--landing-muted);
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.marketing-site .eyebrow::before {
-  content: "";
-  width: 22px;
-  height: 1px;
-  background: currentColor;
-  opacity: 0.7;
-}
-
 .marketing-site .reveal-line {
   overflow: hidden;
   display: block;
   padding: 0 0.14em 0.08em;
   margin: 0 -0.14em -0.08em;
-}
-
-.marketing-site .reveal-inner {
-  display: inline-block;
-  transform: translateY(115%);
-  will-change: transform;
 }
 
 .marketing-site .type-caret {

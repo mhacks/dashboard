@@ -35,12 +35,15 @@ export function AsciiCanvas({
     if (!c) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
+    const parent = c.parentElement;
+    if (!parent) return;
 
     const reduced = prefersReducedMotion();
-
     let W = 0;
     let H = 0;
-    const parent = c.parentElement!;
+    let raf = 0;
+    let running = false;
+    let inView = true;
     const mouse = { x: -1e4, y: -1e4 };
 
     interface Dot {
@@ -50,6 +53,9 @@ export function AsciiCanvas({
       base: number;
     }
     let dots: Dot[] = [];
+
+    const isActive = () =>
+      inView && !document.hidden && c.offsetParent !== null;
 
     const build = () => {
       dots = [];
@@ -76,10 +82,10 @@ export function AsciiCanvas({
       c.style.height = `${H}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       build();
+      if (reduced) draw();
     };
 
-    let raf = 0;
-    const tick = () => {
+    const draw = () => {
       ctx.clearRect(0, 0, W, H);
       ctx.font = `${fontSize}px var(--font-red-hat-mono), ui-monospace, monospace`;
       ctx.textBaseline = "middle";
@@ -100,6 +106,20 @@ export function AsciiCanvas({
         ctx.fillStyle = `rgba(${color}, ${a})`;
         ctx.fillText(d.ch, d.x + ox, d.y + oy);
       }
+    };
+
+    const tick = () => {
+      if (!isActive()) {
+        running = false;
+        return;
+      }
+      draw();
+      raf = requestAnimationFrame(tick);
+    };
+
+    const start = () => {
+      if (running || reduced) return;
+      running = true;
       raf = requestAnimationFrame(tick);
     };
 
@@ -107,15 +127,31 @@ export function AsciiCanvas({
       const r = c.getBoundingClientRect();
       mouse.x = e.clientX - r.left;
       mouse.y = e.clientY - r.top;
+      start();
     };
     const onLeave = () => {
       mouse.x = -1e4;
       mouse.y = -1e4;
     };
 
+    const observer = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      if (inView) start();
+      else {
+        cancelAnimationFrame(raf);
+        running = false;
+      }
+    });
+
+    const onVisibility = () => {
+      if (!document.hidden) start();
+    };
+
     resize();
-    raf = requestAnimationFrame(tick);
+    start();
+    observer.observe(c);
     window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", onVisibility);
     if (interactive) {
       parent.addEventListener("mousemove", onMove);
       parent.addEventListener("mouseleave", onLeave);
@@ -123,7 +159,9 @@ export function AsciiCanvas({
 
     return () => {
       cancelAnimationFrame(raf);
+      observer.disconnect();
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", onVisibility);
       if (interactive) {
         parent.removeEventListener("mousemove", onMove);
         parent.removeEventListener("mouseleave", onLeave);

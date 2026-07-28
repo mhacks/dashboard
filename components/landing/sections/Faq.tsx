@@ -13,6 +13,11 @@ import { FaqItem } from "@/components/landing/FaqItem";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
 import { asset } from "@/lib/landing/asset";
+import { StackedSheet } from "@/components/landing/StackedSheet";
+import { formatDeadlineDate } from "@/lib/landing/deadlines";
+
+const earlyAppsDue = formatDeadlineDate("early-apps-due");
+const regularAppsDue = formatDeadlineDate("regular-apps-due");
 
 const FAQS = [
   {
@@ -33,7 +38,7 @@ const FAQS = [
   },
   {
     q: "When do applications close?",
-    a: "Early applications are due August 7th, and regular applications are due September 12th, 2026. Decisions will be out approximately one week after each deadline.",
+    a: `Early applications are due ${earlyAppsDue}, and regular applications are due ${regularAppsDue}. Decisions will be out approximately one week after each deadline.`,
   },
   {
     q: "Where does the event happen?",
@@ -81,11 +86,10 @@ export function Faq() {
   ];
 
   return (
-    <section
+    <StackedSheet
       ref={ref}
       id="faq"
-      data-nav-theme="light"
-      className="relative z-[9] -mt-14 md:-mt-20 min-h-screen rounded-t-[40px] md:rounded-t-[48px] bg-[#FBFAF4] px-6 md:px-[8vw] pt-24 pb-32 md:pt-32 md:pb-[260px]"
+      className="z-[9] min-h-screen bg-[#FBFAF4] px-6 md:px-[8vw] pt-24 pb-32 md:pt-32 md:pb-[260px]"
       style={{
         backgroundImage:
           "radial-gradient(rgba(58,74,38,0.16) 1px, transparent 1.4px)",
@@ -200,13 +204,7 @@ export function Faq() {
           className="flex flex-col gap-2"
         >
           {FAQS.map((f, i) => (
-            <FaqItem
-              key={f.q}
-              value={`item-${i}`}
-              q={f.q}
-              a={f.a}
-              open={openItem === `item-${i}`}
-            />
+            <FaqItem key={f.q} value={`item-${i}`} q={f.q} a={f.a} />
           ))}
         </Accordion>
       </div>
@@ -254,6 +252,6 @@ export function Faq() {
           </motion.div>
         ))}
       </div>
-    </section>
+    </StackedSheet>
   );
 }

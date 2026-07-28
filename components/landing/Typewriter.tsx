@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { prefersReducedMotion } from "@/lib/utils";
 
 interface Props {
@@ -10,6 +10,9 @@ interface Props {
   /** ms per character */
   speed?: number;
   className?: string;
+  showCaret?: boolean;
+  /** After the first reveal, show text updates immediately (for live labels). */
+  freezeAfterComplete?: boolean;
 }
 
 /**
@@ -22,32 +25,69 @@ export function Typewriter({
   delay = 400,
   speed = 85,
   className,
+  showCaret = true,
+  freezeAfterComplete = false,
 }: Props) {
   const reducedMotion = prefersReducedMotion();
-  const [n, setN] = useState(() => (reducedMotion ? text.length : 0));
-  const done = n >= text.length;
+  const [n, setN] = useState(0);
+  const completed = useRef(false);
+
+  const visible = reducedMotion ? text.length : n;
+  const done = visible >= text.length;
 
   useEffect(() => {
-    if (reducedMotion) return;
+    if (reducedMotion) {
+      completed.current = true;
+      return;
+    }
+
+    let tickId = 0;
+    let cancelled = false;
+
+    if (freezeAfterComplete && completed.current) {
+      tickId = window.setTimeout(() => {
+        if (!cancelled) setN(text.length);
+      }, 0);
+      return () => {
+        cancelled = true;
+        clearTimeout(tickId);
+      };
+    }
+
+    completed.current = false;
     let i = 0;
-    let id = 0;
+
     const tick = () => {
+      if (cancelled) return;
       i++;
       setN(i);
-      if (i < text.length) id = window.setTimeout(tick, speed);
+      if (i < text.length) {
+        tickId = window.setTimeout(tick, speed);
+      } else {
+        completed.current = true;
+      }
     };
-    id = window.setTimeout(tick, delay);
-    return () => clearTimeout(id);
-  }, [text, delay, speed, reducedMotion]);
+
+    tickId = window.setTimeout(() => {
+      if (cancelled) return;
+      setN(0);
+      tickId = window.setTimeout(tick, delay);
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(tickId);
+    };
+  }, [text, delay, speed, reducedMotion, freezeAfterComplete]);
 
   return (
     <span className={className} aria-label={text}>
-      <span aria-hidden>{text.slice(0, n)}</span>
+      <span aria-hidden>{text.slice(0, visible)}</span>
       <span aria-hidden className="relative">
-        {!done && (
+        {!done && showCaret && (
           <span className="type-caret absolute bottom-[0.06em] left-0 top-[0.12em] w-[0.045em] bg-current" />
         )}
-        <span style={{ opacity: 0 }}>{text.slice(n)}</span>
+        <span style={{ opacity: 0 }}>{text.slice(visible)}</span>
       </span>
     </span>
   );

@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { isTouchDevice, prefersReducedMotion } from "@/lib/utils";
 
 export function Cursor() {
   const dotRef = useRef<HTMLDivElement | null>(null);
   const ringRef = useRef<HTMLDivElement | null>(null);
-  const [hovering, setHovering] = useState(false);
-  const [visible, setVisible] = useState(false);
-  // Over [data-cursor-box] hosts the ring morphs into an annotation-style
-  // bounding box with a label (object-detection look).
-  const [boxLabel, setBoxLabel] = useState<string | null>(null);
+  const ditherRef = useRef<HTMLDivElement | null>(null);
+  const crosshairRef = useRef<HTMLDivElement | null>(null);
+  const labelRef = useRef<HTMLDivElement | null>(null);
+  const stateRef = useRef({
+    visible: false,
+    hovering: false,
+    boxLabel: null as string | null,
+  });
 
   useEffect(() => {
     if (isTouchDevice()) return;
@@ -24,7 +27,41 @@ export function Cursor() {
 
     const dot = dotRef.current;
     const ring = ringRef.current;
-    if (!dot || !ring) return;
+    const dither = ditherRef.current;
+    const crosshair = crosshairRef.current;
+    const label = labelRef.current;
+    if (!dot || !ring || !dither || !crosshair || !label) return;
+
+    const applyPresentation = () => {
+      const { visible, hovering, boxLabel } = stateRef.current;
+      const inBox = boxLabel !== null;
+      const showRing = visible && !hovering;
+      const showDot = visible && !inBox && !hovering;
+
+      ring.style.opacity = showRing ? "1" : "0";
+      dot.style.opacity = showDot ? "1" : "0";
+
+      ring.style.width = inBox ? "300px" : "34px";
+      ring.style.height = inBox ? "400px" : "34px";
+      ring.style.borderRadius = inBox ? "2px" : "999px";
+      ring.style.border = `1px solid ${
+        inBox ? "rgba(245,241,222,0.95)" : "rgba(58,74,38,0.55)"
+      }`;
+      ring.style.background = inBox
+        ? "rgba(245,241,222,0.03)"
+        : "rgba(239,233,212,0.06)";
+      ring.style.mixBlendMode = inBox ? "normal" : "multiply";
+
+      const backdrop = inBox
+        ? "contrast(1.2) saturate(0.8) brightness(1.05)"
+        : "none";
+      dither.style.opacity = inBox ? "0.9" : "0";
+      dither.style.backdropFilter = backdrop;
+      dither.style.setProperty("-webkit-backdrop-filter", backdrop);
+      crosshair.style.opacity = inBox ? "0.9" : "0";
+      label.textContent = boxLabel ?? "You";
+      label.style.opacity = inBox ? "1" : "0";
+    };
 
     const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     const dotPos = { x: mouse.x, y: mouse.y };
@@ -33,14 +70,17 @@ export function Cursor() {
     const onMove = (e: MouseEvent) => {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
-      // The custom cursor only lives inside opted-in zones (hero + header);
-      // everywhere else the native cursor shows and the trailers hide.
       const el = e.target instanceof Element ? e.target : null;
-      setVisible(el?.closest("[data-cursor-zone]") !== null && el !== null);
+      stateRef.current.visible =
+        el?.closest("[data-cursor-zone]") !== null && el !== null;
+      applyPresentation();
       start();
     };
 
-    const onLeave = () => setVisible(false);
+    const onLeave = () => {
+      stateRef.current.visible = false;
+      applyPresentation();
+    };
 
     const detectHover = (e: MouseEvent) => {
       const el = e.target as HTMLElement | null;
@@ -49,11 +89,11 @@ export function Cursor() {
         el.closest(
           "a, button, [data-cursor='hover'], [role='button'], input, textarea, select",
         ) !== null;
-      setHovering(interactive);
+      stateRef.current.hovering = interactive;
       const boxHost = el.closest<HTMLElement>("[data-cursor-box]");
-      setBoxLabel(
-        !interactive && boxHost ? boxHost.dataset.cursorBox || null : null,
-      );
+      stateRef.current.boxLabel =
+        !interactive && boxHost ? boxHost.dataset.cursorBox || null : null;
+      applyPresentation();
     };
 
     let raf = 0;
@@ -66,7 +106,6 @@ export function Cursor() {
       dot.style.transform = `translate3d(${dotPos.x}px, ${dotPos.y}px, 0) translate(-50%, -50%)`;
       ring.style.transform = `translate3d(${ringPos.x}px, ${ringPos.y}px, 0) translate(-50%, -50%)`;
 
-      // Sleep once both trailers have caught up; onMove wakes the loop.
       if (
         Math.abs(mouse.x - ringPos.x) < 0.1 &&
         Math.abs(mouse.y - ringPos.y) < 0.1
@@ -82,6 +121,7 @@ export function Cursor() {
       raf = requestAnimationFrame(tick);
     };
 
+    applyPresentation();
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseover", detectHover);
     document.addEventListener("mouseleave", onLeave);
@@ -104,24 +144,17 @@ export function Cursor() {
         style={{
           transition:
             "width 260ms var(--ease-soft), height 260ms var(--ease-soft), border-radius 260ms var(--ease-soft), border-color 260ms, background 260ms, opacity 260ms",
-          width: boxLabel ? 300 : 34,
-          height: boxLabel ? 400 : 34,
-          borderRadius: boxLabel ? 2 : "999px",
-          border: `1px solid ${
-            boxLabel ? "rgba(245,241,222,0.95)" : "rgba(58,74,38,0.55)"
-          }`,
-          background: boxLabel
-            ? "rgba(245,241,222,0.03)"
-            : "rgba(239,233,212,0.06)",
-          mixBlendMode: boxLabel ? "normal" : "multiply",
-          // Interactive elements get the native cursor instead — trailers
-          // duck out so the two never show together.
-          opacity: visible && !hovering ? 1 : 0,
+          width: 34,
+          height: 34,
+          borderRadius: "999px",
+          border: "1px solid rgba(58,74,38,0.55)",
+          background: "rgba(239,233,212,0.06)",
+          mixBlendMode: "multiply",
+          opacity: 0,
         }}
       >
-        {/* Dither screen: offset light/dark dot grids over a contrast-crunched
-            backdrop, so the framed region reads as "being processed" */}
         <div
+          ref={ditherRef}
           aria-hidden
           style={{
             position: "absolute",
@@ -134,19 +167,13 @@ export function Cursor() {
             backgroundSize: "3px 3px, 3px 3px",
             backgroundPosition: "0 0, 1.5px 1.5px",
             mixBlendMode: "overlay",
-            backdropFilter: boxLabel
-              ? "contrast(1.2) saturate(0.8) brightness(1.05)"
-              : "none",
-            WebkitBackdropFilter: boxLabel
-              ? "contrast(1.2) saturate(0.8) brightness(1.05)"
-              : "none",
-            opacity: boxLabel ? 0.9 : 0,
+            opacity: 0,
             transition: "opacity 260ms var(--ease-soft)",
           }}
         />
 
-        {/* Center crosshair marking the true cursor position */}
         <div
+          ref={crosshairRef}
           aria-hidden
           style={{
             position: "absolute",
@@ -155,7 +182,7 @@ export function Cursor() {
             transform: "translate(-50%, -50%)",
             width: 14,
             height: 14,
-            opacity: boxLabel ? 0.9 : 0,
+            opacity: 0,
             transition: "opacity 200ms var(--ease-soft)",
           }}
         >
@@ -183,8 +210,8 @@ export function Cursor() {
           />
         </div>
 
-        {/* Annotation tag sitting on the box's top-left edge */}
         <div
+          ref={labelRef}
           style={{
             position: "absolute",
             bottom: "100%",
@@ -197,11 +224,11 @@ export function Cursor() {
             fontWeight: 500,
             lineHeight: 1,
             whiteSpace: "nowrap",
-            opacity: boxLabel ? 1 : 0,
+            opacity: 0,
             transition: "opacity 200ms var(--ease-soft)",
           }}
         >
-          {boxLabel ?? "You"}
+          You
         </div>
       </div>
       <div
@@ -215,7 +242,7 @@ export function Cursor() {
           height: 4,
           borderRadius: "999px",
           background: "#3A4A26",
-          opacity: visible && !boxLabel && !hovering ? 1 : 0,
+          opacity: 0,
         }}
       />
     </>

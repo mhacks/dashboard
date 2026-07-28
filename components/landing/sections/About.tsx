@@ -2,11 +2,11 @@
 
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { PolaroidDecor } from "@/components/landing/PolaroidDecor";
 import { SplitReveal } from "@/components/landing/SplitReveal";
 import { ImageCarousel } from "@/components/landing/ImageCarousel";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { AsciiBloom } from "@/components/landing/AsciiBloom";
-import { AsciiCanvas } from "@/components/landing/AsciiCanvas";
 import { asset } from "@/lib/landing/asset";
 
 export function About() {
@@ -30,12 +30,7 @@ export function About() {
   const tabY = useTransform(scrollYProgress, [loadProgress, 1], [112, 0]);
 
   return (
-    <section
-      ref={ref}
-      id="about"
-      data-nav-theme="light"
-      className="relative z-[5] -mt-28 w-full pb-0"
-    >
+    <section ref={ref} id="about" className="relative z-[5] -mt-28 w-full pb-0">
       <motion.div
         style={{
           y: tabY,
@@ -50,91 +45,26 @@ export function About() {
       >
         <FlowerStamps tone="light" />
 
-        {/* Decorative polaroid, bleeding off the right edge */}
-        <motion.div
-          aria-hidden
-          initial={{ opacity: 0, y: 24, rotate: 9 }}
-          whileInView={{ opacity: 1, y: 0, rotate: 5 }}
-          transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1], delay: 0.25 }}
-          viewport={{ once: true, amount: 0.4 }}
-          className="absolute right-[-70px] top-[10%] hidden lg:block"
-        >
-          <motion.div
-            data-cursor="hover"
-            whileHover={{
-              scale: 1.05,
-              rotate: -2.5,
-              boxShadow: "0 26px 60px rgba(29,36,18,0.3)",
-            }}
-            transition={{ type: "spring", stiffness: 220, damping: 18 }}
-            style={{ boxShadow: "0 0 0 rgba(29,36,18,0)" }}
-            className="w-[400px] bg-white p-3 pb-4"
-          >
-            {/* Soft-focus photo under a cursor-reactive ASCII field — the
-                polaroid reads as a "digitized" memory. Overscaled slightly so
-                the blur never shows a hard edge. */}
-            <div className="relative h-[240px] w-full overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={asset("/about/about-09.jpg")}
-                alt=""
-                draggable={false}
-                className="h-full w-full scale-[1.06] object-cover blur-[3px]"
-              />
-              <AsciiCanvas
-                className="absolute inset-0"
-                step={12}
-                fontSize={10}
-                opacity={0.65}
-              />
-            </div>
-            <div className="mt-3 text-center font-serif-it text-[17px] text-moss-700">
-              ann arbor, mi
-            </div>
-          </motion.div>
-        </motion.div>
+        <PolaroidDecor
+          src="/about/about-09.jpg"
+          caption="ann arbor, mi"
+          side="right"
+          initialRotate={9}
+          restRotate={5}
+          hoverRotate={-2.5}
+          delay={0.25}
+        />
 
-        {/* Decorative polaroid, bleeding off the left edge */}
-        <motion.div
-          aria-hidden
-          initial={{ opacity: 0, y: 24, rotate: -10 }}
-          whileInView={{ opacity: 1, y: 0, rotate: -6 }}
-          transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1], delay: 0.35 }}
-          viewport={{ once: true, amount: 0.4 }}
-          className="absolute left-[-70px] top-[12%] hidden lg:block"
-        >
-          <motion.div
-            data-cursor="hover"
-            whileHover={{
-              scale: 1.05,
-              rotate: 3,
-              boxShadow: "0 26px 60px rgba(29,36,18,0.28)",
-            }}
-            transition={{ type: "spring", stiffness: 220, damping: 18 }}
-            style={{ boxShadow: "0 0 0 rgba(29,36,18,0)" }}
-            className="w-[400px] bg-white p-3 pb-4"
-          >
-            {/* Same digitized treatment as its twin on the right edge */}
-            <div className="relative h-[240px] w-full overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={asset("/about/about-10.jpg")}
-                alt=""
-                draggable={false}
-                className="h-full w-full scale-[1.06] object-cover blur-[3px]"
-              />
-              <AsciiCanvas
-                className="absolute inset-0"
-                step={12}
-                fontSize={10}
-                opacity={0.65}
-              />
-            </div>
-            <div className="mt-3 text-center font-serif-it text-[17px] text-moss-700">
-              university of michigan
-            </div>
-          </motion.div>
-        </motion.div>
+        <PolaroidDecor
+          src="/about/about-10.jpg"
+          caption="university of michigan"
+          side="left"
+          initialRotate={-10}
+          restRotate={-6}
+          hoverRotate={3}
+          delay={0.35}
+          shadow="0 26px 60px rgba(29,36,18,0.28)"
+        />
 
         {/* Centered heading + copy filling the viewport */}
         <div className="flex flex-1 flex-col items-center justify-center text-center">

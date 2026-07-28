@@ -3,12 +3,15 @@
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/landing/Logo";
-import { asset } from "@/lib/landing/asset";
 import { PillNav } from "@/components/landing/PillNav";
 import { CtaButton } from "@/components/landing/cta-button";
+import {
+  handleMarketingNavClick,
+  isMarketingHome,
+  resolveMarketingHref,
+} from "@/lib/landing/nav";
 import { useScrollDirection } from "@/lib/landing/useScrollDirection";
 import { useNavTheme } from "@/lib/landing/useNavTheme";
-import { scrollToHash } from "@/lib/landing/scroll";
 import { cn } from "@/lib/utils";
 
 export function SiteHeader() {
@@ -18,7 +21,7 @@ export function SiteHeader() {
   const frosted = useNavTheme() !== "hero";
   // On subpages (/how-to-mcp) the CTAs route back to the home page's
   // sections; raw <a> hrefs need the deploy base path prefixed by hand.
-  const onHome = usePathname() === "/";
+  const onHome = isMarketingHome(usePathname());
 
   return (
     <motion.header
@@ -79,14 +82,10 @@ export function SiteHeader() {
         <div className="relative z-[2] flex shrink-0 items-center gap-1 md:gap-2">
           <div className="hidden md:block">
             <CtaButton
-              href={onHome ? "#sponsors" : asset("/#sponsors")}
+              href={resolveMarketingHref("#sponsors", onHome)}
               variant="parchment"
               size="md"
-              onClick={(e) => {
-                if (!onHome) return;
-                e.preventDefault();
-                scrollToHash("#sponsors");
-              }}
+              onClick={(e) => handleMarketingNavClick("#sponsors", onHome, e)}
             >
               Sponsor us
             </CtaButton>

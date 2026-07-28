@@ -4,21 +4,10 @@ import { motion, type HTMLMotionProps } from "framer-motion";
 import { forwardRef } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
-import { useMagnetic } from "@/lib/landing/useMagnetic";
 import { cn } from "@/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 
-type CtaVariant =
-  | "cta"
-  | "primary"
-  | "secondary"
-  | "outline"
-  | "ghost"
-  | "accent"
-  | "cream"
-  | "glass"
-  | "parchment";
-
+type CtaVariant = "cta" | "primary" | "parchment" | "cream" | "glass";
 type CtaSize = "sm" | "md" | "lg";
 
 const variantMap: Record<
@@ -27,13 +16,9 @@ const variantMap: Record<
 > = {
   cta: "cta",
   primary: "cta",
-  secondary: "cream",
-  outline: "landing-outline",
-  ghost: "landing-ghost",
-  accent: "accent",
+  parchment: "parchment",
   cream: "cream",
   glass: "glass",
-  parchment: "parchment",
 };
 
 const sizeMap: Record<CtaSize, VariantProps<typeof buttonVariants>["size"]> = {
@@ -45,7 +30,6 @@ const sizeMap: Record<CtaSize, VariantProps<typeof buttonVariants>["size"]> = {
 interface CtaButtonProps extends Omit<HTMLMotionProps<"a">, "ref"> {
   variant?: CtaVariant;
   size?: CtaSize;
-  magnetic?: boolean;
   href?: string;
 }
 
@@ -54,7 +38,6 @@ export const CtaButton = forwardRef<HTMLAnchorElement, CtaButtonProps>(
     {
       variant = "primary",
       size = "md",
-      magnetic = false,
       className,
       children,
       href = "#",
@@ -62,12 +45,11 @@ export const CtaButton = forwardRef<HTMLAnchorElement, CtaButtonProps>(
     },
     ref,
   ) {
-    const magRef = useMagnetic<HTMLAnchorElement>();
-
     return (
       <motion.a
         href={href}
-        ref={magnetic ? magRef : ref}
+        ref={ref}
+        data-slot="button"
         data-cursor="hover"
         whileTap={{ scale: 0.97 }}
         className={cn(
@@ -85,6 +67,3 @@ export const CtaButton = forwardRef<HTMLAnchorElement, CtaButtonProps>(
     );
   },
 );
-
-/** @deprecated Use CtaButton */
-export const Button = CtaButton;

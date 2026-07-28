@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 import {
   AccordionContent,
   AccordionItem,
@@ -13,10 +11,9 @@ interface Props {
   value: string;
   q: string;
   a: string;
-  open: boolean;
 }
 
-export function FaqItem({ value, q, a, open }: Props) {
+export function FaqItem({ value, q, a }: Props) {
   return (
     <AccordionItem
       value={value}
@@ -30,17 +27,15 @@ export function FaqItem({ value, q, a, open }: Props) {
         data-cursor="hover"
       >
         <span>{q}</span>
-        <motion.span
-          animate={{
-            rotate: open ? 45 : 0,
-            backgroundColor: open ? "#3A4A26" : "transparent",
-            color: open ? "#EFE9D4" : "#5D6B3A",
-          }}
-          transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-border font-mono text-[14px]"
+        <span
+          className={cn(
+            "grid h-6 w-6 shrink-0 place-items-center rounded-full border border-border font-mono text-[14px] text-[#5D6B3A]",
+            "transition-[transform,background-color,color] duration-[250ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+            "group-aria-expanded/accordion-trigger:rotate-45 group-aria-expanded/accordion-trigger:bg-[#3A4A26] group-aria-expanded/accordion-trigger:text-[#EFE9D4]",
+          )}
         >
           +
-        </motion.span>
+        </span>
       </AccordionTrigger>
       <AccordionContent className="px-6 pb-6 text-[15px] leading-[1.6] text-[#3d4730]">
         {a}

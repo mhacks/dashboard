@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { subscribeScroll } from "@/lib/landing/scroll";
 
 interface Options {
   /** Minimum scroll delta before toggling direction. */
@@ -26,6 +27,7 @@ export function useScrollDirection({
     const onScroll = () => {
       const y = window.scrollY;
       const delta = y - lastY.current;
+      lastY.current = y;
 
       if (Math.abs(delta) < threshold) return;
 
@@ -36,12 +38,14 @@ export function useScrollDirection({
       } else {
         setVisible(true);
       }
-
-      lastY.current = y;
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const unsubLenis = subscribeScroll(onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      unsubLenis();
+    };
   }, [threshold, minScroll]);
 
   return visible;

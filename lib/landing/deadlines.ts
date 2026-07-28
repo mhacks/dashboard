@@ -55,6 +55,17 @@ export const DEADLINES: Deadline[] = [
   },
 ];
 
+/** Format a deadline id as a human-readable calendar date. */
+export function formatDeadlineDate(id: string): string {
+  const deadline = DEADLINES.find((d) => d.id === id);
+  if (!deadline) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(deadline.date));
+}
+
 /** Next deadline still in the future, or null once the season is over. */
 export function getNextDeadline(now: Date = new Date()): Deadline | null {
   return (

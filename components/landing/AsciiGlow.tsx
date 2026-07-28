@@ -83,6 +83,7 @@ export function AsciiGlow({
     const reduced = prefersReducedMotion();
     let glyphs: Glyph[] = [];
     let rafId = 0;
+    let timeoutId = 0;
     let running = false;
     let inView = true;
     let lastFrame = 0;
@@ -140,12 +141,16 @@ export function AsciiGlow({
         lastFrame = now;
         draw(now / 1000);
       }
-      rafId = requestAnimationFrame(loop);
+      const wait = Math.max(4, FRAME_MS - (performance.now() - lastFrame));
+      timeoutId = window.setTimeout(() => {
+        rafId = requestAnimationFrame(loop);
+      }, wait);
     };
 
     const start = () => {
       if (running || reduced) return;
       running = true;
+      lastFrame = 0;
       rafId = requestAnimationFrame(loop);
     };
 
@@ -163,6 +168,7 @@ export function AsciiGlow({
       if (inView) start();
       else {
         cancelAnimationFrame(rafId);
+        clearTimeout(timeoutId);
         running = false;
       }
     });
@@ -179,6 +185,7 @@ export function AsciiGlow({
 
     return () => {
       cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
       observer.disconnect();
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibility);

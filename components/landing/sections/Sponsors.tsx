@@ -1,37 +1,25 @@
 "use client";
 
 import { useRef } from "react";
-import {
-  motion,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-} from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { SplitReveal } from "@/components/landing/SplitReveal";
 import { CtaButton } from "@/components/landing/cta-button";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
+import { StackedSheet } from "@/components/landing/StackedSheet";
+import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
 import { asset } from "@/lib/landing/asset";
 
 export function Sponsors() {
   const ref = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
-
-  // Blossom branch: scroll-linked entrance while the sheet slides into
-  // place — it peeks out from the right edge and drifts left into position.
-  // Transform-only (compositor-safe), frozen once the sheet pins.
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "start start"],
-  });
-  const branchX = useTransform(scrollYProgress, [0.08, 0.92], ["62vw", "0vw"]);
+  const branchX = useGarlandEntrance(ref, "left");
 
   return (
-    <section
+    <StackedSheet
       ref={ref}
       id="sponsors"
-      data-nav-theme="dark"
-      className="relative z-[6] -mt-14 md:-mt-20 flex min-h-screen flex-col justify-center overflow-hidden rounded-t-[40px] md:rounded-t-[48px] bg-moss-700 text-cream px-6 md:px-[8vw] py-24 md:py-32"
+      className="z-[6] flex min-h-screen flex-col justify-center bg-moss-700 text-cream px-6 md:px-[8vw] py-24 md:py-32"
     >
       {/* Blueprint grid (Studio Apply-style) */}
       <div
@@ -146,6 +134,6 @@ export function Sponsors() {
           </span>
         </CtaButton>
       </motion.div>
-    </section>
+    </StackedSheet>
   );
 }

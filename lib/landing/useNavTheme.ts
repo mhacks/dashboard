@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { subscribeScroll } from "@/lib/landing/scroll";
 
 /**
  * "hero" while the scroll position is above the hero's midpoint, "page" once
@@ -25,12 +26,24 @@ export function useNavTheme(fraction = 0.5): "hero" | "page" {
       setZone(window.scrollY < hero.offsetHeight * fraction ? "hero" : "page");
     };
 
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        update();
+      });
+    };
+
     update();
-    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", update);
+    const unsubLenis = subscribeScroll(onScroll);
     return () => {
-      window.removeEventListener("scroll", update);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", update);
+      unsubLenis();
     };
   }, [fraction]);
 

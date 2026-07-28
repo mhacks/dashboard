@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Typewriter } from "@/components/landing/Typewriter";
 import { getNextDeadline, getTimeParts } from "@/lib/landing/deadlines";
 
 /**
@@ -11,25 +12,12 @@ import { getNextDeadline, getTimeParts } from "@/lib/landing/deadlines";
  */
 export function DeadlineCountdown({ className }: { className?: string }) {
   const [now, setNow] = useState<Date | null>(null);
-  // Typewriter entrance: characters revealed one by one on mount, then the
-  // timer just ticks in place.
-  const [typed, setTyped] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
-    const typer = setInterval(() => {
-      setTyped((c) => {
-        if (c >= 80) {
-          clearInterval(typer);
-          return c;
-        }
-        return c + 1;
-      });
-    }, 24);
     const initial = window.setTimeout(() => setNow(new Date()), 0);
     return () => {
       clearInterval(id);
-      clearInterval(typer);
       clearTimeout(initial);
     };
   }, []);
@@ -43,7 +31,7 @@ export function DeadlineCountdown({ className }: { className?: string }) {
 
   const t = getTimeParts(new Date(next.date), now);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const full = `${next.countdownLabel} in ${t.days}d ${pad(t.hours)}h ${pad(t.minutes)}m ${pad(t.seconds)}s`;
+  const label = `${next.countdownLabel} in ${t.days}d ${pad(t.hours)}h ${pad(t.minutes)}m ${pad(t.seconds)}s`;
 
   return (
     <div
@@ -53,12 +41,14 @@ export function DeadlineCountdown({ className }: { className?: string }) {
       // made the pill stutter on phones.
       className={`inline-flex items-center rounded-pill border border-white/40 bg-[rgba(24,24,24,0.55)] px-3 py-1.5 md:bg-[rgba(24,24,24,0.5)] md:px-4 md:backdrop-blur-sm ${className ?? ""}`}
     >
-      <span
-        className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#f2f2f2] md:text-[11px] md:tracking-[0.18em]"
-        style={{ fontVariantNumeric: "tabular-nums" }}
-      >
-        {full.slice(0, typed)}
-      </span>
+      <Typewriter
+        text={label}
+        delay={0}
+        speed={24}
+        showCaret={false}
+        freezeAfterComplete
+        className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#f2f2f2] md:text-[11px] md:tracking-[0.18em] [font-variant-numeric:tabular-nums]"
+      />
     </div>
   );
 }

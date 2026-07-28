@@ -21,7 +21,13 @@ const REACH = 180; // influence radius around the cursor
 const BASE_A = 0.14; // resting alpha
 const MAX_A = 0.75; // alpha at the cursor's center
 
-export function DotGridReactive({ className }: { className?: string }) {
+export function DotGridReactive({
+  className,
+  stackPause,
+}: {
+  className?: string;
+  stackPause?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -71,8 +77,11 @@ export function DotGridReactive({ className }: { className?: string }) {
       }
     };
 
+    const isActive = () =>
+      inView && !document.hidden && canvas.offsetParent !== null;
+
     const loop = () => {
-      if (!inView || document.hidden) {
+      if (!isActive()) {
         running = false;
         return;
       }
@@ -138,9 +147,14 @@ export function DotGridReactive({ className }: { className?: string }) {
       }
     });
 
+    const onVisibility = () => {
+      if (!document.hidden && isActive()) start();
+    };
+
     resize();
     observer.observe(canvas);
     window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", onVisibility);
     if (!reduced) {
       host.addEventListener("mousemove", onMove);
       host.addEventListener("mouseleave", onLeave);
@@ -150,6 +164,7 @@ export function DotGridReactive({ className }: { className?: string }) {
       cancelAnimationFrame(rafId);
       observer.disconnect();
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", onVisibility);
       host.removeEventListener("mousemove", onMove);
       host.removeEventListener("mouseleave", onLeave);
     };
@@ -159,6 +174,7 @@ export function DotGridReactive({ className }: { className?: string }) {
     <canvas
       ref={canvasRef}
       aria-hidden
+      {...(stackPause ? { "data-stack-pause": true } : {})}
       className={`pointer-events-none absolute inset-0 h-full w-full ${className ?? ""}`}
     />
   );

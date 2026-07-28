@@ -1,10 +1,23 @@
 import type Lenis from "lenis";
 
 let lenis: Lenis | null = null;
+const scrollListeners = new Set<() => void>();
+
+function emitScroll() {
+  scrollListeners.forEach((listener) => listener());
+}
+
+/** Subscribe to scroll position changes (Lenis + native fallback). */
+export function subscribeScroll(listener: () => void) {
+  scrollListeners.add(listener);
+  return () => scrollListeners.delete(listener);
+}
 
 /** Called by SmoothScroll so anchor navigation can drive the Lenis instance. */
 export function registerLenis(instance: Lenis | null) {
+  lenis?.off("scroll", emitScroll);
   lenis = instance;
+  lenis?.on("scroll", emitScroll);
 }
 
 /** Animated scroll to an in-page anchor (e.g. "#about"). */

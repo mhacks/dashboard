@@ -3,40 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import {
+  handleMarketingNavClick,
+  isMarketingHome,
+  MARKETING_NAV_ITEMS,
+  resolveMarketingHref,
+  type MarketingNavItem,
+} from "@/lib/landing/nav";
 import { cn } from "@/lib/utils";
-import { scrollToHash } from "@/lib/landing/scroll";
-
-interface Item {
-  label: string;
-  href: string;
-  cta?: boolean;
-}
 
 interface Props {
-  items?: Item[];
+  items?: MarketingNavItem[];
   className?: string;
   variant?: "light" | "dark";
   /** Inline overrides (e.g. adaptive nav tone); wins over variant styling. */
   style?: React.CSSProperties;
 }
 
-const DEFAULT_ITEMS: Item[] = [
-  { label: "About", href: "#about" },
-  { label: "Sponsors", href: "#sponsors" },
-  { label: "Timeline", href: "#timeline" },
-  { label: "Agent", href: "/how-to-mcp" },
-  { label: "FAQ", href: "#faq" },
-];
-
 export function PillNav({
-  items = DEFAULT_ITEMS,
+  items = MARKETING_NAV_ITEMS,
   className,
   variant = "light",
   style,
 }: Props) {
-  // Off the home page, hash items become real routes back to the section
-  // ("/#about") instead of dead in-page anchors.
-  const onHome = usePathname() === "/";
+  const onHome = isMarketingHome(usePathname());
   return (
     <motion.nav
       initial={{ opacity: 0, y: -12 }}
@@ -61,14 +51,9 @@ export function PillNav({
       {items.map((it) => (
         <Link
           key={it.href}
-          href={it.href.startsWith("#") && !onHome ? `/${it.href}` : it.href}
+          href={resolveMarketingHref(it.href, onHome)}
           data-cursor="hover"
-          onClick={(e) => {
-            if (it.href.startsWith("#") && onHome) {
-              e.preventDefault();
-              scrollToHash(it.href);
-            }
-          }}
+          onClick={(e) => handleMarketingNavClick(it.href, onHome, e)}
           className={cn(
             "font-display px-4 py-1.5 text-[15px] font-medium leading-none rounded-pill transition-all duration-300",
             it.cta
