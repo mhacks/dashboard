@@ -135,17 +135,23 @@ export function Footer() {
             className="flex flex-wrap justify-center gap-x-6 gap-y-3 text-[15px] [text-shadow:0_1px_12px_rgba(29,36,18,0.45)] md:gap-8"
             aria-label="Footer"
           >
-            {FOOTER_NAV_ITEMS.map((l) => (
-              <Link
-                key={l.href}
-                href={resolveMarketingHref(l.href, onHome)}
-                data-cursor="hover"
-                className="opacity-85 transition-opacity hover:opacity-100 hover:underline underline-offset-4"
-                onClick={(e) => handleMarketingNavClick(l.href, onHome, e)}
-              >
-                {l.label}
-              </Link>
-            ))}
+            {FOOTER_NAV_ITEMS.map((l) => {
+              const external = l.href.startsWith("http");
+              return (
+                <Link
+                  key={l.href}
+                  href={resolveMarketingHref(l.href, onHome)}
+                  data-cursor="hover"
+                  className="opacity-85 transition-opacity hover:opacity-100 hover:underline underline-offset-4"
+                  {...(external
+                    ? { target: "_blank", rel: "noopener noreferrer" }
+                    : {})}
+                  onClick={(e) => handleMarketingNavClick(l.href, onHome, e)}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="justify-self-center font-mono text-[13px] text-cream [text-shadow:0_1px_12px_rgba(29,36,18,0.45)] md:justify-self-end md:text-right">
