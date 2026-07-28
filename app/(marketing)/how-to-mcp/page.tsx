@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function HowToMcpPage() {
   return (
-    <main className="relative">
+    <main className="relative bg-transparent">
       <HowToMcp />
       <Footer />
     </main>

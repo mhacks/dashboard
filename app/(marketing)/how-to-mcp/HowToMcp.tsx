@@ -292,25 +292,32 @@ export function HowToMcp() {
   const [mode, setMode] = useState<Mode>("human");
 
   return (
-    <div className="relative">
+    <div className="relative isolate min-h-screen">
       {/* Backdrop: aerial terraces behind the same frosted veil as the hero
           (blur values match HeroReveal's, painted on an oversized plate so
           the blur never samples past the edges). Fixed so the paper scrolls
-          over it. */}
-      <div aria-hidden className="fixed inset-0 -z-10 overflow-hidden">
-        {/* Blur baked into the image — no live CSS filter mid-scroll. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={asset("/footer/footer-pastel-soft.jpg")}
-          alt=""
-          draggable={false}
-          className="h-full w-full object-cover object-[68%_12%]"
-        />
+          over it — z-0 (not negative) so it paints above the shell's cream
+          parchment background. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-moss-900"
+      >
+        <div className="absolute -inset-[12%] [filter:blur(7px)_brightness(0.84)_saturate(1.1)] md:[filter:blur(22px)_brightness(0.82)_saturate(1.12)_contrast(1.04)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={asset("/footer/footer-pastel.jpg")}
+            alt=""
+            draggable={false}
+            className="h-full w-full object-cover"
+          />
+        </div>
         <div
           className="absolute inset-0"
           style={{
-            background:
-              "linear-gradient(180deg, rgba(29,36,18,0.2) 0%, rgba(29,36,18,0.05) 40%, rgba(29,36,18,0.25) 100%)",
+            background: [
+              "radial-gradient(120% 90% at 50% 0%, rgba(58,74,38,0.35) 0%, transparent 55%)",
+              "linear-gradient(180deg, rgba(29,36,18,0.28) 0%, rgba(29,36,18,0.08) 42%, rgba(29,36,18,0.32) 100%)",
+            ].join(", "),
           }}
         />
         <div
@@ -324,7 +331,7 @@ export function HowToMcp() {
         />
       </div>
 
-      <div className="px-4 pb-28 pt-28 sm:px-6 md:pt-32">
+      <div className="relative z-10 px-4 pb-28 pt-28 sm:px-6 md:pt-32">
         {/* The paper */}
         <div className="relative mx-auto w-full max-w-[820px] rounded-[22px] bg-[#FBFAF4] shadow-[0_48px_120px_-32px_rgba(29,36,18,0.6)] ring-1 ring-white/60">
           {/* Same dotted tooth as the FAQ sheet */}
