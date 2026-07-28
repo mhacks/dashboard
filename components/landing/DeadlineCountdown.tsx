@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Typewriter } from "@/components/landing/Typewriter";
+import { useEffect, useRef, useState } from "react";
 import { getNextDeadline, getTimeParts } from "@/lib/landing/deadlines";
 
 /**
@@ -12,6 +11,10 @@ import { getNextDeadline, getTimeParts } from "@/lib/landing/deadlines";
  */
 export function DeadlineCountdown({ className }: { className?: string }) {
   const [now, setNow] = useState<Date | null>(null);
+  // Typewriter entrance runs once per deadline phase; the timer digits then
+  // tick in place without re-animating the label.
+  const [typed, setTyped] = useState(0);
+  const deadlineId = useRef<string | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -23,6 +26,26 @@ export function DeadlineCountdown({ className }: { className?: string }) {
   }, []);
 
   const next = now ? getNextDeadline(now) : null;
+  const phaseId = next?.id;
+
+  useEffect(() => {
+    if (!phaseId) return;
+    if (deadlineId.current === phaseId) return;
+    deadlineId.current = phaseId;
+    setTyped(0);
+
+    const typer = window.setInterval(() => {
+      setTyped((count) => {
+        if (count >= 80) {
+          clearInterval(typer);
+          return count;
+        }
+        return count + 1;
+      });
+    }, 24);
+
+    return () => clearInterval(typer);
+  }, [phaseId]);
 
   // Pre-mount (SSR + first client render): reserve the pill's height so the
   // hero lockup doesn't shift when the timer appears.
@@ -41,14 +64,12 @@ export function DeadlineCountdown({ className }: { className?: string }) {
       // made the pill stutter on phones.
       className={`inline-flex items-center rounded-pill border border-white/40 bg-[rgba(24,24,24,0.55)] px-3 py-1.5 md:bg-[rgba(24,24,24,0.5)] md:px-4 md:backdrop-blur-sm ${className ?? ""}`}
     >
-      <Typewriter
-        text={label}
-        delay={0}
-        speed={24}
-        showCaret={false}
-        freezeAfterComplete
-        className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#f2f2f2] md:text-[11px] md:tracking-[0.18em] [font-variant-numeric:tabular-nums]"
-      />
+      <span
+        className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#f2f2f2] md:text-[11px] md:tracking-[0.18em]"
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
+        {label.slice(0, typed)}
+      </span>
     </div>
   );
 }
