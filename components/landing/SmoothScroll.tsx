@@ -7,6 +7,7 @@ import { registerLenis } from "@/lib/landing/scroll";
 
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    if (typeof window !== "undefined") history.scrollRestoration = "manual";
     if (prefersReducedMotion()) return;
     const lenis = new Lenis({
       duration: 1.15,

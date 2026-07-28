@@ -2,8 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { scrollToHash } from "@/lib/landing/scroll";
+import {
+  handleMarketingNavClick,
+  isMarketingHome,
+  resolveMarketingHref,
+} from "@/lib/landing/nav";
 import { asset } from "@/lib/landing/asset";
 
 interface Props {
@@ -21,6 +26,7 @@ export function Logo({
   href = "#top",
   priority = false,
 }: Props) {
+  const onHome = isMarketingHome(usePathname());
   const img = (
     <Image
       src={asset("/logos/mhacks-logo.png")}
@@ -48,15 +54,10 @@ export function Logo({
 
   return (
     <Link
-      href={href}
+      href={resolveMarketingHref(href, onHome)}
       aria-label="MHacks home"
       data-cursor="hover"
-      onClick={(e) => {
-        if (href.startsWith("#")) {
-          e.preventDefault();
-          scrollToHash(href);
-        }
-      }}
+      onClick={(e) => handleMarketingNavClick(href, onHome, e)}
       className={cn(
         "inline-flex shrink-0 items-center justify-center",
         className,

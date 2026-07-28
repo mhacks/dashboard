@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { subscribeScroll } from "@/lib/landing/scroll";
 
@@ -10,6 +11,7 @@ import { subscribeScroll } from "@/lib/landing/scroll";
  * transparent hero variant is guaranteed by the time you're back at the top.
  */
 export function useNavTheme(fraction = 0.5): "hero" | "page" {
+  const pathname = usePathname();
   const [zone, setZone] = useState<"hero" | "page">("hero");
 
   useEffect(() => {
@@ -26,26 +28,17 @@ export function useNavTheme(fraction = 0.5): "hero" | "page" {
       setZone(window.scrollY < hero.offsetHeight * fraction ? "hero" : "page");
     };
 
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-        update();
-      });
-    };
-
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    const id = requestAnimationFrame(update);
+    window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
-    const unsubLenis = subscribeScroll(onScroll);
+    const unsubLenis = subscribeScroll(update);
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(id);
+      window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       unsubLenis();
     };
-  }, [fraction]);
+  }, [fraction, pathname]);
 
   return zone;
 }

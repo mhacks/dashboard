@@ -26,13 +26,21 @@ export const FOOTER_NAV_ITEMS: MarketingNavItem[] = [
   },
 ];
 
+/** Strip duplicated fragments (e.g. `#about#about` → `#about`). */
+export function normalizeHash(hash: string): string {
+  const id = hash.replace(/^#+/, "").split("#")[0];
+  return id ? `#${id}` : "";
+}
+
 export function isMarketingHome(pathname: string | null): boolean {
   return pathname === "/";
 }
 
-/** Hash links on subpages must include the deploy base path (GitHub Pages). */
+/** Hash links as root-absolute paths (e.g. `/#about`). Bare `#about` appends
+ *  to the current fragment (`/#sponsors` → `/#sponsors#about`). Off-home
+ *  links also need the deploy base path (GitHub Pages). */
 export function resolveMarketingHref(href: string, onHome: boolean): string {
-  if (href.startsWith("#") && !onHome) return asset(`/${href}`);
+  if (href.startsWith("#")) return onHome ? `/${href}` : asset(`/${href}`);
   return href;
 }
 
@@ -43,6 +51,7 @@ export function handleMarketingNavClick(
 ) {
   if (href.startsWith("#") && onHome) {
     e.preventDefault();
+    history.replaceState(null, "", href);
     scrollToHash(href);
   }
 }

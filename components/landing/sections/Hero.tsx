@@ -30,18 +30,21 @@ const HERO_BGS = [
     icon: "/hero/icon-leaf.png",
     label: "Meadow backdrop",
     src: null,
+    blurSrc: null,
   },
   {
     id: "flower",
     icon: "/hero/icon-flower.png",
     label: "Peony garden backdrop",
     src: "/hero/hero-flower.jpg",
+    blurSrc: "/hero/hero-flower-1280.jpg",
   },
   {
     id: "cloud",
     icon: "/hero/icon-cloud.png",
     label: "Sky backdrop",
     src: "/hero/hero-cloud.jpg",
+    blurSrc: "/hero/hero-cloud-1280.jpg",
   },
 ] as const;
 
@@ -98,7 +101,12 @@ export function Hero() {
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "-6%"]);
 
   const activeBg = HERO_BGS.find((b) => b.id === bgId) ?? HERO_BGS[0];
-  const bgProps = activeBg.src ? { src: asset(activeBg.src) } : {};
+  const bgProps = activeBg.src
+    ? {
+        src: asset(activeBg.src),
+        blurSrc: activeBg.blurSrc ? asset(activeBg.blurSrc) : undefined,
+      }
+    : {};
   // The meta row tracks the title's drift so the lockup stays intact while fading.
   const metaOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
 
@@ -305,7 +313,7 @@ export function Hero() {
                 Apply
               </CtaButton>
               <CtaButton
-                href="#sponsors"
+                href="/#sponsors"
                 variant="parchment"
                 size="md"
                 className="w-[200px]"

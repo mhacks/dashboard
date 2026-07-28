@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { scrollToHash } from "@/lib/landing/scroll";
+import { normalizeHash } from "@/lib/landing/nav";
 
 /**
  * Turns the top-level sections into a stacked-pages scroll: each sheet
@@ -101,11 +102,12 @@ export function StackedPages() {
     pinned.forEach((el) => ro.observe(el));
     layout();
     onScroll();
-    // Arriving with a #hash (e.g. footer links on /how-to-mcp): the native
-    // anchor jump lands wrong because pinned sheets report sticky rects, so
-    // re-target once the sheets are pinned.
+    // Arriving with a #hash (e.g. /#about): the native anchor jump lands
+    // wrong because pinned sheets report sticky rects, so re-target once the
+    // sheets are pinned and re-sync nav state when the scroll settles.
     if (window.location.hash) {
-      const hash = window.location.hash;
+      const hash = normalizeHash(window.location.hash);
+      if (hash !== window.location.hash) history.replaceState(null, "", hash);
       requestAnimationFrame(() => scrollToHash(hash));
     }
     window.addEventListener("resize", layout);
