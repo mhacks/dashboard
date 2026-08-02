@@ -84,6 +84,9 @@ export function AsciiCanvas({
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       W = parent.clientWidth;
       H = parent.clientHeight;
+      // Polaroids are `hidden lg:block`, so a resize across that breakpoint
+      // measures a collapsed parent. Bail rather than zero out the canvas.
+      if (W === 0 || H === 0) return;
       c.width = Math.floor(W * dpr);
       c.height = Math.floor(H * dpr);
       c.style.width = `${W}px`;
@@ -167,8 +170,10 @@ export function AsciiCanvas({
 
     const observer = new IntersectionObserver(([entry]) => {
       inView = entry.isIntersecting;
-      if (inView) start();
-      else {
+      if (inView) {
+        if (c.width === 0 || c.height === 0) resize();
+        start();
+      } else {
         cancelAnimationFrame(raf);
         running = false;
       }

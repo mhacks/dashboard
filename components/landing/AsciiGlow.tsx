@@ -18,6 +18,8 @@ const DUST_RGB = "rgb(239, 233, 212)";
 const CELL = 22; // px between glyph centers
 const DENSITY = 0.34; // fraction of cells that hold a glyph
 const FRAME_MS = 1000 / 24;
+/** Quiet period after the last scroll event before the twinkle resumes. */
+const SCROLL_RESUME_MS = 150;
 
 interface Glyph {
   x: number;
@@ -91,10 +93,19 @@ export function AsciiGlow({
     let glyphs: Glyph[] = [];
     let rafId = 0;
     let timeoutId = 0;
+    let scrollIdleId = 0;
     let running = false;
     let inView = true;
+    let scrolling = false;
     let lastFrame = 0;
     let dpr = 1;
+    // The twinkle is driven off wall-clock time. While the loop is parked we
+    // bank the elapsed time here and subtract it, so the sky resumes from the
+    // exact frame it froze on instead of jumping forward a second of phase.
+    let clockOffset = 0;
+    let pauseStart = 0;
+
+    const canRun = () => inView && !scrolling && !document.hidden;
 
     const draw = (timeSec: number) => {
       const w = canvas.width / dpr;
@@ -169,13 +180,13 @@ export function AsciiGlow({
     };
 
     const loop = (now: number) => {
-      if (!inView || document.hidden) {
+      if (!canRun()) {
         running = false;
         return;
       }
       if (now - lastFrame >= FRAME_MS) {
         lastFrame = now;
-        draw(now / 1000);
+        draw((now - clockOffset) / 1000);
       }
       const wait = Math.max(4, FRAME_MS - (performance.now() - lastFrame));
       timeoutId = window.setTimeout(() => {
@@ -184,14 +195,25 @@ export function AsciiGlow({
     };
 
     const start = () => {
-      if (running || reduced) return;
+      if (running || reduced || !canRun()) return;
       running = true;
       lastFrame = 0;
       rafId = requestAnimationFrame(loop);
     };
 
+    const stop = () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
+      running = false;
+    };
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
+      // StackedPages display-toggles this canvas while the hero is buried, and
+      // a resize landing in that window would size the backing store to 0x0 —
+      // which never recovers on its own, leaving the starfield permanently
+      // blank. Skip while hidden; the observer re-measures on the way back in.
+      if (rect.width === 0 || rect.height === 0) return;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(rect.width * dpr);
       canvas.height = Math.round(rect.height * dpr);
@@ -201,29 +223,49 @@ export function AsciiGlow({
 
     const observer = new IntersectionObserver(([entry]) => {
       inView = entry.isIntersecting;
-      if (inView) start();
-      else {
-        cancelAnimationFrame(rafId);
-        clearTimeout(timeoutId);
-        running = false;
-      }
+      if (inView) {
+        if (canvas.width === 0 || canvas.height === 0) resize();
+        start();
+      } else stop();
     });
 
     const onVisibility = () => {
       if (!document.hidden) start();
     };
 
+    /* Nobody can read a 24fps twinkle while the view is moving, and this loop
+       is the hero's only measurable cost during a scroll (~31% of the
+       main-thread work across the hero->about transition, almost all of it
+       canvas shadowBlur on the star halos). So park it while scrolling and
+       resume shortly after the scroll settles — the frozen frame stays on
+       screen throughout, so the sky never blanks. */
+    const onScroll = () => {
+      if (!scrolling) {
+        scrolling = true;
+        pauseStart = performance.now();
+        stop();
+      }
+      clearTimeout(scrollIdleId);
+      scrollIdleId = window.setTimeout(() => {
+        scrolling = false;
+        clockOffset += performance.now() - pauseStart;
+        start();
+      }, SCROLL_RESUME_MS);
+    };
+
     resize();
     start();
     observer.observe(canvas);
     window.addEventListener("resize", resize);
+    window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timeoutId);
+      stop();
+      clearTimeout(scrollIdleId);
       observer.disconnect();
       window.removeEventListener("resize", resize);
+      window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [cell, density]);
