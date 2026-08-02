@@ -13,6 +13,8 @@ import { prefersReducedMotion } from "@/lib/utils";
 
 const SMALL_GLYPHS = "·.,:˙'`°";
 const STAR_GLYPHS = "+*×✽✦✧";
+const ACCENT_RGB = "rgb(232, 211, 90)";
+const DUST_RGB = "rgb(239, 233, 212)";
 const CELL = 22; // px between glyph centers
 const DENSITY = 0.34; // fraction of cells that hold a glyph
 const FRAME_MS = 1000 / 24;
@@ -48,7 +50,12 @@ function buildField(
         x: c * cell + cell / 2 + (Math.random() - 0.5) * cell * 0.8,
         y: r * cell + cell / 2 + (Math.random() - 0.5) * cell * 0.8,
         char: pool[Math.floor(Math.random() * pool.length)],
-        size: star ? 18 + Math.random() * 14 : 12 + Math.random() * 6,
+        // Whole pixels, so the sort below actually collapses into ~20 runs.
+        // Fractional sizes made every glyph a distinct `ctx.font` string, and
+        // each assignment re-parses the font — ~1500 parses per frame.
+        size: star
+          ? 18 + Math.round(Math.random() * 14)
+          : 12 + Math.round(Math.random() * 6),
         phase: Math.random() * Math.PI * 2,
         speed: 0.3 + Math.random() * 1.1,
         peak: star ? 0.45 + Math.random() * 0.5 : 0.2 + Math.random() * 0.35,
@@ -98,6 +105,10 @@ export function AsciiGlow({
       ctx.textBaseline = "middle";
 
       let currentSize = 0;
+      let currentFill = "";
+      let currentShadow = "";
+      let currentAlpha = 1;
+      let currentBlur = 0;
       for (const g of glyphs) {
         const wave = 0.5 + 0.5 * Math.sin(timeSec * g.speed + g.phase);
         // Sharpen the curve so glyphs spend most time dim, then flare up.
@@ -114,21 +125,46 @@ export function AsciiGlow({
           currentSize = g.size;
           ctx.font = `${g.size}px var(--font-red-hat-mono), ui-monospace, monospace`;
         }
-        const color = g.accent
-          ? `rgba(232, 211, 90, ${alpha})`
-          : `rgba(239, 233, 212, ${alpha})`;
         // Soft halo once a star flares past half brightness.
         if (g.star && alpha > 0.25) {
-          ctx.shadowColor = g.accent
+          // The halo is deliberately independent of the glyph's own alpha, so
+          // this path keeps the alpha baked into fillStyle — globalAlpha would
+          // dim the shadow along with the glyph and change the look.
+          if (currentAlpha !== 1) {
+            currentAlpha = 1;
+            ctx.globalAlpha = 1;
+          }
+          const shadow = g.accent
             ? "rgba(232, 211, 90, 0.9)"
             : "rgba(239, 233, 212, 0.9)";
-          ctx.shadowBlur = g.size * 0.7 * alpha;
+          if (shadow !== currentShadow) {
+            currentShadow = shadow;
+            ctx.shadowColor = shadow;
+          }
+          currentBlur = g.size * 0.7 * alpha;
+          ctx.shadowBlur = currentBlur;
+          ctx.fillStyle = g.accent
+            ? `rgba(232, 211, 90, ${alpha})`
+            : `rgba(239, 233, 212, ${alpha})`;
+          currentFill = "";
         } else {
-          ctx.shadowBlur = 0;
+          if (currentBlur !== 0) {
+            currentBlur = 0;
+            ctx.shadowBlur = 0;
+          }
+          // Flat glyphs: two constant colours + globalAlpha, which composites
+          // identically to a per-glyph rgba() string but skips the parse.
+          const fill = g.accent ? ACCENT_RGB : DUST_RGB;
+          if (fill !== currentFill) {
+            currentFill = fill;
+            ctx.fillStyle = fill;
+          }
+          currentAlpha = alpha;
+          ctx.globalAlpha = alpha;
         }
-        ctx.fillStyle = color;
         ctx.fillText(g.char, g.x, g.y);
       }
+      ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
     };
 

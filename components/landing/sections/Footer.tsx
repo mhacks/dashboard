@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { Logo } from "@/components/landing/Logo";
@@ -114,12 +115,16 @@ export function Footer() {
           the right (the garland spans 88% of the row, so this tracks it
           proportionally at any width) */}
       <div className="relative z-10 pt-[10px] md:pt-[26px]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={asset("/footer/brought-to-you.png")}
+        <Image
+          src="/footer/brought-to-you.png"
           alt="Brought to you by the MHacks Team"
+          width={1600}
+          height={316}
+          sizes="(min-width: 768px) 570px, 420px"
           draggable={false}
-          className="mx-auto block w-[78%] max-w-[420px] md:mx-0 md:w-[min(66%,570px)] md:max-w-none md:ml-[69.7%] md:-translate-x-1/2"
+          /* h-auto so the height attribute doesn't override the aspect ratio
+             once the percentage widths take over. */
+          className="mx-auto block h-auto w-[78%] max-w-[420px] md:mx-0 md:w-[min(66%,570px)] md:max-w-none md:ml-[69.7%] md:-translate-x-1/2"
         />
       </div>
 

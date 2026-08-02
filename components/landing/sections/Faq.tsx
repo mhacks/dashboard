@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { Accordion } from "@/components/ui/accordion";
 import {
   motion,
@@ -144,10 +145,12 @@ export function Faq() {
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
                 className="absolute -left-[115px] top-5 z-0 w-[180px] bg-white p-3 pb-4 hover:z-10"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={asset("/faq/polaroid-1.jpg")}
+                <Image
+                  src="/faq/polaroid-1.jpg"
                   alt=""
+                  width={156}
+                  height={225}
+                  sizes="156px"
                   draggable={false}
                   className="h-[225px] w-full object-cover"
                 />
@@ -167,10 +170,15 @@ export function Faq() {
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
                 className="relative z-[1] w-[200px] bg-white p-3 pb-4 hover:z-10"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={asset("/faq/polaroid-2.jpg")}
+                <Image
+                  src="/faq/polaroid-2.jpg"
                   alt=""
+                  width={176}
+                  height={250}
+                  /* Content box, not the 200px outer frame — the p-3 padding
+                     means 176px is what the photo actually spans, and the
+                     rounded-up 200 pushed the browser to a 640w candidate. */
+                  sizes="176px"
                   draggable={false}
                   className="h-[250px] w-full object-cover"
                 />

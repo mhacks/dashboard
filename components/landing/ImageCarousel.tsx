@@ -1,17 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { asset } from "@/lib/landing/asset";
+import Image from "next/image";
 
+/* Raw public paths, not asset(): next/image builds its own /_next/image URLs
+   and Next's basePath already rewrites those, unlike bare <img>/CSS URLs. */
 const IMAGES = [
-  asset("/about/about-01.jpg"),
-  asset("/about/about-02.jpg"),
-  asset("/about/about-03.jpg"),
-  asset("/about/about-04.jpg"),
-  asset("/about/about-05.jpg"),
-  asset("/about/about-06.jpg"),
-  asset("/about/about-07.jpg"),
-  asset("/about/about-08.jpg"),
+  "/about/about-01.jpg",
+  "/about/about-02.jpg",
+  "/about/about-03.jpg",
+  "/about/about-04.jpg",
+  "/about/about-05.jpg",
+  "/about/about-06.jpg",
+  "/about/about-07.jpg",
+  "/about/about-08.jpg",
 ];
 
 interface Props {
@@ -22,6 +24,11 @@ interface Props {
 /**
  * Continuous right-to-left photo marquee. The strip is rendered twice and
  * translated by half its width on a linear loop, so it scrolls seamlessly.
+ *
+ * The slot is a fixed 300x200 (360x240 at md), so `sizes` pins the candidate
+ * width instead of letting the browser assume full-viewport — the sources are
+ * 1600px wide originals and would otherwise be served far larger than the
+ * frame they land in.
  */
 export function ImageCarousel({ images = IMAGES, className }: Props) {
   return (
@@ -34,14 +41,18 @@ export function ImageCarousel({ images = IMAGES, className }: Props) {
         {[0, 1].map((copy) => (
           <div key={copy} className="flex gap-5" aria-hidden={copy === 1}>
             {images.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 key={src}
                 src={src}
                 alt={`MHacks photo ${i + 1}`}
-                loading="lazy"
+                width={360}
+                height={240}
+                sizes="(min-width: 768px) 360px, 300px"
                 draggable={false}
-                className="h-[200px] md:h-[240px] aspect-[3/2] rounded-md border border-border object-cover select-none"
+                /* w-auto is load-bearing: the width attribute lands as a CSS
+                   presentational hint, which would pin the frame to 360px and
+                   break the 300px mobile size that aspect-[3/2] derives. */
+                className="h-[200px] md:h-[240px] w-auto aspect-[3/2] rounded-md border border-border object-cover select-none"
               />
             ))}
           </div>

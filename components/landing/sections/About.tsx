@@ -1,13 +1,17 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { PolaroidDecor } from "@/components/landing/PolaroidDecor";
 import { SplitReveal } from "@/components/landing/SplitReveal";
 import { ImageCarousel } from "@/components/landing/ImageCarousel";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { AsciiBloom } from "@/components/landing/AsciiBloom";
-import { asset } from "@/lib/landing/asset";
+
+/* Keeps the blossom a single <img> in the DOM rather than nesting it in a
+   motion wrapper, so the existing layout classes still apply directly. */
+const MotionImage = motion.create(Image);
 
 export function About() {
   const ref = useRef<HTMLElement | null>(null);
@@ -69,16 +73,20 @@ export function About() {
         {/* Centered heading + copy filling the viewport */}
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           {/* Peach blossom resting above the heading */}
-          <motion.img
-            src={asset("/about/blossom.png")}
+          <MotionImage
+            src="/about/blossom.png"
             alt=""
             aria-hidden
+            width={104}
+            height={94}
             draggable={false}
             initial={{ opacity: 0, scale: 0.7 }}
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
             viewport={{ once: true, amount: 0.5 }}
-            className="mb-4 w-[84px] select-none md:w-[104px]"
+            /* h-auto so the height attribute doesn't pin the box — the width
+               classes drive the size and height follows the aspect ratio. */
+            className="mb-4 h-auto w-[84px] select-none md:w-[104px]"
           />
           <h2
             className="font-display font-medium text-moss-700"

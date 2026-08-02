@@ -12,6 +12,8 @@ interface Props {
   fontSize?: number;
   opacity?: number;
   blendMode?: React.CSSProperties["mixBlendMode"];
+  /** Mark for StackedPages so the loop stops once the host sheet is buried. */
+  stackPause?: boolean;
 }
 
 /**
@@ -27,6 +29,7 @@ export function AsciiCanvas({
   fontSize = 11,
   opacity = 0.55,
   blendMode = "screen",
+  stackPause,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -45,6 +48,11 @@ export function AsciiCanvas({
     let running = false;
     let inView = true;
     const mouse = { x: -1e4, y: -1e4 };
+    // The field is a pure function of the pointer position — no time term — so
+    // a frame with an unmoved cursor would repaint identical pixels. Track what
+    // the canvas currently shows and sleep as soon as it matches.
+    let drawnX = NaN;
+    let drawnY = NaN;
 
     interface Dot {
       x: number;
@@ -80,16 +88,26 @@ export function AsciiCanvas({
       c.height = Math.floor(H * dpr);
       c.style.width = `${W}px`;
       c.style.height = `${H}px`;
+      // Resizing the backing store resets every context property, so the text
+      // state has to be re-applied here rather than per frame.
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      build();
-      if (reduced) draw();
-    };
-
-    const draw = () => {
-      ctx.clearRect(0, 0, W, H);
       ctx.font = `${fontSize}px var(--font-red-hat-mono), ui-monospace, monospace`;
       ctx.textBaseline = "middle";
       ctx.textAlign = "center";
+      build();
+      drawnX = NaN; // new dot field — force a repaint
+      if (reduced) draw();
+      else start();
+    };
+
+    const REACH = 180;
+    const REACH2 = REACH * REACH;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      // One colour parse per frame instead of one per glyph: alpha rides on
+      // globalAlpha, which composites identically to baking it into rgba().
+      ctx.fillStyle = `rgb(${color})`;
       for (const d of dots) {
         let a = d.base;
         let ox = 0;
@@ -97,15 +115,19 @@ export function AsciiCanvas({
         if (interactive && !reduced) {
           const dx = d.x - mouse.x;
           const dy = d.y - mouse.y;
-          const dist = Math.hypot(dx, dy);
-          const near = Math.max(0, 1 - dist / 180);
-          a = Math.min(1, d.base + near * 0.9);
-          ox = dx * near * 0.06;
-          oy = dy * near * 0.06;
+          const d2 = dx * dx + dy * dy;
+          // Beyond REACH the falloff clamps to zero, so skip the sqrt entirely.
+          if (d2 < REACH2) {
+            const near = 1 - Math.sqrt(d2) / REACH;
+            a = Math.min(1, d.base + near * 0.9);
+            ox = dx * near * 0.06;
+            oy = dy * near * 0.06;
+          }
         }
-        ctx.fillStyle = `rgba(${color}, ${a})`;
+        ctx.globalAlpha = a;
         ctx.fillText(d.ch, d.x + ox, d.y + oy);
       }
+      ctx.globalAlpha = 1;
     };
 
     const tick = () => {
@@ -113,6 +135,14 @@ export function AsciiCanvas({
         running = false;
         return;
       }
+      // Nothing moved since the last paint — the next frame would be a pixel
+      // copy of what's already on screen. Sleep; onMove/onLeave will wake us.
+      if (mouse.x === drawnX && mouse.y === drawnY) {
+        running = false;
+        return;
+      }
+      drawnX = mouse.x;
+      drawnY = mouse.y;
       draw();
       raf = requestAnimationFrame(tick);
     };
@@ -132,6 +162,7 @@ export function AsciiCanvas({
     const onLeave = () => {
       mouse.x = -1e4;
       mouse.y = -1e4;
+      start(); // repaint the resting field, then sleep again
     };
 
     const observer = new IntersectionObserver(([entry]) => {
@@ -174,6 +205,7 @@ export function AsciiCanvas({
       ref={canvasRef}
       className={className}
       aria-hidden
+      {...(stackPause ? { "data-stack-pause": true } : {})}
       style={{
         position: "absolute",
         inset: 0,

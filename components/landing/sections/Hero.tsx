@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   motion,
   useMotionValue,
@@ -15,36 +16,33 @@ import { DeadlineCountdown } from "@/components/landing/DeadlineCountdown";
 import { AsciiGlow } from "@/components/landing/AsciiGlow";
 import { CtaButton } from "@/components/landing/cta-button";
 import { useMobileLayout } from "@/lib/landing/useMobileLayout";
-import { asset } from "@/lib/landing/asset";
 import { GRAIN_140 } from "@/lib/landing/textures";
 import { scrollToHash } from "@/lib/landing/scroll";
 import { prefersReducedMotion } from "@/lib/utils";
 
 /* Hero backdrop variants, switched by the icon buttons above the countdown.
-   `src: null` keeps HeroReveal's default multi-resolution meadow set. The
-   blur + dot-grid + ASCII treatment is applied by HeroReveal/AsciiGlow in
-   CSS, so it covers every variant automatically. */
+   `src: null` keeps HeroReveal's default meadow. The blur + dot-grid + ASCII
+   treatment is applied by HeroReveal/AsciiGlow in CSS, so it covers every
+   variant automatically. Paths are raw: next/image builds its own
+   /_next/image URLs, which Next's basePath already rewrites. */
 const HERO_BGS = [
   {
     id: "leaf",
     icon: "/hero/icon-leaf.png",
     label: "Meadow backdrop",
     src: null,
-    blurSrc: null,
   },
   {
     id: "flower",
     icon: "/hero/icon-flower.png",
     label: "Peony garden backdrop",
     src: "/hero/hero-flower.jpg",
-    blurSrc: "/hero/hero-flower-1280.jpg",
   },
   {
     id: "cloud",
     icon: "/hero/icon-cloud.png",
     label: "Sky backdrop",
     src: "/hero/hero-cloud.jpg",
-    blurSrc: "/hero/hero-cloud-1280.jpg",
   },
 ] as const;
 
@@ -53,11 +51,28 @@ type HeroBgId = (typeof HERO_BGS)[number]["id"];
 export function Hero() {
   const ref = useRef<HTMLElement | null>(null);
   const reducedRef = useRef(false);
+  const rectRef = useRef<DOMRect | null>(null);
   const mobile = useMobileLayout();
   const [bgId, setBgId] = useState<HeroBgId>("leaf");
 
   useEffect(() => {
     reducedRef.current = prefersReducedMotion();
+  }, []);
+
+  // The section itself is never transformed (the tilt lives on an inner
+  // layer), so its box only moves on scroll or resize. Caching it keeps the
+  // pointer handler from forcing a synchronous layout on every mousemove —
+  // scroll fires at most once per frame, so this reads at most once per frame.
+  useEffect(() => {
+    const invalidate = () => {
+      rectRef.current = null;
+    };
+    window.addEventListener("scroll", invalidate, { passive: true });
+    window.addEventListener("resize", invalidate);
+    return () => {
+      window.removeEventListener("scroll", invalidate);
+      window.removeEventListener("resize", invalidate);
+    };
   }, []);
 
   // Cursor-driven 3D tilt: the meadow leans toward the pointer while the
@@ -76,7 +91,11 @@ export function Hero() {
 
   const onTiltMove = (e: React.MouseEvent) => {
     if (reducedRef.current) return;
-    const r = ref.current?.getBoundingClientRect();
+    let r = rectRef.current;
+    if (!r) {
+      r = ref.current?.getBoundingClientRect() ?? null;
+      rectRef.current = r;
+    }
     if (!r) return;
     pointerX.set((e.clientX - r.left) / r.width);
     pointerY.set((e.clientY - r.top) / r.height);
@@ -101,12 +120,7 @@ export function Hero() {
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "-6%"]);
 
   const activeBg = HERO_BGS.find((b) => b.id === bgId) ?? HERO_BGS[0];
-  const bgProps = activeBg.src
-    ? {
-        src: asset(activeBg.src),
-        blurSrc: activeBg.blurSrc ? asset(activeBg.blurSrc) : undefined,
-      }
-    : {};
+  const bgProps = activeBg.src ? { src: activeBg.src } : {};
   // The meta row tracks the title's drift so the lockup stays intact while fading.
   const metaOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
 
@@ -222,10 +236,11 @@ export function Hero() {
                         : "opacity-60 hover:scale-105 hover:opacity-95"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={asset(b.icon)}
+                    <Image
+                      src={b.icon}
                       alt=""
+                      width={40}
+                      height={40}
                       draggable={false}
                       className="h-10 w-10 object-contain"
                     />

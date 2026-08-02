@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { AsciiCanvas } from "@/components/landing/AsciiCanvas";
-import { asset } from "@/lib/landing/asset";
 
 interface Props {
   src: string;
@@ -52,18 +52,23 @@ export function PolaroidDecor({
         className="w-[400px] bg-white p-3 pb-4"
       >
         <div className="relative h-[240px] w-full overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={asset(src)}
+          {/* The frame is 376px wide (400 minus padding) and the photo is
+              blurred to 3px on top of that, so a 400px candidate is already
+              more detail than survives the treatment. */}
+          <Image
+            src={src}
             alt=""
+            fill
+            sizes="400px"
             draggable={false}
-            className="h-full w-full scale-[1.06] object-cover blur-[3px]"
+            className="scale-[1.06] object-cover blur-[3px]"
           />
           <AsciiCanvas
             className="absolute inset-0"
             step={12}
             fontSize={10}
             opacity={0.65}
+            stackPause
           />
         </div>
         <div className="mt-3 text-center font-serif-it text-[17px] text-moss-700">

@@ -2,50 +2,40 @@
 
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, type MotionValue } from "framer-motion";
+import Image from "next/image";
 import { cn, isTouchDevice, prefersReducedMotion } from "@/lib/utils";
-import { asset } from "@/lib/landing/asset";
 
 interface HeroImageProps {
   src: string;
-  src768?: string;
-  src2560?: string;
-  src3840?: string;
   alt?: string;
   className?: string;
-  style?: React.CSSProperties;
   priority?: boolean;
   hidden?: boolean;
 }
 
+/**
+ * Point next/image at the largest source and let the optimizer derive the
+ * responsive set — this replaces a hand-rolled srcSet whose width descriptors
+ * described the files' heights (these photos are portrait), so the 3840w
+ * candidate was really 2876px wide.
+ */
 function HeroImage({
   src,
-  src768,
-  src2560,
-  src3840,
   alt = "",
   className,
-  style,
   priority,
   hidden,
 }: HeroImageProps) {
-  const base = src768 ?? src;
-  const hires = src2560 ?? src;
-  const ultra = src3840 ?? src2560 ?? src;
-  const srcSet = `${base} 768w, ${hires} 1920w, ${ultra} 3840w`;
-
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={hires}
-      srcSet={srcSet}
-      sizes="100vw"
+    <Image
+      src={src}
       alt={alt}
       aria-hidden={hidden || !alt ? true : undefined}
-      decoding={priority ? "sync" : "async"}
-      fetchPriority={priority ? "high" : "auto"}
+      fill
+      sizes="100vw"
+      priority={priority}
       draggable={false}
-      className={cn("h-full w-full object-cover object-[50%_58%]", className)}
-      style={style}
+      className={cn("object-cover object-[50%_58%]", className)}
     />
   );
 }
@@ -54,11 +44,7 @@ interface Props {
   scale?: MotionValue<number>;
   y?: MotionValue<string>;
   src?: string;
-  src768?: string;
-  src2560?: string;
-  src3840?: string;
   radius?: number;
-  blurPx?: number;
 }
 
 const DOT_GRID = [
@@ -78,10 +64,7 @@ const DOT_GRID = [
 export function HeroReveal({
   scale,
   y,
-  src = asset("/hero/hero-clean.png"),
-  src768 = asset("/hero/hero-clean.png"),
-  src2560 = asset("/hero/hero-clean-2560.png"),
-  src3840 = asset("/hero/hero-clean-3840.png"),
+  src = "/hero/hero-clean-3840.png",
   radius = 280,
 }: Props) {
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -115,6 +98,11 @@ export function HeroReveal({
     let currentY = 0;
     let targetO = 0;
     let currentO = 0;
+    // Latest pointer position in viewport coords, mapped to stage space once
+    // per frame rather than per event — see consumePointer.
+    let pendingX = 0;
+    let pendingY = 0;
+    let hasPending = false;
 
     const sizeInner = () => {
       inner.style.width = `${stage.offsetWidth}px`;
@@ -128,6 +116,7 @@ export function HeroReveal({
     };
 
     const loop = () => {
+      consumePointer();
       currentX += (targetX - currentX) * 0.2;
       currentY += (targetY - currentY) * 0.2;
       currentO += (targetO - currentO) * 0.16;
@@ -156,25 +145,33 @@ export function HeroReveal({
       rafId = requestAnimationFrame(loop);
     };
 
-    const toLocal = (e: MouseEvent) => {
-      // Map viewport coords into the stage's untransformed space so the
-      // reveal stays under the cursor while the stage is scaled/tilted.
+    // Map viewport coords into the stage's untransformed space so the reveal
+    // stays under the cursor while the stage is scaled/tilted. This reads
+    // layout, so it runs at most once per frame from inside the loop instead
+    // of once per mousemove — high-polling-rate mice fire several times a
+    // frame, and each read forced a synchronous layout while Lenis was
+    // mid-transform. Only the last event before a frame ever mattered, so the
+    // eased result is unchanged.
+    const consumePointer = () => {
+      if (!hasPending) return;
+      hasPending = false;
       const r = stage.getBoundingClientRect();
       const sx = stage.offsetWidth / r.width;
       const sy = stage.offsetHeight / r.height;
-      return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
-    };
-
-    const onMove = (e: MouseEvent) => {
-      const p = toLocal(e);
-      targetX = p.x;
-      targetY = p.y;
+      targetX = (pendingX - r.left) * sx;
+      targetY = (pendingY - r.top) * sy;
       if (!hasPointer) {
         // First entry: snap into place instead of sweeping across the stage.
         hasPointer = true;
         currentX = targetX;
         currentY = targetY;
       }
+    };
+
+    const onMove = (e: MouseEvent) => {
+      pendingX = e.clientX;
+      pendingY = e.clientY;
+      hasPending = true;
       targetO = 1;
       start();
     };
@@ -216,7 +213,7 @@ export function HeroReveal({
     };
   }, [half]);
 
-  const imageProps = { src, src768, src2560, src3840 };
+  const imageProps = { src };
   const maskGradient = `radial-gradient(circle at center, #000 0px, #000 ${innerR}px, transparent ${outerR}px)`;
 
   return (
