@@ -19,3 +19,9 @@ export async function requireOrganizerPage(): Promise<UserEntry> {
   if (user.role !== "organizer") redirect("/apply");
   return user;
 }
+
+export async function requireHackerPage(): Promise<UserEntry> {
+  const user = await requireSessionUser();
+  if (user.role !== "hacker") redirect("/apply");
+  return user;
+}
