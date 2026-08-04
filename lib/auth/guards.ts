@@ -50,3 +50,9 @@ export async function requireEventStaffPage(): Promise<UserEntry> {
   if (!isEventStaff(user.role)) redirect("/dashboard");
   return user;
 }
+
+export async function requireHackerPage(): Promise<UserEntry> {
+  const user = await requireSessionUser();
+  if (user.role !== "hacker") redirect("/apply");
+  return user;
+}
