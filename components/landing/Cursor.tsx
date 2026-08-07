@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { subscribeScroll } from "@/lib/landing/scroll";
 import { isTouchDevice, prefersReducedMotion } from "@/lib/utils";
+
+/** Last known pointer position — updated before React mounts the cursor. */
+const lastPointer = { x: -1, y: -1 };
+
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "pointermove",
+    (e) => {
+      lastPointer.x = e.clientX;
+      lastPointer.y = e.clientY;
+    },
+    { capture: true, passive: true },
+  );
+}
 
 export function Cursor() {
   const dotRef = useRef<HTMLDivElement | null>(null);
@@ -32,11 +47,41 @@ export function Cursor() {
     const label = labelRef.current;
     if (!dot || !ring || !dither || !crosshair || !label) return;
 
+    let heroBoxReady = false;
+    let morphRaf = 0;
+
+    const ringSize = () => ({
+      w: ring.offsetWidth || 34,
+      h: ring.offsetHeight || 34,
+    });
+
+    const applyRingTransform = () => {
+      const { w, h } = ringSize();
+      ring.style.transform = `translate3d(${ringPos.x - w / 2}px, ${ringPos.y - h / 2}px, 0)`;
+    };
+
+    const applyDotTransform = () => {
+      dot.style.transform = `translate3d(${dotPos.x - 2}px, ${dotPos.y - 2}px, 0)`;
+    };
+
+    const pinRingDuringMorph = () => {
+      cancelAnimationFrame(morphRaf);
+      const start = performance.now();
+      const step = () => {
+        applyRingTransform();
+        if (performance.now() - start < 280) {
+          morphRaf = requestAnimationFrame(step);
+        }
+      };
+      morphRaf = requestAnimationFrame(step);
+    };
+
     const applyPresentation = () => {
       const { visible, hovering, boxLabel } = stateRef.current;
       const inBox = boxLabel !== null;
       const showRing = visible && !hovering;
       const showDot = visible && !inBox && !hovering;
+      const wasInBox = ring.dataset.inBox === "1";
 
       ring.style.opacity = showRing ? "1" : "0";
       dot.style.opacity = showDot ? "1" : "0";
@@ -44,6 +89,7 @@ export function Cursor() {
       ring.style.width = inBox ? "300px" : "34px";
       ring.style.height = inBox ? "400px" : "34px";
       ring.style.borderRadius = inBox ? "2px" : "999px";
+      ring.dataset.inBox = inBox ? "1" : "0";
       ring.style.border = `1px solid ${
         inBox ? "rgba(245,241,222,0.95)" : "rgba(58,74,38,0.55)"
       }`;
@@ -61,50 +107,102 @@ export function Cursor() {
       crosshair.style.opacity = inBox ? "0.9" : "0";
       label.textContent = boxLabel ?? "You";
       label.style.opacity = inBox ? "1" : "0";
+
+      applyRingTransform();
+      if (inBox !== wasInBox) pinRingDuringMorph();
     };
 
-    const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const mouse = {
+      x: lastPointer.x >= 0 ? lastPointer.x : 0,
+      y: lastPointer.y >= 0 ? lastPointer.y : 0,
+    };
     const dotPos = { x: mouse.x, y: mouse.y };
     const ringPos = { x: mouse.x, y: mouse.y };
+    let hasPointer = lastPointer.x >= 0;
+
+    const snapTrailers = () => {
+      dotPos.x = mouse.x;
+      dotPos.y = mouse.y;
+      ringPos.x = mouse.x;
+      ringPos.y = mouse.y;
+      applyRingTransform();
+      applyDotTransform();
+    };
+
+    const syncFromElement = (el: Element | null) => {
+      if (!el) {
+        stateRef.current.visible = false;
+        stateRef.current.hovering = false;
+        stateRef.current.boxLabel = null;
+        return;
+      }
+      const boxHost = el.closest<HTMLElement>("[data-cursor-box]");
+      const boxReady =
+        heroBoxReady ||
+        (boxHost?.hasAttribute("data-cursor-box-ready") ?? false);
+
+      // Hold the hero cursor until the title finishes typing.
+      if (boxHost && !boxReady) {
+        stateRef.current.visible = false;
+        stateRef.current.hovering = false;
+        stateRef.current.boxLabel = null;
+        return;
+      }
+
+      stateRef.current.visible =
+        el.closest("[data-cursor-zone]") !== null && el !== null;
+      const interactive =
+        el.closest(
+          "a, button, [data-cursor='hover'], [role='button'], input, textarea, select",
+        ) !== null;
+      stateRef.current.hovering = interactive;
+      stateRef.current.boxLabel =
+        !interactive && boxHost && boxReady
+          ? boxHost.dataset.cursorBox || null
+          : null;
+    };
 
     const onMove = (e: MouseEvent) => {
+      hasPointer = true;
       mouse.x = e.clientX;
       mouse.y = e.clientY;
       const el = e.target instanceof Element ? e.target : null;
-      stateRef.current.visible =
-        el?.closest("[data-cursor-zone]") !== null && el !== null;
+      const prevVisible = stateRef.current.visible;
+      const prevBox = stateRef.current.boxLabel;
+      syncFromElement(el);
+      const waitingForHero =
+        el?.closest("[data-cursor-box]") &&
+        !heroBoxReady &&
+        !el.closest("[data-cursor-box]")?.hasAttribute("data-cursor-box-ready");
+      if (waitingForHero) {
+        // Track position invisibly so the box can morph in at the cursor.
+        snapTrailers();
+        return;
+      }
+      const revealing =
+        (stateRef.current.visible && !prevVisible) ||
+        (stateRef.current.boxLabel && !prevBox);
+      if (revealing) snapTrailers();
       applyPresentation();
       start();
     };
 
     const onLeave = () => {
       stateRef.current.visible = false;
-      applyPresentation();
-    };
-
-    const detectHover = (e: MouseEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (!el) return;
-      const interactive =
-        el.closest(
-          "a, button, [data-cursor='hover'], [role='button'], input, textarea, select",
-        ) !== null;
-      stateRef.current.hovering = interactive;
-      const boxHost = el.closest<HTMLElement>("[data-cursor-box]");
-      stateRef.current.boxLabel =
-        !interactive && boxHost ? boxHost.dataset.cursorBox || null : null;
+      stateRef.current.boxLabel = null;
       applyPresentation();
     };
 
     let raf = 0;
     let running = false;
+
     const tick = () => {
       dotPos.x += (mouse.x - dotPos.x) * 0.55;
       dotPos.y += (mouse.y - dotPos.y) * 0.55;
       ringPos.x += (mouse.x - ringPos.x) * 0.18;
       ringPos.y += (mouse.y - ringPos.y) * 0.18;
-      dot.style.transform = `translate3d(${dotPos.x}px, ${dotPos.y}px, 0) translate(-50%, -50%)`;
-      ring.style.transform = `translate3d(${ringPos.x}px, ${ringPos.y}px, 0) translate(-50%, -50%)`;
+      applyRingTransform();
+      applyDotTransform();
 
       if (
         Math.abs(mouse.x - ringPos.x) < 0.1 &&
@@ -121,16 +219,57 @@ export function Cursor() {
       raf = requestAnimationFrame(tick);
     };
 
-    applyPresentation();
+    // mouseover doesn't fire when the pointer is already over the hero on load,
+    // so derive zone/box state from the element under the cursor on mount too.
+    const syncFromPoint = (x: number, y: number) => {
+      mouse.x = x;
+      mouse.y = y;
+      syncFromElement(document.elementFromPoint(x, y));
+      snapTrailers();
+      applyPresentation();
+      start();
+    };
+
+    const resyncAtPointer = () => {
+      if (!hasPointer && lastPointer.x < 0) return;
+      const x = hasPointer ? mouse.x : lastPointer.x;
+      const y = hasPointer ? mouse.y : lastPointer.y;
+      syncFromElement(document.elementFromPoint(x, y));
+      applyPresentation();
+    };
+
+    const onHeroCursorReady = () => {
+      heroBoxReady = true;
+      if (!hasPointer && lastPointer.x < 0) return;
+      const x = hasPointer ? mouse.x : lastPointer.x;
+      const y = hasPointer ? mouse.y : lastPointer.y;
+      mouse.x = x;
+      mouse.y = y;
+      syncFromElement(document.elementFromPoint(x, y));
+      snapTrailers();
+      applyPresentation();
+    };
+
+    if (lastPointer.x >= 0) {
+      syncFromPoint(lastPointer.x, lastPointer.y);
+    } else {
+      ring.style.transform = "translate3d(-9999px, -9999px, 0)";
+      dot.style.transform = "translate3d(-9999px, -9999px, 0)";
+      applyPresentation();
+    }
     window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseover", detectHover);
+    window.addEventListener("mhacks:hero-cursor-ready", onHeroCursorReady);
+    window.addEventListener("scroll", resyncAtPointer, { passive: true });
+    const unsubScroll = subscribeScroll(resyncAtPointer);
     document.addEventListener("mouseleave", onLeave);
-    start();
 
     return () => {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(morphRaf);
       window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseover", detectHover);
+      window.removeEventListener("mhacks:hero-cursor-ready", onHeroCursorReady);
+      window.removeEventListener("scroll", resyncAtPointer);
+      unsubScroll();
       document.removeEventListener("mouseleave", onLeave);
     };
   }, []);
@@ -151,6 +290,7 @@ export function Cursor() {
           background: "rgba(239,233,212,0.06)",
           mixBlendMode: "multiply",
           opacity: 0,
+          transform: "translate3d(-9999px, -9999px, 0)",
         }}
       >
         <div
@@ -243,6 +383,7 @@ export function Cursor() {
           borderRadius: "999px",
           background: "#3A4A26",
           opacity: 0,
+          transform: "translate3d(-9999px, -9999px, 0)",
         }}
       />
     </>

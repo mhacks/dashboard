@@ -54,6 +54,7 @@ export function Hero() {
   const rectRef = useRef<DOMRect | null>(null);
   const mobile = useMobileLayout();
   const [bgId, setBgId] = useState<HeroBgId>("leaf");
+  const [cursorBoxReady, setCursorBoxReady] = useState(false);
 
   useEffect(() => {
     reducedRef.current = prefersReducedMotion();
@@ -129,6 +130,7 @@ export function Hero() {
       ref={ref}
       id="top"
       data-cursor-box="You"
+      data-cursor-box-ready={cursorBoxReady ? "" : undefined}
       data-cursor-zone
       className="relative z-[4] w-full overflow-hidden"
       style={{ minHeight: "100vh" }}
@@ -268,6 +270,13 @@ export function Hero() {
               delay={400}
               speed={85}
               className="block"
+              onComplete={() => {
+                ref.current?.setAttribute("data-cursor-box-ready", "");
+                setCursorBoxReady(true);
+                window.dispatchEvent(
+                  new CustomEvent("mhacks:hero-cursor-ready"),
+                );
+              }}
             />
           </motion.h1>
 

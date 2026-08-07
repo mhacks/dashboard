@@ -13,6 +13,8 @@ interface Props {
   showCaret?: boolean;
   /** After the first reveal, show text updates immediately (for live labels). */
   freezeAfterComplete?: boolean;
+  /** Fires once when the full string is visible. */
+  onComplete?: () => void;
 }
 
 /**
@@ -27,10 +29,16 @@ export function Typewriter({
   className,
   showCaret = true,
   freezeAfterComplete = false,
+  onComplete,
 }: Props) {
   const reducedMotion = prefersReducedMotion();
   const [n, setN] = useState(0);
   const completed = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   const visible = reducedMotion ? text.length : n;
   const done = visible >= text.length;
@@ -38,6 +46,7 @@ export function Typewriter({
   useEffect(() => {
     if (reducedMotion) {
       completed.current = true;
+      onCompleteRef.current?.();
       return;
     }
 
@@ -65,6 +74,7 @@ export function Typewriter({
         tickId = window.setTimeout(tick, speed);
       } else {
         completed.current = true;
+        onCompleteRef.current?.();
       }
     };
 
