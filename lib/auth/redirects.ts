@@ -17,7 +17,9 @@ export function destinationForRole(role: UserRole, next?: string | null) {
   const safeNext = sanitizeNextPath(next);
 
   if (role === "hacker") {
-    return safeNext?.startsWith("/admin") ? "/apply" : (safeNext ?? "/apply");
+    return safeNext?.startsWith("/admin")
+      ? "/dashboard"
+      : (safeNext ?? "/dashboard");
   }
 
   return safeNext ?? "/admin";
