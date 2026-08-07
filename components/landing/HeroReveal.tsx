@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, type MotionValue } from "framer-motion";
 import Image from "next/image";
 import { cn, isTouchDevice, prefersReducedMotion } from "@/lib/utils";
@@ -11,6 +11,10 @@ interface HeroImageProps {
   className?: string;
   priority?: boolean;
   hidden?: boolean;
+  quality?: number;
+  sizes?: string;
+  fetchPriority?: "high" | "low" | "auto";
+  onLoad?: () => void;
 }
 
 /**
@@ -25,6 +29,10 @@ function HeroImage({
   className,
   priority,
   hidden,
+  quality = 40,
+  sizes = "100vw",
+  fetchPriority,
+  onLoad,
 }: HeroImageProps) {
   return (
     <Image
@@ -32,8 +40,11 @@ function HeroImage({
       alt={alt}
       aria-hidden={hidden || !alt ? true : undefined}
       fill
-      sizes="100vw"
+      sizes={sizes}
+      quality={quality}
       priority={priority}
+      fetchPriority={fetchPriority}
+      onLoad={onLoad}
       draggable={false}
       className={cn("object-cover object-[50%_58%]", className)}
     />
@@ -70,6 +81,17 @@ export function HeroReveal({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const windowRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
+  const [blurLoadedSrc, setBlurLoadedSrc] = useState<string | null>(null);
+  const sharpReady = blurLoadedSrc === src;
+
+  useEffect(() => {
+    // Cached blur plates can paint without firing onLoad — probe after mount.
+    const id = requestAnimationFrame(() => {
+      const img = stageRef.current?.querySelector("img");
+      if (img?.complete) setBlurLoadedSrc(src);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [src]);
 
   // Feathered edge: fully sharp to innerR, fades out by outerR.
   const innerR = radius * 0.68;
@@ -216,20 +238,21 @@ export function HeroReveal({
   const imageProps = { src };
   const maskGradient = `radial-gradient(circle at center, #000 0px, #000 ${innerR}px, transparent ${outerR}px)`;
 
+  const onBlurLoaded = () => setBlurLoadedSrc(src);
+
   return (
     <motion.div
       ref={stageRef}
       style={{ scale, y }}
       className="absolute inset-0 z-0 bg-moss-900 will-change-transform"
     >
-      {/* Dark blurred veil — painted once, never repaints on cursor moves */}
+      {/* Dark blurred veil — same src as sharp, but next/image serves a tiny
+          AVIF/WebP slice (480px @ q40) via priority; full-res waits behind. */}
       <div className="absolute inset-0 isolate overflow-hidden">
         <div
           className="absolute -inset-[12%] [filter:blur(7px)_brightness(0.84)_saturate(1.1)] md:[filter:blur(22px)_brightness(0.82)_saturate(1.12)_contrast(1.04)]"
           style={{ transform: "translateZ(0)" }}
         >
-          {/* Crossfade between backdrop variants: the outgoing image stays
-              mounted and fades under the incoming one */}
           <AnimatePresence initial={false}>
             <motion.div
               key={src}
@@ -239,7 +262,16 @@ export function HeroReveal({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
             >
-              <HeroImage {...imageProps} alt="" hidden />
+              <HeroImage
+                {...imageProps}
+                alt=""
+                hidden
+                priority
+                fetchPriority="high"
+                quality={20}
+                sizes="384px"
+                onLoad={onBlurLoaded}
+              />
             </motion.div>
           </AnimatePresence>
         </div>
@@ -279,18 +311,26 @@ export function HeroReveal({
           ref={innerRef}
           className="absolute left-0 top-0 will-change-transform"
         >
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={src}
-              className="absolute inset-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
-            >
-              <HeroImage {...imageProps} alt="MHacks hero backdrop" priority />
-            </motion.div>
-          </AnimatePresence>
+          {sharpReady ? (
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={src}
+                className="absolute inset-0"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
+              >
+                <HeroImage
+                  {...imageProps}
+                  alt="MHacks hero backdrop"
+                  fetchPriority="low"
+                  quality={40}
+                  sizes="828px"
+                />
+              </motion.div>
+            </AnimatePresence>
+          ) : null}
         </div>
       </div>
 
