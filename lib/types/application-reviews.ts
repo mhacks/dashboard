@@ -66,6 +66,25 @@ export const reviewSyncPayloadSchema = z.object({
 
 export type ReviewSyncPayload = z.infer<typeof reviewSyncPayloadSchema>;
 
+// The blacklist row is the only record that survives the deletion, so an entry
+// with no explanation is worthless later — the reason is required here, not
+// just disabled-until-filled in the dialog.
+export const blacklistDeleteSchema = z.object({
+  applicationId: z.uuid(),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Please record why this applicant is being removed")
+    .max(500, "Please keep the reason under 500 characters"),
+});
+
+export type BlacklistDeleteInput = z.infer<typeof blacklistDeleteSchema>;
+
+export type BlacklistDeleteResult = {
+  applicationId: string;
+  applicantName: string;
+};
+
 export type ReviewDraftInput = z.infer<typeof reviewDraftSchema>;
 export type ReviewCompleteInput = z.infer<typeof reviewCompleteSchema>;
 export type ReviewCompleteSaveInput = z.infer<typeof reviewCompleteSaveSchema>;

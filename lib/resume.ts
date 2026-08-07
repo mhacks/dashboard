@@ -1,4 +1,4 @@
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import {
   MAX_RESUME_SIZE_BYTES,
   RESUMES_BUCKET,
@@ -28,6 +28,15 @@ function isS3NotFound(error: unknown) {
     "name" in error &&
     (error.name === "NoSuchKey" || error.name === "NotFound")
   );
+}
+
+// Removes a stored resume. Deletes the exact key recorded on the application
+// rather than sweeping the `resumes/{userId}` prefix: both upload paths write a
+// single object (`resumes/{userId}.pdf` from the web form, `resumes/{userId}/…`
+// from MCP) and the stored key is the one actually in use, so this needs no
+// ListObjectsV2. S3 delete is idempotent — a missing key is not an error.
+export async function deleteResumeObject(key: string): Promise<void> {
+  await s3.send(new DeleteObjectCommand({ Bucket: RESUMES_BUCKET, Key: key }));
 }
 
 // Confirms the object exists in S3, belongs to the user, is within size limits,
