@@ -12,6 +12,7 @@ import { SERVER_URL } from "@/app/(marketing)/how-to-mcp/content";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
 import { asset } from "@/lib/landing/asset";
+import Image from "next/image";
 
 /**
  * "Agent" — teaser sheet for the MCP guide: MHacks has an MCP server, so
@@ -45,12 +46,14 @@ export function Agent() {
           transition={{ duration: 6.1, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "12% 50%" }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={asset("/agent/garland-susan.webp")}
+          <Image
+            src="/agent/garland-susan.webp"
             alt=""
+            width={1800}
+            height={507}
+            sizes="82vw"
             draggable={false}
-            className="w-[82%]"
+            className="h-auto w-[82%]"
           />
         </motion.div>
         <SpeciesLabel

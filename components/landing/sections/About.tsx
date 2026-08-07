@@ -9,7 +9,7 @@ import { ImageCarousel } from "@/components/landing/ImageCarousel";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { AsciiBloom } from "@/components/landing/AsciiBloom";
 
-/* Keeps the blossom a single <img> in the DOM rather than nesting it in a
+/* Keeps the blossom a single Image in the DOM rather than nesting it in a
    motion wrapper, so the existing layout classes still apply directly. */
 const MotionImage = motion.create(Image);
 

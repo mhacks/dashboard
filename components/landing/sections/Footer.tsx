@@ -13,7 +13,6 @@ import {
   isMarketingHome,
   resolveMarketingHref,
 } from "@/lib/landing/nav";
-import { asset } from "@/lib/landing/asset";
 import { GRAIN_240 } from "@/lib/landing/textures";
 import { cn } from "@/lib/utils";
 
@@ -38,12 +37,13 @@ export function Footer() {
       <div aria-hidden className="absolute inset-0">
         {/* Blur + grade are baked into the image — no live CSS filter, so the
             compositor never has to rebuild a giant blurred surface mid-scroll. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={asset("/footer/footer-pastel-soft.jpg")}
+        <Image
+          src="/footer/footer-pastel-soft.jpg"
           alt=""
+          fill
+          sizes="100vw"
           draggable={false}
-          className="h-full w-full object-cover object-[68%_12%]"
+          className="object-cover object-[68%_12%]"
         />
         {/* Tonal sweep: lighter band up top falling into deep olive shadow
             below-left, so the wash reads moody rather than uniform */}
@@ -93,12 +93,14 @@ export function Footer() {
           transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "15% 50%" }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={asset("/timeline/garland-orange.webp")}
+          <Image
+            src="/timeline/garland-orange.webp"
             alt=""
+            width={2200}
+            height={600}
+            sizes="88vw"
             draggable={false}
-            className="w-[88%]"
+            className="h-auto w-[88%]"
           />
         </motion.div>
         <SpeciesLabel

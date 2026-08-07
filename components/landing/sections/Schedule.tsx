@@ -9,7 +9,7 @@ import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
 import { DEADLINES } from "@/lib/landing/deadlines";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
-import { asset } from "@/lib/landing/asset";
+import Image from "next/image";
 
 /**
  * "Timeline" — the application-season schedule, typeset like a festival
@@ -74,12 +74,14 @@ export function Schedule() {
           transition={{ duration: 6.4, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "85% 50%" }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={asset("/social/garland-white.webp")}
+          <Image
+            src="/social/garland-white.webp"
             alt=""
+            width={2200}
+            height={634}
+            sizes="88vw"
             draggable={false}
-            className="ml-auto w-[88%]"
+            className="ml-auto h-auto w-[88%]"
           />
         </motion.div>
         {/* Species tag in the blank pocket above the vine's dip — the one

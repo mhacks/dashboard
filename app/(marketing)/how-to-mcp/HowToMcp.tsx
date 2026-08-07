@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { AgentTerminal } from "@/components/landing/AgentTerminal";
 import { PillTabGroup } from "@/components/landing/PillTabGroup";
 import { CopyChip, CommandBlock } from "@/components/landing/CopyBlock";
-import { asset } from "@/lib/landing/asset";
+import Image from "next/image";
 import { DOT_PAPER_BG, GRAIN_240 } from "@/lib/landing/textures";
 import {
   AUTH_NOTES,
@@ -303,12 +303,14 @@ export function HowToMcp() {
         className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-moss-900"
       >
         <div className="absolute -inset-[12%] [filter:blur(7px)_brightness(0.84)_saturate(1.1)] md:[filter:blur(22px)_brightness(0.82)_saturate(1.12)_contrast(1.04)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={asset("/footer/footer-pastel.jpg")}
+          <Image
+            src="/footer/footer-pastel.jpg"
             alt=""
+            fill
+            sizes="100vw"
+            priority
             draggable={false}
-            className="h-full w-full object-cover"
+            className="object-cover"
           />
         </div>
         <div

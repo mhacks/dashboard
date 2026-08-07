@@ -1,4 +1,4 @@
-import { asset } from "@/lib/landing/asset";
+import Image from "next/image";
 
 /**
  * MLH trust badge — rests at the top of the hero (absolute, not fixed), a
@@ -15,11 +15,13 @@ export function MlhBadge() {
       data-cursor="hover"
       className="absolute top-0 z-[20] block w-[9%] min-w-[48px] max-w-[100px] right-[124px] md:left-[calc(clamp(110px,9vw,140px)+50px)] md:right-auto"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={asset("/logos/mlh-trust-badge-2027-black.svg")}
+      <Image
+        src="/logos/mlh-trust-badge-2027-black.svg"
         alt="Major League Hacking 2026 Hackathon Season"
-        className="w-full"
+        width={393}
+        height={688}
+        sizes="100px"
+        className="h-auto w-full"
       />
     </a>
   );

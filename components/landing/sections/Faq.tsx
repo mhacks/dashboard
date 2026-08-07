@@ -13,9 +13,10 @@ import { SplitReveal } from "@/components/landing/SplitReveal";
 import { FaqItem } from "@/components/landing/FaqItem";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
-import { asset } from "@/lib/landing/asset";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { formatDeadlineDate } from "@/lib/landing/deadlines";
+
+const MotionImage = motion.create(Image);
 
 const earlyAppsDue = formatDeadlineDate("early-apps-due");
 const regularAppsDue = formatDeadlineDate("regular-apps-due");
@@ -64,22 +65,28 @@ export function Faq() {
 
   const violets = [
     {
-      src: asset("/faq/flower-1.webp"),
+      src: "/faq/flower-1.webp",
       width: 152,
+      intrinsicWidth: 500,
+      intrinsicHeight: 608,
       scale: bloom1,
       sway: 5,
       drift: -3.5,
     },
     {
-      src: asset("/faq/flower-2.webp"),
+      src: "/faq/flower-2.webp",
       width: 120,
+      intrinsicWidth: 500,
+      intrinsicHeight: 505,
       scale: bloom2,
       sway: 6.2,
       drift: 4,
     },
     {
-      src: asset("/faq/flower-3.webp"),
+      src: "/faq/flower-3.webp",
       width: 138,
+      intrinsicWidth: 500,
+      intrinsicHeight: 432,
       scale: bloom3,
       sway: 5.6,
       drift: -4.5,
@@ -241,11 +248,15 @@ export function Faq() {
               transformOrigin: "50% 100%",
             }}
           >
-            <motion.img
+            <MotionImage
               src={v.src}
               alt=""
+              width={v.intrinsicWidth}
+              height={v.intrinsicHeight}
+              sizes={`${v.width}px`}
               draggable={false}
-              width={v.width}
+              style={{ width: v.width }}
+              className="h-auto"
               animate={
                 reduced
                   ? undefined

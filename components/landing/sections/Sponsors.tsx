@@ -8,7 +8,7 @@ import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
-import { asset } from "@/lib/landing/asset";
+import Image from "next/image";
 
 export function Sponsors() {
   const ref = useRef<HTMLElement | null>(null);
@@ -52,12 +52,14 @@ export function Sponsors() {
           transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "85% 50%" }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={asset("/sponsors/branch.webp")}
+          <Image
+            src="/sponsors/branch.webp"
             alt=""
+            width={2200}
+            height={535}
+            sizes="88vw"
             draggable={false}
-            className="ml-auto w-[88%]"
+            className="ml-auto h-auto w-[88%]"
           />
         </motion.div>
         {/* Species tag in the blank pocket above the branch's dip */}
