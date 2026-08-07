@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { UserEntry } from "../db/schema/users";
+import type { ApplicationDecision } from "../decisions";
 
 export const baseApplicationSchema = z.object({
   // Personal Information
@@ -142,5 +143,6 @@ export type HackerApplicant = HackerApplicationFormData & {
   id: string;
   userId: string;
   status: ApplicationStatus;
+  decision: ApplicationDecision;
   user: UserEntry;
 };
