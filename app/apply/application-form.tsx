@@ -535,7 +535,7 @@ export default function ApplyPage({
           transition={{ duration: 0.5, ease: EASE }}
           className="flex items-center justify-between w-full max-w-2xl mb-8"
         >
-          <div className="glass-pill flex items-center gap-3 rounded-full px-5 py-2.5">
+          <div className="glass-pill flex items-center gap-3 rounded-full px-3 py-2.5 sm:px-5">
             <Link
               href="/"
               aria-label="Back to home"
@@ -545,10 +545,6 @@ export default function ApplyPage({
             </Link>
             <span className="font-heading italic text-[17px] text-white leading-none">
               MHacks 2026
-            </span>
-            <span className="text-white/25 mx-0.5">|</span>
-            <span className="font-red-hat text-[12px] text-white/55">
-              Hacker Application
             </span>
           </div>
           <div className="flex items-center gap-2">
