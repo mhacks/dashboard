@@ -1,82 +1,133 @@
 import Image from "next/image";
-import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
 
-import { MarketingShell } from "@/components/landing/marketing-shell";
+import { MlhBadge } from "@/components/landing/MlhBadge";
 import { CtaButton } from "@/components/landing/cta-button";
 import { asset } from "@/lib/landing/asset";
+import { GRAIN_140 } from "@/lib/landing/textures";
 
-const detailItems = ["October 3 - 4, 2026", "Ann Arbor, MI", "800+ Hackers"];
+const DOT_GRID = [
+  "radial-gradient(circle, rgba(255,255,255,0.3) 0.5px, transparent 0.5px)",
+  "radial-gradient(circle, rgba(255,255,255,0.16) 0.5px, transparent 0.5px)",
+].join(", ");
 
 export default function NotFound() {
   return (
-    <MarketingShell>
-      <main className="relative min-h-screen overflow-hidden bg-moss-900 text-cream">
-        <Image
-          src={asset("/hero/hero-clean-2560.png")}
-          alt=""
-          fill
-          sizes="100vw"
-          className="object-cover object-[65%_center] brightness-[0.82] contrast-[1.25] saturate-[1.45]"
-          priority
-        />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_28%,rgba(239,233,212,0.14),transparent_32%),linear-gradient(180deg,rgba(11,13,8,0.3),rgba(11,13,8,0.84))]" />
+    <div className="marketing-site grain min-h-screen">
+      <main className="relative min-h-screen w-full overflow-hidden bg-moss-900 text-cream">
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 isolate overflow-hidden">
+            <div className="absolute -inset-[12%]">
+              <Image
+                src={asset("/hero/hero-clean-blur.webp")}
+                alt=""
+                aria-hidden
+                fill
+                sizes="100vw"
+                priority
+                unoptimized
+                draggable={false}
+                className="object-cover object-[50%_58%]"
+              />
+            </div>
 
-        <section className="relative z-10 flex min-h-[calc(100vh-6rem)] flex-col justify-end px-6 pb-10 pt-28 sm:px-8 sm:pb-14 lg:pb-16">
-          <div className="max-w-6xl">
-            <p className="font-mono text-[11px] uppercase text-cream/70">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage: DOT_GRID,
+                backgroundSize: "3px 3px, 3px 3px",
+                backgroundPosition: "0 0, 1.5px 1.5px",
+                mixBlendMode: "soft-light",
+                opacity: 0.75,
+              }}
+            />
+
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{ background: "rgba(18, 36, 48, 0.08)" }}
+            />
+
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(29,36,18,0.18) 0%, rgba(29,36,18,0.04) 38%, rgba(29,36,18,0.42) 100%)",
+              }}
+            />
+          </div>
+
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(120% 80% at 50% 0%, rgba(29,36,18,0.2) 0%, rgba(29,36,18,0) 55%)",
+            }}
+          />
+
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to bottom, rgba(0,0,0,0.15), transparent 40%)",
+            }}
+          />
+
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage: GRAIN_140,
+              backgroundSize: "140px 140px",
+              opacity: 0.38,
+            }}
+          />
+        </div>
+
+        <MlhBadge />
+
+        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6">
+          <div className="flex flex-col items-center gap-4 text-center md:gap-6">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-cream md:text-[13px] md:tracking-[0.3em] [text-shadow:0_1px_12px_rgba(20,30,10,0.55)]">
               404 / Page not found
             </p>
-            <h1 className="mt-4 max-w-5xl font-display text-7xl font-medium uppercase leading-[0.84] tracking-normal text-[#ebe4ce] sm:text-8xl md:text-9xl lg:text-[9rem] xl:text-[12rem]">
+
+            <h1
+              className="font-serif-it text-cream"
+              style={{
+                fontSize: "clamp(44px, 12vw, 180px)",
+                lineHeight: 0.9,
+                letterSpacing: "-0.025em",
+                textShadow: "0 6px 40px rgba(20,30,10,0.35)",
+              }}
+            >
               Lost in Ann Arbor
             </h1>
-            <p className="mt-6 max-w-2xl font-display text-lg font-light leading-relaxed text-cream/82 sm:text-xl">
+
+            <p className="max-w-md text-[11px] font-medium uppercase tracking-[0.18em] text-cream md:text-[13px] md:tracking-[0.3em] [text-shadow:0_1px_12px_rgba(20,30,10,0.55)]">
               This path did not bloom, but MHacks is still right where you left
               it.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <CtaButton
-                href="/"
-                variant="glass"
-                size="md"
-                className="inline-flex h-11 items-center gap-2 px-5 text-sm font-semibold"
-              >
-                <ArrowLeft className="size-4" aria-hidden />
+            <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">
+              <CtaButton href="/" variant="cta" size="md" className="w-[200px]">
                 Back home
               </CtaButton>
               <CtaButton
                 href="/apply"
-                variant="glass"
+                variant="parchment"
                 size="md"
-                className="inline-flex h-11 items-center gap-2 px-5 text-sm font-semibold"
+                className="w-[200px]"
               >
                 Apply
-                <ArrowUpRight className="size-4" aria-hidden />
-              </CtaButton>
-              <CtaButton
-                href="mailto:hackathon@mhacks.org"
-                variant="glass"
-                size="md"
-                className="inline-flex h-11 items-center gap-2 px-5 text-sm font-semibold"
-              >
-                <Mail className="size-4" aria-hidden />
-                Contact
               </CtaButton>
             </div>
           </div>
-
-          <div className="mt-12 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/16 pt-5 font-display text-[12px] font-light uppercase text-cream/72 sm:text-sm">
-            {detailItems.map((item, index) => (
-              <span key={item} className="flex items-center gap-5">
-                {item}
-                {index < detailItems.length - 1 ? (
-                  <span className="text-cream/50">◆</span>
-                ) : null}
-              </span>
-            ))}
-          </div>
-        </section>
+        </div>
       </main>
-    </MarketingShell>
+    </div>
   );
 }
