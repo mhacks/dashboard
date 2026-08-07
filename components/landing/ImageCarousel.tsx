@@ -28,7 +28,8 @@ interface Props {
  * The slot is a fixed 300x200 (360x240 at md), so `sizes` pins the candidate
  * width instead of letting the browser assume full-viewport — the sources are
  * 1600px wide originals and would otherwise be served far larger than the
- * frame they land in.
+ * frame they land in. Quality is kept low — 16 thumbnails in the loop and
+ * motion hide compression artifacts.
  */
 export function ImageCarousel({ images = IMAGES, className }: Props) {
   return (
@@ -48,6 +49,7 @@ export function ImageCarousel({ images = IMAGES, className }: Props) {
                 width={360}
                 height={240}
                 sizes="(min-width: 768px) 360px, 300px"
+                quality={40}
                 draggable={false}
                 /* w-auto is load-bearing: the width attribute lands as a CSS
                    presentational hint, which would pin the frame to 360px and
