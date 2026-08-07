@@ -6,9 +6,8 @@ import { prefersReducedMotion } from "@/lib/utils";
 /**
  * A starfield of ASCII glyphs over the hero — a galaxy night sky. Lots of
  * small faint "stars" with rarer, larger ones; each twinkles on its own slow
- * sine wave, flaring bright with a soft glow halo before dimming back out.
- * Canvas-rendered and capped to ~24fps; the loop pauses while the hero is
- * offscreen or the tab is hidden.
+ * sine wave. Canvas-rendered at ~8fps (no shadowBlur halos — those were the
+ * main perf cost). Loop pauses while scrolling, offscreen, or tab hidden.
  */
 
 const SMALL_GLYPHS = "·.,:˙'`°";
@@ -17,7 +16,9 @@ const ACCENT_RGB = "rgb(232, 211, 90)";
 const DUST_RGB = "rgb(239, 233, 212)";
 const CELL = 22; // px between glyph centers
 const DENSITY = 0.34; // fraction of cells that hold a glyph
-const FRAME_MS = 1000 / 24;
+const FRAME_MS = 1000 / 8;
+/** Backing store vs CSS size — slightly softens glyphs, fewer pixels per frame. */
+const RES_SCALE = 0.85;
 /** Quiet period after the last scroll event before the twinkle resumes. */
 const SCROLL_RESUME_MS = 150;
 
@@ -53,8 +54,6 @@ function buildField(
         y: r * cell + cell / 2 + (Math.random() - 0.5) * cell * 0.8,
         char: pool[Math.floor(Math.random() * pool.length)],
         // Whole pixels, so the sort below actually collapses into ~20 runs.
-        // Fractional sizes made every glyph a distinct `ctx.font` string, and
-        // each assignment re-parses the font — ~1500 parses per frame.
         size: star
           ? 18 + Math.round(Math.random() * 14)
           : 12 + Math.round(Math.random() * 6),
@@ -66,7 +65,6 @@ function buildField(
       });
     }
   }
-  // Sorted by size so the per-glyph font assignment below rarely changes.
   return glyphs.sort((a, b) => a.size - b.size);
 }
 
@@ -99,33 +97,25 @@ export function AsciiGlow({
     let scrolling = false;
     let lastFrame = 0;
     let dpr = 1;
-    // The twinkle is driven off wall-clock time. While the loop is parked we
-    // bank the elapsed time here and subtract it, so the sky resumes from the
-    // exact frame it froze on instead of jumping forward a second of phase.
+    let logicalW = 0;
+    let logicalH = 0;
     let clockOffset = 0;
     let pauseStart = 0;
 
     const canRun = () => inView && !scrolling && !document.hidden;
 
     const draw = (timeSec: number) => {
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(0, 0, logicalW, logicalH);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
       let currentSize = 0;
       let currentFill = "";
-      let currentShadow = "";
-      let currentAlpha = 1;
-      let currentBlur = 0;
       for (const g of glyphs) {
         const wave = 0.5 + 0.5 * Math.sin(timeSec * g.speed + g.phase);
-        // Sharpen the curve so glyphs spend most time dim, then flare up.
         const alpha = g.peak * wave * wave * wave;
         if (alpha < 0.01) {
-          // Reincarnate while invisible so the sky keeps evolving.
           if (Math.random() < 0.02) {
             const pool = g.star ? STAR_GLYPHS : SMALL_GLYPHS;
             g.char = pool[Math.floor(Math.random() * pool.length)];
@@ -136,47 +126,15 @@ export function AsciiGlow({
           currentSize = g.size;
           ctx.font = `${g.size}px var(--font-red-hat-mono), ui-monospace, monospace`;
         }
-        // Soft halo once a star flares past half brightness.
-        if (g.star && alpha > 0.25) {
-          // The halo is deliberately independent of the glyph's own alpha, so
-          // this path keeps the alpha baked into fillStyle — globalAlpha would
-          // dim the shadow along with the glyph and change the look.
-          if (currentAlpha !== 1) {
-            currentAlpha = 1;
-            ctx.globalAlpha = 1;
-          }
-          const shadow = g.accent
-            ? "rgba(232, 211, 90, 0.9)"
-            : "rgba(239, 233, 212, 0.9)";
-          if (shadow !== currentShadow) {
-            currentShadow = shadow;
-            ctx.shadowColor = shadow;
-          }
-          currentBlur = g.size * 0.7 * alpha;
-          ctx.shadowBlur = currentBlur;
-          ctx.fillStyle = g.accent
-            ? `rgba(232, 211, 90, ${alpha})`
-            : `rgba(239, 233, 212, ${alpha})`;
-          currentFill = "";
-        } else {
-          if (currentBlur !== 0) {
-            currentBlur = 0;
-            ctx.shadowBlur = 0;
-          }
-          // Flat glyphs: two constant colours + globalAlpha, which composites
-          // identically to a per-glyph rgba() string but skips the parse.
-          const fill = g.accent ? ACCENT_RGB : DUST_RGB;
-          if (fill !== currentFill) {
-            currentFill = fill;
-            ctx.fillStyle = fill;
-          }
-          currentAlpha = alpha;
-          ctx.globalAlpha = alpha;
+        const fill = g.accent ? ACCENT_RGB : DUST_RGB;
+        if (fill !== currentFill) {
+          currentFill = fill;
+          ctx.fillStyle = fill;
         }
+        ctx.globalAlpha = alpha;
         ctx.fillText(g.char, g.x, g.y);
       }
       ctx.globalAlpha = 1;
-      ctx.shadowBlur = 0;
     };
 
     const loop = (now: number) => {
@@ -209,16 +167,14 @@ export function AsciiGlow({
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      // StackedPages display-toggles this canvas while the hero is buried, and
-      // a resize landing in that window would size the backing store to 0x0 —
-      // which never recovers on its own, leaving the starfield permanently
-      // blank. Skip while hidden; the observer re-measures on the way back in.
       if (rect.width === 0 || rect.height === 0) return;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
-      glyphs = buildField(rect.width, rect.height, cell, density);
-      if (reduced) draw(1.2); // single static frame
+      logicalW = rect.width * RES_SCALE;
+      logicalH = rect.height * RES_SCALE;
+      canvas.width = Math.round(logicalW * dpr);
+      canvas.height = Math.round(logicalH * dpr);
+      glyphs = buildField(logicalW, logicalH, cell, density);
+      if (reduced) draw(1.2);
     };
 
     const observer = new IntersectionObserver(([entry]) => {
@@ -233,12 +189,6 @@ export function AsciiGlow({
       if (!document.hidden) start();
     };
 
-    /* Nobody can read a 24fps twinkle while the view is moving, and this loop
-       is the hero's only measurable cost during a scroll (~31% of the
-       main-thread work across the hero->about transition, almost all of it
-       canvas shadowBlur on the star halos). So park it while scrolling and
-       resume shortly after the scroll settles — the frozen frame stays on
-       screen throughout, so the sky never blanks. */
     const onScroll = () => {
       if (!scrolling) {
         scrolling = true;
