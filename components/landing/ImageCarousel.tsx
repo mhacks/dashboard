@@ -20,6 +20,8 @@ const IMAGES = [
 interface Props {
   images?: string[];
   className?: string;
+  /** StackedPages burial — stops the marquee loop. */
+  paused?: boolean;
 }
 
 /**
@@ -54,7 +56,11 @@ function visibleImageCount(containerWidth: number) {
   return Math.min(Math.max(slots + BUFFER_IMAGES, 1), IMAGES.length);
 }
 
-export function ImageCarousel({ images = IMAGES, className }: Props) {
+export function ImageCarousel({
+  images = IMAGES,
+  className,
+  paused = false,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(() =>
     visibleImageCount(
@@ -82,7 +88,7 @@ export function ImageCarousel({ images = IMAGES, className }: Props) {
     <div ref={containerRef} className={`overflow-hidden ${className ?? ""}`}>
       <motion.div
         className="flex w-max gap-5"
-        animate={{ x: ["0%", "-50%"] }}
+        animate={paused ? false : { x: ["0%", "-50%"] }}
         transition={{ duration: 48, repeat: Infinity, ease: "linear" }}
       >
         {[0, 1].map((copy) => (

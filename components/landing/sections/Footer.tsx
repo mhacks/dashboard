@@ -34,7 +34,7 @@ export function Footer() {
     >
       {/* Sandy-pastel backdrop: pre-blurred pastel photo, a soft tint for
           text contrast, then two passes of dense grain for the paper tooth. */}
-      <div aria-hidden className="absolute inset-0">
+      <div aria-hidden className="absolute inset-0 [contain:paint]">
         {/* Blur + grade are baked into the image — no live CSS filter, so the
             compositor never has to rebuild a giant blurred surface mid-scroll. */}
         <Image
@@ -57,21 +57,14 @@ export function Footer() {
             ].join(", "),
           }}
         />
+        {/* Single grain pass — two tiled feTurbulence layers with blend modes
+            repainted the full footer on every scroll frame. */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 opacity-[0.72]"
           style={{
             backgroundImage: GRAIN_240,
-            backgroundSize: "240px 240px",
+            backgroundSize: "200px 200px",
             mixBlendMode: "overlay",
-            opacity: 0.7,
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: GRAIN_240,
-            backgroundSize: "150px 150px",
-            opacity: 0.16,
           }}
         />
       </div>

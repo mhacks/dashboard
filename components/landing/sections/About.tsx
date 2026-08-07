@@ -8,6 +8,7 @@ import { SplitReveal } from "@/components/landing/SplitReveal";
 import { ImageCarousel } from "@/components/landing/ImageCarousel";
 import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { AsciiBloom } from "@/components/landing/AsciiBloom";
+import { useStackPaused } from "@/lib/landing/useStackPaused";
 
 /* Keeps the blossom a single Image in the DOM rather than nesting it in a
    motion wrapper, so the existing layout classes still apply directly. */
@@ -15,6 +16,7 @@ const MotionImage = motion.create(Image);
 
 export function About() {
   const ref = useRef<HTMLElement | null>(null);
+  const paused = useStackPaused(ref);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "start start"],
@@ -184,7 +186,7 @@ export function About() {
           viewport={{ once: true, amount: 0.3 }}
           className="mt-14 md:mt-16 -mx-6 md:-mx-[8vw]"
         >
-          <ImageCarousel className="px-6 md:px-[8vw]" />
+          <ImageCarousel className="px-6 md:px-[8vw]" paused={paused} />
         </motion.div>
       </motion.div>
     </section>

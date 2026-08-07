@@ -26,8 +26,8 @@ import { normalizeHash } from "@/lib/landing/nav";
  * page that exhausts texture memory and Chromium starts dropping surfaces
  * (flashing glass/nav/sections). So once a sheet is fully buried it's
  * flipped to `visibility: hidden` (evicted from compositing), and anything
- * inside it marked [data-stack-pause] is display-toggled so
- * IntersectionObserver-gated canvas loops actually stop. Visibility and canvas
+ * inside it marked [data-stack-pause] is display-toggled when out-of-flow
+ * (absolute/fixed/canvas) so loops stop without shrinking in-flow layout Visibility and canvas
  * pause/resume follow document scroll position (each sheet restores only once
  * you've scrolled back up into its zone), and updates are rAF-throttled and
  * driven by both native scroll and Lenis.
@@ -43,8 +43,12 @@ export function StackedPages() {
     if (sheets.length < 3) return;
     // The footer (last sheet) is a normal scroll reveal, not a page laid on
     // top — so it never pins, and neither does the sheet before it (that one
-    // must scroll off naturally with the footer trailing it in flow).
+    // must scroll off naturally with the footer trailing it in flow). Faq is
+    // still buried once the footer takes over so its animations stop.
     const pinned = sheets.slice(0, -2);
+    // Footer never buries; Faq does once the footer scrolls in — otherwise
+    // its violets and scroll hooks keep running while you're at the bottom.
+    const buriable = sheets.slice(0, -1);
 
     // Sheets pin one corner radius above the viewport top, so their rounded
     // top corners sit offscreen and can't expose the sheet behind. (The
@@ -61,10 +65,10 @@ export function StackedPages() {
     };
 
     // Pause markers per sheet, resolved once up front.
-    const pauseMarks = pinned.map((el) =>
+    const pauseMarks = buriable.map((el) =>
       Array.from(el.querySelectorAll<HTMLElement>("[data-stack-pause]")),
     );
-    const pausedFlags = pinned.map(() => false);
+    const pausedFlags = buriable.map(() => false);
 
     // Flow offset for a sheet — sticky rects lie; offsetTop chain doesn't.
     const flowTop = (el: HTMLElement) => {
@@ -88,22 +92,33 @@ export function StackedPages() {
 
     let ticking = false;
 
+    const canDisplayToggle = (n: HTMLElement) => {
+      const pos = getComputedStyle(n).position;
+      return n.tagName === "CANVAS" || pos === "absolute" || pos === "fixed";
+    };
+
     const pauseSheet = (i: number) => {
       pausedFlags[i] = true;
-      pinned[i].style.visibility = "hidden";
-      pauseMarks[i].forEach((n) => (n.style.display = "none"));
+      buriable[i].style.visibility = "hidden";
+      pauseMarks[i].forEach((n) => {
+        // display:none only on out-of-flow nodes — toggling in-flow garlands
+        // and carousels shrinks buried sticky sheets and jumps scroll position.
+        if (canDisplayToggle(n)) n.style.display = "none";
+      });
     };
 
     const restoreSheet = (i: number) => {
       pausedFlags[i] = false;
-      pinned[i].style.visibility = "";
-      pauseMarks[i].forEach((n) => (n.style.display = ""));
+      buriable[i].style.visibility = "";
+      pauseMarks[i].forEach((n) => {
+        if (canDisplayToggle(n)) n.style.display = "";
+      });
     };
 
     const update = () => {
       ticking = false;
       const y = window.scrollY;
-      for (let i = 0; i < pinned.length; i++) {
+      for (let i = 0; i < buriable.length; i++) {
         const threshold = buryAt(i);
         if (!pausedFlags[i] && y >= threshold) {
           pauseSheet(i);
@@ -145,6 +160,8 @@ export function StackedPages() {
       for (const el of pinned) {
         el.style.position = "";
         el.style.top = "";
+      }
+      for (const el of buriable) {
         el.style.visibility = "";
       }
       pauseMarks.flat().forEach((n) => (n.style.display = ""));

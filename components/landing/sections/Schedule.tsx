@@ -9,6 +9,7 @@ import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
 import { DEADLINES } from "@/lib/landing/deadlines";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
+import { useStackPaused } from "@/lib/landing/useStackPaused";
 import Image from "next/image";
 
 /**
@@ -37,6 +38,7 @@ const ROWS = DEADLINES.map((d) => ({
 export function Schedule() {
   const ref = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
+  const paused = useStackPaused(ref);
   const garlandX = useGarlandEntrance(ref, "left");
 
   return (
@@ -69,7 +71,9 @@ export function Schedule() {
         {/* Idle waver anchored toward the right, where the stem roots offscreen */}
         <motion.div
           animate={
-            reduced ? undefined : { rotate: [-0.9, 1.2, -0.9], y: [-7, 8, -7] }
+            reduced || paused
+              ? undefined
+              : { rotate: [-0.9, 1.2, -0.9], y: [-7, 8, -7] }
           }
           transition={{ duration: 6.4, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "85% 50%" }}

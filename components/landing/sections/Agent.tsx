@@ -11,6 +11,7 @@ import { CtaButton } from "@/components/landing/cta-button";
 import { SERVER_URL } from "@/app/(marketing)/how-to-mcp/content";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
+import { useStackPaused } from "@/lib/landing/useStackPaused";
 import { asset } from "@/lib/landing/asset";
 import Image from "next/image";
 
@@ -22,6 +23,7 @@ import Image from "next/image";
 export function Agent() {
   const ref = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
+  const paused = useStackPaused(ref);
   const garlandX = useGarlandEntrance(ref, "right");
 
   return (
@@ -41,7 +43,9 @@ export function Agent() {
         {/* Idle waver anchored toward the left, where the stem roots offscreen */}
         <motion.div
           animate={
-            reduced ? undefined : { rotate: [-0.9, 1.1, -0.9], y: [-6, 7, -6] }
+            reduced || paused
+              ? undefined
+              : { rotate: [-0.9, 1.1, -0.9], y: [-6, 7, -6] }
           }
           transition={{ duration: 6.1, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "12% 50%" }}

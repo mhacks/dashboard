@@ -18,6 +18,7 @@ import { CtaButton } from "@/components/landing/cta-button";
 import { useMobileLayout } from "@/lib/landing/useMobileLayout";
 import { GRAIN_140 } from "@/lib/landing/textures";
 import { scrollToHash } from "@/lib/landing/scroll";
+import { useStackPaused } from "@/lib/landing/useStackPaused";
 import { prefersReducedMotion } from "@/lib/utils";
 
 /* Hero backdrop variants, switched by the icon buttons above the countdown.
@@ -50,6 +51,7 @@ type HeroBgId = (typeof HERO_BGS)[number]["id"];
 
 export function Hero() {
   const ref = useRef<HTMLElement | null>(null);
+  const paused = useStackPaused(ref);
   const reducedRef = useRef(false);
   const rectRef = useRef<DOMRect | null>(null);
   const mobile = useMobileLayout();
@@ -369,12 +371,13 @@ export function Hero() {
         >
           <motion.svg
             aria-hidden
+            data-stack-pause
             width="30"
             height="17"
             viewBox="0 0 30 17"
             fill="none"
             className="text-cream drop-shadow-[0_1px_8px_rgba(20,30,10,0.55)]"
-            animate={{ opacity: [1, 0, 1] }}
+            animate={paused ? false : { opacity: [1, 0, 1] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
           >
             <path

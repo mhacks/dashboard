@@ -8,11 +8,13 @@ import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { useGarlandEntrance } from "@/lib/landing/useGarlandEntrance";
+import { useStackPaused } from "@/lib/landing/useStackPaused";
 import Image from "next/image";
 
 export function Sponsors() {
   const ref = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
+  const paused = useStackPaused(ref);
   const branchX = useGarlandEntrance(ref, "left");
 
   return (
@@ -47,7 +49,9 @@ export function Sponsors() {
             toward the branch's right side like it's rooted offscreen */}
         <motion.div
           animate={
-            reduced ? undefined : { rotate: [-1.1, 1.5, -1.1], y: [-8, 9, -8] }
+            reduced || paused
+              ? undefined
+              : { rotate: [-1.1, 1.5, -1.1], y: [-8, 9, -8] }
           }
           transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
           style={{ transformOrigin: "85% 50%" }}

@@ -15,6 +15,7 @@ import { FlowerStamps } from "@/components/landing/FlowerStamps";
 import { SpeciesLabel } from "@/components/landing/SpeciesLabel";
 import { StackedSheet } from "@/components/landing/StackedSheet";
 import { formatDeadlineDate } from "@/lib/landing/deadlines";
+import { useStackPaused } from "@/lib/landing/useStackPaused";
 
 const MotionImage = motion.create(Image);
 
@@ -51,6 +52,7 @@ const FAQS = [
 export function Faq() {
   const ref = useRef<HTMLElement | null>(null);
   const reduced = useReducedMotion();
+  const paused = useStackPaused(ref);
   const [openItem, setOpenItem] = useState("");
 
   // Violets zoom into existence as the sheet scrolls into place — staggered
@@ -230,6 +232,7 @@ export function Faq() {
           own slow sway. */}
       <div
         aria-hidden
+        data-stack-pause
         className="pointer-events-none absolute right-2 top-4 flex origin-top-right scale-[0.38] items-end gap-8 md:bottom-[150px] md:right-[8vw] md:top-auto md:origin-bottom-right md:scale-100 md:gap-12"
       >
         {/* Species tag planted at the base of the trio */}
@@ -244,7 +247,7 @@ export function Faq() {
           <motion.div
             key={v.src}
             style={{
-              scale: reduced ? 1 : v.scale,
+              scale: reduced || paused ? 1 : v.scale,
               transformOrigin: "50% 100%",
             }}
           >
@@ -258,7 +261,7 @@ export function Faq() {
               style={{ width: v.width }}
               className="h-auto"
               animate={
-                reduced
+                reduced || paused
                   ? undefined
                   : { rotate: [v.drift, -v.drift, v.drift], y: [-5, 6, -5] }
               }
