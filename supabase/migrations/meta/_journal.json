@@ -50,6 +50,20 @@
       "when": 1786125280207,
       "tag": "20260807175440_reimbursement_regions_seed_and_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786127561679,
+      "tag": "20260807183241_blacklist",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786127577968,
+      "tag": "20260807183257_blacklist_triggers",
+      "breakpoints": true
     }
   ]
 }
