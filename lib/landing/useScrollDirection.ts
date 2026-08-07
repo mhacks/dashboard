@@ -33,27 +33,25 @@ export function useScrollDirection({
     const onScroll = () => {
       const y = window.scrollY;
       const delta = y - lastY.current;
-      lastY.current = y;
 
       if (y < minScroll) {
+        lastY.current = y;
         setVisible(true);
         return;
       }
+
+      // Native scroll and Lenis both call this handler; the second pass has
+      // delta 0 and was hiding the bar right after a scroll-up reveal.
+      if (delta === 0) return;
+
+      lastY.current = y;
 
       if (Math.abs(delta) < threshold) {
-        // Deep links can finish with no final delta — still hide if we're
-        // past the hero. Small upward deltas still reveal the bar.
-        if (delta < 0) setVisible(true);
-        else if (delta > 0) setVisible(false);
-        else setVisible(false);
+        setVisible(delta < 0);
         return;
       }
 
-      if (delta > 0) {
-        setVisible(false);
-      } else {
-        setVisible(true);
-      }
+      setVisible(delta < 0);
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
