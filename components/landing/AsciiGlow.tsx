@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { subscribeScroll } from "@/lib/landing/scroll";
 import { prefersReducedMotion } from "@/lib/utils";
 
 /**
@@ -208,6 +209,7 @@ export function AsciiGlow({
     observer.observe(canvas);
     window.addEventListener("resize", resize);
     window.addEventListener("scroll", onScroll, { passive: true });
+    const unsubLenis = subscribeScroll(onScroll);
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
@@ -216,6 +218,7 @@ export function AsciiGlow({
       observer.disconnect();
       window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", onScroll);
+      unsubLenis();
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [cell, density]);

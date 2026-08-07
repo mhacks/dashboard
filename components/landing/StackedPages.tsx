@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { scrollToHash } from "@/lib/landing/scroll";
+import { scrollToHash, subscribeScroll } from "@/lib/landing/scroll";
 import { normalizeHash } from "@/lib/landing/nav";
 
 /**
@@ -27,9 +27,10 @@ import { normalizeHash } from "@/lib/landing/nav";
  * (flashing glass/nav/sections). So once a sheet is fully buried it's
  * flipped to `visibility: hidden` (evicted from compositing), and anything
  * inside it marked [data-stack-pause] is display-toggled so
- * IntersectionObserver-gated canvas loops actually stop. Both toggles are
- * rAF-throttled and use a wide hysteresis band, so they only ever fire while
- * the sheet is deeply occluded — never visible, never thrashing.
+ * IntersectionObserver-gated canvas loops actually stop. Visibility and canvas
+ * pause/resume follow document scroll position (each sheet restores only once
+ * you've scrolled back up into its zone), and updates are rAF-throttled and
+ * driven by both native scroll and Lenis.
  */
 export function StackedPages() {
   useEffect(() => {
@@ -65,31 +66,53 @@ export function StackedPages() {
     );
     const pausedFlags = pinned.map(() => false);
 
-    // A sheet is fully occluded once its successor's rounded corners have
-    // cleared the top edge (top <= -CORNER). Pinned successors rest at
-    // exactly -CORNER, so the thresholds sit a couple of pixels inside that:
-    // evict at -46, restore at -44. The 2px hysteresis band only ever spans
-    // corner slivers a few pixels wide, so a flip can never flash content.
-    const PAUSE_AT = 2 - CORNER;
-    const RESUME_AT = 4 - CORNER;
+    // Flow offset for a sheet — sticky rects lie; offsetTop chain doesn't.
+    const flowTop = (el: HTMLElement) => {
+      let top = 0;
+      for (
+        let n: HTMLElement | null = el;
+        n;
+        n = n.offsetParent as HTMLElement | null
+      ) {
+        top += n.offsetTop;
+      }
+      return top;
+    };
+
+    // Pause once we've scrolled past the handoff to the next sheet (minus the
+    // corner overlap). Restore when we scroll back above that line — each
+    // sheet wakes individually as you move up through the stack, not all at
+    // once like the old -44px successor check, and not late enough to flash
+    // empty space like the 85%-vh threshold did.
+    const buryAt = (i: number) => flowTop(sheets[i + 1]) - CORNER;
 
     let ticking = false;
+
+    const pauseSheet = (i: number) => {
+      pausedFlags[i] = true;
+      pinned[i].style.visibility = "hidden";
+      pauseMarks[i].forEach((n) => (n.style.display = "none"));
+    };
+
+    const restoreSheet = (i: number) => {
+      pausedFlags[i] = false;
+      pinned[i].style.visibility = "";
+      pauseMarks[i].forEach((n) => (n.style.display = ""));
+    };
+
     const update = () => {
       ticking = false;
+      const y = window.scrollY;
       for (let i = 0; i < pinned.length; i++) {
-        const top = sheets[i + 1].getBoundingClientRect().top;
-        const el = pinned[i];
-        if (!pausedFlags[i] && top <= PAUSE_AT) {
-          pausedFlags[i] = true;
-          el.style.visibility = "hidden";
-          pauseMarks[i].forEach((n) => (n.style.display = "none"));
-        } else if (pausedFlags[i] && top >= RESUME_AT) {
-          pausedFlags[i] = false;
-          el.style.visibility = "";
-          pauseMarks[i].forEach((n) => (n.style.display = ""));
+        const threshold = buryAt(i);
+        if (!pausedFlags[i] && y >= threshold) {
+          pauseSheet(i);
+        } else if (pausedFlags[i] && y < threshold) {
+          restoreSheet(i);
         }
       }
     };
+
     const onScroll = () => {
       if (!ticking) {
         ticking = true;
@@ -112,11 +135,13 @@ export function StackedPages() {
     }
     window.addEventListener("resize", layout);
     window.addEventListener("scroll", onScroll, { passive: true });
+    const unsubLenis = subscribeScroll(onScroll);
 
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", layout);
       window.removeEventListener("scroll", onScroll);
+      unsubLenis();
       for (const el of pinned) {
         el.style.position = "";
         el.style.top = "";

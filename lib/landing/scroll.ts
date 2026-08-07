@@ -38,8 +38,13 @@ export function scrollToHash(hash: string) {
   }
 
   if (lenis) {
+    const distance = Math.abs(window.scrollY - top);
+    const vh = window.innerHeight || 1;
+    // Scale with travel distance so deep links (e.g. logo → #top) don't run a
+    // fixed 1.6s crawl; cap low so short hops still feel snappy.
+    const duration = Math.min(1.05, Math.max(0.45, (distance / vh) * 0.32));
     lenis.scrollTo(top, {
-      duration: 1.6,
+      duration,
       easing: (t) => 1 - Math.pow(1 - t, 4),
     });
     return;
