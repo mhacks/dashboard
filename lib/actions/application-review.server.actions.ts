@@ -14,7 +14,7 @@ import {
 } from "@/lib/db/schema/applications";
 import { users, type UserEntry } from "@/lib/db/schema/users";
 import { requireOrganizer } from "@/lib/auth/guards";
-import { blacklistAndDeleteApplicationForOrganizer } from "@/lib/actions/blacklist.actions";
+import { blacklistAndDeleteApplicationAsOrganizer } from "@/lib/actions/blacklist.actions";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
   blacklistDeleteSchema,
@@ -335,14 +335,21 @@ export async function getApplicationReviewDetail(
  * directly, so this guard — not the hidden button or the /admin route gate — is
  * what restricts the action. Guarding before parsing also means a non-organizer
  * learns nothing about which application ids are valid.
+ *
+ * blacklistAndDeleteApplicationAsOrganizer re-checks from the session on its
+ * own, so the deletion is gated even if this early return were ever dropped.
+ * The check here is kept for the pre-parse ordering above, and its result is
+ * discarded — the identity written to the blacklist row and to analytics is
+ * the one that function resolved, so there is only ever one answer to "who did
+ * this".
  */
 export async function blacklistAndDeleteApplication(
   input: BlacklistDeleteInput,
 ): Promise<BlacklistDeleteResult> {
-  const organizer = await requireOrganizer();
+  await requireOrganizer();
   const parsed = parseActionInput(blacklistDeleteSchema, input);
 
-  const deleted = await blacklistAndDeleteApplicationForOrganizer(organizer, {
+  const deleted = await blacklistAndDeleteApplicationAsOrganizer({
     applicationId: parsed.applicationId,
     reason: parsed.reason,
   });
@@ -353,7 +360,7 @@ export async function blacklistAndDeleteApplication(
   try {
     const posthog = getPostHogClient();
     posthog.capture({
-      distinctId: organizer.id,
+      distinctId: deleted.organizer.id,
       event: "application_deleted",
       properties: {
         application_id: parsed.applicationId,

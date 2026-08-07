@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/schema/applications";
 import { hackerReimbursements } from "@/lib/db/schema/reimbursements";
 import { users, type UserEntry } from "@/lib/db/schema/users";
+import { requireOrganizer } from "@/lib/auth/guards";
 import { deleteResumeObject } from "@/lib/resume";
 
 /**
@@ -59,16 +60,35 @@ export async function findBlacklistMatch(
 /**
  * Blacklists an applicant and erases their application footprint.
  *
- * Parameterized by the acting organizer rather than reading the session, so the
- * authorization check lives in exactly one place — the `"use server"` wrapper in
- * application-review.server.actions.ts — mirroring how
- * submitHackerApplicationForUser is shared by the web form and MCP. Callers are
- * responsible for having already established that the actor is an organizer.
+ * Resolves the acting organizer from the session itself and refuses anyone
+ * else. The identity is deliberately *not* a parameter: a caller-supplied
+ * organizer is only ever as trustworthy as the caller, so a single missing
+ * check at one entry point would be enough to blacklist an applicant under a
+ * forged or borrowed identity. Deriving it here makes the guarantee a property
+ * of this function rather than of every call site — the deletion is
+ * irreversible, so it should not be possible to reach it unauthorized no
+ * matter how it is wired up later.
+ *
+ * The `"use server"` wrapper still guards ahead of parsing (see
+ * application-review.server.actions.ts); this is the backstop underneath it,
+ * not a replacement for it.
+ *
+ * Returns the organizer it acted as, so callers attributing the deletion don't
+ * re-resolve the session and can't attribute it to anyone else.
  */
-export async function blacklistAndDeleteApplicationForOrganizer(
-  organizer: Pick<UserEntry, "id" | "email">,
-  { applicationId, reason }: { applicationId: string; reason: string },
-): Promise<{ userId: string; fullName: string }> {
+export async function blacklistAndDeleteApplicationAsOrganizer({
+  applicationId,
+  reason,
+}: {
+  applicationId: string;
+  reason: string;
+}): Promise<{
+  userId: string;
+  fullName: string;
+  organizer: Pick<UserEntry, "id" | "email">;
+}> {
+  const organizer = await requireOrganizer();
+
   const deleted = await db.transaction(async (tx) => {
     // Locked without a join: Postgres rejects FOR UPDATE against the nullable
     // side of an outer join, so the applicant's email is read separately below.
@@ -137,5 +157,9 @@ export async function blacklistAndDeleteApplicationForOrganizer(
     }
   }
 
-  return { userId: deleted.userId, fullName: deleted.fullName };
+  return {
+    userId: deleted.userId,
+    fullName: deleted.fullName,
+    organizer: { id: organizer.id, email: organizer.email },
+  };
 }
