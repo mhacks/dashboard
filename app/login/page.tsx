@@ -158,7 +158,7 @@ function AuthForm() {
                   ref={turnstileRef}
                   className="mx-auto flex w-full justify-center ph-no-capture"
                   siteKey={process.env.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY!}
-                  options={{ appearance: "always" }}
+                  options={{ appearance: "interaction-only" }}
                   onSuccess={setTurnstileToken}
                   onError={() => setTurnstileToken(null)}
                   onExpire={() => setTurnstileToken(null)}
