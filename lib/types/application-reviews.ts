@@ -182,6 +182,41 @@ export type ScoreAnalytics = {
   builderRatings: AnalyticsBucket[];
 };
 
+export type BlacklistAnalytics = {
+  // One row per blocked person: the table's partial unique indexes on the
+  // normalized name and phone keep a repeat entry from double-counting.
+  total: number;
+  // Entries are matched on name OR phone and may carry only one of the two, so
+  // these overlap and deliberately do not sum to `total`.
+  withName: number;
+  withPhone: number;
+  withBoth: number;
+};
+
+export type ReimbursementRegionBucket = AnalyticsBucket & {
+  // The tier's primary key. Carried alongside the label because labels are
+  // organizer-editable free text and two tiers may share one, so only the id
+  // is a safe identity for a row.
+  region: number;
+  amountCents: number;
+};
+
+export type ReimbursementAnalytics = {
+  // hacker_reimbursements is unique per user_id, so an award count is also a
+  // user count — "approved" is the reimbursed population.
+  reimbursedUsers: number;
+  spentCents: number;
+  pendingRequests: number;
+  // What the pending queue would add to `spentCents` if every request were
+  // approved as-is.
+  pendingCents: number;
+  deniedRequests: number;
+  totalRequests: number;
+  averageAwardCents: number | null;
+  statusBreakdown: AnalyticsBucket[];
+  regionBreakdown: ReimbursementRegionBucket[];
+};
+
 export type ApplicationAnalyticsData = {
   totals: {
     applicants: number;
@@ -211,6 +246,8 @@ export type ApplicationAnalyticsData = {
     universities: AnalyticsBucket[];
     previousHackathonBuckets: AnalyticsBucket[];
   };
+  blacklist: BlacklistAnalytics;
+  reimbursements: ReimbursementAnalytics;
 };
 
 export type ReviewListItem = {
