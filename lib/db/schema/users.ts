@@ -10,7 +10,13 @@ import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";
 
-export const userRole = pgEnum("user_role", ["hacker", "organizer"]);
+export const userRole = pgEnum("user_role", [
+  "hacker",
+  "organizer",
+  "admin",
+  "volunteer",
+  "judge",
+]);
 export type UserRole = (typeof userRole.enumValues)[number];
 
 export const users = pgTable(
