@@ -19,7 +19,7 @@ export const MARKETING_NAV_ITEMS: MarketingNavItem[] = [
 
 export const FOOTER_NAV_ITEMS: MarketingNavItem[] = [
   ...MARKETING_NAV_ITEMS,
-  { label: "Contact", href: "mailto:hello@mhacks.org" },
+  { label: "Contact", href: "mailto:hackathon@mhacks.org" },
   {
     label: "MLH Policies",
     href: "https://github.com/MLH/mlh-policies/blob/main/code-of-conduct.md",

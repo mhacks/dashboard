@@ -133,7 +133,11 @@ export function Sponsors() {
             Reach 1,000+ technical students from across North America.
           </div>
         </div>
-        <CtaButton href="mailto:sponsor@mhacks.org" variant="cream" size="md">
+        <CtaButton
+          href="mailto:sponsorship@mhacks.org"
+          variant="cream"
+          size="md"
+        >
           <span className="md:hidden">Contact us</span>
           <span className="hidden md:inline">
             Interested in sponsoring? Contact us

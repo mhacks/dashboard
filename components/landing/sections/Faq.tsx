@@ -201,11 +201,11 @@ export function Faq() {
           <p className="max-w-[340px] text-[15px] leading-[1.6] text-[#4d5942]">
             Can&rsquo;t find what you&rsquo;re looking for? Email us at{" "}
             <a
-              href="mailto:hello@mhacks.org"
+              href="mailto:hackathon@mhacks.org"
               className="text-moss-700 underline underline-offset-4 hover:text-moss-800"
               data-cursor="hover"
             >
-              hello@mhacks.org
+              hackathon@mhacks.org
             </a>
             .
           </p>
