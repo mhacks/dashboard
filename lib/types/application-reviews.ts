@@ -66,6 +66,25 @@ export const reviewSyncPayloadSchema = z.object({
 
 export type ReviewSyncPayload = z.infer<typeof reviewSyncPayloadSchema>;
 
+// The blacklist row is the only record that survives the deletion, so an entry
+// with no explanation is worthless later — the reason is required here, not
+// just disabled-until-filled in the dialog.
+export const blacklistDeleteSchema = z.object({
+  applicationId: z.uuid(),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Please record why this applicant is being removed")
+    .max(500, "Please keep the reason under 500 characters"),
+});
+
+export type BlacklistDeleteInput = z.infer<typeof blacklistDeleteSchema>;
+
+export type BlacklistDeleteResult = {
+  applicationId: string;
+  applicantName: string;
+};
+
 export type ReviewDraftInput = z.infer<typeof reviewDraftSchema>;
 export type ReviewCompleteInput = z.infer<typeof reviewCompleteSchema>;
 export type ReviewCompleteSaveInput = z.infer<typeof reviewCompleteSaveSchema>;
@@ -163,6 +182,41 @@ export type ScoreAnalytics = {
   builderRatings: AnalyticsBucket[];
 };
 
+export type BlacklistAnalytics = {
+  // One row per blocked person: the table's partial unique indexes on the
+  // normalized name and phone keep a repeat entry from double-counting.
+  total: number;
+  // Entries are matched on name OR phone and may carry only one of the two, so
+  // these overlap and deliberately do not sum to `total`.
+  withName: number;
+  withPhone: number;
+  withBoth: number;
+};
+
+export type ReimbursementRegionBucket = AnalyticsBucket & {
+  // The tier's primary key. Carried alongside the label because labels are
+  // organizer-editable free text and two tiers may share one, so only the id
+  // is a safe identity for a row.
+  region: number;
+  amountCents: number;
+};
+
+export type ReimbursementAnalytics = {
+  // hacker_reimbursements is unique per user_id, so an award count is also a
+  // user count — "approved" is the reimbursed population.
+  reimbursedUsers: number;
+  spentCents: number;
+  pendingRequests: number;
+  // What the pending queue would add to `spentCents` if every request were
+  // approved as-is.
+  pendingCents: number;
+  deniedRequests: number;
+  totalRequests: number;
+  averageAwardCents: number | null;
+  statusBreakdown: AnalyticsBucket[];
+  regionBreakdown: ReimbursementRegionBucket[];
+};
+
 export type ApplicationAnalyticsData = {
   totals: {
     applicants: number;
@@ -192,6 +246,8 @@ export type ApplicationAnalyticsData = {
     universities: AnalyticsBucket[];
     previousHackathonBuckets: AnalyticsBucket[];
   };
+  blacklist: BlacklistAnalytics;
+  reimbursements: ReimbursementAnalytics;
 };
 
 export type ReviewListItem = {

@@ -8,10 +8,17 @@ import {
   type HackerApplicationReviewEventRow,
   type HackerApplicationReviewRow,
 } from "@/lib/db/schema/applications";
+import { blacklist } from "@/lib/db/schema/blacklist";
+import {
+  hackerReimbursements,
+  reimbursementRegions,
+} from "@/lib/db/schema/reimbursements";
 import { users } from "@/lib/db/schema/users";
 import {
   type AnalyticsBucket,
   type ApplicationAnalyticsData,
+  type BlacklistAnalytics,
+  type ReimbursementAnalytics,
   type ReviewAuditEventRecord,
   type ReviewCounts,
   type ReviewEventRecord,
@@ -442,6 +449,123 @@ export async function getApplicationReviewLeaderboard(): Promise<ReviewLeaderboa
   };
 }
 
+/**
+ * Counts the deny list. Aggregated in Postgres rather than by fetching rows —
+ * the analytics page only ever shows totals, and the entries themselves are
+ * organizer-only data there is no reason to pull into the page payload.
+ *
+ * The `withName` / `withPhone` counts read the *normalized* generated columns,
+ * not the raw text, so an entry whose name is blank or whitespace-only counts
+ * as phone-identified rather than as both.
+ */
+async function getBlacklistAnalytics(): Promise<BlacklistAnalytics> {
+  const [totals] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      withName: sql<number>`count(*) filter (where ${blacklist.fullNameNormalized} is not null)::int`,
+      withPhone: sql<number>`count(*) filter (where ${blacklist.phoneNumberNormalized} is not null)::int`,
+      withBoth: sql<number>`count(*) filter (where ${blacklist.fullNameNormalized} is not null and ${blacklist.phoneNumberNormalized} is not null)::int`,
+    })
+    .from(blacklist);
+
+  return {
+    total: totals?.total ?? 0,
+    withName: totals?.withName ?? 0,
+    withPhone: totals?.withPhone ?? 0,
+    withBoth: totals?.withBoth ?? 0,
+  };
+}
+
+/**
+ * Totals the travel reimbursement budget.
+ *
+ * Award rows carry a region, not an amount, so money only exists via the join
+ * to `reimbursement_regions` — an inner join is safe because `region` is NOT
+ * NULL behind a foreign key, so every award has exactly one tier row and the
+ * join can neither drop nor duplicate an award.
+ *
+ * `hacker_reimbursements` is unique on `user_id`, which is what lets an award
+ * count stand in for a user count: "approved" rows are reimbursed people, one
+ * apiece.
+ */
+async function getReimbursementAnalytics(): Promise<ReimbursementAnalytics> {
+  const awardAmount = reimbursementRegions.amountCents;
+
+  const [totals] = await db
+    .select({
+      totalRequests: sql<number>`count(*)::int`,
+      reimbursedUsers: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'approved')::int`,
+      pendingRequests: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'pending')::int`,
+      deniedRequests: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'denied')::int`,
+      // coalesce because SUM over zero rows is NULL, not 0.
+      spentCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${hackerReimbursements.status} = 'approved'), 0)::int`,
+      pendingCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${hackerReimbursements.status} = 'pending'), 0)::int`,
+    })
+    .from(hackerReimbursements)
+    .innerJoin(
+      reimbursementRegions,
+      eq(hackerReimbursements.region, reimbursementRegions.region),
+    );
+
+  const regionRows = await db
+    .select({
+      region: reimbursementRegions.region,
+      label: reimbursementRegions.label,
+      count: sql<number>`count(*)::int`,
+      amountCents: sql<number>`coalesce(sum(${awardAmount}), 0)::int`,
+    })
+    .from(hackerReimbursements)
+    .innerJoin(
+      reimbursementRegions,
+      eq(hackerReimbursements.region, reimbursementRegions.region),
+    )
+    .where(eq(hackerReimbursements.status, "approved"))
+    .groupBy(reimbursementRegions.region, reimbursementRegions.label)
+    .orderBy(reimbursementRegions.region);
+
+  const totalRequests = totals?.totalRequests ?? 0;
+  const reimbursedUsers = totals?.reimbursedUsers ?? 0;
+  const spentCents = totals?.spentCents ?? 0;
+
+  return {
+    reimbursedUsers,
+    spentCents,
+    pendingRequests: totals?.pendingRequests ?? 0,
+    pendingCents: totals?.pendingCents ?? 0,
+    deniedRequests: totals?.deniedRequests ?? 0,
+    totalRequests,
+    // Averaged over approved awards only, so denied and pending requests can't
+    // drag the figure below what was actually paid out per hacker.
+    averageAwardCents:
+      reimbursedUsers === 0 ? null : Math.round(spentCents / reimbursedUsers),
+    statusBreakdown: [
+      {
+        label: "Approved",
+        count: reimbursedUsers,
+        percentage: percent(reimbursedUsers, totalRequests),
+      },
+      {
+        label: "Pending",
+        count: totals?.pendingRequests ?? 0,
+        percentage: percent(totals?.pendingRequests ?? 0, totalRequests),
+      },
+      {
+        label: "Denied",
+        count: totals?.deniedRequests ?? 0,
+        percentage: percent(totals?.deniedRequests ?? 0, totalRequests),
+      },
+    ],
+    // Shares of the reimbursed population, matching the count each row shows.
+    regionBreakdown: regionRows.map((row) => ({
+      region: row.region,
+      label: row.label,
+      count: row.count,
+      percentage: percent(row.count, reimbursedUsers),
+      amountCents: row.amountCents,
+    })),
+  };
+}
+
 export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsData> {
   await requireOrganizer();
 
@@ -476,6 +600,13 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
             inArray(hackerApplicationReviews.applicationId, applicationIds),
           );
   const total = applications.length;
+
+  // Neither depends on the application rows above, so they overlap rather than
+  // adding two more round trips to the page's time-to-first-byte.
+  const [blacklistStats, reimbursementStats] = await Promise.all([
+    getBlacklistAnalytics(),
+    getReimbursementAnalytics(),
+  ]);
 
   const reviewedScores = reviews.filter(
     (review) =>
@@ -587,5 +718,7 @@ export async function getApplicationAnalytics(): Promise<ApplicationAnalyticsDat
         ["0", "1-2", "3-5", "6+"],
       ),
     },
+    blacklist: blacklistStats,
+    reimbursements: reimbursementStats,
   };
 }

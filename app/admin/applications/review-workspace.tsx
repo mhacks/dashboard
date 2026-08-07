@@ -25,11 +25,13 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SmartphoneIcon,
+  Trash2Icon,
   UserRoundIcon,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  blacklistAndDeleteApplication,
   getApplicationReviewEvents,
   getApplicationReviewDetail,
   markApplicationReviewed,
@@ -158,6 +160,10 @@ const REVIEW_WORKSPACE_PANEL_IDS = [
 ] as const;
 const REVIEW_SYNC_CHANNEL = "application-review:dashboard";
 const REVIEW_SYNC_EVENT = "review_updated";
+// Distinct from REVIEW_SYNC_EVENT: that receiver re-fetches the application,
+// which throws "Application not found" once the row is gone and would leave the
+// stale entry sitting in every other organizer's list.
+const REVIEW_DELETE_EVENT = "review_deleted";
 
 const PANEL_LAYOUT_STORAGE: LayoutStorage = {
   getItem(key) {
@@ -611,6 +617,10 @@ export default function ApplicationReviewWorkspace({
   >(null);
   const [pendingApplicationSwitch, setPendingApplicationSwitch] =
     useState<ReviewListSummaryItem | null>(null);
+  const [pendingBlacklistDelete, setPendingBlacklistDelete] =
+    useState<ReviewListItem | null>(null);
+  const [blacklistReason, setBlacklistReason] = useState("");
+  const [isDeletingApplication, setIsDeletingApplication] = useState(false);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
   const [realtimeReady, setRealtimeReady] = useState(false);
   const supabase = useMemo(() => createClient(), []);
@@ -765,6 +775,14 @@ export default function ApplicationReviewWorkspace({
     });
   }, [items, query, statusFilter]);
 
+  // Mirrored into a ref so removeApplicationLocally can pick the successor row
+  // without taking `filteredItems` as a dependency — it is called from the
+  // realtime effect, which must not resubscribe every time the list changes.
+  const filteredItemsRef = useRef(filteredItems);
+  useEffect(() => {
+    filteredItemsRef.current = filteredItems;
+  }, [filteredItems]);
+
   const pageCount = getPageCount(filteredItems.length, APPLICATIONS_PAGE_SIZE);
   const filterKey = `${query}|${statusFilter}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
@@ -857,6 +875,21 @@ export default function ApplicationReviewWorkspace({
     [organizer?.id],
   );
 
+  const organizerId = organizer?.id;
+  const broadcastApplicationDeleted = useCallback(
+    async (applicationId: string) => {
+      // reviewSyncPayloadSchema requires a uuid, so a send before the organizer
+      // resolves would be dropped by every receiver — skip rather than emit it.
+      if (!organizerId) return;
+      await reviewSyncChannel.current?.send({
+        type: "broadcast",
+        event: REVIEW_DELETE_EVENT,
+        payload: { applicationId, sourceUserId: organizerId },
+      });
+    },
+    [organizerId],
+  );
+
   const refreshReviewFromServer = useCallback(
     async (applicationId: string) => {
       const detail = await getApplicationReviewDetail(applicationId);
@@ -886,19 +919,22 @@ export default function ApplicationReviewWorkspace({
     [applyReviewForm, form.formState.isDirty, markReviewConflict],
   );
 
-  function applyApplicationSwitch(item: ReviewListSummaryItem) {
-    setSelectedId(item.application.id);
-    setSelectedDetail(undefined);
-    setMobileView("detail");
-    setScorecardOpen(false);
-    setResumeUrl(null);
-    applyReviewForm(item);
-    window.history.replaceState(
-      null,
-      "",
-      applicationReviewHref(item.application.slug),
-    );
-  }
+  const applyApplicationSwitch = useCallback(
+    (item: ReviewListSummaryItem) => {
+      setSelectedId(item.application.id);
+      setSelectedDetail(undefined);
+      setMobileView("detail");
+      setScorecardOpen(false);
+      setResumeUrl(null);
+      applyReviewForm(item);
+      window.history.replaceState(
+        null,
+        "",
+        applicationReviewHref(item.application.slug),
+      );
+    },
+    [applyReviewForm],
+  );
 
   function selectApplication(item: ReviewListSummaryItem) {
     if (item.application.id === selectedId) return;
@@ -916,6 +952,41 @@ export default function ApplicationReviewWorkspace({
     applyApplicationSwitch(pendingApplicationSwitch);
     setPendingApplicationSwitch(null);
   }
+
+  // Drops a deleted application from this client's state. `items` is owned
+  // entirely here (seeded from props, never re-read from the server, since
+  // selection uses history.replaceState rather than the router), so both the
+  // organizer who deleted it and everyone receiving the broadcast run this.
+  const removeApplicationLocally = useCallback(
+    (applicationId: string) => {
+      const visible = filteredItemsRef.current;
+      const index = visible.findIndex(
+        (item) => item.application.id === applicationId,
+      );
+      const successor =
+        index === -1
+          ? null
+          : (visible[index + 1] ?? visible[index - 1] ?? null);
+
+      setItems((current) =>
+        current.filter((item) => item.application.id !== applicationId),
+      );
+
+      if (selectedIdRef.current !== applicationId) return;
+
+      if (successor) {
+        applyApplicationSwitch(successor);
+        return;
+      }
+
+      setSelectedId("");
+      setSelectedDetail(undefined);
+      setReviewEvents([]);
+      setMobileView("list");
+      window.history.replaceState(null, "", "/admin/applications");
+    },
+    [applyApplicationSwitch],
+  );
 
   useEffect(() => {
     if (!selectedId || detailLoadedId === selectedId) return;
@@ -984,6 +1055,14 @@ export default function ApplicationReviewWorkspace({
       });
     });
 
+    channel.on("broadcast", { event: REVIEW_DELETE_EVENT }, ({ payload }) => {
+      const parsed = reviewSyncPayloadSchema.safeParse(payload);
+      if (!parsed.success) return;
+      if (parsed.data.sourceUserId === organizer.id) return;
+
+      removeApplicationLocally(parsed.data.applicationId);
+    });
+
     channel.subscribe((status, err) => {
       if (!active || status !== "CHANNEL_ERROR") return;
       if (isBenignRealtimeChannelError(err)) return;
@@ -995,7 +1074,13 @@ export default function ApplicationReviewWorkspace({
       reviewSyncChannel.current = null;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [organizer, realtimeReady, refreshReviewFromServer, supabase]);
+  }, [
+    organizer,
+    realtimeReady,
+    refreshReviewFromServer,
+    removeApplicationLocally,
+    supabase,
+  ]);
 
   const clearResumeExpiryTimer = useCallback(() => {
     if (resumeExpiryTimer.current) {
@@ -1255,6 +1340,42 @@ export default function ApplicationReviewWorkspace({
       );
     } finally {
       setIsCompleting(false);
+    }
+  }
+
+  function openBlacklistDialog() {
+    if (!selectedDetail) return;
+    setBlacklistReason("");
+    setPendingBlacklistDelete(selectedDetail);
+  }
+
+  function closeBlacklistDialog() {
+    setPendingBlacklistDelete(null);
+    setBlacklistReason("");
+  }
+
+  async function handleBlacklistAndDelete() {
+    if (!pendingBlacklistDelete) return;
+
+    const reason = blacklistReason.trim();
+    if (!reason) return;
+
+    const applicationId = pendingBlacklistDelete.application.id;
+    const name = applicantName(pendingBlacklistDelete);
+
+    setIsDeletingApplication(true);
+    try {
+      await blacklistAndDeleteApplication({ applicationId, reason });
+
+      removeApplicationLocally(applicationId);
+      void broadcastApplicationDeleted(applicationId);
+      closeBlacklistDialog();
+      toast.success(`${name} was blacklisted and their application deleted.`);
+    } catch (error) {
+      console.error("Unable to blacklist and delete application:", error);
+      toast.error("Unable to delete this application. Please try again.");
+    } finally {
+      setIsDeletingApplication(false);
     }
   }
 
@@ -1555,6 +1676,30 @@ export default function ApplicationReviewWorkspace({
                 }
               />
             </Section>
+
+            {/* Section renders a <dl> grid, so the button gets its own
+                container in the same stack. Kept last, well away from the
+                routine review controls. */}
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+              <h3 className="text-sm font-semibold text-destructive">
+                Danger zone
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Adds this applicant&apos;s name and phone number to the
+                blacklist and permanently deletes their application, review
+                history, and resume. This cannot be undone.
+              </p>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="mt-3"
+                onClick={openBlacklistDialog}
+              >
+                <Trash2Icon className="size-4" />
+                Blacklist &amp; delete application
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -1737,6 +1882,64 @@ export default function ApplicationReviewWorkspace({
               >
                 Switch anyway
               </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
+          open={pendingBlacklistDelete !== null}
+          onOpenChange={(open) => {
+            if (!open && !isDeletingApplication) closeBlacklistDialog();
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogMedia>
+                <AlertTriangleIcon className="text-destructive" />
+              </AlertDialogMedia>
+              <AlertDialogTitle>
+                Blacklist and delete application?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingBlacklistDelete
+                  ? `${applicantName(pendingBlacklistDelete)} (${
+                      pendingBlacklistDelete.application.applicantEmail ??
+                      "no email on file"
+                    }) will be added to the blacklist, and their application, review history, and resume will be permanently deleted. This cannot be undone.`
+                  : null}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="blacklist-reason">Reason</Label>
+              <Textarea
+                id="blacklist-reason"
+                value={blacklistReason}
+                maxLength={500}
+                rows={3}
+                placeholder="Why is this applicant being removed?"
+                onChange={(event) => setBlacklistReason(event.target.value)}
+                disabled={isDeletingApplication}
+              />
+              <p className="text-xs text-muted-foreground">
+                Saved on the blacklist entry — it is the only record that
+                survives the deletion.
+              </p>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingApplication}>
+                Cancel
+              </AlertDialogCancel>
+              {/* A plain Button, not AlertDialogAction: the Radix action closes
+                  the dialog on click, which would tear down the pending state
+                  mid-request and hide the in-flight label. */}
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={!blacklistReason.trim() || isDeletingApplication}
+                onClick={handleBlacklistAndDelete}
+              >
+                {isDeletingApplication ? "Deleting…" : "Blacklist & delete"}
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

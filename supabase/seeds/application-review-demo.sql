@@ -1056,15 +1056,6 @@ on conflict (application_id) do update set
   review_comments = excluded.review_comments,
   reviewed_at = excluded.reviewed_at;
 
-insert into public.reimbursement_regions (region, label, amount_cents) values
-  (0, 'Region 0', 0),
-  (1, 'Region 1', 5000),
-  (2, 'Region 2', 10000),
-  (3, 'Region 3', 20000),
-  (4, 'Region 4', 30000),
-  (5, 'Region 5', 40000)
-on conflict (region) do nothing;
-
 -- Travel reimbursement awards for the bulk applicants who requested one — the
 -- even user numbers, mirroring needs_travel_reimbursement above. Region and
 -- status are driven off k (the award's ordinal) rather than n, using coprime
