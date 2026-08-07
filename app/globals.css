@@ -305,7 +305,8 @@
   background: var(--landing-bg);
   color: var(--landing-ink);
   font-family: var(--font-red-hat-display), system-ui, sans-serif;
-  overflow-x: hidden;
+  /* clip — not hidden — so sticky sheets stick to the viewport, not this box */
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

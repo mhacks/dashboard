@@ -42,7 +42,6 @@ export function About() {
           y: tabY,
           borderTopLeftRadius: 48,
           borderTopRightRadius: 48,
-          // Dot-paper texture layered over the section's ambient gradients.
           backgroundImage:
             "radial-gradient(rgba(58,74,38,0.16) 1px, transparent 1.4px), radial-gradient(1200px 600px at 80% -10%, rgba(122,147,201,0.15), transparent 60%), linear-gradient(180deg, var(--parchment), #eee6c8)",
           backgroundSize: "26px 26px, auto, auto",
@@ -86,8 +85,6 @@ export function About() {
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
             viewport={{ once: true, amount: 0.5 }}
-            /* h-auto so the height attribute doesn't pin the box — the width
-               classes drive the size and height follows the aspect ratio. */
             className="mb-4 h-auto w-[84px] select-none md:w-[104px]"
           />
           <h2
@@ -136,8 +133,6 @@ export function About() {
             <AsciiBloom className="font-mono text-[9px] leading-[1.15]" />
             <span className="relative font-mono text-[13px] tracking-[0.08em]">
               Click around the canvas for some fun.
-              {/* Hand-drawn marker underline, drawn on when scrolled into
-                  view — two wobbly passes so it reads like a real swipe */}
               <svg
                 aria-hidden
                 viewBox="0 0 330 14"

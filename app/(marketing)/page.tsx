@@ -9,7 +9,7 @@ import { StackedPages } from "@/components/landing/StackedPages";
 
 export default function Home() {
   return (
-    <main className="relative">
+    <main className="relative bg-moss-900">
       <Hero />
       <About />
       <Sponsors />

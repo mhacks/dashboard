@@ -2,13 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  motion,
-  useMotionValue,
-  useScroll,
-  useSpring,
-  useTransform,
-} from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { HeroReveal } from "@/components/landing/HeroReveal";
 import { MlhBadge } from "@/components/landing/MlhBadge";
 import { Typewriter } from "@/components/landing/Typewriter";
@@ -108,24 +102,8 @@ export function Hero() {
     pointerY.set(0.5);
   };
 
-  // Lenis already smooths the scroll position — mapping progress directly
-  // (no spring) keeps the parallax locked to the scroll instead of lagging it.
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end start"],
-  });
-
-  const titleY = useTransform(scrollYProgress, [0, 1], ["0vh", "26vh"]);
-  const titleScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
-  const titleOpacity = useTransform(scrollYProgress, [0, 0.7, 1], [1, 0.9, 0]);
-
-  const bgScale = useTransform(scrollYProgress, [0, 1], [1.02, 1.14]);
-  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "-6%"]);
-
   const activeBg = HERO_BGS.find((b) => b.id === bgId) ?? HERO_BGS[0];
   const bgProps = activeBg.src ? { src: activeBg.src } : {};
-  // The meta row tracks the title's drift so the lockup stays intact while fading.
-  const metaOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
 
   return (
     <section
@@ -134,72 +112,72 @@ export function Hero() {
       data-cursor-box="You"
       data-cursor-box-ready={cursorBoxReady ? "" : undefined}
       data-cursor-zone
-      className="relative z-[4] w-full overflow-hidden"
+      className="relative z-[4] w-full"
       style={{ minHeight: "100vh" }}
       onMouseMove={onTiltMove}
       onMouseLeave={onTiltLeave}
     >
-      {/* Blur plate scrolls with parallax; sharp reveal tilts toward the pointer.
-          Perspective lives here so tilt never re-rasterizes the blurred layer. */}
-      <div className="absolute inset-0 z-0" style={{ perspective: 1100 }}>
-        <HeroReveal
-          scale={bgScale}
-          y={bgY}
-          tiltX={tiltX}
-          tiltY={tiltY}
-          shiftX={shiftX}
-          shiftY={shiftY}
-          tiltScale={1.06}
-          paused={paused}
-          {...bgProps}
+      <div className="absolute inset-0 overflow-hidden">
+        {/* StackedPages pins the hero while the next sheet rises — no scroll
+          parallax here or the old page drifts instead of staying put. */}
+        <div className="absolute inset-0 z-0" style={{ perspective: 1100 }}>
+          <HeroReveal
+            tiltX={tiltX}
+            tiltY={tiltY}
+            shiftX={shiftX}
+            shiftY={shiftY}
+            tiltScale={1.06}
+            paused={paused}
+            {...bgProps}
+          />
+        </div>
+
+        {/* Breathing ASCII starfield — mounts only while the hero sheet is visible. */}
+        <motion.div
+          className="pointer-events-none absolute inset-0 z-[3]"
+          style={{ x: starX, y: starY }}
+        >
+          {!paused && (
+            <AsciiGlow cell={mobile ? 14 : 26} density={mobile ? 0.55 : 0.28} />
+          )}
+        </motion.div>
+
+        {/* MLH trust badge, resting on the hero's top edge — scrolls away with
+          the hero (covered by the next sheet), unlike the fixed header */}
+        <MlhBadge />
+
+        {/* Vignette for text legibility */}
+        <div
+          aria-hidden
+          className="absolute inset-0 z-[2] pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(120% 80% at 50% 0%, rgba(29,36,18,0.2) 0%, rgba(29,36,18,0) 55%)",
+          }}
+        />
+
+        {/* Top gradient band behind the headline/CTA/badge — fades out by 40%
+          so the lower meadow stays untouched */}
+        <div
+          aria-hidden
+          className="absolute inset-0 z-[2] pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(0,0,0,0.15), transparent 40%)",
+          }}
+        />
+
+        {/* Film grain — static, unblended, outside the transformed layers */}
+        <div
+          aria-hidden
+          className="absolute inset-0 z-[2] pointer-events-none"
+          style={{
+            backgroundImage: GRAIN_140,
+            backgroundSize: "140px 140px",
+            opacity: 0.38,
+          }}
         />
       </div>
-
-      {/* Breathing ASCII starfield — mounts only while the hero sheet is visible. */}
-      <motion.div
-        className="pointer-events-none absolute inset-0 z-[3]"
-        style={{ x: starX, y: starY }}
-      >
-        {!paused && (
-          <AsciiGlow cell={mobile ? 14 : 26} density={mobile ? 0.55 : 0.28} />
-        )}
-      </motion.div>
-
-      {/* MLH trust badge, resting on the hero's top edge — scrolls away with
-          the hero (covered by the next sheet), unlike the fixed header */}
-      <MlhBadge />
-
-      {/* Vignette for text legibility */}
-      <div
-        aria-hidden
-        className="absolute inset-0 z-[2] pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(120% 80% at 50% 0%, rgba(29,36,18,0.2) 0%, rgba(29,36,18,0) 55%)",
-        }}
-      />
-
-      {/* Top gradient band behind the headline/CTA/badge — fades out by 40%
-          so the lower meadow stays untouched */}
-      <div
-        aria-hidden
-        className="absolute inset-0 z-[2] pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.15), transparent 40%)",
-        }}
-      />
-
-      {/* Film grain — static, unblended, outside the transformed layers */}
-      <div
-        aria-hidden
-        className="absolute inset-0 z-[2] pointer-events-none"
-        style={{
-          backgroundImage: GRAIN_140,
-          backgroundSize: "140px 140px",
-          opacity: 0.38,
-        }}
-      />
 
       {/* Meta row + giant title, edge-aligned as one lockup */}
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center pt-16">
@@ -207,10 +185,7 @@ export function Hero() {
         <div className="relative flex flex-col gap-4 md:gap-6">
           {/* Live application deadline countdown — absolutely positioned so it
               doesn't push the title off vertical center */}
-          <motion.div
-            style={{ opacity: metaOpacity, y: titleY }}
-            className="absolute -top-[118px] left-0 right-0 flex justify-center md:-top-[126px]"
-          >
+          <motion.div className="absolute -top-[118px] left-0 right-0 flex justify-center md:-top-[126px]">
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -255,15 +230,12 @@ export function Hero() {
 
           <motion.h1
             style={{
-              y: titleY,
-              scale: titleScale,
-              opacity: titleOpacity,
               fontSize: "clamp(44px, 15vw, 250px)",
               lineHeight: 0.9,
               letterSpacing: "-0.025em",
               textShadow: "0 6px 40px rgba(20,30,10,0.35)",
             }}
-            className="font-serif-it text-cream text-center whitespace-nowrap will-change-transform"
+            className="font-serif-it text-cream text-center whitespace-nowrap"
           >
             <Typewriter
               text="MHACKS 2026"
@@ -280,10 +252,7 @@ export function Hero() {
             />
           </motion.h1>
 
-          <motion.div
-            style={{ opacity: metaOpacity, y: titleY }}
-            className="flex flex-col items-center gap-y-2 px-4 text-center lg:flex-row lg:flex-wrap lg:items-baseline lg:justify-between lg:gap-x-16 lg:px-1 lg:text-left"
-          >
+          <motion.div className="flex flex-col items-center gap-y-2 px-4 text-center lg:flex-row lg:flex-wrap lg:items-baseline lg:justify-between lg:gap-x-16 lg:px-1 lg:text-left">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -314,10 +283,7 @@ export function Hero() {
 
           {/* Mobile CTAs — the header's Apply/Sponsor us pills live here on
               small screens, stacked under the date line */}
-          <motion.div
-            style={{ opacity: metaOpacity, y: titleY }}
-            className="flex justify-center md:hidden"
-          >
+          <motion.div className="flex justify-center md:hidden">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -353,14 +319,8 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Scroll cue — chevron flashing between full and zero opacity.
-          Outer layer fades with scroll, middle layer plays the entrance,
-          inner layer oscillates — nesting keeps the three opacities from
-          fighting over the same property. */}
-      <motion.div
-        style={{ opacity: metaOpacity }}
-        className="absolute left-1/2 bottom-16 -translate-x-1/2 z-10"
-      >
+      {/* Scroll cue — chevron flashing between full and zero opacity. */}
+      <div className="absolute left-1/2 bottom-16 z-10 -translate-x-1/2">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -386,7 +346,7 @@ export function Hero() {
             />
           </motion.svg>
         </motion.div>
-      </motion.div>
+      </div>
     </section>
   );
 }

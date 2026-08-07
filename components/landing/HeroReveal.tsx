@@ -58,8 +58,6 @@ function HeroImage({
 }
 
 interface Props {
-  scale?: MotionValue<number>;
-  y?: MotionValue<string>;
   src?: string;
   radius?: number;
   /** True while StackedPages has buried the hero — defers sharp load and pauses reveal. */
@@ -90,14 +88,11 @@ function blurPlateFor(src: string) {
  * Dark blurred meadow with a soft "flashlight" circle that reveals the sharp
  * photo under the cursor.
  *
- * Perf: blur is a static pre-rendered plate (no CSS filter:blur). The blur
- * layer only gets scroll parallax; 3D tilt applies to the sharp reveal window
- * so Skia never re-blurs on pointer movement. The reveal moves via transforms
- * only — cursor movement never repaints the blurred layer.
+ * Perf: blur is a static pre-rendered plate (no CSS filter:blur). 3D tilt
+ * applies to the sharp reveal window so pointer movement never repaints the
+ * blurred layer. The reveal moves via transforms only.
  */
 export function HeroReveal({
-  scale,
-  y,
   src = "/hero/hero-clean-3840.png",
   radius = 280,
   paused = false,
@@ -266,11 +261,8 @@ export function HeroReveal({
 
   return (
     <div className="absolute inset-0 z-0 bg-moss-900">
-      {/* Pre-blurred plate — scroll parallax only, never 3D-tilted */}
-      <motion.div
-        style={{ scale, y }}
-        className="absolute inset-0 overflow-hidden"
-      >
+      {/* Pre-blurred plate — stays fixed while StackedPages pins the hero. */}
+      <div className="absolute inset-0 overflow-hidden">
         {hasActivated ? (
           <div className="absolute inset-0 isolate overflow-hidden">
             <div className="absolute -inset-[12%]">
@@ -325,7 +317,7 @@ export function HeroReveal({
             />
           </div>
         ) : null}
-      </motion.div>
+      </div>
 
       {/* Sharp reveal — 3D tilt + cursor flashlight */}
       <div ref={stageRef} className="absolute inset-0">

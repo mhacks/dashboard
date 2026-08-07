@@ -50,17 +50,14 @@ export function StackedPages() {
     // its violets and scroll hooks keep running while you're at the bottom.
     const buriable = sheets.slice(0, -1);
 
-    // Sheets pin one corner radius above the viewport top, so their rounded
-    // top corners sit offscreen and can't expose the sheet behind. (The
-    // sections' negative top margins are larger than this, so no gap opens
-    // above the next sheet either.)
-    const CORNER = 48;
-
+    // Pin each sheet at its last screenful — top equals vh − height so sticky
+    // engages with no jump. Rounded tops sit above the viewport naturally when
+    // h > vh; the next sheet's negative margin covers the handoff.
     const layout = () => {
       const vh = window.innerHeight;
       for (const el of pinned) {
         el.style.position = "sticky";
-        el.style.top = `${Math.round(vh - el.offsetHeight) - CORNER}px`;
+        el.style.top = `${Math.round(vh - el.offsetHeight)}px`;
       }
     };
 
@@ -83,12 +80,22 @@ export function StackedPages() {
       return top;
     };
 
-    // Pause once we've scrolled past the handoff to the next sheet (minus the
-    // corner overlap). Restore when we scroll back above that line — each
-    // sheet wakes individually as you move up through the stack, not all at
-    // once like the old -44px successor check, and not late enough to flash
-    // empty space like the 85%-vh threshold did.
-    const buryAt = (i: number) => flowTop(sheets[i + 1]) - CORNER;
+    // Negative top margin on the successor (= how far it overlaps the sheet
+    // behind). Wait that long past the flow handoff before hiding the old
+    // sheet — otherwise visibility:hidden fires while the new sheet is still
+    // rising and the underlay flashes through.
+    const overlapOf = (el: HTMLElement) => {
+      const mt = parseFloat(getComputedStyle(el).marginTop);
+      return mt < 0 ? -mt : 0;
+    };
+
+    const buryAt = (i: number) => {
+      const next = sheets[i + 1];
+      return flowTop(next) + overlapOf(next);
+    };
+    // Scroll-back restores slightly earlier than bury so sheets don't flicker
+    // visible/invisible when hovering near a handoff line.
+    const RESTORE_LAG = 40;
 
     let ticking = false;
 
@@ -122,7 +129,7 @@ export function StackedPages() {
         const threshold = buryAt(i);
         if (!pausedFlags[i] && y >= threshold) {
           pauseSheet(i);
-        } else if (pausedFlags[i] && y < threshold) {
+        } else if (pausedFlags[i] && y < threshold - RESTORE_LAG) {
           restoreSheet(i);
         }
       }
