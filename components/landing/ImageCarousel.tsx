@@ -62,10 +62,10 @@ export function ImageCarousel({
   paused = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Keep the initial count SSR-stable; ResizeObserver below syncs to the real
+  // container width after hydration.
   const [visibleCount, setVisibleCount] = useState(() =>
-    visibleImageCount(
-      typeof window !== "undefined" ? window.innerWidth : MOBILE_IMAGE_WIDTH,
-    ),
+    visibleImageCount(MOBILE_IMAGE_WIDTH),
   );
 
   useEffect(() => {
