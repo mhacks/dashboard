@@ -139,33 +139,30 @@ export function Hero() {
       onMouseMove={onTiltMove}
       onMouseLeave={onTiltLeave}
     >
-      {/* Light photo underneath, dark dotted overlay revealed by cursor.
-          Wrapped in a perspective stage so it tilts toward the pointer;
-          slightly overscaled to keep edges hidden while leaning. */}
+      {/* Blur plate scrolls with parallax; sharp reveal tilts toward the pointer.
+          Perspective lives here so tilt never re-rasterizes the blurred layer. */}
       <div className="absolute inset-0 z-0" style={{ perspective: 1100 }}>
-        <motion.div
-          className="absolute inset-0 will-change-transform"
-          style={{
-            rotateX: tiltX,
-            rotateY: tiltY,
-            x: shiftX,
-            y: shiftY,
-            scale: 1.06,
-          }}
-        >
-          <HeroReveal scale={bgScale} y={bgY} {...bgProps} />
-        </motion.div>
+        <HeroReveal
+          scale={bgScale}
+          y={bgY}
+          tiltX={tiltX}
+          tiltY={tiltY}
+          shiftX={shiftX}
+          shiftY={shiftY}
+          tiltScale={1.06}
+          paused={paused}
+          {...bgProps}
+        />
       </div>
 
-      {/* Breathing ASCII starfield, counter-drifting for parallax depth.
-          data-stack-pause: StackedPages display-toggles this while the hero
-          is buried under later sheets so the canvas loop stops. */}
+      {/* Breathing ASCII starfield — mounts only while the hero sheet is visible. */}
       <motion.div
-        data-stack-pause
         className="pointer-events-none absolute inset-0 z-[3]"
         style={{ x: starX, y: starY }}
       >
-        <AsciiGlow cell={mobile ? 14 : 22} density={mobile ? 0.55 : 0.34} />
+        {!paused && (
+          <AsciiGlow cell={mobile ? 14 : 26} density={mobile ? 0.55 : 0.28} />
+        )}
       </motion.div>
 
       {/* MLH trust badge, resting on the hero's top edge — scrolls away with

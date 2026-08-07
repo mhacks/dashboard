@@ -238,6 +238,31 @@ export function Cursor() {
       applyPresentation();
     };
 
+    // Lenis fires many scroll events per frame; batch zone checks to one
+    // elementFromPoint read per frame so the cursor still hides when content
+    // scrolls away under a stationary pointer.
+    let scrollRafId = 0;
+    let scrollIdleId = 0;
+    const SCROLL_RESUME_MS = 150;
+
+    const scheduleScrollResync = () => {
+      if (scrollRafId) return;
+      scrollRafId = requestAnimationFrame(() => {
+        scrollRafId = 0;
+        resyncAtPointer();
+      });
+    };
+
+    const onScrollIdle = () => {
+      resyncAtPointer();
+    };
+
+    const onScroll = () => {
+      scheduleScrollResync();
+      clearTimeout(scrollIdleId);
+      scrollIdleId = window.setTimeout(onScrollIdle, SCROLL_RESUME_MS);
+    };
+
     const onHeroCursorReady = () => {
       heroBoxReady = true;
       if (!hasPointer && lastPointer.x < 0) return;
@@ -259,16 +284,18 @@ export function Cursor() {
     }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mhacks:hero-cursor-ready", onHeroCursorReady);
-    window.addEventListener("scroll", resyncAtPointer, { passive: true });
-    const unsubScroll = subscribeScroll(resyncAtPointer);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    const unsubScroll = subscribeScroll(onScroll);
     document.addEventListener("mouseleave", onLeave);
 
     return () => {
       cancelAnimationFrame(raf);
       cancelAnimationFrame(morphRaf);
+      cancelAnimationFrame(scrollRafId);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mhacks:hero-cursor-ready", onHeroCursorReady);
-      window.removeEventListener("scroll", resyncAtPointer);
+      clearTimeout(scrollIdleId);
+      window.removeEventListener("scroll", onScroll);
       unsubScroll();
       document.removeEventListener("mouseleave", onLeave);
     };

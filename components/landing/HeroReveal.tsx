@@ -14,6 +14,8 @@ interface HeroImageProps {
   quality?: number;
   sizes?: string;
   fetchPriority?: "high" | "low" | "auto";
+  loading?: "eager" | "lazy";
+  unoptimized?: boolean;
   onLoad?: () => void;
 }
 
@@ -32,6 +34,8 @@ function HeroImage({
   quality = 40,
   sizes = "100vw",
   fetchPriority,
+  loading,
+  unoptimized,
   onLoad,
 }: HeroImageProps) {
   return (
@@ -44,6 +48,8 @@ function HeroImage({
       quality={quality}
       priority={priority}
       fetchPriority={fetchPriority}
+      loading={loading}
+      unoptimized={unoptimized}
       onLoad={onLoad}
       draggable={false}
       className={cn("object-cover object-[50%_58%]", className)}
@@ -56,6 +62,13 @@ interface Props {
   y?: MotionValue<string>;
   src?: string;
   radius?: number;
+  /** True while StackedPages has buried the hero — defers sharp load and pauses reveal. */
+  paused?: boolean;
+  tiltX?: MotionValue<number>;
+  tiltY?: MotionValue<number>;
+  shiftX?: MotionValue<number>;
+  shiftY?: MotionValue<number>;
+  tiltScale?: number;
 }
 
 const DOT_GRID = [
@@ -63,37 +76,60 @@ const DOT_GRID = [
   "radial-gradient(circle, rgba(255,255,255,0.16) 0.5px, transparent 0.5px)",
 ].join(", ");
 
+const BLUR_SRC: Record<string, string> = {
+  "/hero/hero-clean-3840.png": "/hero/hero-clean-blur.webp",
+  "/hero/hero-flower.jpg": "/hero/hero-flower-blur.webp",
+  "/hero/hero-cloud.jpg": "/hero/hero-cloud-blur.webp",
+};
+
+function blurPlateFor(src: string) {
+  return BLUR_SRC[src] ?? src;
+}
+
 /**
  * Dark blurred meadow with a soft "flashlight" circle that reveals the sharp
  * photo under the cursor.
  *
- * Perf note: the reveal is a fixed-size masked window that moves with pure
- * transforms (window translates one way, the image inside counter-translates)
- * so cursor movement never repaints the blurred layer — everything stays on
- * the compositor. The mask itself is static.
+ * Perf: blur is a static pre-rendered plate (no CSS filter:blur). The blur
+ * layer only gets scroll parallax; 3D tilt applies to the sharp reveal window
+ * so Skia never re-blurs on pointer movement. The reveal moves via transforms
+ * only — cursor movement never repaints the blurred layer.
  */
 export function HeroReveal({
   scale,
   y,
   src = "/hero/hero-clean-3840.png",
   radius = 280,
+  paused = false,
+  tiltX,
+  tiltY,
+  shiftX,
+  shiftY,
+  tiltScale = 1.06,
 }: Props) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const windowRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
+  const [hasActivated, setHasActivated] = useState(false);
   const [blurLoadedSrc, setBlurLoadedSrc] = useState<string | null>(null);
+  const blurSrc = blurPlateFor(src);
   const sharpReady = blurLoadedSrc === src;
 
+  if (!paused && !hasActivated) {
+    setHasActivated(true);
+  }
+
   useEffect(() => {
-    // Cached blur plates can paint without firing onLoad — probe after mount.
+    if (!hasActivated) return;
     const id = requestAnimationFrame(() => {
-      const img = stageRef.current?.querySelector("img");
+      const img = stageRef.current?.querySelector<HTMLImageElement>(
+        "[data-hero-blur] img",
+      );
       if (img?.complete) setBlurLoadedSrc(src);
     });
     return () => cancelAnimationFrame(id);
-  }, [src]);
+  }, [src, hasActivated]);
 
-  // Feathered edge: fully sharp to innerR, fades out by outerR.
   const innerR = radius * 0.68;
   const outerR = radius * 1.55;
   const winSize = Math.ceil(outerR * 2);
@@ -103,7 +139,7 @@ export function HeroReveal({
     const stage = stageRef.current;
     const win = windowRef.current;
     const inner = innerRef.current;
-    if (!stage || !win || !inner) return;
+    if (!stage || !win || !inner || paused) return;
 
     if (prefersReducedMotion() || isTouchDevice()) {
       win.style.display = "none";
@@ -120,8 +156,6 @@ export function HeroReveal({
     let currentY = 0;
     let targetO = 0;
     let currentO = 0;
-    // Latest pointer position in viewport coords, mapped to stage space once
-    // per frame rather than per event — see consumePointer.
     let pendingX = 0;
     let pendingY = 0;
     let hasPending = false;
@@ -135,6 +169,21 @@ export function HeroReveal({
       win.style.transform = `translate3d(${currentX - half}px, ${currentY - half}px, 0)`;
       inner.style.transform = `translate3d(${half - currentX}px, ${half - currentY}px, 0)`;
       win.style.opacity = currentO.toFixed(3);
+    };
+
+    const consumePointer = () => {
+      if (!hasPending) return;
+      hasPending = false;
+      const r = stage.getBoundingClientRect();
+      const sx = stage.offsetWidth / r.width;
+      const sy = stage.offsetHeight / r.height;
+      targetX = (pendingX - r.left) * sx;
+      targetY = (pendingY - r.top) * sy;
+      if (!hasPointer) {
+        hasPointer = true;
+        currentX = targetX;
+        currentY = targetY;
+      }
     };
 
     const loop = () => {
@@ -165,29 +214,6 @@ export function HeroReveal({
       if (running || !inView) return;
       running = true;
       rafId = requestAnimationFrame(loop);
-    };
-
-    // Map viewport coords into the stage's untransformed space so the reveal
-    // stays under the cursor while the stage is scaled/tilted. This reads
-    // layout, so it runs at most once per frame from inside the loop instead
-    // of once per mousemove — high-polling-rate mice fire several times a
-    // frame, and each read forced a synchronous layout while Lenis was
-    // mid-transform. Only the last event before a frame ever mattered, so the
-    // eased result is unchanged.
-    const consumePointer = () => {
-      if (!hasPending) return;
-      hasPending = false;
-      const r = stage.getBoundingClientRect();
-      const sx = stage.offsetWidth / r.width;
-      const sy = stage.offsetHeight / r.height;
-      targetX = (pendingX - r.left) * sx;
-      targetY = (pendingY - r.top) * sy;
-      if (!hasPointer) {
-        // First entry: snap into place instead of sweeping across the stage.
-        hasPointer = true;
-        currentX = targetX;
-        currentY = targetY;
-      }
     };
 
     const onMove = (e: MouseEvent) => {
@@ -233,118 +259,126 @@ export function HeroReveal({
       stage.removeEventListener("mouseleave", onLeave);
       stage.removeEventListener("mouseenter", onEnter);
     };
-  }, [half]);
+  }, [half, paused]);
 
-  const imageProps = { src };
   const maskGradient = `radial-gradient(circle at center, #000 0px, #000 ${innerR}px, transparent ${outerR}px)`;
-
   const onBlurLoaded = () => setBlurLoadedSrc(src);
 
   return (
-    <motion.div
-      ref={stageRef}
-      style={{ scale, y }}
-      className="absolute inset-0 z-0 bg-moss-900 will-change-transform"
-    >
-      {/* Dark blurred veil — same src as sharp, but next/image serves a tiny
-          AVIF/WebP slice (480px @ q40) via priority; full-res waits behind. */}
-      <div className="absolute inset-0 isolate overflow-hidden">
-        <div
-          className="absolute -inset-[12%] [filter:blur(7px)_brightness(0.84)_saturate(1.1)] md:[filter:blur(22px)_brightness(0.82)_saturate(1.12)_contrast(1.04)]"
-          style={{ transform: "translateZ(0)" }}
-        >
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={src}
-              className="absolute inset-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
-            >
-              <HeroImage
-                {...imageProps}
-                alt=""
-                hidden
-                priority
-                fetchPriority="high"
-                quality={20}
-                sizes="384px"
-                onLoad={onBlurLoaded}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage: DOT_GRID,
-            backgroundSize: "3px 3px, 3px 3px",
-            backgroundPosition: "0 0, 1.5px 1.5px",
-            mixBlendMode: "soft-light",
-            opacity: 0.75,
-          }}
-        />
-
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "rgba(18, 36, 48, 0.08)" }}
-        />
-      </div>
-
-      {/* Moving masked window revealing the sharp photo */}
-      <div
-        ref={windowRef}
-        className="pointer-events-none absolute left-0 top-0 overflow-hidden will-change-transform"
-        style={{
-          width: winSize,
-          height: winSize,
-          opacity: 0,
-          WebkitMaskImage: maskGradient,
-          maskImage: maskGradient,
-        }}
+    <div className="absolute inset-0 z-0 bg-moss-900">
+      {/* Pre-blurred plate — scroll parallax only, never 3D-tilted */}
+      <motion.div
+        style={{ scale, y }}
+        className="absolute inset-0 overflow-hidden"
       >
-        <div
-          ref={innerRef}
-          className="absolute left-0 top-0 will-change-transform"
+        {hasActivated ? (
+          <div className="absolute inset-0 isolate overflow-hidden">
+            <div className="absolute -inset-[12%]">
+              <AnimatePresence initial={false}>
+                <motion.div
+                  key={blurSrc}
+                  data-hero-blur
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
+                >
+                  <HeroImage
+                    src={blurSrc}
+                    alt=""
+                    hidden
+                    priority
+                    fetchPriority="high"
+                    unoptimized
+                    onLoad={onBlurLoaded}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage: DOT_GRID,
+                backgroundSize: "3px 3px, 3px 3px",
+                backgroundPosition: "0 0, 1.5px 1.5px",
+                mixBlendMode: "soft-light",
+                opacity: 0.75,
+              }}
+            />
+
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{ background: "rgba(18, 36, 48, 0.08)" }}
+            />
+
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(29,36,18,0.18) 0%, rgba(29,36,18,0.04) 38%, rgba(29,36,18,0.42) 100%)",
+              }}
+            />
+          </div>
+        ) : null}
+      </motion.div>
+
+      {/* Sharp reveal — 3D tilt + cursor flashlight */}
+      <div ref={stageRef} className="absolute inset-0">
+        <motion.div
+          className="absolute inset-0 will-change-transform"
+          style={{
+            rotateX: tiltX,
+            rotateY: tiltY,
+            x: shiftX,
+            y: shiftY,
+            scale: tiltScale,
+          }}
         >
-          {sharpReady ? (
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={src}
-                className="absolute inset-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
-              >
-                <HeroImage
-                  {...imageProps}
-                  alt="MHacks hero backdrop"
-                  fetchPriority="low"
-                  quality={40}
-                  sizes="828px"
-                />
-              </motion.div>
-            </AnimatePresence>
-          ) : null}
-        </div>
+          <div
+            ref={windowRef}
+            className="pointer-events-none absolute left-0 top-0 overflow-hidden will-change-transform"
+            style={{
+              width: winSize,
+              height: winSize,
+              opacity: 0,
+              WebkitMaskImage: maskGradient,
+              maskImage: maskGradient,
+            }}
+          >
+            <div
+              ref={innerRef}
+              className="absolute left-0 top-0 will-change-transform"
+            >
+              {hasActivated && !paused && sharpReady ? (
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    key={src}
+                    className="absolute inset-0"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
+                  >
+                    <HeroImage
+                      src={src}
+                      alt="MHacks hero backdrop"
+                      loading="eager"
+                      fetchPriority="low"
+                      quality={40}
+                      sizes="828px"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+              ) : null}
+            </div>
+          </div>
+        </motion.div>
       </div>
-
-      {/* Film grain moved up to the Hero section: blended layers inside this
-          transforming stage forced a re-composite every tilt/scroll frame. */}
-
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(29,36,18,0.18) 0%, rgba(29,36,18,0.04) 38%, rgba(29,36,18,0.42) 100%)",
-        }}
-      />
-    </motion.div>
+    </div>
   );
 }
