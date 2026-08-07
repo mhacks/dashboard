@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
+  CalendarIcon,
   CheckCircle2Icon,
   ClipboardCheckIcon,
   ExternalLinkIcon,
@@ -26,6 +27,7 @@ import {
   SearchIcon,
   SmartphoneIcon,
   UserRoundIcon,
+  ZapIcon,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -37,9 +39,11 @@ import {
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 import { createClient } from "@/lib/supabase/client";
 import {
+  getApplicationRound,
   reviewCompleteSchema,
   reviewDraftSchema,
   reviewSyncPayloadSchema,
+  type ApplicationRound,
   type ReviewCounts,
   type ReviewWorkspaceData,
   type ReviewDraftInput,
@@ -587,6 +591,7 @@ export default function ApplicationReviewWorkspace({
   );
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [round, setRound] = useState<ApplicationRound>("all");
   const [applicationsPage, setApplicationsPage] = useState(() =>
     initialApplicationsPageForSelection(
       initialData.items,
@@ -741,12 +746,22 @@ export default function ApplicationReviewWorkspace({
     }
   }
 
+  const roundItems = useMemo(
+    () =>
+      round === "all"
+        ? items
+        : items.filter(
+            (item) => getApplicationRound(item.application.createdAt) === round,
+          ),
+    [items, round],
+  );
+
   const filteredItems = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const statusItems =
       statusFilter === "all"
-        ? items
-        : items.filter((item) => item.application.status === statusFilter);
+        ? roundItems
+        : roundItems.filter((item) => item.application.status === statusFilter);
     if (!needle) return statusItems;
 
     return statusItems.filter((item) => {
@@ -763,10 +778,10 @@ export default function ApplicationReviewWorkspace({
         .toLowerCase();
       return haystack.includes(needle);
     });
-  }, [items, query, statusFilter]);
+  }, [roundItems, query, statusFilter]);
 
   const pageCount = getPageCount(filteredItems.length, APPLICATIONS_PAGE_SIZE);
-  const filterKey = `${query}|${statusFilter}`;
+  const filterKey = `${query}|${statusFilter}|${round}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
 
   if (filterKey !== prevFilterKey) {
@@ -789,7 +804,18 @@ export default function ApplicationReviewWorkspace({
     [filteredItems, clampedApplicationsPage],
   );
 
-  const counts = useMemo(() => getCounts(items), [items]);
+  const counts = useMemo(() => getCounts(roundItems), [roundItems]);
+  const roundCounts = useMemo(
+    () =>
+      items.reduce(
+        (acc, item) => {
+          acc[getApplicationRound(item.application.createdAt)] += 1;
+          return acc;
+        },
+        { early: 0, regular: 0 },
+      ),
+    [items],
+  );
   const selectedSummaryItem = useMemo(
     () => items.find((item) => item.application.id === selectedId),
     [items, selectedId],
@@ -1268,6 +1294,16 @@ export default function ApplicationReviewWorkspace({
         <Badge variant="outline">{filteredItems.length}</Badge>
       </div>
       <div className="shrink-0 space-y-3 border-b p-3">
+        <Tabs
+          value={round}
+          onValueChange={(value) => setRound(value as ApplicationRound)}
+        >
+          <TabsList className="grid h-auto w-full min-w-0 grid-cols-3 overflow-hidden p-1 group-data-horizontal/tabs:h-auto! *:min-w-0">
+            <RoundFilterTab value="all" />
+            <RoundFilterTab value="early" count={roundCounts.early} />
+            <RoundFilterTab value="regular" count={roundCounts.regular} />
+          </TabsList>
+        </Tabs>
         <Tabs
           value={statusFilter}
           onValueChange={(value) => setStatusFilter(value as StatusFilter)}
@@ -2075,6 +2111,66 @@ function StatusFilterTab({
         )}
       >
         {count}
+      </span>
+    </TabsTrigger>
+  );
+}
+
+const ROUND_FILTER_META: Record<
+  ApplicationRound,
+  { label: string; shortLabel: string; icon: LucideIcon; colorClass: string }
+> = {
+  all: {
+    label: "All rounds",
+    shortLabel: "All",
+    icon: ListFilterIcon,
+    colorClass: "text-moss dark:text-sage",
+  },
+  early: {
+    label: "Early",
+    shortLabel: "Early",
+    icon: ZapIcon,
+    colorClass: "text-amber-700 dark:text-amber-300",
+  },
+  regular: {
+    label: "Regular",
+    shortLabel: "Regular",
+    icon: CalendarIcon,
+    colorClass: "text-slate-600 dark:text-slate-400",
+  },
+};
+
+function RoundFilterTab({
+  value,
+  count,
+}: {
+  value: ApplicationRound;
+  count?: number;
+}) {
+  const {
+    label,
+    shortLabel,
+    icon: Icon,
+    colorClass,
+  } = ROUND_FILTER_META[value];
+
+  return (
+    <TabsTrigger
+      value={value}
+      title={label}
+      aria-label={count === undefined ? label : `${label} (${count})`}
+      className={cn(
+        "box-border flex h-auto! w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden px-2 py-1.5 after:hidden",
+        "data-active:**:data-[slot=round-filter-label]:opacity-100",
+      )}
+    >
+      <Icon className={cn("size-3.5 shrink-0", colorClass)} aria-hidden />
+      <span
+        data-slot="round-filter-label"
+        className={cn("truncate text-xs leading-none opacity-70", colorClass)}
+      >
+        {shortLabel}
+        {count !== undefined ? ` (${count})` : ""}
       </span>
     </TabsTrigger>
   );
