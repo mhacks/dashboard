@@ -25,8 +25,7 @@ export const reimbursementStatus = pgEnum("reimbursement_status", [
 
 // Travel reimbursement tiers. Amounts live here as data rather than in app
 // code so adjusting a tier is an UPDATE, not a migration and a deploy — and so
-// Postgres can SUM the committed budget directly. Seeded in the custom
-// migration 20260807101500_reimbursement_regions_seed_and_triggers.sql.
+// Postgres can SUM the committed budget directly.
 export const reimbursementRegions = pgTable(
   "reimbursement_regions",
   {
