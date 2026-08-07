@@ -36,6 +36,34 @@
       "when": 1786094586927,
       "tag": "20260807092306_add_user_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786125250308,
+      "tag": "20260807175410_reimbursements",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786127661447,
+      "tag": "20260807183121_reimbursements_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786127561679,
+      "tag": "20260807183241_blacklist",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786127577968,
+      "tag": "20260807183257_blacklist_triggers",
+      "breakpoints": true
     }
   ]
 }

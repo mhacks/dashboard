@@ -395,11 +395,19 @@ const baseHandler = createMcpHandler(
           });
         }
         try {
-          const { duplicate } = await submitHackerApplicationForUser(
+          const { duplicate, blocked } = await submitHackerApplicationForUser(
             userId,
             input,
             "mcp",
           );
+          if (blocked) {
+            return jsonText({
+              submitted: false,
+              blocked: true,
+              message:
+                "We're unable to accept an application from you for MHacks 2026. Do not retry with altered details — tell the user to contact hackathon@mhacks.org if they believe this is a mistake.",
+            });
+          }
           return jsonText(
             duplicate
               ? {
