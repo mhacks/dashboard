@@ -6,6 +6,7 @@ import type {
   ReviewEventChanges,
   ReviewEventSnapshot,
 } from "@/lib/db/schema/applications";
+import { DEADLINES } from "@/lib/landing/deadlines";
 
 const draftRatingSchema = z
   .number()
@@ -159,6 +160,19 @@ export type ReviewListSummaryItem = {
   application: ReviewApplicationSummary;
   review: ReviewRecord | null;
 };
+
+export type ApplicationRound = "early" | "regular";
+
+const EARLY_APPLICATIONS_DEADLINE_MS = new Date(
+  DEADLINES.find((deadline) => deadline.id === "early-apps-due")!.date,
+).getTime();
+
+/** Classifies an application's createdAt against the early-apps-due deadline. */
+export function getApplicationRound(createdAt: string): ApplicationRound {
+  return new Date(createdAt).getTime() < EARLY_APPLICATIONS_DEADLINE_MS
+    ? "early"
+    : "regular";
+}
 
 export type ReviewWorkspaceData = {
   items: ReviewListSummaryItem[];
