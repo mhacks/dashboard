@@ -270,6 +270,11 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
       university: hackerApplicants.university,
       major: hackerApplicants.major,
       whyMhacks: hackerApplicants.whyMhacks,
+      country: hackerApplicants.country,
+      comingFrom: hackerApplicants.comingFrom,
+      needsTravelReimbursement: hackerApplicants.needsTravelReimbursement,
+      wouldAttendWithoutReimbursement:
+        hackerApplicants.wouldAttendWithoutReimbursement,
       createdAt: hackerApplicants.createdAt,
       applicantEmail: users.email,
     })
@@ -321,6 +326,11 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
         university: application.university,
         major: application.major,
         whyMhacksPreview,
+        country: application.country,
+        comingFrom: application.comingFrom,
+        needsTravelReimbursement: application.needsTravelReimbursement,
+        wouldAttendWithoutReimbursement:
+          application.wouldAttendWithoutReimbursement,
         createdAt: application.createdAt,
       },
       review: reviewsByApplicationId.get(application.id) ?? null,
