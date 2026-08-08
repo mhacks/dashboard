@@ -145,6 +145,13 @@ export type ReviewApplicationSummary = {
   university: string;
   major: string;
   whyMhacksPreview: string;
+  country: string;
+  // A US state code or the literal "international" — see comingFromOptions.
+  comingFrom: string;
+  needsTravelReimbursement: boolean;
+  // Only asked when reimbursement is needed, so null means "never answered",
+  // which is distinct from an explicit "no".
+  wouldAttendWithoutReimbursement: boolean | null;
   createdAt: string;
 };
 

@@ -89,6 +89,13 @@ import {
 import { ListPagination } from "./components/list-pagination";
 import { Meter } from "./components/meter";
 import {
+  DEFAULT_REVIEW_FILTERS,
+  matchesReviewFilters,
+  reviewFilterSignature,
+  type ReviewFilterState,
+} from "./review-filters";
+import { ReviewFiltersPopover } from "./review-filters-popover";
+import {
   applicationStatusLabel,
   formatReviewDisplayValue,
 } from "./display-formatters";
@@ -266,6 +273,11 @@ function summaryItemFromDetail(
       applicantEmail: application.applicantEmail,
       university: application.university,
       major: application.major,
+      country: application.country,
+      comingFrom: application.comingFrom,
+      needsTravelReimbursement: application.needsTravelReimbursement,
+      wouldAttendWithoutReimbursement:
+        application.wouldAttendWithoutReimbursement,
       createdAt: application.createdAt,
       whyMhacksPreview,
     },
@@ -593,6 +605,9 @@ export default function ApplicationReviewWorkspace({
   );
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [filters, setFilters] = useState<ReviewFilterState>(
+    DEFAULT_REVIEW_FILTERS,
+  );
   const [applicationsPage, setApplicationsPage] = useState(() =>
     initialApplicationsPageForSelection(
       initialData.items,
@@ -753,10 +768,11 @@ export default function ApplicationReviewWorkspace({
 
   const filteredItems = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const statusItems =
+    const statusItems = (
       statusFilter === "all"
         ? items
-        : items.filter((item) => item.application.status === statusFilter);
+        : items.filter((item) => item.application.status === statusFilter)
+    ).filter((item) => matchesReviewFilters(item.application, filters));
     if (!needle) return statusItems;
 
     return statusItems.filter((item) => {
@@ -773,7 +789,7 @@ export default function ApplicationReviewWorkspace({
         .toLowerCase();
       return haystack.includes(needle);
     });
-  }, [items, query, statusFilter]);
+  }, [items, query, statusFilter, filters]);
 
   // Mirrored into a ref so removeApplicationLocally can pick the successor row
   // without taking `filteredItems` as a dependency — it is called from the
@@ -784,7 +800,7 @@ export default function ApplicationReviewWorkspace({
   }, [filteredItems]);
 
   const pageCount = getPageCount(filteredItems.length, APPLICATIONS_PAGE_SIZE);
-  const filterKey = `${query}|${statusFilter}`;
+  const filterKey = `${query}|${statusFilter}|${reviewFilterSignature(filters)}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
 
   if (filterKey !== prevFilterKey) {
@@ -1400,14 +1416,17 @@ export default function ApplicationReviewWorkspace({
             <StatusFilterTab value="flagged" count={counts.flagged} />
           </TabsList>
         </Tabs>
-        <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search applications"
-            className="pl-8"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search applications"
+              className="pl-8"
+            />
+          </div>
+          <ReviewFiltersPopover value={filters} onChange={setFilters} />
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
