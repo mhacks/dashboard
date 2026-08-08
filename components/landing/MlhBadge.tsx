@@ -21,7 +21,7 @@ export function MlhBadge() {
           target="_blank"
           rel="noreferrer"
           data-cursor="hover"
-          className="pointer-events-auto absolute top-0 left-[calc(0.75rem+44px+10px)] block w-[min(100px,max(48px,9vw))] md:left-[calc(1rem+44px+10px)]"
+          className="pointer-events-auto absolute top-0 left-[calc(0.75rem+44px+3.125rem)] block w-[min(100px,max(48px,9vw))] md:left-[calc(1rem+44px+4rem)]"
         >
           <Image
             src="/logos/mlh-trust-badge-2027-black.svg"
