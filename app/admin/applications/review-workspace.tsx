@@ -783,8 +783,8 @@ export default function ApplicationReviewWorkspace({
     const needle = query.trim().toLowerCase();
     const statusItems = (
       statusFilter === "all"
-        ? items
-        : items.filter((item) => item.application.status === statusFilter)
+        ? roundItems
+        : roundItems.filter((item) => item.application.status === statusFilter)
     ).filter((item) => matchesReviewFilters(item.application, filters));
     if (!needle) return statusItems;
 
@@ -802,7 +802,7 @@ export default function ApplicationReviewWorkspace({
         .toLowerCase();
       return haystack.includes(needle);
     });
-  }, [items, query, statusFilter, filters]);
+  }, [roundItems, query, statusFilter, filters]);
 
   // Mirrored into a ref so removeApplicationLocally can pick the successor row
   // without taking `filteredItems` as a dependency — it is called from the
@@ -813,7 +813,7 @@ export default function ApplicationReviewWorkspace({
   }, [filteredItems]);
 
   const pageCount = getPageCount(filteredItems.length, APPLICATIONS_PAGE_SIZE);
-  const filterKey = `${query}|${statusFilter}|${reviewFilterSignature(filters)}`;
+  const filterKey = `${round}|${query}|${statusFilter}|${reviewFilterSignature(filters)}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
 
   if (filterKey !== prevFilterKey) {
