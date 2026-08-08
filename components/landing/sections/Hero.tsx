@@ -112,8 +112,7 @@ export function Hero() {
       data-cursor-box="You"
       data-cursor-box-ready={cursorBoxReady ? "" : undefined}
       data-cursor-zone
-      className="relative z-[4] w-full"
-      style={{ minHeight: "100vh" }}
+      className="relative z-[4] w-full min-h-[max(100dvh,640px)]"
       onMouseMove={onTiltMove}
       onMouseLeave={onTiltLeave}
     >
