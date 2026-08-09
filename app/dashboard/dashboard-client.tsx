@@ -312,8 +312,15 @@ export function DashboardClient({
 }) {
   const [letterOpen, setLetterOpen] = useState(false);
   const { seen, markSeen } = useDecisionSeen(decision);
+  // Carries the area title through so each tile still says which part of the
+  // admin surface it belongs to, now that "Organizer" has moved up to the
+  // section heading.
   const adminLinks =
-    role === "organizer" ? ADMIN_AREAS.flatMap((area) => area.links) : [];
+    role === "organizer"
+      ? ADMIN_AREAS.flatMap((area) =>
+          area.links.map((link) => ({ ...link, area: area.title })),
+        )
+      : [];
 
   return (
     <Shell>
@@ -351,18 +358,44 @@ export function DashboardClient({
             }}
           />
 
-          {adminLinks.map((link) => (
-            <DashboardTile
-              key={link.href}
-              eyebrow="Organizer"
-              icon={link.icon}
-              href={link.href}
-              external
+          {adminLinks.length > 0 && (
+            // A real <section> rather than loose grid children, so the heading
+            // actually labels the tiles for assistive tech instead of just
+            // sitting above them. It spans the full width and runs its own
+            // grid at the same breakpoints as the outer one.
+            <section
+              aria-labelledby="organizer-tools"
+              className="col-span-full"
             >
-              <TileTitle>{link.title}</TileTitle>
-              <TileBody>{link.description}</TileBody>
-            </DashboardTile>
-          ))}
+              <div className="mt-2 mb-3 flex items-center gap-3">
+                <h2
+                  id="organizer-tools"
+                  className="font-red-hat shrink-0 text-[11px] font-semibold tracking-[0.28em] text-white/60 uppercase"
+                >
+                  Organizer tools
+                </h2>
+                <span aria-hidden className="h-px flex-1 bg-white/15" />
+                <span className="font-red-hat shrink-0 text-[11px] text-white/40">
+                  Not visible to hackers
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {adminLinks.map((link) => (
+                  <DashboardTile
+                    key={link.href}
+                    eyebrow={link.area}
+                    icon={link.icon}
+                    href={link.href}
+                    external
+                  >
+                    <TileTitle>{link.title}</TileTitle>
+                    <TileBody>{link.description}</TileBody>
+                  </DashboardTile>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </motion.div>
 
