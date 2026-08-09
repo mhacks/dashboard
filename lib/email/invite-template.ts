@@ -1,5 +1,5 @@
-import type { UserRole } from "@/lib/db/schema/users";
 import { userRoleLabel } from "@/lib/display/user-roles";
+import type { InvitableUserRole } from "@/lib/types/user-invitations";
 
 function escapeHtml(value: string) {
   return value
@@ -22,28 +22,51 @@ export function formatInviteExpiration(expiresAt: Date) {
   });
 }
 
-function roleDescription(role: UserRole) {
-  if (role === "organizer") {
-    return "You've been invited as an organizer for the MHacks review portal.";
-  }
-
-  return "You've been invited to join the MHacks portal as a hacker.";
-}
-
-function whatsNextItems(role: UserRole) {
-  if (role === "organizer") {
-    return [
+const ROLE_INVITE_CONTENT: Record<
+  InvitableUserRole,
+  { description: string; nextSteps: string[] }
+> = {
+  hacker: {
+    description: "You've been invited to join the MHacks portal as a hacker.",
+    nextSteps: [
+      "Access your MHacks dashboard",
+      "Apply for upcoming hackathons",
+      "Manage your profile and applications",
+    ],
+  },
+  organizer: {
+    description:
+      "You've been invited as an organizer for the MHacks review portal.",
+    nextSteps: [
       "Access the MHacks review portal",
       "Review and manage hacker applications",
       "Collaborate with the organizing team",
-    ];
-  }
+    ],
+  },
+  volunteer: {
+    description: "You've been invited as a volunteer for the MHacks portal.",
+    nextSteps: [
+      "Access the MHacks portal",
+      "Support event operations during MHacks",
+      "Coordinate with the organizing team",
+    ],
+  },
+  judge: {
+    description: "You've been invited as a judge for the MHacks portal.",
+    nextSteps: [
+      "Access the MHacks portal",
+      "Review and score hackathon projects",
+      "Collaborate with organizers and other judges",
+    ],
+  },
+};
 
-  return [
-    "Access your MHacks dashboard",
-    "Apply for upcoming hackathons",
-    "Manage your profile and applications",
-  ];
+function roleDescription(role: InvitableUserRole) {
+  return ROLE_INVITE_CONTENT[role].description;
+}
+
+function whatsNextItems(role: InvitableUserRole) {
+  return ROLE_INVITE_CONTENT[role].nextSteps;
 }
 
 function renderListItems(items: string[]) {
@@ -60,7 +83,7 @@ export function buildInviteEmail({
   loginUrl,
   expiresAt,
 }: {
-  role: UserRole;
+  role: InvitableUserRole;
   loginUrl: string;
   expiresAt: Date;
 }) {
@@ -456,7 +479,7 @@ export function buildRoleChangeEmail({
   role,
   loginUrl,
 }: {
-  role: UserRole;
+  role: InvitableUserRole;
   loginUrl: string;
 }) {
   const roleLabel = userRoleLabel(role);
