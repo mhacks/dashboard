@@ -46,7 +46,7 @@ export const baseApplicationSchema = z.object({
     // .describe() is the only way the question text and word-count rule
     // survive into the JSON Schema apply_get_schema returns to MCP agents.
     .describe(
-      "Question: \"MHacks is funding you for a year to do anything. What would you do?\" Between 10 and 100 words (600 character max).",
+      'Question: "MHacks is funding you for a year to do anything. What would you do?" Between 10 and 100 words (600 character max).',
     ),
   whyMhacks: z
     .string()
