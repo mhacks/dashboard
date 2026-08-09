@@ -59,7 +59,11 @@ export async function verifyOtp(
 
   if (data.user) {
     const verifiedEmail = data.user.email ?? email;
-    await acceptPendingUserInvite(data.user.id, verifiedEmail);
+    try {
+      await acceptPendingUserInvite(data.user.id, verifiedEmail);
+    } catch (inviteError) {
+      console.error("Unable to accept pending user invite:", inviteError);
+    }
 
     const posthog = getPostHogClient();
     posthog.capture({

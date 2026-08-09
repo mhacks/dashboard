@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, isNull, or, sql } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
@@ -101,37 +101,53 @@ export async function acceptPendingUserInvite(
     return null;
   }
 
+  if (user.role !== "hacker" && user.role !== invite.role) {
+    return null;
+  }
+
   const acceptedAt = new Date();
   const shouldApplyRole = user.role === "hacker" && user.role !== invite.role;
 
-  await db.transaction(async (tx) => {
-    if (shouldApplyRole) {
-      const [updatedUser] = await tx
-        .update(users)
-        .set({ role: invite.role })
+  try {
+    return await db.transaction(async (tx) => {
+      if (shouldApplyRole) {
+        const [updatedUser] = await tx
+          .update(users)
+          .set({ role: invite.role })
+          .where(
+            and(
+              eq(users.id, userId),
+              sql`lower(${users.email}) = ${normalizedEmail}`,
+            ),
+          )
+          .returning({ id: users.id });
+
+        if (!updatedUser) {
+          throw new Error("Unable to apply invite role for user.");
+        }
+      }
+
+      const [acceptedInvite] = await tx
+        .update(userInvitations)
+        .set({ acceptedAt })
         .where(
           and(
-            eq(users.id, userId),
-            sql`lower(${users.email}) = ${normalizedEmail}`,
+            eq(userInvitations.id, invite.id),
+            isNull(userInvitations.acceptedAt),
+            isNull(userInvitations.revokedAt),
+            gt(userInvitations.expiresAt, acceptedAt),
           ),
         )
-        .returning({ id: users.id });
+        .returning({ id: userInvitations.id });
 
-      if (!updatedUser) {
-        throw new Error("Unable to apply invite role for user.");
+      if (!acceptedInvite) {
+        throw new Error("Invite is no longer pending.");
       }
-    }
 
-    const [acceptedInvite] = await tx
-      .update(userInvitations)
-      .set({ acceptedAt })
-      .where(eq(userInvitations.id, invite.id))
-      .returning({ id: userInvitations.id });
-
-    if (!acceptedInvite) {
-      throw new Error("Unable to accept invite.");
-    }
-  });
-
-  return shouldApplyRole ? invite.role : user.role;
+      return shouldApplyRole ? invite.role : user.role;
+    });
+  } catch (error) {
+    console.error("Unable to accept pending user invite:", error);
+    return null;
+  }
 }

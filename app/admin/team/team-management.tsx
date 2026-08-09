@@ -35,6 +35,7 @@ import {
   type UserInviteListResult,
 } from "@/lib/types/user-invitations";
 import { createClient } from "@/lib/supabase/client";
+import { clampPageIndex, getPageCount } from "@/lib/pagination";
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
@@ -403,7 +404,25 @@ export default function TeamManagement({
       }
 
       toast.success("Invite revoked.");
-      await refreshInvites(pageIndex);
+      const updatedInvites = await listUserInvites(
+        pageIndex,
+        INVITE_PAGE_SIZE,
+        searchInputRef.current.trim(),
+      );
+      const nextPageIndex = clampPageIndex(
+        pageIndex,
+        getPageCount(updatedInvites.totalCount, INVITE_PAGE_SIZE),
+      );
+      const inviteList =
+        nextPageIndex === pageIndex
+          ? updatedInvites
+          : await listUserInvites(
+              nextPageIndex,
+              INVITE_PAGE_SIZE,
+              searchInputRef.current.trim(),
+            );
+      setPageIndex(nextPageIndex);
+      setInviteData(inviteList);
       void broadcastInviteUpdate();
     });
   }
