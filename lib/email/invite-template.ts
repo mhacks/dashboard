@@ -1,12 +1,5 @@
 import type { UserRole } from "@/lib/db/schema/users";
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  hacker: "Hacker",
-  organizer: "Organizer",
-  admin: "Admin",
-  volunteer: "Volunteer",
-  judge: "Judge",
-};
+import { userRoleLabel } from "@/lib/display/user-roles";
 
 function escapeHtml(value: string) {
   return value
@@ -71,7 +64,7 @@ export function buildInviteEmail({
   loginUrl: string;
   expiresAt: Date;
 }) {
-  const roleLabel = ROLE_LABELS[role];
+  const roleLabel = userRoleLabel(role);
   const expiration = formatInviteExpiration(expiresAt);
   const safeLoginUrl = escapeHtml(loginUrl);
   const nextSteps = whatsNextItems(role);
@@ -466,7 +459,7 @@ export function buildRoleChangeEmail({
   role: UserRole;
   loginUrl: string;
 }) {
-  const roleLabel = ROLE_LABELS[role];
+  const roleLabel = userRoleLabel(role);
   const safeLoginUrl = escapeHtml(loginUrl);
   const nextSteps = whatsNextItems(role);
 

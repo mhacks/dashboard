@@ -22,16 +22,17 @@ import {
   revokeUserInvite,
 } from "@/lib/actions/user-invitations.server.actions";
 import type { UserRole } from "@/lib/db/schema/users";
+import { userRoleLabel } from "@/lib/display/user-roles";
 import {
-  canRevokeInvite,
+  INVITABLE_USER_ROLES,
   INVITE_PAGE_SIZE,
   INVITE_SYNC_CHANNEL,
   INVITE_SYNC_EVENT,
   inviteStatus,
   inviteSyncPayloadSchema,
   normalizeInviteEmail,
+  type InvitableUserRole,
   type UserInviteListResult,
-  userInviteRoleSchema,
 } from "@/lib/types/user-invitations";
 import { createClient } from "@/lib/supabase/client";
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
@@ -60,23 +61,15 @@ type InviteConfirmation =
   | {
       type: "pending-invite";
       email: string;
-      role: UserRole;
+      role: InvitableUserRole;
       pendingRole: UserRole;
     }
   | {
       type: "existing-user";
       email: string;
-      role: UserRole;
+      role: InvitableUserRole;
       currentRole: UserRole;
     };
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  hacker: "Hacker",
-  organizer: "Organizer",
-  admin: "Admin",
-  volunteer: "Volunteer",
-  judge: "Judge",
-};
 
 type Organizer = { id: string; email: string };
 type SupabaseBrowserClient = ReturnType<typeof createClient>;
@@ -119,8 +112,10 @@ function inviteStatusBadgeClass(status: ReturnType<typeof inviteStatus>) {
   }
 }
 
-function inviteMetadata(invite: UserInviteListResult["items"][number]) {
-  const status = inviteStatus(invite);
+function inviteMetadata(
+  invite: UserInviteListResult["items"][number],
+  status: ReturnType<typeof inviteStatus>,
+) {
   const parts = [
     `Invited by ${invite.invitedByEmail}`,
     `Created ${formatInviteDate(invite.createdAt)}`,
@@ -141,8 +136,9 @@ export default function TeamManagement({
   const [pageIndex, setPageIndex] = useState(0);
   const [inviteEmail, setInviteEmail] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [role, setRole] = useState<UserRole>("organizer");
-  const [isSubmitting, startSubmitTransition] = useTransition();
+  const [role, setRole] = useState<InvitableUserRole>("organizer");
+  const [isMutating, startMutateTransition] = useTransition();
+  const [, startListTransition] = useTransition();
   const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
   const [inviteConfirmation, setInviteConfirmation] =
     useState<InviteConfirmation | null>(null);
@@ -175,14 +171,16 @@ export default function TeamManagement({
   );
 
   const broadcastInviteUpdate = useCallback(async () => {
+    if (!organizer?.id) return;
+
     await inviteSyncChannel.current?.send({
       type: "broadcast",
       event: INVITE_SYNC_EVENT,
       payload: {
-        sourceUserId: organizer?.id ?? "",
+        sourceUserId: organizer.id,
       },
     });
-  }, [organizer?.id]);
+  }, [organizer]);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,10 +254,6 @@ export default function TeamManagement({
     channel = supabase.channel(INVITE_SYNC_CHANNEL, {
       config: { private: true },
     });
-    if (!active) {
-      supabase.removeChannel(channel);
-      return;
-    }
     inviteSyncChannel.current = channel;
 
     channel.on("broadcast", { event: INVITE_SYNC_EVENT }, ({ payload }) => {
@@ -293,7 +287,7 @@ export default function TeamManagement({
 
     const timeoutId = window.setTimeout(() => {
       setPageIndex(0);
-      startSubmitTransition(async () => {
+      startListTransition(async () => {
         await refreshInvites(0, searchInput.trim());
       });
     }, 300);
@@ -310,7 +304,7 @@ export default function TeamManagement({
 
   async function sendInvite(
     email: string,
-    inviteRole: UserRole,
+    inviteRole: InvitableUserRole,
     options?: {
       replacePendingInvite?: boolean;
       changeExistingUserRole?: boolean;
@@ -359,7 +353,7 @@ export default function TeamManagement({
   function handleInviteSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    startSubmitTransition(async () => {
+    startMutateTransition(async () => {
       await sendInvite(inviteEmail, role);
     });
   }
@@ -375,7 +369,7 @@ export default function TeamManagement({
     }
     setInviteConfirmation(null);
 
-    startSubmitTransition(async () => {
+    startMutateTransition(async () => {
       await sendInvite(email, inviteRole, { changeExistingUserRole: true });
     });
   }
@@ -386,21 +380,21 @@ export default function TeamManagement({
     const { email, role: inviteRole } = inviteConfirmation;
     setInviteConfirmation(null);
 
-    startSubmitTransition(async () => {
+    startMutateTransition(async () => {
       await sendInvite(email, inviteRole, { replacePendingInvite: true });
     });
   }
 
   function handlePageChange(nextPageIndex: number) {
     setPageIndex(nextPageIndex);
-    startSubmitTransition(async () => {
+    startListTransition(async () => {
       await refreshInvites(nextPageIndex);
     });
   }
 
   function handleRevokeInvite(inviteId: string) {
     setRevokingInviteId(inviteId);
-    startSubmitTransition(async () => {
+    startMutateTransition(async () => {
       const result = await revokeUserInvite(inviteId);
       setRevokingInviteId(null);
       if (result?.error) {
@@ -453,8 +447,8 @@ export default function TeamManagement({
                           {inviteConfirmation.email}
                         </span>{" "}
                         already has an account as{" "}
-                        {ROLE_LABELS[inviteConfirmation.currentRole]}. Change
-                        their role to {ROLE_LABELS[inviteConfirmation.role]}?
+                        {userRoleLabel(inviteConfirmation.currentRole)}. Change
+                        their role to {userRoleLabel(inviteConfirmation.role)}?
                       </>
                     ) : (
                       <>
@@ -462,9 +456,9 @@ export default function TeamManagement({
                           {inviteConfirmation.email}
                         </span>{" "}
                         already has a pending invite as{" "}
-                        {ROLE_LABELS[inviteConfirmation.pendingRole]}. Revoke
+                        {userRoleLabel(inviteConfirmation.pendingRole)}. Revoke
                         that invite and send a new one as{" "}
-                        {ROLE_LABELS[inviteConfirmation.role]}?
+                        {userRoleLabel(inviteConfirmation.role)}?
                       </>
                     )}
                   </p>
@@ -488,7 +482,7 @@ export default function TeamManagement({
                           ? "default"
                           : "destructive"
                       }
-                      disabled={isSubmitting}
+                      disabled={isMutating}
                       onClick={
                         inviteConfirmation.type === "existing-user"
                           ? handleConfirmExistingUserRoleChange
@@ -523,16 +517,17 @@ export default function TeamManagement({
               <Label htmlFor="invite-role">Role</Label>
               <Select
                 value={role}
-                onValueChange={(value) =>
-                  setRole(userInviteRoleSchema.parse(value))
-                }
+                onValueChange={(value) => setRole(value as InvitableUserRole)}
               >
                 <SelectTrigger id="invite-role">
                   <SelectValue placeholder="Choose role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="organizer">Organizer</SelectItem>
-                  <SelectItem value="hacker">Hacker</SelectItem>
+                  {INVITABLE_USER_ROLES.map((inviteRole) => (
+                    <SelectItem key={inviteRole} value={inviteRole}>
+                      {userRoleLabel(inviteRole)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -540,12 +535,12 @@ export default function TeamManagement({
               <Button
                 type="submit"
                 disabled={
-                  isSubmitting ||
+                  isMutating ||
                   inviteEmail.trim().length === 0 ||
                   isOwnEmail(inviteEmail)
                 }
               >
-                {isSubmitting ? "Sending…" : "Send invite"}
+                {isMutating ? "Sending…" : "Send invite"}
               </Button>
             </div>
           </form>
@@ -596,7 +591,7 @@ export default function TeamManagement({
                             {invite.email}
                           </p>
                           <Badge variant="outline">
-                            {ROLE_LABELS[invite.role]}
+                            {userRoleLabel(invite.role)}
                           </Badge>
                           <Badge
                             variant="outline"
@@ -606,10 +601,10 @@ export default function TeamManagement({
                           </Badge>
                         </div>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {inviteMetadata(invite)}
+                          {inviteMetadata(invite, status)}
                         </p>
                       </div>
-                      {canRevokeInvite(invite) ? (
+                      {status === "Pending" ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -617,7 +612,7 @@ export default function TeamManagement({
                           className="shrink-0"
                           aria-label={`Revoke invite for ${invite.email}`}
                           disabled={
-                            isSubmitting && revokingInviteId === invite.id
+                            isMutating && revokingInviteId === invite.id
                           }
                           onClick={() => handleRevokeInvite(invite.id)}
                         >

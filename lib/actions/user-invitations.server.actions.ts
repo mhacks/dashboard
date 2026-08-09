@@ -8,7 +8,7 @@ import {
   pendingInviteForEmail,
   userInvitations,
 } from "@/lib/db/schema/user-invitations";
-import { users, type UserRole } from "@/lib/db/schema/users";
+import { users } from "@/lib/db/schema/users";
 import {
   sendInviteEmail,
   sendRoleChangeEmail,
@@ -16,7 +16,9 @@ import {
 import { listUserInvites as listUserInvitesQuery } from "@/lib/queries/user-invitations";
 import {
   type CreateUserInviteResult,
+  type InvitableUserRole,
   inviteExpiresAt,
+  inviteStatus,
   normalizeInviteEmail,
   userInviteEmailSchema,
   userInviteRoleSchema,
@@ -32,7 +34,7 @@ export async function listUserInvites(
 
 export async function createUserInvite(
   email: string,
-  role: UserRole,
+  role: InvitableUserRole,
   options?: {
     replacePendingInvite?: boolean;
     changeExistingUserRole?: boolean;
@@ -123,6 +125,13 @@ export async function createUserInvite(
     return;
   }
 
+  const newInvite = {
+    email: normalizedEmail,
+    role: inviteRole,
+    invitedBy: organizer.id,
+    expiresAt,
+  };
+
   if (pendingInvite) {
     await db.transaction(async (tx) => {
       await tx
@@ -130,20 +139,10 @@ export async function createUserInvite(
         .set({ revokedAt: new Date() })
         .where(eq(userInvitations.id, pendingInvite.id));
 
-      await tx.insert(userInvitations).values({
-        email: normalizedEmail,
-        role: inviteRole,
-        invitedBy: organizer.id,
-        expiresAt,
-      });
+      await tx.insert(userInvitations).values(newInvite);
     });
   } else {
-    await db.insert(userInvitations).values({
-      email: normalizedEmail,
-      role: inviteRole,
-      invitedBy: organizer.id,
-      expiresAt,
-    });
+    await db.insert(userInvitations).values(newInvite);
   }
 
   try {
@@ -178,21 +177,13 @@ export async function revokeUserInvite(
     return { error: "Invite not found." };
   }
 
-  if (invite.acceptedAt) {
-    return { error: "Accepted invites cannot be revoked." };
-  }
-
-  if (invite.revokedAt) {
-    return { error: "Invite is already revoked." };
-  }
-
-  const expiresAt =
-    invite.expiresAt instanceof Date
-      ? invite.expiresAt
-      : new Date(invite.expiresAt);
-
-  if (expiresAt.getTime() <= Date.now()) {
-    return { error: "Expired invites cannot be revoked." };
+  switch (inviteStatus(invite)) {
+    case "Accepted":
+      return { error: "Accepted invites cannot be revoked." };
+    case "Revoked":
+      return { error: "Invite is already revoked." };
+    case "Expired":
+      return { error: "Expired invites cannot be revoked." };
   }
 
   await db

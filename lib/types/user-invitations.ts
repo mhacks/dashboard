@@ -17,8 +17,6 @@ export const inviteSyncPayloadSchema = z.object({
   sourceUserId: z.uuid(),
 });
 
-export type InviteSyncPayload = z.infer<typeof inviteSyncPayloadSchema>;
-
 export function normalizeInviteEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -47,7 +45,6 @@ export type CreateUserInviteResult =
   | { error: string }
   | {
       pendingInvite: {
-        id: string;
         role: UserRole;
       };
     }
@@ -68,10 +65,4 @@ export function inviteStatus(
       : new Date(invite.expiresAt);
   if (expiresAt.getTime() <= Date.now()) return "Expired";
   return "Pending";
-}
-
-export function canRevokeInvite(
-  invite: Pick<UserInviteListItem, "acceptedAt" | "revokedAt" | "expiresAt">,
-) {
-  return inviteStatus(invite) === "Pending";
 }

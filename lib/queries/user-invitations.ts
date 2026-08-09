@@ -12,11 +12,6 @@ import {
   userInviteEmailSchema,
 } from "@/lib/types/user-invitations";
 
-function inviteSearchCondition(search: string) {
-  const term = `%${search.trim()}%`;
-  return or(ilike(userInvitations.email, term), ilike(users.email, term));
-}
-
 export async function listUserInvites(
   pageIndex = 0,
   pageSize = INVITE_PAGE_SIZE,
@@ -28,7 +23,10 @@ export async function listUserInvites(
   const safePageSize = Math.min(Math.max(pageSize, 1), 50);
   const trimmedSearch = search.trim().slice(0, 100);
   const filters = trimmedSearch
-    ? inviteSearchCondition(trimmedSearch)
+    ? or(
+        ilike(userInvitations.email, `%${trimmedSearch}%`),
+        ilike(users.email, `%${trimmedSearch}%`),
+      )
     : undefined;
 
   const rows = await db
