@@ -43,9 +43,11 @@ export const baseApplicationSchema = z.object({
       "Please limit your response to 100 words",
     )
     // z.toJSONSchema() drops .refine() constraints entirely — this
-    // .describe() is the only way the word-count rule survives into the
-    // JSON Schema apply_get_schema returns to MCP agents.
-    .describe("Between 10 and 100 words (600 character max)."),
+    // .describe() is the only way the question text and word-count rule
+    // survive into the JSON Schema apply_get_schema returns to MCP agents.
+    .describe(
+      'Question: "MHacks is funding you for a year to do anything. What would you do?" Between 10 and 100 words (600 character max).',
+    ),
   whyMhacks: z
     .string()
     .min(1, "Required")
@@ -58,7 +60,9 @@ export const baseApplicationSchema = z.object({
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 200,
       "Please limit your response to 200 words",
     )
-    .describe("Between 20 and 200 words (1200 character max)."),
+    .describe(
+      'Question: "Why MHacks?" Between 20 and 200 words (1200 character max).',
+    ),
   hillToDieOn: z
     .string()
     .min(1, "Required")
@@ -71,7 +75,9 @@ export const baseApplicationSchema = z.object({
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 10,
       "Please limit your response to 10 words",
     )
-    .describe("Between 3 and 10 words (80 character max)."),
+    .describe(
+      "Question: \"What's a hill you're willing to die on?\" Between 3 and 10 words (80 character max).",
+    ),
 
   // Logistics
   transportationType: z.string().min(1, "Please select transportation type"),
