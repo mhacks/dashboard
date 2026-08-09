@@ -46,7 +46,7 @@ import { paginateSlice } from "@/lib/pagination";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { ListPagination } from "../components/list-pagination";
-import { Meter } from "../components/meter";
+import { Meter } from "@/components/ui/meter";
 import { SummaryBar } from "../components/summary-bar";
 
 const ANALYTICS_LIST_PAGE_SIZE = 10;

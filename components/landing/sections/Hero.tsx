@@ -293,8 +293,10 @@ export function Hero() {
               }}
               className="pointer-events-auto mt-2 flex flex-col items-center gap-3"
             >
+              {/* Routes via the dashboard rather than straight to the form —
+                  see the note on the header's Apply button. */}
               <CtaButton
-                href="/apply"
+                href="/dashboard"
                 variant="cta"
                 size="md"
                 className="w-[200px]"

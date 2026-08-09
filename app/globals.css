@@ -61,6 +61,7 @@
 
   --animate-drift: drift 6s ease-in-out infinite;
   --animate-pulse-soft: pulse_soft 3.4s ease-in-out infinite;
+  --animate-wiggle: wiggle 3s ease-in-out infinite;
 
   --ease-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-snap: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -456,6 +457,37 @@
   }
   50% {
     opacity: 0.85;
+  }
+}
+
+/* A short shake, then a long rest. All the motion lives in the first ~12% of
+   the timeline so the button nudges for attention roughly every three seconds
+   rather than jittering continuously, which reads as broken. */
+@keyframes wiggle {
+  0%,
+  12%,
+  100% {
+    transform: rotate(0deg);
+  }
+  2% {
+    transform: rotate(-3.5deg);
+  }
+  5% {
+    transform: rotate(3.5deg);
+  }
+  8% {
+    transform: rotate(-2.5deg);
+  }
+  10% {
+    transform: rotate(1.5deg);
+  }
+}
+
+/* Purely decorative attention-grabber, so it is dropped entirely for anyone who
+   has asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-wiggle {
+    animation: none;
   }
 }
 

@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
 
+import { getDraftForUser } from "@/lib/actions/application-form.actions";
+import { completedStepCount, isDraftStarted } from "@/lib/application-steps";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
@@ -11,7 +13,7 @@ import type { ApplicationDecision } from "@/lib/decisions";
 import { DashboardClient } from "./dashboard-client";
 
 export default async function DashboardPage() {
-  const { id: userId } = await requireSessionUser();
+  const { id: userId, role } = await requireSessionUser();
 
   let application: {
     firstName: string;
@@ -50,12 +52,31 @@ export default async function DashboardPage() {
     console.error("[DB] hacker_applicants query failed:", cause);
   }
 
+  // Only meaningful before submitting — submitting deletes the draft row. Note
+  // /apply writes an empty draft on first visit, so progress is measured from
+  // the contents rather than the row's existence.
+  let draftSteps = 0;
+  if (!application) {
+    try {
+      const draft = await getDraftForUser(userId);
+      // 0 means "nothing started". Guarded by isDraftStarted because the
+      // field-less Socials step makes even an untouched draft score 1.
+      draftSteps =
+        draft && isDraftStarted(draft) ? completedStepCount(draft) : 0;
+    } catch (err) {
+      const cause = err instanceof Error ? (err.cause ?? err) : err;
+      console.error("[DB] application draft query failed:", cause);
+    }
+  }
+
   return (
     <DashboardClient
+      role={role}
       firstName={application?.firstName ?? null}
       decision={application?.decision ?? null}
       submittedAt={application?.createdAt ?? null}
       reimbursementCents={application?.reimbursementCents ?? null}
+      draftSteps={draftSteps}
     />
   );
 }
