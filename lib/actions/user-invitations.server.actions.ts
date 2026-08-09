@@ -29,6 +29,7 @@ export async function listUserInvites(
   pageSize?: number,
   search?: string,
 ) {
+  await requireOrganizer();
   return listUserInvitesQuery(pageIndex, pageSize, search);
 }
 
