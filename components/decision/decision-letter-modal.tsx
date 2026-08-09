@@ -55,16 +55,19 @@ async function celebrate() {
 export function DecisionLetterModal({
   decision,
   applicantName,
+  reimbursementCents = null,
   open,
   onOpenChange,
 }: {
   decision: ApplicationDecision;
   applicantName: string;
+  /** Awarded travel tier in cents, or null when there's no award. */
+  reimbursementCents?: number | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const reduceMotion = useReducedMotion();
-  const letter = decisionLetter(decision);
+  const letter = decisionLetter(decision, reimbursementCents);
   const round = decisionRound(decision);
   const outcome = decisionOutcome(decision);
   const accepted = outcome === "accepted";

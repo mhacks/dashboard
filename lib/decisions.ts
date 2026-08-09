@@ -1,7 +1,9 @@
 // Admissions decisions. Kept free of any database imports so both the drizzle
 // schema and client components can share it — `lib/db/schema/applications.ts`
 // builds its pgEnum from APPLICATION_DECISIONS, so the enum and this union can
-// never drift apart.
+// never drift apart. (lib/currency is pure formatting, no database.)
+
+import { formatCents } from "./currency";
 
 export const APPLICATION_DECISIONS = [
   "applied",
@@ -82,26 +84,50 @@ const FOOTNOTE =
 
 type LetterBody = Omit<DecisionLetter, "roundLabel">;
 
-const ACCEPTED: Record<DecisionRound, LetterBody> = {
-  early: {
-    heading: "You're in! Welcome to MHacks 2026.",
-    body: [
-      "Congratulations! We were thoroughly impressed by your application and are thrilled to offer you a spot at MHacks 2026. Space is limited, so please confirm your attendance below to lock in your spot.",
-      "Because you applied before the early deadline on August 7, you're also eligible to be considered for travel reimbursement. Reimbursement is limited and decided separately from admission, so this offer doesn't guarantee it — we'll follow up once those decisions are made.",
-    ],
+const ACCEPTED_HEADING = "You're in! Welcome to MHacks 2026.";
+
+const ACCEPTED_INTRO =
+  "Congratulations! We were thoroughly impressed by your application and are thrilled to offer you a spot at MHacks 2026. Space is limited, so please confirm your attendance below to lock in your spot.";
+
+// Travel reimbursement is an early-round benefit only, so the second paragraph
+// of an accepted letter depends on the round and — for early — on whether the
+// applicant actually has an award.
+const REIMBURSEMENT_AWARDED = (amount: string) =>
+  `Because you applied before the early deadline on August 7, we're also able to offer you ${amount} in travel reimbursement toward your trip to Ann Arbor. We'll send instructions for claiming it closer to the event.`;
+
+const REIMBURSEMENT_NONE =
+  "Because you applied before the early deadline on August 7, you were also considered for travel reimbursement. It's limited and decided separately from admission — we would love to have you attend, but we're unable to provide reimbursement at this time. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.";
+
+const REIMBURSEMENT_REGULAR =
+  "One note on logistics: travel reimbursement is only available to applicants who applied before the early deadline on August 7, so it isn't part of this offer. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.";
+
+/**
+ * `reimbursementCents` is the applicant's awarded tier in cents, or null when
+ * they have no award. A zero-dollar tier is a real, grantable row, but it buys
+ * nothing — so it reads the same as having no award at all.
+ */
+function reimbursementParagraph(
+  round: DecisionRound,
+  reimbursementCents: number | null,
+): string {
+  if (round === "regular") return REIMBURSEMENT_REGULAR;
+  if (reimbursementCents !== null && reimbursementCents > 0) {
+    return REIMBURSEMENT_AWARDED(formatCents(reimbursementCents));
+  }
+  return REIMBURSEMENT_NONE;
+}
+
+function acceptedLetter(
+  round: DecisionRound,
+  reimbursementCents: number | null,
+): LetterBody {
+  return {
+    heading: ACCEPTED_HEADING,
+    body: [ACCEPTED_INTRO, reimbursementParagraph(round, reimbursementCents)],
     footnote: FOOTNOTE,
     signOff: SIGN_OFF,
-  },
-  regular: {
-    heading: "You're in! Welcome to MHacks 2026.",
-    body: [
-      "Congratulations! We were thoroughly impressed by your application and are thrilled to offer you a spot at MHacks 2026. Space is limited, so please confirm your attendance below to lock in your spot.",
-      "One note on logistics: travel reimbursement is only available to applicants who applied before the early deadline on August 7, so it isn't part of this offer. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.",
-    ],
-    footnote: FOOTNOTE,
-    signOff: SIGN_OFF,
-  },
-};
+  };
+}
 
 // body[0] is prefixed with "Hi {name}, " by the letter component, so it starts
 // lowercase — the rejected letter folds the greeting into the paragraph rather
@@ -128,15 +154,23 @@ const REJECTED: Record<DecisionRound, LetterBody> = {
 /**
  * The letter shown in the decision modal. Returns null while the applicant is
  * still `applied` — there is nothing to show yet.
+ *
+ * `reimbursementCents` is the applicant's awarded travel tier in cents, or null
+ * if they have no award. It only affects accepted early-round letters; rejected
+ * letters never mention reimbursement.
  */
 export function decisionLetter(
   decision: ApplicationDecision,
+  reimbursementCents: number | null = null,
 ): DecisionLetter | null {
   const round = decisionRound(decision);
   if (!round) return null;
 
   const outcome = decisionOutcome(decision);
-  const source = outcome === "accepted" ? ACCEPTED[round] : REJECTED[round];
+  const source =
+    outcome === "accepted"
+      ? acceptedLetter(round, reimbursementCents)
+      : REJECTED[round];
 
   return { roundLabel: ROUND_LABEL[round], ...source };
 }

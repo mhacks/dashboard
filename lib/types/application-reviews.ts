@@ -235,11 +235,9 @@ export type ReimbursementAnalytics = {
   // user count — "approved" is the reimbursed population.
   reimbursedUsers: number;
   spentCents: number;
-  pendingRequests: number;
-  // What the pending queue would add to `spentCents` if every request were
-  // approved as-is.
-  pendingCents: number;
   deniedRequests: number;
+  // What denied awards would have added to `spentCents` had they been approved.
+  deniedCents: number;
   totalRequests: number;
   averageAwardCents: number | null;
   statusBreakdown: AnalyticsBucket[];

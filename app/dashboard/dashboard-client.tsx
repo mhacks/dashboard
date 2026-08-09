@@ -50,10 +50,13 @@ export function DashboardClient({
   firstName,
   decision,
   submittedAt,
+  reimbursementCents,
 }: {
   firstName: string | null;
   decision: ApplicationDecision | null;
   submittedAt: string | null;
+  /** Awarded travel tier in cents, or null when there's no award. */
+  reimbursementCents: number | null;
 }) {
   const [letterOpen, setLetterOpen] = useState(false);
 
@@ -168,6 +171,7 @@ export function DashboardClient({
       <DecisionLetterModal
         decision={decision}
         applicantName={firstName ?? "there"}
+        reimbursementCents={reimbursementCents}
         open={letterOpen}
         onOpenChange={setLetterOpen}
       />
