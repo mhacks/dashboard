@@ -33,7 +33,7 @@ jobs:
       - name: Apply database migrations
         run: pnpm drizzle-kit migrate
         env:
-          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Push Supabase config
         run: pnpm supabase config push --project-ref $SUPABASE_PROJECT_REF
