@@ -116,8 +116,11 @@ export default function NotFound() {
               <CtaButton href="/" variant="cta" size="md" className="w-[200px]">
                 Back home
               </CtaButton>
+              {/* Via the dashboard, like every other Apply entry point — it
+                  routes on to the form, a saved draft, or a submitted
+                  application as appropriate. */}
               <CtaButton
-                href="/apply"
+                href="/dashboard"
                 variant="parchment"
                 size="md"
                 className="w-[200px]"

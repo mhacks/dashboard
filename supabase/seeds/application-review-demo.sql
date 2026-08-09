@@ -1060,7 +1060,8 @@ on conflict (application_id) do update set
 -- even user numbers, mirroring needs_travel_reimbursement above. Region and
 -- status are driven off k (the award's ordinal) rather than n, using coprime
 -- moduli 6 and 5, so every tier is represented and each carries a mix of
--- statuses. Amounts are never stored here; they come from
+-- statuses. Status is binary, so every award is decided and decided_by /
+-- decided_at are always set. Amounts are never stored here; they come from
 -- public.reimbursement_regions via the region foreign key.
 with bulk_reimbursements as (
   select
@@ -1069,25 +1070,16 @@ with bulk_reimbursements as (
     (k % 6)::smallint as region,
     case
       when k % 5 = 0 then 'denied'
-      when k % 5 <= 2 then 'approved'
-      else 'pending'
+      else 'approved'
     end::reimbursement_status as status,
-    case
-      when k % 5 <= 2 then
-        case when k % 2 = 0
-          then '00000000-0000-4000-8000-000000000001'::uuid
-          else '00000000-0000-4000-8000-000000000002'::uuid
-        end
-      else null
+    case when k % 2 = 0
+      then '00000000-0000-4000-8000-000000000001'::uuid
+      else '00000000-0000-4000-8000-000000000002'::uuid
     end as decided_by_user_id,
-    case
-      when k % 5 <= 2 then now() - ((k % 72) || ' hours')::interval
-      else null
-    end as decided_at,
+    now() - ((k % 72) || ' hours')::interval as decided_at,
     case
       when k % 5 = 0 then 'Outside the supported reimbursement regions.'
-      when k % 5 <= 2 then 'Approved at the standard tier for their region.'
-      else null
+      else 'Approved at the standard tier for their region.'
     end as notes
   from generate_series(106, 200, 2) as n,
     lateral (select (n - 106) / 2) as ordinal(k)

@@ -1,0 +1,2 @@
+CREATE TYPE "public"."application_decision" AS ENUM('applied', 'early_accepted', 'early_rsvped', 'early_rejected', 'regular_accepted', 'regular_rsvped', 'regular_rejected');--> statement-breakpoint
+ALTER TABLE "hacker_applicants" ADD COLUMN "decision" "application_decision" DEFAULT 'applied' NOT NULL;

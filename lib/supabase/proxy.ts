@@ -102,7 +102,7 @@ export async function updateSession(request: NextRequest) {
     const sessionUser = await getSessionUser();
     if (sessionUser?.role !== "organizer") {
       return redirectWithSessionCookies(
-        new URL("/apply", request.url),
+        new URL("/dashboard", request.url),
         supabaseResponse,
       );
     }

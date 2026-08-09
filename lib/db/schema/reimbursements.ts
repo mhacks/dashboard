@@ -17,8 +17,12 @@ import { isOrganizer } from "./rls";
 import { users } from "./users";
 import "./triggers";
 
+// Whether an award will actually be paid out. There is no undecided state: an
+// award row exists only for hackers who are getting travel reimbursement, so
+// the question is binary from the moment the row is written.
+//   approved — the hacker is eligible for reimbursement after the hackathon.
+//   denied   — the hacker is not.
 export const reimbursementStatus = pgEnum("reimbursement_status", [
-  "pending",
   "approved",
   "denied",
 ]);
@@ -55,7 +59,9 @@ export const hackerReimbursements = pgTable(
     id: uuid().defaultRandom().primaryKey().notNull(),
     userId: uuid("user_id").notNull(),
     region: smallint().notNull(),
-    status: reimbursementStatus().default("pending").notNull(),
+    // Defaults to approved: an organizer writing an award row is granting it,
+    // and eligibility is revoked by flipping this rather than by deleting.
+    status: reimbursementStatus().default("approved").notNull(),
 
     // Set when an organizer finalizes the decision.
     decidedByUserId: uuid("decided_by_user_id"),
