@@ -27,7 +27,7 @@ if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/)/.test(supabaseUrl)) {
 if (!serviceRoleKey) {
   console.error(
     "SUPABASE_SERVICE_ROLE_KEY is not set. Get it from `pnpm supabase status` " +
-      '("service_role key") — gen-env-local.sh does not write it to .env.local.',
+      '("service_role key").',
   );
   process.exit(1);
 }
