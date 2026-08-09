@@ -163,8 +163,16 @@ export type ReviewListSummaryItem = {
 
 export type ApplicationRound = "early" | "regular";
 
+const earlyApplicationsDeadline = DEADLINES.find(
+  (deadline) => deadline.id === "early-apps-due",
+);
+if (!earlyApplicationsDeadline) {
+  throw new Error(
+    'lib/types/application-reviews.ts: DEADLINES is missing the "early-apps-due" entry required to classify applications into early/regular rounds.',
+  );
+}
 const EARLY_APPLICATIONS_DEADLINE_MS = new Date(
-  DEADLINES.find((deadline) => deadline.id === "early-apps-due")!.date,
+  earlyApplicationsDeadline.date,
 ).getTime();
 
 /** Classifies an application's createdAt against the early-apps-due deadline. */
