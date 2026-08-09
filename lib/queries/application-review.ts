@@ -505,11 +505,10 @@ async function getReimbursementAnalytics(): Promise<ReimbursementAnalytics> {
     .select({
       totalRequests: sql<number>`count(*)::int`,
       reimbursedUsers: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'approved')::int`,
-      pendingRequests: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'pending')::int`,
       deniedRequests: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'denied')::int`,
       // coalesce because SUM over zero rows is NULL, not 0.
       spentCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${hackerReimbursements.status} = 'approved'), 0)::int`,
-      pendingCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${hackerReimbursements.status} = 'pending'), 0)::int`,
+      deniedCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${hackerReimbursements.status} = 'denied'), 0)::int`,
     })
     .from(hackerReimbursements)
     .innerJoin(
@@ -540,12 +539,11 @@ async function getReimbursementAnalytics(): Promise<ReimbursementAnalytics> {
   return {
     reimbursedUsers,
     spentCents,
-    pendingRequests: totals?.pendingRequests ?? 0,
-    pendingCents: totals?.pendingCents ?? 0,
     deniedRequests: totals?.deniedRequests ?? 0,
+    deniedCents: totals?.deniedCents ?? 0,
     totalRequests,
-    // Averaged over approved awards only, so denied and pending requests can't
-    // drag the figure below what was actually paid out per hacker.
+    // Averaged over approved awards only, so denied awards can't drag the
+    // figure below what was actually paid out per hacker.
     averageAwardCents:
       reimbursedUsers === 0 ? null : Math.round(spentCents / reimbursedUsers),
     statusBreakdown: [
@@ -553,11 +551,6 @@ async function getReimbursementAnalytics(): Promise<ReimbursementAnalytics> {
         label: "Approved",
         count: reimbursedUsers,
         percentage: percent(reimbursedUsers, totalRequests),
-      },
-      {
-        label: "Pending",
-        count: totals?.pendingRequests ?? 0,
-        percentage: percent(totals?.pendingRequests ?? 0, totalRequests),
       },
       {
         label: "Denied",

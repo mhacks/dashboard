@@ -19,6 +19,7 @@ import Logistics from "./components/logistics";
 import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
+import { APPLICATION_STEPS } from "@/lib/application-steps";
 import { logout } from "@/lib/actions/auth.server.actions";
 import {
   submitHackerApplication,
@@ -39,47 +40,8 @@ const MOSS_25 = "color-mix(in srgb, var(--color-moss) 25%, transparent)";
 const MOSS_30 = "color-mix(in srgb, var(--color-moss) 30%, transparent)";
 const MOSS_65 = "color-mix(in srgb, var(--color-moss) 65%, transparent)";
 
-const STEPS: Array<{
-  label: string;
-  fields: (keyof HackerApplicationFormData)[];
-}> = [
-  {
-    label: "Personal",
-    fields: [
-      "firstName",
-      "lastName",
-      "phoneNumber",
-      "age",
-      "gender",
-      "ethnicity",
-    ],
-  },
-  {
-    label: "Academic",
-    fields: [
-      "university",
-      "country",
-      "degree",
-      "graduationYear",
-      "previousHackathons",
-      "major",
-      "resume",
-    ],
-  },
-  {
-    label: "Essays",
-    fields: ["whatWouldYouDo", "whyMhacks", "hillToDieOn"],
-  },
-  {
-    label: "Logistics",
-    fields: ["transportationType", "comingFrom", "shirtSize"],
-  },
-  { label: "Socials", fields: [] },
-  {
-    label: "Agreements",
-    fields: ["mlhCodeOfConduct", "mlhPrivacyPolicy", "mlhEmails", "notAiSlop"],
-  },
-];
+// Shared with the dashboard, which derives draft progress from the same steps.
+const STEPS = APPLICATION_STEPS;
 
 // Maps every schema field to the section (step label) it belongs to, so a
 // validation error can be reported as the section that needs completing.

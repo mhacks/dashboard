@@ -91,7 +91,7 @@ import {
   ResumePreviewSkeleton,
 } from "./components/review-workspace-skeletons";
 import { ListPagination } from "./components/list-pagination";
-import { Meter } from "./components/meter";
+import { Meter } from "@/components/ui/meter";
 import {
   DEFAULT_REVIEW_FILTERS,
   matchesReviewFilters,

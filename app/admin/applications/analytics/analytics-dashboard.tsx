@@ -46,7 +46,7 @@ import { paginateSlice } from "@/lib/pagination";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { ListPagination } from "../components/list-pagination";
-import { Meter } from "../components/meter";
+import { Meter } from "@/components/ui/meter";
 import { SummaryBar } from "../components/summary-bar";
 
 const ANALYTICS_LIST_PAGE_SIZE = 10;
@@ -530,20 +530,20 @@ function ReimbursementSpendCard({ data }: { data: ApplicationAnalyticsData }) {
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Pending exposure</dt>
+            <dt className="text-xs text-muted-foreground">Denied</dt>
             <dd className="mt-0.5 font-medium">
-              {formatCents(reimbursements.pendingCents)}
+              {formatCents(reimbursements.deniedCents)}
             </dd>
           </div>
         </dl>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          {reimbursements.pendingRequests === 0
-            ? "No requests are awaiting a decision."
-            : `${reimbursements.pendingRequests} pending ${
-                reimbursements.pendingRequests === 1 ? "request" : "requests"
-              } would take the total to ${formatCents(
-                reimbursements.spentCents + reimbursements.pendingCents,
-              )} if all were approved.`}
+          {reimbursements.deniedRequests === 0
+            ? "No awards have been denied."
+            : `${reimbursements.deniedRequests} denied ${
+                reimbursements.deniedRequests === 1 ? "award" : "awards"
+              } would have taken the total to ${formatCents(
+                reimbursements.spentCents + reimbursements.deniedCents,
+              )}.`}
         </p>
       </CardContent>
     </Card>
