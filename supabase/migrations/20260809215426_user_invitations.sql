@@ -33,4 +33,6 @@ CREATE POLICY "user_invitations_organizer_update" ON "user_invitations" AS PERMI
   from public.users
   where id = (select auth.uid())
     and role = 'organizer'
-));
+));--> statement-breakpoint
+CREATE POLICY "organizers_receive_invite_realtime" ON "realtime"."messages" AS PERMISSIVE FOR SELECT TO "authenticated" USING (public.is_organizer() AND realtime.topic() = 'user-invites:dashboard');--> statement-breakpoint
+CREATE POLICY "organizers_send_invite_realtime" ON "realtime"."messages" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK (public.is_organizer() AND realtime.topic() = 'user-invites:dashboard');

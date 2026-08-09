@@ -75,15 +75,8 @@
     {
       "idx": 10,
       "version": "7",
-      "when": 1786292400000,
-      "tag": "20260809140000_user_invitations",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1786292401000,
-      "tag": "20260809140001_user_invites_realtime",
+      "when": 1786312466079,
+      "tag": "20260809215426_user_invitations",
       "breakpoints": true
     }
   ]

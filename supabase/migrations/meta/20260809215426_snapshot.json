@@ -1,6 +1,6 @@
 {
-  "id": "a59413f8-a8cf-43c0-b39d-95dd221d4cef",
-  "prevId": "d35545ac-1818-4f7b-9830-b348131ea410",
+  "id": "76fba7a2-acc5-42ae-ace6-000d2cd1b7f5",
+  "prevId": "fd261732-a141-4697-baff-eea60eed1b97",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -226,25 +226,25 @@
         "hacker_applicants_user_id_users_id_fk": {
           "name": "hacker_applicants_user_id_users_id_fk",
           "tableFrom": "hacker_applicants",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "hacker_applicants_user_id_unique": {
           "name": "hacker_applicants_user_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {
@@ -301,16 +301,16 @@
         "hacker_application_drafts_user_id_fkey": {
           "name": "hacker_application_drafts_user_id_fkey",
           "tableFrom": "hacker_application_drafts",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
-          "schemaTo": "auth",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -431,50 +431,50 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "hacker_application_review_events_review_id_fkey": {
           "name": "hacker_application_review_events_review_id_fkey",
           "tableFrom": "hacker_application_review_events",
+          "tableTo": "hacker_application_reviews",
           "columnsFrom": [
             "review_id"
           ],
-          "tableTo": "hacker_application_reviews",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "hacker_application_review_events_application_id_fkey": {
           "name": "hacker_application_review_events_application_id_fkey",
           "tableFrom": "hacker_application_review_events",
+          "tableTo": "hacker_applicants",
           "columnsFrom": [
             "application_id"
           ],
-          "tableTo": "hacker_applicants",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "hacker_application_review_events_reviewer_user_id_fkey": {
           "name": "hacker_application_review_events_reviewer_user_id_fkey",
           "tableFrom": "hacker_application_review_events",
+          "tableTo": "users",
           "columnsFrom": [
             "reviewer_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -576,38 +576,38 @@
         "hacker_application_reviews_application_id_fkey": {
           "name": "hacker_application_reviews_application_id_fkey",
           "tableFrom": "hacker_application_reviews",
+          "tableTo": "hacker_applicants",
           "columnsFrom": [
             "application_id"
           ],
-          "tableTo": "hacker_applicants",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "hacker_application_reviews_reviewer_user_id_fkey": {
           "name": "hacker_application_reviews_reviewer_user_id_fkey",
           "tableFrom": "hacker_application_reviews",
+          "tableTo": "users",
           "columnsFrom": [
             "reviewer_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "hacker_application_reviews_application_id_unique": {
           "name": "hacker_application_reviews_application_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "application_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {
@@ -666,8 +666,8 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "type": "stored",
-            "as": "nullif(lower(regexp_replace(btrim(\"full_name\"), '[[:space:]]+', ' ', 'g')), '')"
+            "as": "nullif(lower(regexp_replace(btrim(\"full_name\"), '[[:space:]]+', ' ', 'g')), '')",
+            "type": "stored"
           }
         },
         "phone_number": {
@@ -682,8 +682,8 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "type": "stored",
-            "as": "nullif(regexp_replace(\"phone_number\", '[^0-9+]', '', 'g'), '')"
+            "as": "nullif(regexp_replace(\"phone_number\", '[^0-9+]', '', 'g'), '')",
+            "type": "stored"
           }
         },
         "reason": {
@@ -725,10 +725,10 @@
             }
           ],
           "isUnique": true,
-          "with": {},
-          "method": "btree",
           "where": "\"blacklist\".\"full_name_normalized\" is not null",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "blacklist_phone_number_normalized_key": {
           "name": "blacklist_phone_number_normalized_key",
@@ -741,25 +741,25 @@
             }
           ],
           "isUnique": true,
-          "with": {},
-          "method": "btree",
           "where": "\"blacklist\".\"phone_number_normalized\" is not null",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "blacklist_created_by_user_id_fkey": {
           "name": "blacklist_created_by_user_id_fkey",
           "tableFrom": "blacklist",
+          "tableTo": "users",
           "columnsFrom": [
             "created_by_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -880,51 +880,51 @@
         "hacker_reimbursements_user_id_fkey": {
           "name": "hacker_reimbursements_user_id_fkey",
           "tableFrom": "hacker_reimbursements",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "hacker_reimbursements_region_fkey": {
           "name": "hacker_reimbursements_region_fkey",
           "tableFrom": "hacker_reimbursements",
+          "tableTo": "reimbursement_regions",
           "columnsFrom": [
             "region"
           ],
-          "tableTo": "reimbursement_regions",
           "columnsTo": [
             "region"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "hacker_reimbursements_decided_by_user_id_fkey": {
           "name": "hacker_reimbursements_decided_by_user_id_fkey",
           "tableFrom": "hacker_reimbursements",
+          "tableTo": "users",
           "columnsFrom": [
             "decided_by_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "hacker_reimbursements_user_id_unique": {
           "name": "hacker_reimbursements_user_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {
@@ -1013,57 +1013,6 @@
           "value": "\"reimbursement_regions\".\"amount_cents\" >= 0"
         }
       },
-      "isRLSEnabled": true
-    },
-    "public.users": {
-      "name": "users",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "user_role",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'hacker'"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "users_email_unique": {
-          "name": "users_email_unique",
-          "columns": [
-            "email"
-          ],
-          "nullsNotDistinct": false
-        }
-      },
-      "policies": {
-        "users_select_own_or_organizer": {
-          "name": "users_select_own_or_organizer",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"users\".\"id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
-        }
-      },
-      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.user_invitations": {
@@ -1172,6 +1121,57 @@
       },
       "checkConstraints": {},
       "isRLSEnabled": true
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'hacker'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {
+        "users_select_own_or_organizer": {
+          "name": "users_select_own_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
     }
   },
   "enums": {
@@ -1214,32 +1214,9 @@
     }
   },
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {
-    "organizers_receive_review_realtime": {
-      "name": "organizers_receive_review_realtime",
-      "as": "PERMISSIVE",
-      "for": "SELECT",
-      "to": [
-        "authenticated"
-      ],
-      "using": "public.is_organizer() AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
-      "on": "\"realtime\".\"messages\"",
-      "schema": "realtime"
-    },
-    "organizers_send_review_realtime": {
-      "name": "organizers_send_review_realtime",
-      "as": "PERMISSIVE",
-      "for": "INSERT",
-      "to": [
-        "authenticated"
-      ],
-      "withCheck": "public.is_organizer() AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
-      "on": "\"realtime\".\"messages\"",
-      "schema": "realtime"
-    },
     "organizers_receive_invite_realtime": {
       "name": "organizers_receive_invite_realtime",
       "as": "PERMISSIVE",
@@ -1248,6 +1225,17 @@
         "authenticated"
       ],
       "using": "public.is_organizer() AND realtime.topic() = 'user-invites:dashboard'",
+      "schema": "realtime",
+      "on": "\"realtime\".\"messages\""
+    },
+    "organizers_receive_review_realtime": {
+      "name": "organizers_receive_review_realtime",
+      "as": "PERMISSIVE",
+      "for": "SELECT",
+      "to": [
+        "authenticated"
+      ],
+      "using": "public.is_organizer() AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
       "schema": "realtime",
       "on": "\"realtime\".\"messages\""
     },
@@ -1261,8 +1249,20 @@
       "withCheck": "public.is_organizer() AND realtime.topic() = 'user-invites:dashboard'",
       "schema": "realtime",
       "on": "\"realtime\".\"messages\""
+    },
+    "organizers_send_review_realtime": {
+      "name": "organizers_send_review_realtime",
+      "as": "PERMISSIVE",
+      "for": "INSERT",
+      "to": [
+        "authenticated"
+      ],
+      "withCheck": "public.is_organizer() AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
+      "schema": "realtime",
+      "on": "\"realtime\".\"messages\""
     }
   },
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},
