@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { getDraftForUser } from "@/lib/actions/application-form.actions";
 import { completedStepCount, isDraftStarted } from "@/lib/application-steps";
@@ -30,15 +30,18 @@ export default async function DashboardPage() {
         firstName: hackerApplicants.firstName,
         decision: hackerApplicants.decision,
         createdAt: hackerApplicants.createdAt,
-        // Null when the hacker has no award row — the signal for "no
-        // reimbursement". The award's status is deliberately ignored; the
-        // row existing at all is what grants it.
+        // Null when there's no approved award — no row, or a denied one. Denied
+        // rows keep their region for audit/analytics but must not grant letter
+        // copy; only status = approved joins through below.
         reimbursementCents: reimbursementRegions.amountCents,
       })
       .from(hackerApplicants)
       .leftJoin(
         hackerReimbursements,
-        eq(hackerReimbursements.userId, hackerApplicants.userId),
+        and(
+          eq(hackerReimbursements.userId, hackerApplicants.userId),
+          eq(hackerReimbursements.status, "approved"),
+        ),
       )
       .leftJoin(
         reimbursementRegions,
