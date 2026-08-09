@@ -2,10 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* mhacks-results/ is a vendored design prototype, not part of this app. Without
-   this its class names leak into the generated stylesheet. */
-@source not "../mhacks-results";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -78,8 +74,7 @@
   --color-cream: #efe9d4;
   --color-ink: #1d2412;
 
-  /* Decision letters — confirmed-RSVP state, card/tile geometry, elevation.
-     Ported from the mhacks-results prototype. */
+  /* Decision letters — confirmed-RSVP state, card/tile geometry, elevation. */
   --color-confirmed: #ecfdf5;
   --color-confirmed-ink: #065f46;
   --radius-card: 22px;
