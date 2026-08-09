@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
-import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { broadcastLogs } from "@/lib/db/schema/broadcasts";
 import { users } from "@/lib/db/schema/users";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,14 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import styles from "../styles.module.css";
+import { AdminPageHeader } from "../../components/admin-page-header";
+import { AdminPageShell } from "../../components/admin-page-shell";
 
 export default async function BroadcastLogsPage() {
-  const user = await getSessionUser();
-  if (!user || user.role !== "organizer") {
-    redirect("/");
-  }
-
   const logs = await db
     .select({
       id: broadcastLogs.id,
@@ -27,7 +22,6 @@ export default async function BroadcastLogsPage() {
       body: broadcastLogs.body,
       sentAt: broadcastLogs.sentAt,
       broadcastedToEmail: broadcastLogs.broadcastedToEmail,
-      broadcastedToText: broadcastLogs.broadcastedToText,
       operatorEmail: users.email,
     })
     .from(broadcastLogs)
@@ -35,26 +29,31 @@ export default async function BroadcastLogsPage() {
     .orderBy(desc(broadcastLogs.sentAt));
 
   return (
-    <div className={styles.container} style={{ maxWidth: 900 }}>
-      <h1>Broadcast Logs</h1>
-      <a href="/broadcast_hackers" className={styles.button} style={{ marginBottom: 16, display: "inline-block" }}>
-        ← Back
-      </a>
+    <AdminPageShell>
+      <AdminPageHeader
+        title="Broadcast logs"
+        description="Every broadcast sent, with the operator and recipient list."
+      />
+
+      <div>
+        <Button asChild variant="outline">
+          <a href="/admin/broadcast">← Back</a>
+        </Button>
+      </div>
+
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Time</TableHead>
-            <TableHead>Title</TableHead>
+            <TableHead>Subject</TableHead>
             <TableHead>Body</TableHead>
-            <TableHead>Sent to Email</TableHead>
-            <TableHead>Sent to Text</TableHead>
+            <TableHead>Sent to email</TableHead>
             <TableHead>Operator</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {logs.map((log) => {
-            const emailCount = (log.broadcastedToEmail as string[])?.length ?? 0;
-            const textCount = (log.broadcastedToText as string[])?.length ?? 0;
+            const emailCount = log.broadcastedToEmail?.length ?? 0;
             return (
               <TableRow key={log.id}>
                 <TableCell className="whitespace-nowrap">
@@ -64,18 +63,10 @@ export default async function BroadcastLogsPage() {
                 <TableCell className="max-w-xs truncate">{log.body}</TableCell>
                 <TableCell>
                   <a
-                    href={`/broadcast_hackers/logs/${log.id}/recipients?type=email`}
+                    href={`/admin/broadcast/logs/${log.id}/recipients`}
                     className="underline"
                   >
                     {emailCount} addresses
-                  </a>
-                </TableCell>
-                <TableCell>
-                  <a
-                    href={`/broadcast_hackers/logs/${log.id}/recipients?type=text`}
-                    className="underline"
-                  >
-                    {textCount} numbers
                   </a>
                 </TableCell>
                 <TableCell>{log.operatorEmail ?? "—"}</TableCell>
@@ -84,13 +75,16 @@ export default async function BroadcastLogsPage() {
           })}
           {logs.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
+              <TableCell
+                colSpan={5}
+                className="text-center text-muted-foreground"
+              >
                 No broadcasts yet.
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
-    </div>
+    </AdminPageShell>
   );
 }

@@ -11,9 +11,6 @@ importers:
 
   .:
     dependencies:
-      '@aws-sdk/client-pinpoint-sms-voice-v2':
-        specifier: ^3.1092.0
-        version: 3.1106.0
       '@aws-sdk/client-s3':
         specifier: ^3.1092.0
         version: 3.1106.0
@@ -204,10 +201,6 @@ packages:
 
   '@aws-sdk/checksums@3.1000.26':
     resolution: {integrity: sha512-CGznePoL+1oWCSzqmkvlYMpWQEZohPR3LntjKXXfVH+oh6Kd8d+yHLkjpiAGwPIHAxFe4OAq3aKfRnv/wqWIyA==}
-    engines: {node: '>=20.0.0'}
-
-  '@aws-sdk/client-pinpoint-sms-voice-v2@3.1106.0':
-    resolution: {integrity: sha512-tCOy0LTJnJFHUqiFLPEfMuGt/qBwAZ/linYYOYe9jL33GMZdbbjyyvebK7te2PkelakYSJRp+TMflis0KtLCNw==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-s3@3.1106.0':
@@ -5459,17 +5452,6 @@ snapshots:
       '@aws-sdk/core': 3.977.6
       '@aws-sdk/types': 3.974.2
       '@smithy/core': 3.31.1
-      '@smithy/types': 4.16.1
-      tslib: 2.8.1
-
-  '@aws-sdk/client-pinpoint-sms-voice-v2@3.1106.0':
-    dependencies:
-      '@aws-sdk/core': 3.977.6
-      '@aws-sdk/credential-provider-node': 3.972.78
-      '@aws-sdk/types': 3.974.2
-      '@smithy/core': 3.31.1
-      '@smithy/fetch-http-handler': 5.6.13
-      '@smithy/node-http-handler': 4.9.13
       '@smithy/types': 4.16.1
       tslib: 2.8.1
 
