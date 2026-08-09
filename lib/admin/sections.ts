@@ -1,6 +1,7 @@
 import {
   BarChart3Icon,
   ClipboardCheckIcon,
+  MegaphoneIcon,
   TrophyIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -42,6 +43,19 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Analytics",
         description: "Demographics, locations, and score trends.",
         icon: BarChart3Icon,
+      },
+    ],
+  },
+  {
+    title: "Communications",
+    description: "Reach hackers directly.",
+    icon: MegaphoneIcon,
+    links: [
+      {
+        href: "/admin/broadcast",
+        title: "Broadcast",
+        description: "Email every hacker at once.",
+        icon: MegaphoneIcon,
       },
     ],
   },
