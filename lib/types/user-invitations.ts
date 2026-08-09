@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { type UserRole } from "@/lib/db/schema/users";
 
-export const INVITABLE_USER_ROLES = ["organizer", "hacker"] as const;
+export const INVITABLE_USER_ROLES = [
+  "organizer",
+  "volunteer",
+  "judge",
+  "hacker",
+] as const satisfies readonly UserRole[];
 export type InvitableUserRole = (typeof INVITABLE_USER_ROLES)[number];
 
 export const userInviteEmailSchema = z.email();

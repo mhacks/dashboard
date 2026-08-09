@@ -54,8 +54,7 @@ export const ADMIN_AREAS: AdminArea[] = [
       {
         href: "/admin/team",
         title: "User invites",
-        description:
-          "Send email invitations and assign organizer or hacker roles.",
+        description: "Send email invitations and assign portal roles.",
         icon: UsersRoundIcon,
       },
     ],
