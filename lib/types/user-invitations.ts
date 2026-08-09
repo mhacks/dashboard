@@ -1,8 +1,11 @@
 import { z } from "zod";
-import { userRole, type UserRole } from "@/lib/db/schema/users";
+import { type UserRole } from "@/lib/db/schema/users";
+
+export const INVITABLE_USER_ROLES = ["organizer", "hacker"] as const;
+export type InvitableUserRole = (typeof INVITABLE_USER_ROLES)[number];
 
 export const userInviteEmailSchema = z.email();
-export const userInviteRoleSchema = z.enum(userRole.enumValues);
+export const userInviteRoleSchema = z.enum(INVITABLE_USER_ROLES);
 
 export const INVITE_PAGE_SIZE = 10;
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;

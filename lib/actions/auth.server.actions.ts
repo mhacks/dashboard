@@ -58,7 +58,8 @@ export async function verifyOtp(
   if (error) return { error: error.message };
 
   if (data.user) {
-    await acceptPendingUserInvite(data.user.id, email);
+    const verifiedEmail = data.user.email ?? email;
+    await acceptPendingUserInvite(data.user.id, verifiedEmail);
 
     const posthog = getPostHogClient();
     posthog.capture({

@@ -1,4 +1,4 @@
-import { desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
@@ -65,7 +65,8 @@ export async function listUserInvites(
   };
 }
 
-export async function getPendingUserInvite(
+export async function acceptPendingUserInvite(
+  userId: string,
   email: string,
 ): Promise<UserRole | null> {
   const normalizedEmail = normalizeInviteEmail(email);
@@ -73,21 +74,18 @@ export async function getPendingUserInvite(
     return null;
   }
 
-  const [invite] = await db
-    .select({ role: userInvitations.role })
-    .from(userInvitations)
-    .where(pendingInviteForEmail(normalizedEmail))
+  const [user] = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(
+      and(
+        eq(users.id, userId),
+        sql`lower(${users.email}) = ${normalizedEmail}`,
+      ),
+    )
     .limit(1);
 
-  return invite?.role ?? null;
-}
-
-export async function acceptPendingUserInvite(
-  userId: string,
-  email: string,
-): Promise<UserRole | null> {
-  const normalizedEmail = normalizeInviteEmail(email);
-  if (!userInviteEmailSchema.safeParse(normalizedEmail).success) {
+  if (!user) {
     return null;
   }
 
@@ -98,6 +96,7 @@ export async function acceptPendingUserInvite(
     })
     .from(userInvitations)
     .where(pendingInviteForEmail(normalizedEmail))
+    .orderBy(desc(userInvitations.createdAt))
     .limit(1);
 
   if (!invite) {
@@ -105,18 +104,36 @@ export async function acceptPendingUserInvite(
   }
 
   const acceptedAt = new Date();
+  const shouldApplyRole = user.role === "hacker" && user.role !== invite.role;
 
   await db.transaction(async (tx) => {
-    await tx
-      .update(users)
-      .set({ role: invite.role })
-      .where(eq(users.id, userId));
+    if (shouldApplyRole) {
+      const [updatedUser] = await tx
+        .update(users)
+        .set({ role: invite.role })
+        .where(
+          and(
+            eq(users.id, userId),
+            sql`lower(${users.email}) = ${normalizedEmail}`,
+          ),
+        )
+        .returning({ id: users.id });
 
-    await tx
+      if (!updatedUser) {
+        throw new Error("Unable to apply invite role for user.");
+      }
+    }
+
+    const [acceptedInvite] = await tx
       .update(userInvitations)
       .set({ acceptedAt })
-      .where(eq(userInvitations.id, invite.id));
+      .where(eq(userInvitations.id, invite.id))
+      .returning({ id: userInvitations.id });
+
+    if (!acceptedInvite) {
+      throw new Error("Unable to accept invite.");
+    }
   });
 
-  return invite.role;
+  return shouldApplyRole ? invite.role : user.role;
 }

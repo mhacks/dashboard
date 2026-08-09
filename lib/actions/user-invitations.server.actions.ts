@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
@@ -13,10 +13,7 @@ import {
   sendInviteEmail,
   sendRoleChangeEmail,
 } from "@/lib/email/send-invite-email";
-import {
-  getPendingUserInvite as getPendingUserInviteQuery,
-  listUserInvites as listUserInvitesQuery,
-} from "@/lib/queries/user-invitations";
+import { listUserInvites as listUserInvitesQuery } from "@/lib/queries/user-invitations";
 import {
   type CreateUserInviteResult,
   inviteExpiresAt,
@@ -31,10 +28,6 @@ export async function listUserInvites(
   search?: string,
 ) {
   return listUserInvitesQuery(pageIndex, pageSize, search);
-}
-
-export async function getPendingUserInvite(email: string) {
-  return getPendingUserInviteQuery(email);
 }
 
 export async function createUserInvite(
@@ -78,6 +71,7 @@ export async function createUserInvite(
       })
       .from(userInvitations)
       .where(pendingInviteForEmail(normalizedEmail))
+      .orderBy(desc(userInvitations.createdAt))
       .limit(1),
   ]);
 
