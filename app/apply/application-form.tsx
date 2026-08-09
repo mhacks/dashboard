@@ -243,6 +243,7 @@ export default function ApplyPage({
   const [showIncompleteMsg, setShowIncompleteMsg] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -391,8 +392,10 @@ export default function ApplyPage({
     if (savedTimer.current) clearTimeout(savedTimer.current);
     setIsSubmitting(true);
     try {
-      const { duplicate } = await submitHackerApplication(data);
-      if (duplicate) {
+      const { duplicate, blocked } = await submitHackerApplication(data);
+      if (blocked) {
+        setIsBlocked(true);
+      } else if (duplicate) {
         setIsDuplicate(true);
       } else {
         setSubmitSuccess(true);
@@ -405,7 +408,7 @@ export default function ApplyPage({
     }
   };
 
-  if (isDuplicate || submitSuccess) {
+  if (isBlocked || isDuplicate || submitSuccess) {
     return (
       <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
         <Image
@@ -447,21 +450,42 @@ export default function ApplyPage({
             <MHacksLogo size={48} variant="green" />
           </div>
           <h2 className="mt-6 font-heading italic text-4xl leading-tight tracking-tight text-moss">
-            {isDuplicate ? "Already Applied!" : "Application Submitted!"}
+            {isBlocked
+              ? "Application Not Accepted"
+              : isDuplicate
+                ? "Already Applied!"
+                : "Application Submitted!"}
           </h2>
           <p className="mt-4 font-red-hat text-[14px] leading-7 text-moss/65">
-            {isDuplicate
-              ? "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
-              : "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."}
+            {isBlocked ? (
+              <>
+                We&apos;re unable to accept an application from you for MHacks
+                2026. If you believe this is a mistake, reach out to{" "}
+                <a
+                  href="mailto:hackathon@mhacks.org"
+                  className="underline underline-offset-2 hover:opacity-80"
+                >
+                  hackathon@mhacks.org
+                </a>
+                .
+              </>
+            ) : isDuplicate ? (
+              "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
+            ) : (
+              "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."
+            )}
           </p>
-          <button
-            onClick={() => {
-              window.location.href = "/apply";
-            }}
-            className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
-          >
-            View Application
-          </button>
+          {/* A blocked applicant has no application to return to. */}
+          {!isBlocked && (
+            <button
+              onClick={() => {
+                window.location.href = "/apply";
+              }}
+              className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
+            >
+              View Application
+            </button>
+          )}
         </motion.div>
       </div>
     );
@@ -535,7 +559,7 @@ export default function ApplyPage({
           transition={{ duration: 0.5, ease: EASE }}
           className="flex items-center justify-between w-full max-w-2xl mb-8"
         >
-          <div className="glass-pill flex items-center gap-3 rounded-full px-5 py-2.5">
+          <div className="glass-pill flex items-center gap-3 rounded-full px-3 py-2.5 sm:px-5">
             <Link
               href="/"
               aria-label="Back to home"
@@ -545,10 +569,6 @@ export default function ApplyPage({
             </Link>
             <span className="font-heading italic text-[17px] text-white leading-none">
               MHacks 2026
-            </span>
-            <span className="text-white/25 mx-0.5">|</span>
-            <span className="font-red-hat text-[12px] text-white/55">
-              Hacker Application
             </span>
           </div>
           <div className="flex items-center gap-2">

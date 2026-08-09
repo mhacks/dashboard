@@ -6,8 +6,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 
-import NavBar from "@/components/navbar";
-import SiteFooter from "@/components/site-footer";
+import { SiteHeader } from "@/components/landing/SiteHeader";
+import { Footer } from "@/components/landing/sections/Footer";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { DecisionLetterModal } from "@/components/decision/decision-letter-modal";
 import {
@@ -32,13 +32,16 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="absolute inset-0 bg-black/55" />
       </div>
 
-      <NavBar forceShowLogo />
+      {/* No hero on this page, so useNavTheme resolves to "page" and the
+          header renders frosted with the logo already visible — the same
+          effect the old NavBar needed `forceShowLogo` for. */}
+      <SiteHeader />
 
       <main className="relative z-10 mx-auto flex w-full max-w-2xl flex-col px-4 pt-32 pb-24 sm:pt-40">
         {children}
       </main>
 
-      <SiteFooter />
+      <Footer />
     </div>
   );
 }

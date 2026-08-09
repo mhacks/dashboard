@@ -19,6 +19,19 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        cta: "rounded-pill bg-moss-700 text-cream hover:bg-moss-800 focus-visible:ring-moss-700/30",
+        glass:
+          "liquid-glass rounded-pill font-semibold text-cream [text-shadow:0_1px_8px_rgba(20,30,10,0.45)] hover:opacity-95",
+        parchment:
+          "rounded-pill bg-parchment text-ink hover:bg-cream focus-visible:ring-moss-700/30",
+        cream:
+          "rounded-pill bg-cream text-moss-700 hover:bg-white focus-visible:ring-moss-700/30",
+        accent:
+          "rounded-pill bg-sun text-moss-900 hover:brightness-95 focus-visible:ring-sun/40",
+        "landing-outline":
+          "rounded-pill border border-border-strong text-moss-700 hover:bg-moss-700/10 bg-transparent",
+        "landing-ghost":
+          "rounded-pill text-moss-700 hover:bg-moss-700/10 bg-transparent",
       },
       size: {
         default:
@@ -32,6 +45,9 @@ const buttonVariants = cva(
         "icon-sm":
           "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
         "icon-lg": "size-9",
+        md: "h-auto gap-2 rounded-pill px-6 py-3 text-[15px]",
+        "landing-sm": "h-auto gap-2 rounded-pill px-3.5 py-2 text-[13px]",
+        "landing-lg": "h-auto gap-2 rounded-pill px-7 py-4 text-[16px]",
       },
     },
     defaultVariants: {

@@ -8,7 +8,7 @@ import {
 
 export const submitHackerApplication = async (
   data: HackerApplicationFormData,
-): Promise<{ duplicate: boolean }> => {
+): Promise<{ duplicate: boolean; blocked: boolean }> => {
   const { id: userId } = await requireSessionUser();
 
   try {

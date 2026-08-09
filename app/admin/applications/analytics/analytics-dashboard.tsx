@@ -18,6 +18,8 @@ import {
 import {
   BarChart3Icon,
   MapPinnedIcon,
+  PlaneIcon,
+  ShieldBanIcon,
   TrophyIcon,
   UsersRoundIcon,
 } from "lucide-react";
@@ -25,6 +27,7 @@ import type {
   AnalyticsBucket,
   ApplicationAnalyticsData,
 } from "@/lib/types/application-reviews";
+import { formatCents } from "@/lib/currency";
 import {
   Card,
   CardContent,
@@ -182,10 +185,15 @@ function PiePanel({
   title,
   description,
   data,
+  // Names what the centre total counts. Defaulted so the applicant-facing
+  // panels read as before, but overridable — a reimbursement status split is
+  // counting requests, not applicants.
+  unit = "Applicants",
 }: {
   title: string;
   description: string;
   data: AnalyticsBucket[];
+  unit?: string;
 }) {
   const chartData = withFills(data);
   const pieSlices = chartData.filter((item) => item.count > 0);
@@ -250,7 +258,7 @@ function PiePanel({
                   dominantBaseline="middle"
                   className="fill-muted-foreground text-xs"
                 >
-                  Applicants
+                  {unit}
                 </text>
               </PieChart>
             </ChartContainer>
@@ -477,6 +485,182 @@ function ReviewProgressCard({ data }: { data: ApplicationAnalyticsData }) {
   );
 }
 
+function ReimbursementSpendCard({ data }: { data: ApplicationAnalyticsData }) {
+  const { reimbursements } = data;
+  const approvalRate =
+    reimbursements.totalRequests === 0
+      ? 0
+      : Math.round(
+          (reimbursements.reimbursedUsers / reimbursements.totalRequests) *
+            1000,
+        ) / 10;
+
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>Travel Reimbursement Spend</CardTitle>
+        <CardDescription>
+          Committed across approved travel awards. One award per hacker, so an
+          approved award is a reimbursed hacker.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-end justify-between gap-3">
+          <p className="font-heading text-4xl italic text-moss dark:text-sage">
+            {formatCents(reimbursements.spentCents)}
+          </p>
+          <p className="pb-1 text-sm text-muted-foreground">
+            to {reimbursements.reimbursedUsers}{" "}
+            {reimbursements.reimbursedUsers === 1 ? "hacker" : "hackers"}
+          </p>
+        </div>
+        <Meter value={approvalRate} className="mt-4 h-2" />
+        <p className="mt-2 text-xs text-muted-foreground">
+          {reimbursements.totalRequests === 0
+            ? "No reimbursement requests yet."
+            : `${approvalRate}% of ${reimbursements.totalRequests} requests approved.`}
+        </p>
+        <dl className="mt-4 grid grid-cols-2 gap-4 border-t pt-4 text-sm">
+          <div>
+            <dt className="text-xs text-muted-foreground">Average award</dt>
+            <dd className="mt-0.5 font-medium">
+              {reimbursements.averageAwardCents === null
+                ? "N/A"
+                : formatCents(reimbursements.averageAwardCents)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Pending exposure</dt>
+            <dd className="mt-0.5 font-medium">
+              {formatCents(reimbursements.pendingCents)}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          {reimbursements.pendingRequests === 0
+            ? "No requests are awaiting a decision."
+            : `${reimbursements.pendingRequests} pending ${
+                reimbursements.pendingRequests === 1 ? "request" : "requests"
+              } would take the total to ${formatCents(
+                reimbursements.spentCents + reimbursements.pendingCents,
+              )} if all were approved.`}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BlacklistCard({ data }: { data: ApplicationAnalyticsData }) {
+  const { blacklist } = data;
+
+  // withName / withPhone overlap, so they are folded into a partition before
+  // display — an "identified by" list that double-counts entries carrying both
+  // would read as more blocked people than there are.
+  const nameOnly = blacklist.withName - blacklist.withBoth;
+  const phoneOnly = blacklist.withPhone - blacklist.withBoth;
+  // A row whose identifiers are all whitespace satisfies the table's NOT NULL
+  // check but normalizes to NULL, so it can never match an applicant. Surfaced
+  // rather than dropped: it is a dead entry someone should fix.
+  const unusable = blacklist.total - nameOnly - phoneOnly - blacklist.withBoth;
+
+  const breakdown = [
+    { label: "Name and phone", count: blacklist.withBoth },
+    { label: "Name only", count: nameOnly },
+    { label: "Phone only", count: phoneOnly },
+    { label: "No usable identifier", count: unusable },
+  ].filter((item) => item.count > 0);
+
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>Blacklisted Applicants</CardTitle>
+        <CardDescription>
+          People blocked from applying. An application is rejected when its name
+          or its phone number matches an entry.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-end justify-between gap-3">
+          <p className="font-heading text-4xl italic text-moss dark:text-sage">
+            {blacklist.total}
+          </p>
+          <p className="pb-1 text-sm text-muted-foreground">
+            {blacklist.total === 1 ? "entry" : "entries"} on the deny list
+          </p>
+        </div>
+
+        {breakdown.length === 0 ? (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Nobody has been blacklisted yet.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-4 border-t pt-4">
+            {breakdown.map((item) => {
+              const share =
+                blacklist.total === 0
+                  ? 0
+                  : Math.round((item.count / blacklist.total) * 1000) / 10;
+
+              return (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">{item.label}</span>
+                    <span className="text-muted-foreground">
+                      {item.count} · {share}%
+                    </span>
+                  </div>
+                  <Meter value={share} className="mt-2 h-1" />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReimbursementRegionCard({ data }: { data: ApplicationAnalyticsData }) {
+  const regions = data.reimbursements.regionBreakdown;
+
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>Spend by Region</CardTitle>
+        <CardDescription>
+          Approved awards grouped by travel tier, with the committed total for
+          each.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-0 pb-0">
+        {regions.length === 0 ? (
+          <div className="px-4 pb-4">
+            <EmptyState />
+          </div>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {regions.map((region) => (
+              <div key={region.region} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate font-medium">{region.label}</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {formatCents(region.amountCents)}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {region.count} {region.count === 1 ? "hacker" : "hackers"} ·{" "}
+                  {region.percentage}%
+                </div>
+                <Meter value={region.percentage} className="mt-2 h-1" />
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function OverviewTab({ data }: { data: ApplicationAnalyticsData }) {
   return (
     <div className="flex flex-col gap-5">
@@ -516,6 +700,36 @@ function OverviewTab({ data }: { data: ApplicationAnalyticsData }) {
           title="Hackathon Experience"
           description="Prior hackathon participation across applicants."
           data={data.academics.previousHackathonBuckets}
+        />
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-2">
+        <ReimbursementSpendCard data={data} />
+        <BlacklistCard data={data} />
+      </section>
+    </div>
+  );
+}
+
+function ReimbursementsTab({ data }: { data: ApplicationAnalyticsData }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="grid gap-5 xl:grid-cols-2">
+        <ReimbursementSpendCard data={data} />
+        <ReimbursementRegionCard data={data} />
+      </section>
+      <section className="grid gap-5 xl:grid-cols-2">
+        <PiePanel
+          title="Request Status"
+          description="How travel reimbursement requests are split across decisions."
+          data={data.reimbursements.statusBreakdown}
+          unit="Requests"
+        />
+        <BarPanel
+          title="Reimbursed Hackers by Region"
+          description="Approved awards per travel tier."
+          data={data.reimbursements.regionBreakdown}
+          horizontal
         />
       </section>
     </div>
@@ -665,6 +879,18 @@ export default function ApplicationAnalyticsDashboard({
             hint: "Distinct countries represented in applications.",
             icon: <MapPinnedIcon className="size-5" />,
           },
+          {
+            label: "Reimbursed",
+            value: data.reimbursements.reimbursedUsers,
+            hint: `${formatCents(data.reimbursements.spentCents)} committed across approved travel awards.`,
+            icon: <PlaneIcon className="size-5" />,
+          },
+          {
+            label: "Blacklisted",
+            value: data.blacklist.total,
+            hint: "People blocked from submitting an application.",
+            icon: <ShieldBanIcon className="size-5" />,
+          },
         ]}
       />
 
@@ -675,6 +901,7 @@ export default function ApplicationAnalyticsDashboard({
           <TabsTrigger value="demographics">Demographics</TabsTrigger>
           <TabsTrigger value="academics">Academics</TabsTrigger>
           <TabsTrigger value="locations">Locations</TabsTrigger>
+          <TabsTrigger value="reimbursements">Reimbursements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-5">
@@ -691,6 +918,9 @@ export default function ApplicationAnalyticsDashboard({
         </TabsContent>
         <TabsContent value="locations" className="mt-5">
           <LocationsTab data={data} />
+        </TabsContent>
+        <TabsContent value="reimbursements" className="mt-5">
+          <ReimbursementsTab data={data} />
         </TabsContent>
       </Tabs>
     </AdminPageShell>

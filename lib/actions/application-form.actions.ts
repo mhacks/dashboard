@@ -9,6 +9,10 @@ import {
   hackerApplicationDrafts,
   type HackerApplicantRow,
 } from "@/lib/db/schema/applications";
+import {
+  applicantFullName,
+  findBlacklistMatch,
+} from "@/lib/actions/blacklist.actions";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
 import { validateResumeInS3 } from "@/lib/resume";
@@ -41,8 +45,19 @@ export async function submitHackerApplicationForUser(
   userId: string,
   data: HackerApplicationFormData,
   source: "web" | "mcp",
-): Promise<{ duplicate: boolean }> {
+): Promise<{ duplicate: boolean; blocked: boolean }> {
   const parsed = hackerApplicationSchema.parse(data);
+
+  // Deny-list check first: it is the cheapest gate and runs before any S3 read
+  // or write, so a blocked submission leaves nothing behind. Both entry points
+  // reach this function, so neither can bypass it.
+  const blocked = await findBlacklistMatch(
+    applicantFullName(parsed.firstName, parsed.lastName),
+    parsed.phoneNumber,
+  );
+  if (blocked) {
+    return { duplicate: false, blocked: true };
+  }
 
   const resumeSizeBytes = await validateResumeInS3(parsed.resume, userId);
 
@@ -80,7 +95,7 @@ export async function submitHackerApplicationForUser(
     await posthog.flush();
   }
 
-  return { duplicate: result.length === 0 };
+  return { duplicate: result.length === 0, blocked: false };
 }
 
 export async function saveDraftForUser(
