@@ -1,18 +1,10 @@
 import { sendEmail } from "@/lib/aws/ses";
-import type { UserRole } from "@/lib/db/schema/users";
 import {
   buildInviteEmail,
   buildRoleChangeEmail,
 } from "@/lib/email/invite-template";
-
-function getAppUrl() {
-  return (
-    process.env.APP_URL ??
-    (process.env.NODE_ENV === "production"
-      ? "https://mhacks.org"
-      : "http://127.0.0.1:3000")
-  );
-}
+import type { InvitableUserRole } from "@/lib/types/user-invitations";
+import { getRequestOrigin } from "@/lib/url/request-origin";
 
 async function sendOrThrow({
   to,
@@ -33,10 +25,11 @@ async function sendOrThrow({
 
 export async function sendInviteEmail(
   email: string,
-  role: UserRole,
+  role: InvitableUserRole,
   expiresAt: Date,
 ) {
-  const loginUrl = `${getAppUrl()}/login?email=${encodeURIComponent(email)}`;
+  const origin = await getRequestOrigin();
+  const loginUrl = `${origin}/login?email=${encodeURIComponent(email)}`;
   const { subject, text, html } = buildInviteEmail({
     role,
     loginUrl,
@@ -46,8 +39,12 @@ export async function sendInviteEmail(
   await sendOrThrow({ to: email, subject, text, html });
 }
 
-export async function sendRoleChangeEmail(email: string, role: UserRole) {
-  const loginUrl = `${getAppUrl()}/login?email=${encodeURIComponent(email)}`;
+export async function sendRoleChangeEmail(
+  email: string,
+  role: InvitableUserRole,
+) {
+  const origin = await getRequestOrigin();
+  const loginUrl = `${origin}/login?email=${encodeURIComponent(email)}`;
   const { subject, text, html } = buildRoleChangeEmail({ role, loginUrl });
 
   await sendOrThrow({ to: email, subject, text, html });
