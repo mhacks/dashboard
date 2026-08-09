@@ -52,6 +52,23 @@ async function celebrate() {
   }, 180);
 }
 
+/**
+ * Letter copy marks emphasis with **double asterisks** — currently just the
+ * travel reimbursement amount. Splitting on a capturing group puts the marked
+ * spans at the odd indices, which are the ones that get bolded.
+ */
+function renderParagraph(paragraph: string) {
+  return paragraph.split(/\*\*(.+?)\*\*/g).map((segment, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} className="font-semibold">
+        {segment}
+      </strong>
+    ) : (
+      segment
+    ),
+  );
+}
+
 export function DecisionLetterModal({
   decision,
   applicantName,
@@ -110,7 +127,7 @@ export function DecisionLetterModal({
                   </DialogTitle>
 
                   <DialogDescription className="text-base leading-[1.65] text-ink">
-                    {letter.body[0]}
+                    {renderParagraph(letter.body[0])}
                   </DialogDescription>
 
                   {letter.body.slice(1).map((paragraph) => (
@@ -118,7 +135,7 @@ export function DecisionLetterModal({
                       key={paragraph}
                       className="mt-4 text-base leading-[1.65] text-ink"
                     >
-                      {paragraph}
+                      {renderParagraph(paragraph)}
                     </p>
                   ))}
                 </div>
@@ -171,7 +188,7 @@ export function DecisionLetterModal({
             </DialogTitle>
 
             <DialogDescription className="mb-4 text-base leading-[1.65] text-ink">
-              Hi {applicantName}, {letter.body[0]}
+              Hi {applicantName}, {renderParagraph(letter.body[0])}
             </DialogDescription>
 
             {letter.body.slice(1).map((paragraph) => (
@@ -179,7 +196,7 @@ export function DecisionLetterModal({
                 key={paragraph}
                 className="text-base leading-[1.65] text-ink not-first:mt-4"
               >
-                {paragraph}
+                {renderParagraph(paragraph)}
               </p>
             ))}
 

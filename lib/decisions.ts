@@ -65,6 +65,10 @@ export type DecisionLetter = {
   /**
    * Rendered as separate paragraphs, in order. Rejected letters fold the
    * greeting into the first paragraph, so body[0] starts lowercase there.
+   *
+   * A span wrapped in **double asterisks** is emphasised by the letter
+   * component. Kept as a marker rather than markup so this module stays plain
+   * data and can be read by anything, not just React.
    */
   body: string[];
   /** Accepted letters only — the quiet note above the sign-off. */
@@ -93,37 +97,43 @@ const ACCEPTED_INTRO =
 // of an accepted letter depends on the round and — for early — on whether the
 // applicant actually has an award.
 const REIMBURSEMENT_AWARDED = (amount: string) =>
-  `Because you applied before the early deadline on August 7, we're also able to offer you ${amount} in travel reimbursement toward your trip to Ann Arbor. We'll send instructions for claiming it closer to the event.`;
+  `Because you applied before the early deadline on August 7, we're also able to offer you **${amount}** in travel reimbursement toward your trip to Ann Arbor. We'll send instructions for claiming it closer to the event.`;
 
 const REIMBURSEMENT_NONE =
   "Because you applied before the early deadline on August 7, you were also considered for travel reimbursement. It's limited and decided separately from admission — we would love to have you attend, but we're unable to provide reimbursement at this time. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.";
 
-const REIMBURSEMENT_REGULAR =
-  "One note on logistics: travel reimbursement is only available to applicants who applied before the early deadline on August 7, so it isn't part of this offer. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.";
-
 /**
  * `reimbursementCents` is the applicant's awarded tier in cents, or null when
- * they have no award. A zero-dollar tier is a real, grantable row, but it buys
- * nothing — so it reads the same as having no award at all.
+ * they have no award at all. Returns null when the letter should stay silent on
+ * reimbursement rather than address it.
+ *
+ * Regular-round letters never raise the subject: reimbursement is an early-round
+ * benefit, so for them there is nothing to offer and nothing to decline.
+ *
+ * Within the early round the cases are distinct:
+ *   > 0   — the award is real money, so name the amount.
+ *   0     — the region-0 tier. The letter says nothing about reimbursement.
+ *   null  — no award row, so the offer is addressed and declined.
  */
 function reimbursementParagraph(
   round: DecisionRound,
   reimbursementCents: number | null,
-): string {
-  if (round === "regular") return REIMBURSEMENT_REGULAR;
-  if (reimbursementCents !== null && reimbursementCents > 0) {
-    return REIMBURSEMENT_AWARDED(formatCents(reimbursementCents));
-  }
-  return REIMBURSEMENT_NONE;
+): string | null {
+  if (round === "regular") return null;
+  if (reimbursementCents === null) return REIMBURSEMENT_NONE;
+  if (reimbursementCents <= 0) return null;
+  return REIMBURSEMENT_AWARDED(formatCents(reimbursementCents));
 }
 
 function acceptedLetter(
   round: DecisionRound,
   reimbursementCents: number | null,
 ): LetterBody {
+  const reimbursement = reimbursementParagraph(round, reimbursementCents);
+
   return {
     heading: ACCEPTED_HEADING,
-    body: [ACCEPTED_INTRO, reimbursementParagraph(round, reimbursementCents)],
+    body: reimbursement ? [ACCEPTED_INTRO, reimbursement] : [ACCEPTED_INTRO],
     footnote: FOOTNOTE,
     signOff: SIGN_OFF,
   };
