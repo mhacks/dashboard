@@ -1,6 +1,6 @@
 {
-  "id": "76fba7a2-acc5-42ae-ace6-000d2cd1b7f5",
-  "prevId": "fd261732-a141-4697-baff-eea60eed1b97",
+  "id": "5a38aba3-1b91-40cd-a55c-1e7ace6863bf",
+  "prevId": "09bde6dc-a45e-4ebd-97eb-688862a324db",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -28,6 +28,14 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
+        },
+        "decision": {
+          "name": "decision",
+          "type": "application_decision",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'applied'"
         },
         "first_name": {
           "name": "first_name",
@@ -840,7 +848,7 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'pending'"
+          "default": "'approved'"
         },
         "decided_by_user_id": {
           "name": "decided_by_user_id",
@@ -1175,6 +1183,19 @@
     }
   },
   "enums": {
+    "public.application_decision": {
+      "name": "application_decision",
+      "schema": "public",
+      "values": [
+        "applied",
+        "early_accepted",
+        "early_rsvped",
+        "early_rejected",
+        "regular_accepted",
+        "regular_rsvped",
+        "regular_rejected"
+      ]
+    },
     "public.application_status": {
       "name": "application_status",
       "schema": "public",
@@ -1196,7 +1217,6 @@
       "name": "reimbursement_status",
       "schema": "public",
       "values": [
-        "pending",
         "approved",
         "denied"
       ]
