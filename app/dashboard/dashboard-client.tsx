@@ -107,8 +107,7 @@ function useDecisionSeen(decision: ApplicationDecision | null) {
  * dashboard itself occupies a full viewport and the footer begins below the
  * fold — the page scrolls to reach it. Being a *minimum*, a tall grid (an
  * organizer's extra tiles on a narrow screen) grows and scrolls rather than
- * being clipped. The bottom padding absorbs the footer's negative top margin,
- * which exists to overlap the preceding section on the landing page.
+ * being clipped.
  */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -124,11 +123,11 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="absolute inset-0 bg-black/55" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 pt-8 pb-28 sm:px-6 sm:pt-10 sm:pb-36">
+      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 pt-8 pb-16 sm:px-6 sm:pt-10 sm:pb-20">
         {children}
       </div>
 
-      <Footer />
+      <Footer variant="compact" />
     </div>
   );
 }
