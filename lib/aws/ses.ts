@@ -3,11 +3,26 @@ import nodemailer, { type Transporter } from "nodemailer";
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "hackathon@mhacks.org";
 const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MHacks Team";
+const SES_REGION = process.env.SES_REGION ?? "us-east-2";
 
 let transporter: Transporter | null | undefined;
 
 function getTransporter(): Transporter | null {
   if (transporter !== undefined) return transporter;
+
+  const accessKeyId = process.env.AWS_SES_SMTP_USER!;
+  const secretAccessKey = process.env.AWS_SES_SECRET_ACCESS_KEY!;
+  if (process.env.NODE_ENV !== "development") {
+    const sesClient = new SESv2Client({
+      region: SES_REGION,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+
+    transporter = nodemailer.createTransport({
+      SES: { sesClient, SendEmailCommand },
+    });
+    return transporter;
+  }
 
   const smtpHost = process.env.SMTP_HOST;
   if (smtpHost) {
@@ -20,21 +35,7 @@ function getTransporter(): Transporter | null {
     return transporter;
   }
 
-  const accessKeyId = process.env.SES_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.SES_SECRET_ACCESS_KEY;
-  if (!accessKeyId || !secretAccessKey) {
-    transporter = null;
-    return transporter;
-  }
-
-  const sesClient = new SESv2Client({
-    region: process.env.SES_REGION ?? "us-east-2",
-    credentials: { accessKeyId, secretAccessKey },
-  });
-
-  transporter = nodemailer.createTransport({
-    SES: { sesClient, SendEmailCommand },
-  });
+  transporter = null;
   return transporter;
 }
 

@@ -119,7 +119,7 @@ export async function createUserInvite(
       await sendRoleChangeEmail(normalizedEmail, inviteRole);
     } catch {
       return {
-        error: "Role updated, but the notification email could not be sent.",
+        warning: "Role updated, but the notification email could not be sent.",
       };
     }
 
@@ -149,7 +149,7 @@ export async function createUserInvite(
   try {
     await sendInviteEmail(normalizedEmail, inviteRole, expiresAt);
   } catch {
-    return { error: "Invite created, but the email could not be sent." };
+    return { warning: "Invite created, but the email could not be sent." };
   }
 }
 
