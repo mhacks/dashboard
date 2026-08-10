@@ -40,7 +40,9 @@ export function Footer({ variant = "default" }: { variant?: "default" | "compact
       id="footer"
       className={cn(
         compact ? compactFooterClassName : stackedSheetClassName,
-        "z-[10] bg-moss-900 text-cream",
+        // Self-contained marketing fonts — dashboard/how-to-mcp render outside
+        // .marketing-site where those families are normally scoped.
+        "z-[10] bg-moss-900 font-display text-cream",
       )}
     >
       {/* Sandy-pastel backdrop: pre-blurred pastel photo, a soft tint for
@@ -190,7 +192,7 @@ export function Footer({ variant = "default" }: { variant?: "default" | "compact
             })}
           </nav>
 
-          <div className="justify-self-center font-mono text-[13px] text-cream [text-shadow:0_1px_12px_rgba(29,36,18,0.45)] md:justify-self-end md:text-right">
+          <div className="justify-self-center font-red-hat-mono text-[13px] text-cream [text-shadow:0_1px_12px_rgba(29,36,18,0.45)] md:justify-self-end md:text-right">
             © MHACKS 2026 · All rights reserved
           </div>
         </div>
