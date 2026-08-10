@@ -15,14 +15,8 @@ export type ReviewFilterDef = {
   options: readonly ReviewFilterOption[];
 };
 
-// The applicant answered a US state or the literal "international" for
-// `comingFrom`, and `country` is a separate question — the two can disagree, so
-// this is deliberately a union. For triage a false positive costs a glance;
-// missing someone who needs a visa costs a lot more.
 function isInternational(application: ReviewApplicationSummary) {
-  return (
-    application.comingFrom === "international" || application.country !== "us"
-  );
+  return application.comingFrom === "international";
 }
 
 // `wouldAttendWithoutReimbursement` is only asked when reimbursement is needed,
