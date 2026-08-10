@@ -23,8 +23,12 @@ import { cn } from "@/lib/utils";
  * through. (The giant MHACKS 2026 wordmark is removed for now.)
  *
  * `compact` drops the lily garland and "brought to you" banner for app pages
- * (dashboard, how-to-mcp) where a slim bar is enough.
+ * (dashboard, how-to-mcp) where a slim bar is enough. It keeps the full-width
+ * backdrop but uses rounded top corners so it reads as a card over the page.
  */
+const compactFooterClassName =
+  "relative overflow-hidden rounded-t-[40px] md:rounded-t-[48px]";
+
 export function Footer({ variant = "default" }: { variant?: "default" | "compact" }) {
   const compact = variant === "compact";
   const reduced = useReducedMotion();
@@ -35,7 +39,7 @@ export function Footer({ variant = "default" }: { variant?: "default" | "compact
     <footer
       id="footer"
       className={cn(
-        compact ? "relative overflow-hidden" : stackedSheetClassName,
+        compact ? compactFooterClassName : stackedSheetClassName,
         "z-[10] bg-moss-900 text-cream",
       )}
     >
