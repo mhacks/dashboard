@@ -21,7 +21,7 @@ import { sendOtp, verifyOtp } from "@/lib/actions/auth.server.actions";
 import posthog from "posthog-js";
 
 const emailSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.email({ message: "Please enter a valid email address" }),
 });
 
 const tokenSchema = z.object({
@@ -36,7 +36,11 @@ const SLOT_CLASS =
 
 function AuthForm() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/dashboard";
+  const emailFromUrl = searchParams.get("email") ?? "";
+  const prefilledEmail = z.email().safeParse(emailFromUrl).success
+    ? emailFromUrl
+    : "";
 
   const [step, setStep] = useState<"email" | "verify">("email");
   const [sentEmail, setSentEmail] = useState("");
@@ -45,7 +49,7 @@ function AuthForm() {
 
   const emailForm = useForm<EmailForm>({
     resolver: zodResolver(emailSchema),
-    defaultValues: { email: "" },
+    defaultValues: { email: prefilledEmail },
   });
 
   const tokenForm = useForm<TokenForm>({
