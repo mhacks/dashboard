@@ -29,7 +29,11 @@ import { cn } from "@/lib/utils";
 const compactFooterClassName =
   "relative overflow-hidden rounded-t-[40px] md:rounded-t-[48px]";
 
-export function Footer({ variant = "default" }: { variant?: "default" | "compact" }) {
+export function Footer({
+  variant = "default",
+}: {
+  variant?: "default" | "compact";
+}) {
   const compact = variant === "compact";
   const reduced = useReducedMotion();
   // The footer also renders on /how-to-mcp — from there, hash links route
