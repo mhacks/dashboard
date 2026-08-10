@@ -48,6 +48,7 @@ export type UserInviteListResult = {
 
 export type CreateUserInviteResult =
   | { error: string }
+  | { warning: string }
   | {
       pendingInvite: {
         role: UserRole;

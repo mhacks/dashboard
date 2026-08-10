@@ -260,7 +260,6 @@ export default function TeamManagement({
     channel.on("broadcast", { event: INVITE_SYNC_EVENT }, ({ payload }) => {
       const parsed = inviteSyncPayloadSchema.safeParse(payload);
       if (!parsed.success) return;
-      if (parsed.data.sourceUserId === organizer.id) return;
 
       void refreshInvites(pageIndexRef.current).catch((error) => {
         console.error("Unable to refresh invites after realtime sync:", error);
@@ -303,6 +302,25 @@ export default function TeamManagement({
     );
   }
 
+  async function finalizeInviteMutation(message: {
+    type: "success" | "warning";
+    text: string;
+  }) {
+    if (message.type === "success") {
+      toast.success(message.text);
+    } else {
+      toast.warning(message.text);
+    }
+
+    setInviteEmail("");
+    skipSearchEffect.current = true;
+    setSearchInput("");
+    searchInputRef.current = "";
+    setPageIndex(0);
+    await refreshInvites(0, "");
+    void broadcastInviteUpdate();
+  }
+
   async function sendInvite(
     email: string,
     inviteRole: InvitableUserRole,
@@ -318,13 +336,20 @@ export default function TeamManagement({
 
     const result = await createUserInvite(email, inviteRole, options);
     if (!result) {
-      toast.success(
-        options?.changeExistingUserRole ? "Role updated." : "Invite sent.",
-      );
-      setInviteEmail("");
-      setPageIndex(0);
-      await refreshInvites(0);
-      void broadcastInviteUpdate();
+      await finalizeInviteMutation({
+        type: "success",
+        text: options?.changeExistingUserRole
+          ? "Role updated."
+          : "Invite sent.",
+      });
+      return;
+    }
+
+    if ("warning" in result) {
+      await finalizeInviteMutation({
+        type: "warning",
+        text: result.warning,
+      });
       return;
     }
 
