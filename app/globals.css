@@ -11,6 +11,7 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-instrument-serif);
   --font-red-hat: var(--font-red-hat-display);
+  --font-red-hat-mono: var(--font-red-hat-mono);
   --font-serif: var(--font-instrument-serif);
   --font-display: var(--font-red-hat-display);
   --font-body: var(--font-red-hat-display);
