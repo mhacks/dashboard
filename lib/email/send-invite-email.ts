@@ -6,6 +6,14 @@ import {
 import type { InvitableUserRole } from "@/lib/types/user-invitations";
 import { getRequestOrigin } from "@/lib/url/request-origin";
 
+function inviteLoginUrl(origin: string, email: string, utmSource: string) {
+  const params = new URLSearchParams({
+    email,
+    utm_source: utmSource,
+  });
+  return `${origin}/login?${params.toString()}`;
+}
+
 async function sendOrThrow({
   to,
   subject,
@@ -29,7 +37,7 @@ export async function sendInviteEmail(
   expiresAt: Date,
 ) {
   const origin = await getRequestOrigin();
-  const loginUrl = `${origin}/login?email=${encodeURIComponent(email)}`;
+  const loginUrl = inviteLoginUrl(origin, email, "team-invite");
   const { subject, text, html } = buildInviteEmail({
     role,
     loginUrl,
@@ -44,7 +52,7 @@ export async function sendRoleChangeEmail(
   role: InvitableUserRole,
 ) {
   const origin = await getRequestOrigin();
-  const loginUrl = `${origin}/login?email=${encodeURIComponent(email)}`;
+  const loginUrl = inviteLoginUrl(origin, email, "team-role-change");
   const { subject, text, html } = buildRoleChangeEmail({ role, loginUrl });
 
   await sendOrThrow({ to: email, subject, text, html });

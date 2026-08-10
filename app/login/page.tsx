@@ -36,7 +36,7 @@ const SLOT_CLASS =
 
 function AuthForm() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/dashboard";
   const emailFromUrl = searchParams.get("email") ?? "";
   const prefilledEmail = z.email().safeParse(emailFromUrl).success
     ? emailFromUrl
