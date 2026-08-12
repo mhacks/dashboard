@@ -26,7 +26,7 @@ export const DIETARY_RESTRICTION_VALUES = [
 export const TSHIRT_SIZE_VALUES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
 export const TRAVEL_PLAN_VALUES = [
-  "umich-student",
+  "local",
   "self-funded",
   "reimbursement",
 ] as const;

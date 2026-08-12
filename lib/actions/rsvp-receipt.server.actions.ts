@@ -26,7 +26,11 @@ import {
   sanitizeReceiptFilename,
 } from "@/lib/rsvp/receipt";
 import { copyRsvpReceipt, validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
-import type { RsvpReceiptMetadata } from "@/lib/types/rsvps";
+import {
+  assertReceiptUploadAllowed,
+  getRsvpTravelEligibility,
+} from "@/lib/rsvp/travel-eligibility";
+import type { RsvpDraftData, RsvpReceiptMetadata } from "@/lib/types/rsvps";
 
 const receiptUploadSchema = z.strictObject({
   originalName: z.string().trim().min(1).max(255),
@@ -36,11 +40,13 @@ const receiptUploadSchema = z.strictObject({
 
 const receiptUploadRequestSchema = receiptUploadSchema.extend({
   expectedReceiptVersion: z.number().int().nonnegative(),
+  debugAllTravel: z.boolean().optional(),
 });
 
 const receiptConfirmationSchema = receiptUploadSchema.extend({
   uploadId: z.uuid(),
   expectedReceiptVersion: z.number().int().nonnegative(),
+  debugAllTravel: z.boolean().optional(),
 });
 
 const receiptRemovalSchema = z.strictObject({
@@ -52,14 +58,33 @@ const receiptUploadLimiter = new RateLimiterMemory({
   duration: 60,
 });
 
-async function assertWritableUser(userId: string): Promise<number> {
+function allowDebugAllTravel(userRole: string, requested: boolean | undefined) {
+  return userRole === "organizer" && requested === true;
+}
+
+async function assertWritableUser({
+  userId,
+  debugAllTravel,
+}: {
+  userId: string;
+  debugAllTravel: boolean;
+}): Promise<number> {
   return db.transaction(async (tx) => {
-    await lockWritableRsvpApplicant(tx, userId);
+    const application = await lockWritableRsvpApplicant(tx, userId);
     const [draft] = await tx
-      .select({ receiptVersion: hackerRsvpDrafts.receiptVersion })
+      .select({
+        data: hackerRsvpDrafts.data,
+        receiptVersion: hackerRsvpDrafts.receiptVersion,
+      })
       .from(hackerRsvpDrafts)
       .where(eq(hackerRsvpDrafts.userId, userId))
       .limit(1);
+    assertReceiptUploadAllowed(
+      getRsvpTravelEligibility(application, {
+        debugAllTravel,
+        address: draft?.data as RsvpDraftData | undefined,
+      }),
+    );
     return draft?.receiptVersion ?? 0;
   });
 }
@@ -95,7 +120,7 @@ export async function requestRsvpReceiptUpload(input: unknown): Promise<{
   });
 
   const reservation = await db.transaction(async (tx) => {
-    await lockWritableRsvpApplicant(tx, user.id);
+    const application = await lockWritableRsvpApplicant(tx, user.id);
     const [draft] = await tx
       .select({
         data: hackerRsvpDrafts.data,
@@ -105,6 +130,12 @@ export async function requestRsvpReceiptUpload(input: unknown): Promise<{
       .from(hackerRsvpDrafts)
       .where(eq(hackerRsvpDrafts.userId, user.id))
       .limit(1);
+    assertReceiptUploadAllowed(
+      getRsvpTravelEligibility(application, {
+        debugAllTravel: allowDebugAllTravel(user.role, parsed.debugAllTravel),
+        address: draft?.data as RsvpDraftData | undefined,
+      }),
+    );
     const currentVersion = draft?.receiptVersion ?? 0;
     if (currentVersion !== parsed.expectedReceiptVersion) {
       throw new Error(
@@ -157,7 +188,10 @@ export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
   const user = await requireSessionUser();
   assertRsvpOpen();
   const parsed = receiptConfirmationSchema.parse(input);
-  await assertWritableUser(user.id);
+  await assertWritableUser({
+    userId: user.id,
+    debugAllTravel: allowDebugAllTravel(user.role, parsed.debugAllTravel),
+  });
 
   const stagingKey = receiptStagingKeyForUser(user.id, parsed.uploadId);
   const confirmedKey = receiptConfirmedKeyForUser(user.id, randomUUID());
@@ -182,9 +216,10 @@ export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
     const updatedAt = new Date().toISOString();
 
     const mutation = await db.transaction(async (tx) => {
-      await lockWritableRsvpApplicant(tx, user.id);
+      const application = await lockWritableRsvpApplicant(tx, user.id);
       const [existingDraft] = await tx
         .select({
+          data: hackerRsvpDrafts.data,
           receiptKey: hackerRsvpDrafts.receiptKey,
           receiptVersion: hackerRsvpDrafts.receiptVersion,
           pendingReceiptUploadId: hackerRsvpDrafts.pendingReceiptUploadId,
@@ -192,6 +227,12 @@ export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
         .from(hackerRsvpDrafts)
         .where(eq(hackerRsvpDrafts.userId, user.id))
         .limit(1);
+      assertReceiptUploadAllowed(
+        getRsvpTravelEligibility(application, {
+          debugAllTravel: allowDebugAllTravel(user.role, parsed.debugAllTravel),
+          address: existingDraft?.data as RsvpDraftData | undefined,
+        }),
+      );
       const currentReceiptVersion = existingDraft?.receiptVersion ?? 0;
       if (
         currentReceiptVersion !== parsed.expectedReceiptVersion ||

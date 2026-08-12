@@ -20,14 +20,21 @@ import { assertRsvpOpen } from "@/lib/rsvp/deadline";
 import { receiptStagingKeyForUser } from "@/lib/rsvp/receipt";
 import { validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
 import {
+  applyTravelEligibilityDefaults,
+  getRsvpTravelEligibility,
+  type RsvpTravelEligibility,
+} from "@/lib/rsvp/travel-eligibility";
+import {
   rsvpDraftSchema,
   rsvpFormSchema,
+  type RsvpDraftData,
   type RsvpFormData,
 } from "@/lib/types/rsvps";
 
 const saveDraftInputSchema = z.strictObject({
   data: z.unknown(),
   expectedVersion: z.number().int().nonnegative(),
+  debugAllTravel: z.boolean().optional(),
 });
 
 const saveDraftWithoutReceiptInputSchema = saveDraftInputSchema.extend({
@@ -37,6 +44,7 @@ const saveDraftWithoutReceiptInputSchema = saveDraftInputSchema.extend({
 const submitRsvpInputSchema = z.strictObject({
   data: z.unknown(),
   expectedReceiptVersion: z.number().int().nonnegative(),
+  debugAllTravel: z.boolean().optional(),
 });
 
 export type RsvpSubmitResult = {
@@ -92,21 +100,71 @@ function withSessionIdentity(data: unknown, accountEmail: string) {
   };
 }
 
+function withSessionAndTravelDefaults(
+  data: unknown,
+  accountEmail: string,
+  travelEligibility: RsvpTravelEligibility,
+) {
+  const identityData = withSessionIdentity(data, accountEmail);
+  if (
+    !identityData ||
+    typeof identityData !== "object" ||
+    Array.isArray(identityData)
+  ) {
+    return identityData;
+  }
+  return applyTravelEligibilityDefaults(
+    identityData as RsvpDraftData,
+    travelEligibility,
+  );
+}
+
+function requestedReimbursement(data: unknown) {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    "travelPlan" in data &&
+    data.travelPlan === "reimbursement"
+  );
+}
+
+function allowDebugAllTravel(userRole: string, requested: boolean | undefined) {
+  return userRole === "organizer" && requested === true;
+}
+
 export async function saveRsvpDraft(
   input: unknown,
 ): Promise<{ updatedAt: string; version: number }> {
   const user = await requireSessionUser();
   assertRsvpOpen();
   const request = saveDraftInputSchema.parse(input);
-  const parsed = rsvpDraftSchema.parse(
-    withSessionIdentity(request.data, user.email),
-  );
-  const data = { ...parsed } as Record<string, unknown>;
-  delete data.receipt;
   const updatedAt = new Date().toISOString();
 
   const nextVersion = await db.transaction(async (tx) => {
-    await lockWritableRsvpApplicant(tx, user.id);
+    const application = await lockWritableRsvpApplicant(tx, user.id);
+    const travelEligibility = getRsvpTravelEligibility(application, {
+      debugAllTravel: allowDebugAllTravel(user.role, request.debugAllTravel),
+      address:
+        request.data && typeof request.data === "object"
+          ? (request.data as RsvpDraftData)
+          : undefined,
+    });
+    if (
+      travelEligibility.showTravelStep &&
+      !travelEligibility.canRequestReimbursement &&
+      requestedReimbursement(request.data)
+    ) {
+      throw new Error(
+        "Travel reimbursement is only available if you requested it on your application.",
+      );
+    }
+    const parsed = rsvpDraftSchema.parse(
+      withSessionAndTravelDefaults(request.data, user.email, travelEligibility),
+    );
+    const data = { ...parsed } as Record<string, unknown>;
+    delete data.receipt;
+
     const [existingDraft] = await tx
       .select({ dataVersion: hackerRsvpDrafts.dataVersion })
       .from(hackerRsvpDrafts)
@@ -151,19 +209,26 @@ export async function saveRsvpDraftWithoutReceipt(input: unknown): Promise<{
   const user = await requireSessionUser();
   assertRsvpOpen();
   const request = saveDraftWithoutReceiptInputSchema.parse(input);
-  const parsed = rsvpDraftSchema.parse(
-    withSessionIdentity(request.data, user.email),
-  );
-  if (!parsed.travelPlan || parsed.travelPlan === "reimbursement") {
-    throw new Error("Choose a non-reimbursement travel plan");
-  }
-
-  const data = { ...parsed } as Record<string, unknown>;
-  delete data.receipt;
   const updatedAt = new Date().toISOString();
 
   const result = await db.transaction(async (tx) => {
-    await lockWritableRsvpApplicant(tx, user.id);
+    const application = await lockWritableRsvpApplicant(tx, user.id);
+    const travelEligibility = getRsvpTravelEligibility(application, {
+      debugAllTravel: allowDebugAllTravel(user.role, request.debugAllTravel),
+      address:
+        request.data && typeof request.data === "object"
+          ? (request.data as RsvpDraftData)
+          : undefined,
+    });
+    const parsed = rsvpDraftSchema.parse(
+      withSessionAndTravelDefaults(request.data, user.email, travelEligibility),
+    );
+    if (!parsed.travelPlan || parsed.travelPlan === "reimbursement") {
+      throw new Error("Choose a non-reimbursement travel plan");
+    }
+    const data = { ...parsed } as Record<string, unknown>;
+    delete data.receipt;
+
     const [draft] = await tx
       .select({
         dataVersion: hackerRsvpDrafts.dataVersion,
@@ -285,13 +350,13 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
   const user = await requireSessionUser();
   assertRsvpOpen();
   const request = submitRsvpInputSchema.parse(input);
-  const parsed = rsvpFormSchema.parse(
-    withSessionIdentity(request.data, user.email),
-  );
 
   const [preflight] = await db
     .select({
       applicationId: hackerApplicants.id,
+      transportationType: hackerApplicants.transportationType,
+      comingFrom: hackerApplicants.comingFrom,
+      needsTravelReimbursement: hackerApplicants.needsTravelReimbursement,
       finalSubmittedAt: hackerRsvps.submittedAt,
       draft: hackerRsvpDrafts,
     })
@@ -310,6 +375,26 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
       submittedAt: preflight.finalSubmittedAt,
     };
   }
+
+  const travelEligibility = getRsvpTravelEligibility(preflight, {
+    debugAllTravel: allowDebugAllTravel(user.role, request.debugAllTravel),
+    address:
+      request.data && typeof request.data === "object"
+        ? (request.data as RsvpDraftData)
+        : undefined,
+  });
+  if (
+    travelEligibility.showTravelStep &&
+    !travelEligibility.canRequestReimbursement &&
+    requestedReimbursement(request.data)
+  ) {
+    throw new Error(
+      "Travel reimbursement is only available if you requested it on your application.",
+    );
+  }
+  const parsed = rsvpFormSchema.parse(
+    withSessionAndTravelDefaults(request.data, user.email, travelEligibility),
+  );
 
   const preflightReceipt = receiptFromDraft(preflight.draft);
   if (parsed.travelPlan === "reimbursement") {

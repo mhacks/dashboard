@@ -33,7 +33,7 @@ export const rsvpTshirtSize = pgEnum("rsvp_tshirt_size", [
 ]);
 
 export const rsvpTravelPlan = pgEnum("rsvp_travel_plan", [
-  "umich-student",
+  "local",
   "self-funded",
   "reimbursement",
 ]);

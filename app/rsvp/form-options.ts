@@ -1,11 +1,13 @@
 import type { RsvpFormData } from "@/lib/types/rsvps";
 
 export const RSVP_STEPS: readonly {
+  id: "personal" | "travel" | "waivers" | "review";
   label: string;
   shortLabel: string;
   fields: readonly (keyof RsvpFormData)[];
 }[] = [
   {
+    id: "personal",
     label: "Personal",
     shortLabel: "Personal",
     fields: [
@@ -23,6 +25,7 @@ export const RSVP_STEPS: readonly {
     ],
   },
   {
+    id: "travel",
     label: "Travel",
     shortLabel: "Travel",
     fields: [
@@ -34,6 +37,7 @@ export const RSVP_STEPS: readonly {
     ],
   },
   {
+    id: "waivers",
     label: "Waivers",
     shortLabel: "Waivers",
     fields: [
@@ -43,11 +47,20 @@ export const RSVP_STEPS: readonly {
     ],
   },
   {
+    id: "review",
     label: "Review & Submit",
     shortLabel: "Review",
     fields: [],
   },
 ];
+
+export type RsvpStep = (typeof RSVP_STEPS)[number];
+
+export function getRsvpSteps(showTravelStep: boolean): readonly RsvpStep[] {
+  return showTravelStep
+    ? RSVP_STEPS
+    : RSVP_STEPS.filter((step) => step.id !== "travel");
+}
 
 export const DIETARY_OPTIONS = [
   { value: "vegetarian", label: "Vegetarian" },
@@ -65,8 +78,8 @@ export const TSHIRT_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
 export const TRAVEL_OPTIONS = [
   {
-    value: "umich-student",
-    label: "I am a University of Michigan student.",
+    value: "local",
+    label: "I am local to the Ann Arbor region.",
   },
   {
     value: "self-funded",

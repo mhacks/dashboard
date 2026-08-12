@@ -36,7 +36,7 @@ import type { RsvpStatus } from "@/lib/rsvp/status";
 const PAGE_SIZE = 25;
 
 type StatusFilter = "all" | RsvpStatus;
-type TravelFilter = "all" | "umich-student" | "self-funded" | "reimbursement";
+type TravelFilter = "all" | "local" | "self-funded" | "reimbursement";
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All",
@@ -46,7 +46,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 };
 
 const TRAVEL_LABELS: Record<Exclude<TravelFilter, "all">, string> = {
-  "umich-student": "U-M student",
+  local: "Local",
   "self-funded": "Self-funded",
   reimbursement: "Reimbursement",
 };

@@ -12,13 +12,22 @@ export type RsvpTransaction = Parameters<
 export async function lockWritableRsvpApplicant(
   tx: RsvpTransaction,
   userId: string,
-): Promise<{ id: string; userId: string }> {
+): Promise<{
+  id: string;
+  userId: string;
+  transportationType: string;
+  comingFrom: string;
+  needsTravelReimbursement: boolean;
+}> {
   assertRsvpOpen();
 
   const [application] = await tx
     .select({
       id: hackerApplicants.id,
       userId: hackerApplicants.userId,
+      transportationType: hackerApplicants.transportationType,
+      comingFrom: hackerApplicants.comingFrom,
+      needsTravelReimbursement: hackerApplicants.needsTravelReimbursement,
     })
     .from(hackerApplicants)
     .where(eq(hackerApplicants.userId, userId))

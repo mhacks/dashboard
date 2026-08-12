@@ -17,6 +17,7 @@ export type RsvpReceiptDownloadRecord = {
 
 export async function createRsvpReceiptDownloadResponse(
   record: RsvpReceiptDownloadRecord,
+  options: { disposition?: "attachment" | "inline" } = {},
 ): Promise<Response> {
   await validateRsvpReceiptInS3({
     key: record.key,
@@ -44,7 +45,10 @@ export async function createRsvpReceiptDownloadResponse(
   return new Response(body, {
     headers: {
       "Cache-Control": "private, no-store",
-      "Content-Disposition": contentDispositionForReceipt(record.originalName),
+      "Content-Disposition": contentDispositionForReceipt(
+        record.originalName,
+        options.disposition,
+      ),
       "Content-Length": String(record.sizeBytes),
       "Content-Type": record.contentType,
       "X-Content-Type-Options": "nosniff",

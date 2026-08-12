@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import {
   CircleHelpIcon,
@@ -172,7 +172,7 @@ function YesAcknowledgement({
         />
         <Label
           htmlFor={id}
-          className="font-red-hat text-sm leading-6 text-foreground"
+          className="block min-w-0 flex-1 font-red-hat text-sm leading-6 text-foreground"
         >
           {children}
           <span className="text-destructive" aria-hidden="true">
@@ -563,12 +563,14 @@ type ReceiptMutationVersion = {
 
 function ReceiptUpload({
   disabled,
+  debugAllTravel,
   receiptVersion,
   beforeMutation,
   onMutationChange,
   onVersionChange,
 }: {
   disabled: boolean;
+  debugAllTravel: boolean;
   receiptVersion: number;
   beforeMutation: () => Promise<void>;
   onMutationChange: (inProgress: boolean) => void;
@@ -585,6 +587,9 @@ function ReceiptUpload({
   const operationRef = useRef(0);
   const [state, setState] = useState<UploadState>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const receiptPreviewHref = receipt
+    ? `/rsvp/receipt/preview?v=${receiptVersion}`
+    : "";
 
   const handleFile = async (file: File) => {
     if (disabled) return;
@@ -611,6 +616,7 @@ function ReceiptUpload({
           contentType: file.type,
           sizeBytes: file.size,
           expectedReceiptVersion: receiptVersion,
+          debugAllTravel,
         });
       onVersionChange({ receiptVersion: expectedReceiptVersion });
       const upload = await fetch(uploadUrl, {
@@ -626,6 +632,7 @@ function ReceiptUpload({
         contentType: file.type,
         sizeBytes: file.size,
         expectedReceiptVersion,
+        debugAllTravel,
       });
       if (
         operation !== operationRef.current ||
@@ -696,24 +703,48 @@ function ReceiptUpload({
       error={errors.receipt}
     >
       {receipt && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-moss/10 bg-moss/5 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <FileCheckIcon className="size-4 shrink-0 text-moss" />
-            <span className="truncate font-red-hat text-sm text-moss">
-              {receipt.originalName}
-            </span>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-moss/10 bg-white/70 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileCheckIcon className="size-4 shrink-0 text-moss" />
+              <span className="truncate font-red-hat text-sm text-moss">
+                {receipt.originalName}
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                disabled || state === "uploading" || state === "removing"
+              }
+              onClick={handleRemove}
+              className="rounded-full border-moss/20 bg-transparent px-3 font-red-hat text-moss hover:bg-black/5"
+            >
+              <Trash2Icon data-icon="inline-start" />
+              Remove
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled || state === "uploading" || state === "removing"}
-            onClick={handleRemove}
-            className="rounded-full border-moss/20 bg-transparent px-3 font-red-hat text-moss hover:bg-black/5"
-          >
-            <Trash2Icon data-icon="inline-start" />
-            Remove
-          </Button>
+          <div className="overflow-hidden rounded-2xl border border-moss/10 bg-white/80">
+            <div className="flex items-center justify-between gap-3 border-b border-moss/10 px-4 py-2">
+              <p className="font-red-hat text-xs font-medium text-moss/65">
+                Receipt preview
+              </p>
+              <p className="font-red-hat text-[0.7rem] text-moss/45">
+                {receipt.contentType === "application/pdf" ? "PDF" : "Image"}
+              </p>
+            </div>
+            <object
+              data={receiptPreviewHref}
+              type={receipt.contentType}
+              aria-label={`Preview of ${receipt.originalName}`}
+              className="h-72 w-full bg-white sm:h-96"
+            >
+              <div className="flex min-h-40 items-center justify-center px-4 py-8 text-center font-red-hat text-sm text-moss/55">
+                Preview unavailable. Try re-uploading the file.
+              </div>
+            </object>
+          </div>
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -752,6 +783,8 @@ function ReceiptUpload({
 }
 
 export function TravelTaxStep({
+  canRequestReimbursement,
+  debugAllTravel,
   receiptMutationInProgress,
   receiptVersion,
   beforeReceiptMutation,
@@ -759,6 +792,8 @@ export function TravelTaxStep({
   onReceiptVersionChange,
   commitTravelPlanChange,
 }: {
+  canRequestReimbursement: boolean;
+  debugAllTravel: boolean;
   receiptMutationInProgress: boolean;
   receiptVersion: number;
   beforeReceiptMutation: () => Promise<void>;
@@ -775,6 +810,33 @@ export function TravelTaxStep({
   } = useFormContext<RsvpFormData>();
   const travelPlan = useWatch({ control, name: "travelPlan" });
   const [branchError, setBranchError] = useState<string | null>(null);
+  const travelOptions = TRAVEL_OPTIONS.filter((option) =>
+    canRequestReimbursement ? true : option.value !== "reimbursement",
+  );
+
+  useEffect(() => {
+    if (
+      canRequestReimbursement ||
+      (travelPlan && travelPlan !== "reimbursement")
+    ) {
+      return;
+    }
+    setValue("travelPlan", "self-funded", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("travelGuideAcknowledged", undefined, { shouldDirty: true });
+    setValue("flightBooked", undefined, { shouldDirty: true });
+    setValue("receiptBindingAcknowledged", undefined, { shouldDirty: true });
+    setValue("receipt", undefined, { shouldDirty: true });
+    clearErrors([
+      "travelPlan",
+      "travelGuideAcknowledged",
+      "flightBooked",
+      "receiptBindingAcknowledged",
+      "receipt",
+    ]);
+  }, [canRequestReimbursement, clearErrors, setValue, travelPlan]);
 
   const leaveReimbursement = async (
     nextTravelPlan: Exclude<RsvpFormData["travelPlan"], "reimbursement">,
@@ -865,7 +927,7 @@ export function TravelTaxStep({
                   aria-label="Travel plan"
                   aria-invalid={Boolean(errors.travelPlan)}
                 >
-                  {TRAVEL_OPTIONS.map((option) => (
+                  {travelOptions.map((option) => (
                     <ToggleGroupItem
                       key={option.value}
                       value={option.value}
@@ -885,8 +947,13 @@ export function TravelTaxStep({
             </p>
           )}
 
-          {travelPlan === "reimbursement" && (
-            <div className="flex flex-col gap-5 rounded-2xl border border-moss/10 bg-moss/5 p-4 sm:p-5">
+          <p className="font-red-hat text-xs leading-5 text-moss/55">
+            Only hackers who indicated they needed travel reimbursement on their
+            application are eligible for reimbursement.
+          </p>
+
+          {canRequestReimbursement && travelPlan === "reimbursement" && (
+            <div className="flex flex-col gap-5 rounded-2xl border border-moss/10 bg-white/70 p-4 shadow-[0_1px_0_rgba(58,74,38,0.08)] sm:p-5">
               <Controller
                 name="travelGuideAcknowledged"
                 control={control}
@@ -897,10 +964,19 @@ export function TravelTaxStep({
                     onCheckedChange={field.onChange}
                     error={errors.travelGuideAcknowledged}
                   >
-                    I have read the MHacks 2026 Travel Guide and understand I
-                    will only be eligible for travel reimbursement if all
-                    criteria are met. I understand that if not all requirements
-                    are met, my reimbursement request may be denied.
+                    I have read the{" "}
+                    <a
+                      href="https://docs.google.com/document/d/1wYGboHlqKiUywumBq-UM7klsGA3XOtYwYxxxhywLpa4/edit?usp=sharing"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-moss underline underline-offset-4"
+                    >
+                      MHacks 2026 Travel Guide
+                    </a>{" "}
+                    and understand I will only be eligible for travel
+                    reimbursement if all criteria are met. I understand that if
+                    not all requirements are met, my reimbursement request may
+                    be denied.
                   </YesAcknowledgement>
                 )}
               />
@@ -922,6 +998,7 @@ export function TravelTaxStep({
 
               <ReceiptUpload
                 disabled={receiptMutationInProgress}
+                debugAllTravel={debugAllTravel}
                 receiptVersion={receiptVersion}
                 beforeMutation={beforeReceiptMutation}
                 onMutationChange={onReceiptMutationChange}

@@ -1,4 +1,4 @@
-CREATE TYPE "public"."rsvp_travel_plan" AS ENUM('umich-student', 'self-funded', 'reimbursement');--> statement-breakpoint
+CREATE TYPE "public"."rsvp_travel_plan" AS ENUM('local', 'self-funded', 'reimbursement');--> statement-breakpoint
 CREATE TYPE "public"."rsvp_tshirt_size" AS ENUM('XS', 'S', 'M', 'L', 'XL', 'XXL');--> statement-breakpoint
 CREATE TABLE "hacker_rsvp_drafts" (
 	"user_id" uuid PRIMARY KEY NOT NULL,

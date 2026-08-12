@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -21,7 +21,13 @@ import {
   type RsvpDraftData,
   type RsvpFormData,
 } from "@/lib/types/rsvps";
-import { RSVP_STEPS } from "./form-options";
+import {
+  applyTravelEligibilityDefaults,
+  hasRsvpAddressTravelSignal,
+  isAnnArborRegionAddress,
+  type RsvpTravelEligibility,
+} from "@/lib/rsvp/travel-eligibility";
+import { getRsvpSteps, type RsvpStep } from "./form-options";
 import { RsvpPageShell } from "./rsvp-page-shell";
 import { RsvpSummary } from "./rsvp-summary";
 import { PersonalStep, TravelTaxStep, WaiversStep } from "./rsvp-steps";
@@ -41,7 +47,14 @@ const MOSS_65 = "color-mix(in srgb, var(--color-moss) 65%, transparent)";
 function defaultValues(
   draft: RsvpDraftData,
   accountEmail: string,
+  travelEligibility: RsvpTravelEligibility,
 ): DefaultValues<RsvpFormData> {
+  const travelDefaults = applyTravelEligibilityDefaults(
+    draft,
+    travelEligibility,
+  );
+  const isReimbursement = travelDefaults.travelPlan === "reimbursement";
+
   return {
     legalName: draft.legalName ?? "",
     preferredName: draft.preferredName ?? "",
@@ -51,11 +64,15 @@ function defaultValues(
     dietaryRestrictions: draft.dietaryRestrictions ?? [],
     otherDietaryRestriction: draft.otherDietaryRestriction,
     tshirtSize: draft.tshirtSize,
-    travelPlan: draft.travelPlan,
-    travelGuideAcknowledged: draft.travelGuideAcknowledged,
-    flightBooked: draft.flightBooked,
-    receipt: draft.receipt,
-    receiptBindingAcknowledged: draft.receiptBindingAcknowledged,
+    travelPlan: travelDefaults.travelPlan,
+    travelGuideAcknowledged: isReimbursement
+      ? draft.travelGuideAcknowledged
+      : undefined,
+    flightBooked: isReimbursement ? draft.flightBooked : undefined,
+    receipt: isReimbursement ? draft.receipt : undefined,
+    receiptBindingAcknowledged: isReimbursement
+      ? draft.receiptBindingAcknowledged
+      : undefined,
     streetAddress: draft.streetAddress ?? "",
     city: draft.city ?? "",
     stateOrProvince: draft.stateOrProvince ?? "",
@@ -67,10 +84,16 @@ function defaultValues(
   };
 }
 
-function StepBar({ current }: { current: number }) {
+function StepBar({
+  current,
+  steps,
+}: {
+  current: number;
+  steps: readonly RsvpStep[];
+}) {
   return (
     <div className="flex w-full items-start" aria-label="RSVP progress">
-      {RSVP_STEPS.map((step, index) => {
+      {steps.map((step, index) => {
         const isActive = index === current;
         const isDone = index < current;
         return (
@@ -110,7 +133,7 @@ function StepBar({ current }: { current: number }) {
                 {step.shortLabel}
               </span>
             </div>
-            {index < RSVP_STEPS.length - 1 && (
+            {index < steps.length - 1 && (
               <motion.div
                 className="mx-1 mt-[4px] h-px flex-1"
                 animate={{
@@ -168,12 +191,16 @@ export default function RsvpForm({
   accountId,
   draft,
   accountEmail,
+  travelEligibility,
+  debugAllTravel,
   draftVersion,
   receiptVersion: initialReceiptVersion,
 }: {
   accountId: string;
   draft: RsvpDraftData;
   accountEmail: string;
+  travelEligibility: RsvpTravelEligibility;
+  debugAllTravel: boolean;
   draftVersion: number;
   receiptVersion: number;
 }) {
@@ -199,17 +226,133 @@ export default function RsvpForm({
     getVersion: getDraftVersion,
     cancelPending: cancelPendingSave,
     completeExternalSave,
-  } = useRsvpAutosave(accountId, draftVersion, draft);
+  } = useRsvpAutosave(accountId, draftVersion, draft, { debugAllTravel });
 
   const methods = useForm<RsvpFormData>({
     resolver: zodResolver(rsvpFormSchema),
     mode: "onChange",
-    defaultValues: defaultValues(draft, accountEmail),
+    defaultValues: defaultValues(draft, accountEmail, travelEligibility),
   });
-  const { control, watch, trigger, handleSubmit, reset } = methods;
+  const {
+    control,
+    watch,
+    trigger,
+    handleSubmit,
+    reset,
+    setValue,
+    clearErrors,
+  } = methods;
   const watchedValues = useWatch({ control }) as RsvpDraftData;
-  const completeResult = rsvpFormSchema.safeParse(watchedValues);
+  const effectiveTravelEligibility = useMemo(() => {
+    const address = {
+      streetAddress: watchedValues.streetAddress,
+      city: watchedValues.city,
+      stateOrProvince: watchedValues.stateOrProvince,
+      country: watchedValues.country,
+    };
+
+    if (!debugAllTravel && hasRsvpAddressTravelSignal(address)) {
+      const addressIsLocal = isAnnArborRegionAddress(address);
+      return {
+        showTravelStep: !addressIsLocal,
+        canRequestReimbursement:
+          !addressIsLocal && travelEligibility.nonLocalCanRequestReimbursement,
+        nonLocalCanRequestReimbursement:
+          travelEligibility.nonLocalCanRequestReimbursement,
+        defaultTravelPlan: addressIsLocal
+          ? "local"
+          : travelEligibility.nonLocalCanRequestReimbursement
+            ? "reimbursement"
+            : "self-funded",
+      } satisfies RsvpTravelEligibility;
+    }
+    return travelEligibility;
+  }, [
+    debugAllTravel,
+    travelEligibility,
+    watchedValues.city,
+    watchedValues.country,
+    watchedValues.stateOrProvince,
+    watchedValues.streetAddress,
+  ]);
+  const steps = getRsvpSteps(effectiveTravelEligibility.showTravelStep);
+  const currentStep = steps[Math.min(step, steps.length - 1)];
+  const travelStepIndex = steps.findIndex((entry) => entry.id === "travel");
+  const waiversStepIndex = steps.findIndex((entry) => entry.id === "waivers");
+  const normalizedWatchedValues = applyTravelEligibilityDefaults(
+    watchedValues,
+    effectiveTravelEligibility,
+  );
+  const completeResult = rsvpFormSchema.safeParse(normalizedWatchedValues);
   const isComplete = completeResult.success;
+
+  useEffect(() => {
+    if (step < steps.length) return;
+    setStep(steps.length - 1);
+  }, [step, steps.length]);
+
+  useEffect(() => {
+    if (!effectiveTravelEligibility.showTravelStep) {
+      if (watchedValues.travelPlan !== "local") {
+        setValue("travelPlan", "local", {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      setValue("travelGuideAcknowledged", undefined, { shouldDirty: true });
+      setValue("flightBooked", undefined, { shouldDirty: true });
+      setValue("receiptBindingAcknowledged", undefined, { shouldDirty: true });
+      setValue("receipt", undefined, { shouldDirty: true });
+      clearErrors([
+        "travelPlan",
+        "travelGuideAcknowledged",
+        "flightBooked",
+        "receiptBindingAcknowledged",
+        "receipt",
+      ]);
+      return;
+    }
+
+    if (
+      !effectiveTravelEligibility.canRequestReimbursement &&
+      (!watchedValues.travelPlan ||
+        watchedValues.travelPlan === "reimbursement")
+    ) {
+      setValue("travelPlan", "self-funded", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      setValue("travelGuideAcknowledged", undefined, { shouldDirty: true });
+      setValue("flightBooked", undefined, { shouldDirty: true });
+      setValue("receiptBindingAcknowledged", undefined, { shouldDirty: true });
+      setValue("receipt", undefined, { shouldDirty: true });
+      clearErrors([
+        "travelPlan",
+        "travelGuideAcknowledged",
+        "flightBooked",
+        "receiptBindingAcknowledged",
+        "receipt",
+      ]);
+      return;
+    }
+
+    if (
+      effectiveTravelEligibility.canRequestReimbursement &&
+      !watchedValues.travelPlan
+    ) {
+      setValue("travelPlan", effectiveTravelEligibility.defaultTravelPlan, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [
+    clearErrors,
+    effectiveTravelEligibility.canRequestReimbursement,
+    effectiveTravelEligibility.defaultTravelPlan,
+    effectiveTravelEligibility.showTravelStep,
+    setValue,
+    watchedValues.travelPlan,
+  ]);
 
   useEffect(() => {
     // react-hook-form's subscription is intentionally used for debounced
@@ -224,13 +367,14 @@ export default function RsvpForm({
   useEffect(() => {
     const pending = consumeRestorablePendingRsvp(accountId, draft);
     if (!pending) return;
-    reset(defaultValues(pending, accountEmail));
-    scheduleSave(pending);
-  }, [accountEmail, accountId, draft, reset, scheduleSave]);
+    const restored = defaultValues(pending, accountEmail, travelEligibility);
+    reset(restored);
+    scheduleSave(restored as Partial<RsvpFormData>);
+  }, [accountEmail, accountId, draft, reset, scheduleSave, travelEligibility]);
 
   const goNext = async () => {
     if (receiptMutationInProgress) return;
-    const fields = RSVP_STEPS[step].fields;
+    const fields = currentStep.fields;
     if (fields.length > 0 && !(await trigger([...fields]))) return;
     setShowIncomplete(false);
     setDirection(1);
@@ -244,15 +388,20 @@ export default function RsvpForm({
   };
 
   const onSubmit = async (values: RsvpFormData) => {
-    if (step !== RSVP_STEPS.length - 1 || receiptMutationInProgress) return;
+    if (step !== steps.length - 1 || receiptMutationInProgress) return;
     setIsSubmitting(true);
     setSubmitError(null);
+    const submissionValues = applyTravelEligibilityDefaults(
+      values,
+      effectiveTravelEligibility,
+    ) as RsvpFormData;
     try {
-      scheduleSave(values);
+      scheduleSave(submissionValues);
       await flushSave();
       const result = await submitRsvp({
-        data: values,
+        data: submissionValues,
         expectedReceiptVersion: receiptVersion,
+        debugAllTravel,
       });
       stopAutosave();
       if (result.alreadySubmitted) {
@@ -260,7 +409,7 @@ export default function RsvpForm({
         return;
       }
       setSubmitted({
-        values,
+        values: submissionValues,
         submittedAt: result.submittedAt,
       });
     } catch (error) {
@@ -301,6 +450,8 @@ export default function RsvpForm({
                 ? "/rsvp/receipt"
                 : undefined
             }
+            travelStepIndex={travelStepIndex >= 0 ? travelStepIndex : null}
+            waiversStepIndex={waiversStepIndex}
           />
         </main>
       </RsvpPageShell>
@@ -312,7 +463,7 @@ export default function RsvpForm({
       accountId={accountId}
       onBeforeLogout={stopAutosave}
       status={<SaveIndicator status={saveStatus} onRetry={retrySave} />}
-      stepCount={{ current: step + 1, total: RSVP_STEPS.length }}
+      stepCount={{ current: step + 1, total: steps.length }}
     >
       <motion.main
         initial={{ opacity: 0, y: 32 }}
@@ -328,7 +479,7 @@ export default function RsvpForm({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 flex-wrap items-center gap-3">
                 <h1 className="font-heading text-4xl leading-tight tracking-tight text-moss italic sm:text-5xl">
-                  {RSVP_STEPS[step].label}
+                  {currentStep.label}
                 </h1>
                 <Image
                   src="/yellow_flower.png"
@@ -346,7 +497,7 @@ export default function RsvpForm({
               you here !!
             </p>
           </div>
-          <StepBar current={step} />
+          <StepBar current={step} steps={steps} />
         </div>
 
         <div className="mx-8 h-px bg-moss/8" />
@@ -370,9 +521,13 @@ export default function RsvpForm({
                 }
                 transition={{ duration: reduceMotion ? 0 : 0.22, ease: EASE }}
               >
-                {step === 0 && <PersonalStep />}
-                {step === 1 && (
+                {currentStep.id === "personal" && <PersonalStep />}
+                {currentStep.id === "travel" && (
                   <TravelTaxStep
+                    canRequestReimbursement={
+                      travelEligibility.canRequestReimbursement
+                    }
+                    debugAllTravel={debugAllTravel}
                     receiptMutationInProgress={receiptMutationInProgress}
                     onReceiptMutationChange={setReceiptMutationInProgress}
                     receiptVersion={receiptVersion}
@@ -386,16 +541,21 @@ export default function RsvpForm({
                         data,
                         expectedVersion: getDraftVersion(),
                         expectedReceiptVersion: receiptVersion,
+                        debugAllTravel,
                       });
                       completeExternalSave(data, saved.version);
                       setReceiptVersion(saved.receiptVersion);
                     }}
                   />
                 )}
-                {step === 2 && <WaiversStep />}
-                {step === 3 && (
+                {currentStep.id === "waivers" && <WaiversStep />}
+                {currentStep.id === "review" && (
                   <RsvpSummary
-                    values={watchedValues}
+                    values={normalizedWatchedValues}
+                    travelStepIndex={
+                      travelStepIndex >= 0 ? travelStepIndex : null
+                    }
+                    waiversStepIndex={waiversStepIndex}
                     onEdit={(target) => {
                       setDirection(target < step ? -1 : 1);
                       setStep(target);
@@ -429,7 +589,7 @@ export default function RsvpForm({
                 </button>
               )}
               <div className="flex-1" />
-              {step < RSVP_STEPS.length - 1 ? (
+              {step < steps.length - 1 ? (
                 <button
                   type="button"
                   disabled={receiptMutationInProgress}
@@ -472,16 +632,14 @@ export default function RsvpForm({
               </p>
             )}
 
-            {step === RSVP_STEPS.length - 1 &&
-              showIncomplete &&
-              !isComplete && (
-                <p
-                  className="mt-3 text-right font-red-hat text-xs text-destructive"
-                  role="alert"
-                >
-                  Please complete the required questions before submitting.
-                </p>
-              )}
+            {step === steps.length - 1 && showIncomplete && !isComplete && (
+              <p
+                className="mt-3 text-right font-red-hat text-xs text-destructive"
+                role="alert"
+              >
+                Please complete the required questions before submitting.
+              </p>
+            )}
           </form>
         </FormProvider>
       </motion.main>

@@ -11,6 +11,11 @@ import {
 import { processQueuedRsvpReceiptCleanup } from "@/lib/rsvp/cleanup";
 import { isRsvpOpen } from "@/lib/rsvp/deadline";
 import {
+  applyTravelEligibilityDefaults,
+  getRsvpTravelEligibility,
+  type RsvpTravelEligibility,
+} from "@/lib/rsvp/travel-eligibility";
+import {
   DIETARY_RESTRICTION_VALUES,
   TSHIRT_SIZE_VALUES,
   rsvpDraftSchema,
@@ -34,13 +39,20 @@ export type AttendeeRsvpState =
       draft: RsvpDraftData;
       receipt: RsvpReceiptMetadata | null;
       accountEmail: string;
+      travelEligibility: RsvpTravelEligibility;
       draftVersion: number;
       receiptVersion: number;
     };
 
 type ApplicantDefaultSource = Pick<
   typeof hackerApplicants.$inferSelect,
-  "firstName" | "lastName" | "shirtSize" | "allergiesDescription"
+  | "firstName"
+  | "lastName"
+  | "shirtSize"
+  | "allergiesDescription"
+  | "transportationType"
+  | "comingFrom"
+  | "needsTravelReimbursement"
 >;
 
 const RSVP_DIETARY_VALUES = new Set<string>(DIETARY_RESTRICTION_VALUES);
@@ -87,6 +99,7 @@ function applyApplicantDefaults(
   draft: RsvpDraftData,
   application: ApplicantDefaultSource,
   accountEmail: string,
+  debugAllTravel: boolean,
 ): RsvpDraftData {
   const firstName = application.firstName.trim();
   const lastName = application.lastName.trim();
@@ -94,18 +107,25 @@ function applyApplicantDefaults(
   const dietaryDefaults = draft.dietaryRestrictions?.length
     ? {}
     : applicationDietaryDefaults(application.allergiesDescription);
+  const travelEligibility = getRsvpTravelEligibility(application, {
+    debugAllTravel,
+    address: draft,
+  });
 
-  return {
-    ...draft,
-    legalName: draft.legalName || legalName || undefined,
-    preferredName: draft.preferredName || firstName || undefined,
-    email: accountEmail,
-    emailMatchesApplication: true,
-    incorrectEmailRiskAcknowledged: true,
-    ...dietaryDefaults,
-    tshirtSize:
-      draft.tshirtSize ?? applicationTshirtSizeDefault(application.shirtSize),
-  };
+  return applyTravelEligibilityDefaults(
+    {
+      ...draft,
+      legalName: draft.legalName || legalName || undefined,
+      preferredName: draft.preferredName || firstName || undefined,
+      email: accountEmail,
+      emailMatchesApplication: true,
+      incorrectEmailRiskAcknowledged: true,
+      ...dietaryDefaults,
+      tshirtSize:
+        draft.tshirtSize ?? applicationTshirtSizeDefault(application.shirtSize),
+    },
+    travelEligibility,
+  );
 }
 
 function receiptMetadata(
@@ -152,10 +172,12 @@ export function rsvpRowToFormData(row: HackerRsvpRow): RsvpFormData {
 export async function getAttendeeRsvpState({
   userId,
   accountEmail,
+  debugAllTravel = false,
   nowMs = Date.now(),
 }: {
   userId: string;
   accountEmail: string;
+  debugAllTravel?: boolean;
   nowMs?: number;
 }): Promise<AttendeeRsvpState> {
   await processQueuedRsvpReceiptCleanup(userId);
@@ -166,6 +188,10 @@ export async function getAttendeeRsvpState({
       applicationLastName: hackerApplicants.lastName,
       applicationShirtSize: hackerApplicants.shirtSize,
       applicationAllergiesDescription: hackerApplicants.allergiesDescription,
+      applicationTransportationType: hackerApplicants.transportationType,
+      applicationComingFrom: hackerApplicants.comingFrom,
+      applicationNeedsTravelReimbursement:
+        hackerApplicants.needsTravelReimbursement,
       final: hackerRsvps,
       draft: hackerRsvpDrafts,
     })
@@ -197,8 +223,12 @@ export async function getAttendeeRsvpState({
       lastName: row.applicationLastName,
       shirtSize: row.applicationShirtSize,
       allergiesDescription: row.applicationAllergiesDescription,
+      transportationType: row.applicationTransportationType,
+      comingFrom: row.applicationComingFrom,
+      needsTravelReimbursement: row.applicationNeedsTravelReimbursement,
     },
     accountEmail,
+    debugAllTravel,
   );
   const receipt = row.draft ? receiptMetadata(row.draft) : null;
   if (receipt) draft.receipt = receipt;
@@ -208,6 +238,14 @@ export async function getAttendeeRsvpState({
     draft,
     receipt,
     accountEmail,
+    travelEligibility: getRsvpTravelEligibility(
+      {
+        transportationType: row.applicationTransportationType,
+        comingFrom: row.applicationComingFrom,
+        needsTravelReimbursement: row.applicationNeedsTravelReimbursement,
+      },
+      { debugAllTravel, address: draft },
+    ),
     draftVersion: row.draft?.dataVersion ?? 0,
     receiptVersion: row.draft?.receiptVersion ?? 0,
   };

@@ -80,7 +80,10 @@ export function sanitizeReceiptFilename(filename: string): string {
   return cleaned || "receipt";
 }
 
-export function contentDispositionForReceipt(filename: string): string {
+export function contentDispositionForReceipt(
+  filename: string,
+  disposition: "attachment" | "inline" = "attachment",
+): string {
   const safe = sanitizeReceiptFilename(filename);
   const fallback =
     safe
@@ -91,5 +94,5 @@ export function contentDispositionForReceipt(filename: string): string {
     /[!'()*]/gu,
     (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
   );
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }

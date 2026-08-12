@@ -23,7 +23,7 @@ const STATUS_LABELS: Record<RsvpStatus, string> = {
 };
 
 const TRAVEL_LABELS: Record<RsvpFormData["travelPlan"], string> = {
-  "umich-student": "University of Michigan student",
+  local: "Local to Ann Arbor region",
   "self-funded": "Self-funded travel",
   reimbursement: "Travel reimbursement",
 };

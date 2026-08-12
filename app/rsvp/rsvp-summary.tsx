@@ -75,10 +75,14 @@ export function RsvpSummary({
   values,
   onEdit,
   receiptHref,
+  travelStepIndex = values.travelPlan === "local" ? null : 1,
+  waiversStepIndex = values.travelPlan === "local" ? 1 : 2,
 }: {
   values: SummaryValues;
   onEdit?: (step: number) => void;
   receiptHref?: string;
+  travelStepIndex?: number | null;
+  waiversStepIndex?: number;
 }) {
   const dietary =
     values.dietaryRestrictions?.map(
@@ -142,49 +146,60 @@ export function RsvpSummary({
         <SummaryRow label="Country">{answer(values.country)}</SummaryRow>
       </SummarySection>
 
-      <SummarySection title="Travel" onEdit={onEdit && (() => onEdit(1))}>
-        <SummaryRow label="Travel plan">
-          {values.travelPlan
-            ? TRAVEL_LABELS[values.travelPlan]
-            : "Not answered"}
-        </SummaryRow>
-        {values.travelPlan === "reimbursement" && (
-          <>
-            <Separator />
-            <SummaryRow label="Travel Guide acknowledged">
-              {yesNo(values.travelGuideAcknowledged)}
-            </SummaryRow>
-            <Separator />
-            <SummaryRow label="Flight booked">
-              {yesNo(values.flightBooked)}
-            </SummaryRow>
-            <Separator />
-            <SummaryRow label="Receipt">
-              {values.receipt ? (
-                receiptHref ? (
-                  <a
-                    href={receiptHref}
-                    className="inline-flex items-center gap-1 underline underline-offset-4"
-                  >
-                    {values.receipt.originalName}
-                    <ExternalLinkIcon className="size-3.5" aria-hidden="true" />
-                  </a>
+      {travelStepIndex !== null && (
+        <SummarySection
+          title="Travel"
+          onEdit={onEdit && (() => onEdit(travelStepIndex))}
+        >
+          <SummaryRow label="Travel plan">
+            {values.travelPlan
+              ? TRAVEL_LABELS[values.travelPlan]
+              : "Not answered"}
+          </SummaryRow>
+          {values.travelPlan === "reimbursement" && (
+            <>
+              <Separator />
+              <SummaryRow label="Travel Guide acknowledged">
+                {yesNo(values.travelGuideAcknowledged)}
+              </SummaryRow>
+              <Separator />
+              <SummaryRow label="Flight booked">
+                {yesNo(values.flightBooked)}
+              </SummaryRow>
+              <Separator />
+              <SummaryRow label="Receipt">
+                {values.receipt ? (
+                  receiptHref ? (
+                    <a
+                      href={receiptHref}
+                      className="inline-flex items-center gap-1 underline underline-offset-4"
+                    >
+                      {values.receipt.originalName}
+                      <ExternalLinkIcon
+                        className="size-3.5"
+                        aria-hidden="true"
+                      />
+                    </a>
+                  ) : (
+                    values.receipt.originalName
+                  )
                 ) : (
-                  values.receipt.originalName
-                )
-              ) : (
-                "Not uploaded"
-              )}
-            </SummaryRow>
-            <Separator />
-            <SummaryRow label="Receipt submission acknowledged">
-              {yesNo(values.receiptBindingAcknowledged)}
-            </SummaryRow>
-          </>
-        )}
-      </SummarySection>
+                  "Not uploaded"
+                )}
+              </SummaryRow>
+              <Separator />
+              <SummaryRow label="Receipt submission acknowledged">
+                {yesNo(values.receiptBindingAcknowledged)}
+              </SummaryRow>
+            </>
+          )}
+        </SummarySection>
+      )}
 
-      <SummarySection title="Waivers" onEdit={onEdit && (() => onEdit(2))}>
+      <SummarySection
+        title="Waivers"
+        onEdit={onEdit && (() => onEdit(waiversStepIndex))}
+      >
         <SummaryRow label="Activities Waiver">
           {yesNo(values.activitiesWaiverResponse)}
         </SummaryRow>

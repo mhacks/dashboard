@@ -39,11 +39,18 @@ function StateCard({
   );
 }
 
-export default async function RsvpPage() {
+export default async function RsvpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ debugTravel?: string }>;
+}) {
   const user = await requireSessionUser();
+  const { debugTravel } = await searchParams;
+  const debugAllTravel = user.role === "organizer" && debugTravel === "1";
   const state = await getAttendeeRsvpState({
     userId: user.id,
     accountEmail: user.email,
+    debugAllTravel,
   });
 
   if (state.kind === "not-eligible") {
@@ -92,7 +99,11 @@ export default async function RsvpPage() {
           title="RSVPs Are Closed"
           description="The RSVP deadline has passed. Your saved draft is shown below, but it can no longer be changed or submitted."
         >
-          <RsvpSummary values={state.draft} />
+          <RsvpSummary
+            values={state.draft}
+            travelStepIndex={state.travelEligibility.showTravelStep ? 1 : null}
+            waiversStepIndex={state.travelEligibility.showTravelStep ? 2 : 1}
+          />
         </StateCard>
       </RsvpPageShell>
     );
@@ -103,6 +114,8 @@ export default async function RsvpPage() {
       accountId={user.id}
       draft={state.draft}
       accountEmail={state.accountEmail}
+      travelEligibility={state.travelEligibility}
+      debugAllTravel={debugAllTravel}
       draftVersion={state.draftVersion}
       receiptVersion={state.receiptVersion}
     />
