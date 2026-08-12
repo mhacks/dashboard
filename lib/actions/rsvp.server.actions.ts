@@ -34,7 +34,6 @@ import {
 const saveDraftInputSchema = z.strictObject({
   data: z.unknown(),
   expectedVersion: z.number().int().nonnegative(),
-  debugAllTravel: z.boolean().optional(),
 });
 
 const saveDraftWithoutReceiptInputSchema = saveDraftInputSchema.extend({
@@ -44,7 +43,6 @@ const saveDraftWithoutReceiptInputSchema = saveDraftInputSchema.extend({
 const submitRsvpInputSchema = z.strictObject({
   data: z.unknown(),
   expectedReceiptVersion: z.number().int().nonnegative(),
-  debugAllTravel: z.boolean().optional(),
 });
 
 export type RsvpSubmitResult = {
@@ -129,10 +127,6 @@ function requestedReimbursement(data: unknown) {
   );
 }
 
-function allowDebugAllTravel(userRole: string, requested: boolean | undefined) {
-  return userRole === "organizer" && requested === true;
-}
-
 export async function saveRsvpDraft(
   input: unknown,
 ): Promise<{ updatedAt: string; version: number }> {
@@ -144,7 +138,6 @@ export async function saveRsvpDraft(
   const nextVersion = await db.transaction(async (tx) => {
     const application = await lockWritableRsvpApplicant(tx, user.id);
     const travelEligibility = getRsvpTravelEligibility(application, {
-      debugAllTravel: allowDebugAllTravel(user.role, request.debugAllTravel),
       address:
         request.data && typeof request.data === "object"
           ? (request.data as RsvpDraftData)
@@ -214,7 +207,6 @@ export async function saveRsvpDraftWithoutReceipt(input: unknown): Promise<{
   const result = await db.transaction(async (tx) => {
     const application = await lockWritableRsvpApplicant(tx, user.id);
     const travelEligibility = getRsvpTravelEligibility(application, {
-      debugAllTravel: allowDebugAllTravel(user.role, request.debugAllTravel),
       address:
         request.data && typeof request.data === "object"
           ? (request.data as RsvpDraftData)
@@ -377,7 +369,6 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
   }
 
   const travelEligibility = getRsvpTravelEligibility(preflight, {
-    debugAllTravel: allowDebugAllTravel(user.role, request.debugAllTravel),
     address:
       request.data && typeof request.data === "object"
         ? (request.data as RsvpDraftData)

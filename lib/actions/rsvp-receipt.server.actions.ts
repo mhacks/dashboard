@@ -40,13 +40,11 @@ const receiptUploadSchema = z.strictObject({
 
 const receiptUploadRequestSchema = receiptUploadSchema.extend({
   expectedReceiptVersion: z.number().int().nonnegative(),
-  debugAllTravel: z.boolean().optional(),
 });
 
 const receiptConfirmationSchema = receiptUploadSchema.extend({
   uploadId: z.uuid(),
   expectedReceiptVersion: z.number().int().nonnegative(),
-  debugAllTravel: z.boolean().optional(),
 });
 
 const receiptRemovalSchema = z.strictObject({
@@ -58,17 +56,7 @@ const receiptUploadLimiter = new RateLimiterMemory({
   duration: 60,
 });
 
-function allowDebugAllTravel(userRole: string, requested: boolean | undefined) {
-  return userRole === "organizer" && requested === true;
-}
-
-async function assertWritableUser({
-  userId,
-  debugAllTravel,
-}: {
-  userId: string;
-  debugAllTravel: boolean;
-}): Promise<number> {
+async function assertWritableUser(userId: string): Promise<number> {
   return db.transaction(async (tx) => {
     const application = await lockWritableRsvpApplicant(tx, userId);
     const [draft] = await tx
@@ -81,7 +69,6 @@ async function assertWritableUser({
       .limit(1);
     assertReceiptUploadAllowed(
       getRsvpTravelEligibility(application, {
-        debugAllTravel,
         address: draft?.data as RsvpDraftData | undefined,
       }),
     );
@@ -132,7 +119,6 @@ export async function requestRsvpReceiptUpload(input: unknown): Promise<{
       .limit(1);
     assertReceiptUploadAllowed(
       getRsvpTravelEligibility(application, {
-        debugAllTravel: allowDebugAllTravel(user.role, parsed.debugAllTravel),
         address: draft?.data as RsvpDraftData | undefined,
       }),
     );
@@ -188,10 +174,7 @@ export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
   const user = await requireSessionUser();
   assertRsvpOpen();
   const parsed = receiptConfirmationSchema.parse(input);
-  await assertWritableUser({
-    userId: user.id,
-    debugAllTravel: allowDebugAllTravel(user.role, parsed.debugAllTravel),
-  });
+  await assertWritableUser(user.id);
 
   const stagingKey = receiptStagingKeyForUser(user.id, parsed.uploadId);
   const confirmedKey = receiptConfirmedKeyForUser(user.id, randomUUID());
@@ -229,7 +212,6 @@ export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
         .limit(1);
       assertReceiptUploadAllowed(
         getRsvpTravelEligibility(application, {
-          debugAllTravel: allowDebugAllTravel(user.role, parsed.debugAllTravel),
           address: existingDraft?.data as RsvpDraftData | undefined,
         }),
       );

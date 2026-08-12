@@ -39,18 +39,11 @@ function StateCard({
   );
 }
 
-export default async function RsvpPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ debugTravel?: string }>;
-}) {
+export default async function RsvpPage() {
   const user = await requireSessionUser();
-  const { debugTravel } = await searchParams;
-  const debugAllTravel = user.role === "organizer" && debugTravel === "1";
   const state = await getAttendeeRsvpState({
     userId: user.id,
     accountEmail: user.email,
-    debugAllTravel,
   });
 
   if (state.kind === "not-eligible") {
@@ -115,7 +108,6 @@ export default async function RsvpPage({
       draft={state.draft}
       accountEmail={state.accountEmail}
       travelEligibility={state.travelEligibility}
-      debugAllTravel={debugAllTravel}
       draftVersion={state.draftVersion}
       receiptVersion={state.receiptVersion}
     />

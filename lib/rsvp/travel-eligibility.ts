@@ -104,17 +104,8 @@ export function hasRsvpAddressTravelSignal({
 
 export function getRsvpTravelEligibility(
   source: RsvpTravelEligibilitySource,
-  options: { debugAllTravel?: boolean; address?: RsvpAddressSource } = {},
+  options: { address?: RsvpAddressSource } = {},
 ): RsvpTravelEligibility {
-  if (options.debugAllTravel) {
-    return {
-      showTravelStep: true,
-      canRequestReimbursement: true,
-      nonLocalCanRequestReimbursement: true,
-      defaultTravelPlan: "reimbursement",
-    };
-  }
-
   const addressHasTravelSignal = options.address
     ? hasRsvpAddressTravelSignal(options.address)
     : false;

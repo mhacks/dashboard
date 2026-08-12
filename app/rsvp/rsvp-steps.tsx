@@ -584,14 +584,12 @@ type ReceiptMutationVersion = {
 
 function ReceiptUpload({
   disabled,
-  debugAllTravel,
   receiptVersion,
   beforeMutation,
   onMutationChange,
   onVersionChange,
 }: {
   disabled: boolean;
-  debugAllTravel: boolean;
   receiptVersion: number;
   beforeMutation: () => Promise<void>;
   onMutationChange: (inProgress: boolean) => void;
@@ -637,7 +635,6 @@ function ReceiptUpload({
           contentType: file.type,
           sizeBytes: file.size,
           expectedReceiptVersion: receiptVersion,
-          debugAllTravel,
         });
       onVersionChange({ receiptVersion: expectedReceiptVersion });
       const upload = await fetch(uploadUrl, {
@@ -653,7 +650,6 @@ function ReceiptUpload({
         contentType: file.type,
         sizeBytes: file.size,
         expectedReceiptVersion,
-        debugAllTravel,
       });
       if (
         operation !== operationRef.current ||
@@ -805,7 +801,6 @@ function ReceiptUpload({
 
 export function TravelTaxStep({
   canRequestReimbursement,
-  debugAllTravel,
   receiptMutationInProgress,
   receiptVersion,
   beforeReceiptMutation,
@@ -814,7 +809,6 @@ export function TravelTaxStep({
   commitTravelPlanChange,
 }: {
   canRequestReimbursement: boolean;
-  debugAllTravel: boolean;
   receiptMutationInProgress: boolean;
   receiptVersion: number;
   beforeReceiptMutation: () => Promise<void>;
@@ -1019,7 +1013,6 @@ export function TravelTaxStep({
 
               <ReceiptUpload
                 disabled={receiptMutationInProgress}
-                debugAllTravel={debugAllTravel}
                 receiptVersion={receiptVersion}
                 beforeMutation={beforeReceiptMutation}
                 onMutationChange={onReceiptMutationChange}

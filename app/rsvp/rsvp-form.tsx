@@ -192,7 +192,6 @@ export default function RsvpForm({
   draft,
   accountEmail,
   travelEligibility,
-  debugAllTravel,
   draftVersion,
   receiptVersion: initialReceiptVersion,
 }: {
@@ -200,7 +199,6 @@ export default function RsvpForm({
   draft: RsvpDraftData;
   accountEmail: string;
   travelEligibility: RsvpTravelEligibility;
-  debugAllTravel: boolean;
   draftVersion: number;
   receiptVersion: number;
 }) {
@@ -226,7 +224,7 @@ export default function RsvpForm({
     getVersion: getDraftVersion,
     cancelPending: cancelPendingSave,
     completeExternalSave,
-  } = useRsvpAutosave(accountId, draftVersion, draft, { debugAllTravel });
+  } = useRsvpAutosave(accountId, draftVersion, draft);
 
   const methods = useForm<RsvpFormData>({
     resolver: zodResolver(rsvpFormSchema),
@@ -251,7 +249,7 @@ export default function RsvpForm({
       country: watchedValues.country,
     };
 
-    if (!debugAllTravel && hasRsvpAddressTravelSignal(address)) {
+    if (hasRsvpAddressTravelSignal(address)) {
       const addressIsLocal = isAnnArborRegionAddress(address);
       return {
         showTravelStep: !addressIsLocal,
@@ -268,7 +266,6 @@ export default function RsvpForm({
     }
     return travelEligibility;
   }, [
-    debugAllTravel,
     travelEligibility,
     watchedValues.city,
     watchedValues.country,
@@ -401,7 +398,6 @@ export default function RsvpForm({
       const result = await submitRsvp({
         data: submissionValues,
         expectedReceiptVersion: receiptVersion,
-        debugAllTravel,
       });
       stopAutosave();
       if (result.alreadySubmitted) {
@@ -527,7 +523,6 @@ export default function RsvpForm({
                     canRequestReimbursement={
                       travelEligibility.canRequestReimbursement
                     }
-                    debugAllTravel={debugAllTravel}
                     receiptMutationInProgress={receiptMutationInProgress}
                     onReceiptMutationChange={setReceiptMutationInProgress}
                     receiptVersion={receiptVersion}
@@ -541,7 +536,6 @@ export default function RsvpForm({
                         data,
                         expectedVersion: getDraftVersion(),
                         expectedReceiptVersion: receiptVersion,
-                        debugAllTravel,
                       });
                       completeExternalSave(data, saved.version);
                       setReceiptVersion(saved.receiptVersion);

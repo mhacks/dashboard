@@ -103,7 +103,6 @@ export function useRsvpAutosave(
   userId: string,
   initialVersion: number,
   initialData: RsvpDraftData,
-  options: { debugAllTravel?: boolean } = {},
 ) {
   const [status, setStatus] = useState<RsvpSaveStatus>("idle");
   const latest = useRef<Partial<RsvpFormData>>({});
@@ -132,7 +131,6 @@ export function useRsvpAutosave(
         const saved = await saveRsvpDraft({
           data,
           expectedVersion: version.current,
-          debugAllTravel: options.debugAllTravel ?? false,
         });
         version.current = saved.version;
       });
@@ -168,7 +166,7 @@ export function useRsvpAutosave(
         throw new Error("Unable to save RSVP draft");
       }
     },
-    [options.debugAllTravel, userId],
+    [userId],
   );
 
   const schedule = useCallback(
@@ -250,7 +248,6 @@ export function useRsvpAutosave(
       const body = JSON.stringify({
         data: latest.current,
         expectedVersion: version.current,
-        debugAllTravel: options.debugAllTravel ?? false,
       });
       void fetch("/rsvp/draft", {
         method: "POST",
@@ -266,7 +263,7 @@ export function useRsvpAutosave(
       stopped.current = true;
       clearTimer();
     };
-  }, [clearTimer, options.debugAllTravel, userId]);
+  }, [clearTimer, userId]);
 
   return {
     status,

@@ -99,7 +99,6 @@ function applyApplicantDefaults(
   draft: RsvpDraftData,
   application: ApplicantDefaultSource,
   accountEmail: string,
-  debugAllTravel: boolean,
 ): RsvpDraftData {
   const firstName = application.firstName.trim();
   const lastName = application.lastName.trim();
@@ -108,7 +107,6 @@ function applyApplicantDefaults(
     ? {}
     : applicationDietaryDefaults(application.allergiesDescription);
   const travelEligibility = getRsvpTravelEligibility(application, {
-    debugAllTravel,
     address: draft,
   });
 
@@ -172,12 +170,10 @@ export function rsvpRowToFormData(row: HackerRsvpRow): RsvpFormData {
 export async function getAttendeeRsvpState({
   userId,
   accountEmail,
-  debugAllTravel = false,
   nowMs = Date.now(),
 }: {
   userId: string;
   accountEmail: string;
-  debugAllTravel?: boolean;
   nowMs?: number;
 }): Promise<AttendeeRsvpState> {
   await processQueuedRsvpReceiptCleanup(userId);
@@ -228,7 +224,6 @@ export async function getAttendeeRsvpState({
       needsTravelReimbursement: row.applicationNeedsTravelReimbursement,
     },
     accountEmail,
-    debugAllTravel,
   );
   const receipt = row.draft ? receiptMetadata(row.draft) : null;
   if (receipt) draft.receipt = receipt;
@@ -244,7 +239,7 @@ export async function getAttendeeRsvpState({
         comingFrom: row.applicationComingFrom,
         needsTravelReimbursement: row.applicationNeedsTravelReimbursement,
       },
-      { debugAllTravel, address: draft },
+      { address: draft },
     ),
     draftVersion: row.draft?.dataVersion ?? 0,
     receiptVersion: row.draft?.receiptVersion ?? 0,
