@@ -9,6 +9,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BoardingPassSection } from "@/components/decision/boarding-pass-section";
 import { EventDetails } from "@/components/decision/event-details";
 import { LetterButtonLink } from "@/components/decision/letter-button";
 import { Letterhead } from "@/components/decision/letterhead";
@@ -167,6 +168,17 @@ export function DecisionLetterModal({
                 )}
               </div>
             </section>
+
+            {/*
+              Its own band rather than a second button under RSVP: the pass
+              needs room to say what it is, and a section can do that without
+              taking weight from the one action that has a deadline.
+
+              Before the event details on purpose — it belongs with the things
+              to do, and the details are reference material on the way to the
+              sign-off.
+            */}
+            <BoardingPassSection applicantName={applicantName} />
 
             <EventDetails />
 
