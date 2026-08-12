@@ -53,6 +53,8 @@ import {
 const SECTION_CARD_CLASS = "shadow-none";
 const SECTION_CARD_STYLE = { borderColor: "rgba(58,74,38,0.15)" };
 const SECTION_CONTENT_CLASS = "space-y-4 font-red-hat";
+const ACTIVITIES_WAIVER_URL =
+  "https://drive.google.com/file/d/1K6OsDr_UCc3lrtSCYjtXt2MIpCwyfWZy/view?usp=sharing";
 
 function formatPostalCodeInput(country: string | undefined, value: string) {
   if (country === "United States") {
@@ -199,12 +201,18 @@ function BooleanChoice({
   value,
   onChange,
   error,
+  disabled = false,
+  disabledMessage,
 }: {
   id: string;
   value: boolean | undefined;
   onChange: (value: boolean) => void;
   error?: { message?: string };
+  disabled?: boolean;
+  disabledMessage?: string;
 }) {
+  const helperId = disabledMessage ? `${id}-helper` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
   return (
     <div className="flex flex-col gap-2">
       <ToggleGroup
@@ -217,6 +225,10 @@ function BooleanChoice({
         spacing={2}
         aria-label={id}
         aria-invalid={Boolean(error)}
+        aria-describedby={
+          [helperId, errorId].filter(Boolean).join(" ") || undefined
+        }
+        disabled={disabled}
       >
         <ToggleGroupItem value="true" className="font-red-hat">
           Yes
@@ -225,8 +237,17 @@ function BooleanChoice({
           No
         </ToggleGroupItem>
       </ToggleGroup>
+      {disabledMessage && (
+        <p id={helperId} className="font-red-hat text-xs text-moss/55">
+          {disabledMessage}
+        </p>
+      )}
       {error?.message && (
-        <p className="font-red-hat text-xs text-destructive" role="alert">
+        <p
+          id={errorId}
+          className="font-red-hat text-xs text-destructive"
+          role="alert"
+        >
           {error.message}
         </p>
       )}
@@ -1035,6 +1056,14 @@ export function WaiversStep() {
     control,
     formState: { errors },
   } = useFormContext<RsvpFormData>();
+  const activitiesWaiverResponse = useWatch({
+    control,
+    name: "activitiesWaiverResponse",
+  });
+  const [activitiesWaiverOpened, setActivitiesWaiverOpened] = useState(false);
+  const activitiesWaiverUnlocked =
+    activitiesWaiverOpened || activitiesWaiverResponse !== undefined;
+  const handleOpenActivitiesWaiver = () => setActivitiesWaiverOpened(true);
 
   return (
     <div className="flex flex-col gap-5">
@@ -1042,11 +1071,20 @@ export function WaiversStep() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="font-red-hat text-sm leading-6 text-foreground">
-              I confirm that I have read and understood the Activities Waiver
+              I confirm that I have read and understood the{" "}
+              <a
+                href={ACTIVITIES_WAIVER_URL}
+                target="_blank"
+                rel="noreferrer"
+                onClick={handleOpenActivitiesWaiver}
+                className="font-medium text-moss underline underline-offset-4"
+              >
+                Activities Waiver
+              </a>{" "}
               document. The above agreements are binding upon me, my estate,
               heirs, representatives, and assigns. I understand that selecting
-              &quot;No&quot; will not allow me to participate a select few
-              activites at MHacks 2026.
+              &quot;No&quot; will not allow me to participate in some activities
+              at MHacks 2026.
               <span className="ml-1 text-destructive" aria-hidden="true">
                 *
               </span>
@@ -1060,6 +1098,12 @@ export function WaiversStep() {
                   value={field.value}
                   onChange={field.onChange}
                   error={errors.activitiesWaiverResponse}
+                  disabled={!activitiesWaiverUnlocked}
+                  disabledMessage={
+                    activitiesWaiverUnlocked
+                      ? undefined
+                      : "Open the Activities Waiver before answering."
+                  }
                 />
               )}
             />
