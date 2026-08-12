@@ -17,10 +17,15 @@ export const RSVP_STEPS: readonly {
       "dietaryRestrictions",
       "otherDietaryRestriction",
       "tshirtSize",
+      "streetAddress",
+      "city",
+      "stateOrProvince",
+      "postalCode",
+      "country",
     ],
   },
   {
-    label: "Travel & Tax",
+    label: "Travel",
     shortLabel: "Travel",
     fields: [
       "travelPlan",
@@ -28,11 +33,6 @@ export const RSVP_STEPS: readonly {
       "flightBooked",
       "receipt",
       "receiptBindingAcknowledged",
-      "streetAddress",
-      "city",
-      "stateOrProvince",
-      "postalCode",
-      "country",
     ],
   },
   {

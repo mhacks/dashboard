@@ -121,7 +121,36 @@ export function RsvpSummary({
         </SummaryRow>
       </SummarySection>
 
-      <SummarySection title="Travel & Tax" onEdit={onEdit && (() => onEdit(1))}>
+      <SummarySection title="Address" onEdit={onEdit && (() => onEdit(0))}>
+        <SummaryRow label="Street address">
+          {answer(values.streetAddress)}
+        </SummaryRow>
+        <Separator />
+        <SummaryRow label="City">{answer(values.city)}</SummaryRow>
+        {(values.country === "United States" ||
+          values.country === "Canada") && (
+          <>
+            <Separator />
+            <SummaryRow
+              label={values.country === "United States" ? "State" : "Province"}
+            >
+              {answer(values.stateOrProvince)}
+            </SummaryRow>
+            <Separator />
+            <SummaryRow
+              label={
+                values.country === "United States" ? "ZIP code" : "Postal code"
+              }
+            >
+              {answer(values.postalCode)}
+            </SummaryRow>
+          </>
+        )}
+        <Separator />
+        <SummaryRow label="Country">{answer(values.country)}</SummaryRow>
+      </SummarySection>
+
+      <SummarySection title="Travel" onEdit={onEdit && (() => onEdit(1))}>
         <SummaryRow label="Travel plan">
           {values.travelPlan
             ? TRAVEL_LABELS[values.travelPlan]
@@ -161,22 +190,6 @@ export function RsvpSummary({
             </SummaryRow>
           </>
         )}
-        <Separator />
-        <SummaryRow label="Street address">
-          {answer(values.streetAddress)}
-        </SummaryRow>
-        <Separator />
-        <SummaryRow label="City">{answer(values.city)}</SummaryRow>
-        <Separator />
-        <SummaryRow label="State/Province">
-          {answer(values.stateOrProvince)}
-        </SummaryRow>
-        <Separator />
-        <SummaryRow label="ZIP/Postal code">
-          {answer(values.postalCode)}
-        </SummaryRow>
-        <Separator />
-        <SummaryRow label="Country">{answer(values.country)}</SummaryRow>
       </SummarySection>
 
       <SummarySection title="Waivers" onEdit={onEdit && (() => onEdit(2))}>

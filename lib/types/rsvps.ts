@@ -4,6 +4,12 @@ import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
   RSVP_RECEIPT_CONTENT_TYPES,
 } from "@/lib/rsvp/receipt";
+import {
+  isKnownCanadianProvince,
+  isKnownCountry,
+  isKnownUsState,
+  isValidPostalCodeForCountry,
+} from "@/lib/geo/address";
 
 export const DIETARY_RESTRICTION_VALUES = [
   "vegetarian",
@@ -29,6 +35,18 @@ const requiredText = (label: string, max: number) =>
     .trim()
     .min(1, `${label} is required`)
     .max(max, `${label} must be ${max} characters or fewer`);
+
+const requiredAddressText = (label: string, max: number, min = 2) =>
+  requiredText(label, max).min(
+    min,
+    `${label} must be at least ${min} characters`,
+  );
+
+const requiredPlaceText = (label: string, max: number) =>
+  requiredAddressText(label, max).refine(
+    (value) => /\p{L}/u.test(value) && !/\d/.test(value),
+    `${label} should contain letters, not numbers`,
+  );
 
 const draftText = (max: number) => z.string().trim().max(max);
 
@@ -76,11 +94,14 @@ const finalFields = {
   flightBooked: z.boolean().optional(),
   receipt: rsvpReceiptMetadataSchema.optional(),
   receiptBindingAcknowledged: z.boolean().optional(),
-  streetAddress: requiredText("Street address", 200),
-  city: requiredText("City", 100),
-  stateOrProvince: requiredText("State or province", 100),
-  postalCode: requiredText("ZIP or postal code", 32),
-  country: requiredText("Country", 100),
+  streetAddress: requiredAddressText("Street address", 200, 5),
+  city: requiredPlaceText("City", 100),
+  stateOrProvince: z.string().trim().max(100).optional(),
+  postalCode: z.string().trim().max(32).optional(),
+  country: requiredText("Country", 100).refine(
+    isKnownCountry,
+    "Select a valid country",
+  ),
   activitiesWaiverResponse: z.boolean({
     error: "Please answer the Activities Waiver question",
   }),
@@ -106,6 +127,9 @@ function normalizeConditionalFields<
     flightBooked?: boolean;
     receipt?: RsvpReceiptMetadata;
     receiptBindingAcknowledged?: boolean;
+    country?: string;
+    stateOrProvince?: string;
+    postalCode?: string;
   },
 >(value: T): T {
   const normalized = { ...value };
@@ -118,6 +142,15 @@ function normalizeConditionalFields<
     !normalized.dietaryRestrictions.includes("other")
   ) {
     delete normalized.otherDietaryRestriction;
+  }
+
+  if (
+    "country" in normalized &&
+    normalized.country !== "United States" &&
+    normalized.country !== "Canada"
+  ) {
+    delete normalized.stateOrProvince;
+    delete normalized.postalCode;
   }
 
   return normalized;
@@ -167,6 +200,45 @@ const finalRsvpObjectSchema = z
   .strictObject(finalFields)
   .superRefine((data, ctx) => {
     validateDietarySelections(data, ctx, true);
+
+    if (
+      data.country === "United States" &&
+      (!data.stateOrProvince || !isKnownUsState(data.stateOrProvince))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stateOrProvince"],
+        message: "Select a valid U.S. state or territory",
+      });
+    }
+    if (
+      data.country === "Canada" &&
+      (!data.stateOrProvince || !isKnownCanadianProvince(data.stateOrProvince))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stateOrProvince"],
+        message: "Select a valid Canadian province or territory",
+      });
+    }
+    if (
+      (data.country === "United States" || data.country === "Canada") &&
+      !isValidPostalCodeForCountry({
+        country: data.country,
+        postalCode: data.postalCode ?? "",
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["postalCode"],
+        message:
+          data.country === "United States"
+            ? "Enter a valid 5-digit or ZIP+4 code"
+            : data.country === "Canada"
+              ? "Enter a valid Canadian postal code"
+              : "Enter a valid ZIP or postal code",
+      });
+    }
 
     if (data.travelPlan !== "reimbursement") return;
 

@@ -38,6 +38,11 @@ import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
   isRsvpReceiptContentType,
 } from "@/lib/rsvp/receipt";
+import {
+  CANADA_PROVINCE_OPTIONS,
+  COUNTRY_OPTIONS,
+  US_STATE_OPTIONS,
+} from "@/lib/geo/address";
 import type { RsvpFormData } from "@/lib/types/rsvps";
 import {
   DIETARY_OPTIONS,
@@ -48,6 +53,27 @@ import {
 const SECTION_CARD_CLASS = "shadow-none";
 const SECTION_CARD_STYLE = { borderColor: "rgba(58,74,38,0.15)" };
 const SECTION_CONTENT_CLASS = "space-y-4 font-red-hat";
+
+function formatPostalCodeInput(country: string | undefined, value: string) {
+  if (country === "United States") {
+    const digits = value.replace(/\D/g, "").slice(0, 9);
+    return digits.length > 5
+      ? `${digits.slice(0, 5)}-${digits.slice(5)}`
+      : digits;
+  }
+
+  if (country === "Canada") {
+    const characters = value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 6);
+    return characters.length > 3
+      ? `${characters.slice(0, 3)} ${characters.slice(3)}`
+      : characters;
+  }
+
+  return value.replace(/[^A-Za-z0-9 -]/g, "").slice(0, 32);
+}
 
 function Question({
   label,
@@ -215,6 +241,13 @@ export function PersonalStep() {
     setValue,
     formState: { errors },
   } = useFormContext<RsvpFormData>();
+  const country = useWatch({ control, name: "country" });
+  const stateOptions =
+    country === "United States"
+      ? US_STATE_OPTIONS
+      : country === "Canada"
+        ? CANADA_PROVINCE_OPTIONS
+        : null;
 
   return (
     <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
@@ -298,6 +331,157 @@ export function PersonalStep() {
                 </YesAcknowledgement>
               )}
             />
+          </div>
+
+          <div className="pt-3 md:col-span-2">
+            <p className="font-red-hat text-sm leading-none font-medium text-moss">
+              Address
+            </p>
+          </div>
+
+          <Question
+            label="Street Address"
+            htmlFor="streetAddress"
+            required
+            error={errors.streetAddress}
+            className="md:col-span-2"
+          >
+            <Input
+              id="streetAddress"
+              autoComplete="street-address"
+              aria-invalid={Boolean(errors.streetAddress)}
+              {...register("streetAddress")}
+            />
+          </Question>
+
+          <Question
+            label="Country"
+            htmlFor="country"
+            required
+            error={errors.country}
+          >
+            <Controller
+              name="country"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? ""}
+                  onValueChange={(next) => {
+                    field.onChange(next);
+                    setValue("stateOrProvince", "", {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    setValue("postalCode", "", {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }}
+                >
+                  <SelectTrigger
+                    id="country"
+                    aria-invalid={Boolean(errors.country)}
+                  >
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {COUNTRY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Question>
+
+          <Question label="City" htmlFor="city" required error={errors.city}>
+            <Input
+              id="city"
+              autoComplete="address-level2"
+              aria-invalid={Boolean(errors.city)}
+              {...register("city")}
+            />
+          </Question>
+
+          {stateOptions && (
+            <Question
+              label={country === "United States" ? "State" : "Province"}
+              htmlFor="stateOrProvince"
+              required
+              error={errors.stateOrProvince}
+            >
+              <Controller
+                name="stateOrProvince"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger
+                      id="stateOrProvince"
+                      aria-invalid={Boolean(errors.stateOrProvince)}
+                    >
+                      <SelectValue
+                        placeholder={
+                          country === "United States"
+                            ? "Select state"
+                            : "Select province"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {stateOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Question>
+          )}
+
+          {stateOptions && (
+            <Question
+              label={country === "United States" ? "ZIP Code" : "Postal Code"}
+              htmlFor="postalCode"
+              required
+              error={errors.postalCode}
+            >
+              <Controller
+                name="postalCode"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="postalCode"
+                    autoComplete="postal-code"
+                    inputMode={country === "United States" ? "numeric" : "text"}
+                    aria-invalid={Boolean(errors.postalCode)}
+                    value={field.value ?? ""}
+                    onBlur={field.onBlur}
+                    onChange={(event) =>
+                      field.onChange(
+                        formatPostalCodeInput(country, event.target.value),
+                      )
+                    }
+                  />
+                )}
+              />
+            </Question>
+          )}
+
+          <div className="pt-3 md:col-span-2">
+            <p className="font-red-hat text-sm leading-none font-medium text-moss">
+              Preferences
+            </p>
           </div>
 
           <Question
@@ -617,7 +801,6 @@ export function TravelTaxStep({
   commitTravelPlanChange: (data: RsvpFormData) => Promise<void>;
 }) {
   const {
-    register,
     control,
     getValues,
     setValue,
@@ -797,81 +980,6 @@ export function TravelTaxStep({
               />
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
-        <CardContent className={SECTION_CONTENT_CLASS}>
-          <div>
-            <h2 className="font-heading text-2xl italic text-moss">
-              Tax Information
-            </h2>
-            <p className="mt-1 font-red-hat text-xs text-moss/55">
-              All address fields are required.
-            </p>
-          </div>
-          <Question
-            label="Street Address"
-            htmlFor="streetAddress"
-            required
-            error={errors.streetAddress}
-          >
-            <Input
-              id="streetAddress"
-              autoComplete="street-address"
-              aria-invalid={Boolean(errors.streetAddress)}
-              {...register("streetAddress")}
-            />
-          </Question>
-          <div className="grid gap-5 md:grid-cols-2">
-            <Question label="City" htmlFor="city" required error={errors.city}>
-              <Input
-                id="city"
-                autoComplete="address-level2"
-                aria-invalid={Boolean(errors.city)}
-                {...register("city")}
-              />
-            </Question>
-            <Question
-              label="State/Province"
-              htmlFor="stateOrProvince"
-              required
-              error={errors.stateOrProvince}
-            >
-              <Input
-                id="stateOrProvince"
-                autoComplete="address-level1"
-                aria-invalid={Boolean(errors.stateOrProvince)}
-                {...register("stateOrProvince")}
-              />
-            </Question>
-            <Question
-              label="Zip/Postal Code"
-              htmlFor="postalCode"
-              required
-              error={errors.postalCode}
-            >
-              <Input
-                id="postalCode"
-                autoComplete="postal-code"
-                aria-invalid={Boolean(errors.postalCode)}
-                {...register("postalCode")}
-              />
-            </Question>
-            <Question
-              label="Country"
-              htmlFor="country"
-              required
-              error={errors.country}
-            >
-              <Input
-                id="country"
-                autoComplete="country-name"
-                aria-invalid={Boolean(errors.country)}
-                {...register("country")}
-              />
-            </Question>
-          </div>
         </CardContent>
       </Card>
     </div>
