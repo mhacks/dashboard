@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Image from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -12,7 +12,6 @@ import {
 } from "react-hook-form";
 import { AlertCircleIcon, CheckCircle2Icon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   saveRsvpDraftWithoutReceipt,
   submitRsvp,
@@ -30,6 +29,14 @@ import {
   consumeRestorablePendingRsvp,
   useRsvpAutosave,
 } from "./use-rsvp-autosave";
+
+const EASE = [0.25, 0.1, 0.25, 1] as const;
+const MOSS = "var(--color-moss)";
+const MOSS_15 = "color-mix(in srgb, var(--color-moss) 15%, transparent)";
+const MOSS_20 = "color-mix(in srgb, var(--color-moss) 20%, transparent)";
+const MOSS_25 = "color-mix(in srgb, var(--color-moss) 25%, transparent)";
+const MOSS_30 = "color-mix(in srgb, var(--color-moss) 30%, transparent)";
+const MOSS_65 = "color-mix(in srgb, var(--color-moss) 65%, transparent)";
 
 function defaultValues(
   draft: RsvpDraftData,
@@ -62,36 +69,62 @@ function defaultValues(
   };
 }
 
-function StepProgress({ current }: { current: number }) {
+function StepBar({ current }: { current: number }) {
   return (
-    <ol className="grid grid-cols-4 gap-2" aria-label="RSVP progress">
+    <div className="flex w-full items-start" aria-label="RSVP progress">
       {RSVP_STEPS.map((step, index) => {
-        const active = index === current;
-        const done = index < current;
+        const isActive = index === current;
+        const isDone = index < current;
         return (
-          <li key={step.label} className="flex min-w-0 flex-col gap-2">
-            <div
-              className={
-                done || active
-                  ? "h-1 rounded-full bg-moss"
-                  : "h-1 rounded-full bg-moss/15"
-              }
-            />
-            <span
-              className={
-                active
-                  ? "truncate text-center font-red-hat text-[10px] font-bold text-moss"
-                  : "truncate text-center font-red-hat text-[10px] text-moss/45"
-              }
-              aria-current={active ? "step" : undefined}
-            >
-              {done ? "✓ " : ""}
-              {step.shortLabel}
-            </span>
-          </li>
+          <Fragment key={step.label}>
+            <div className="flex shrink-0 flex-col items-center">
+              <motion.div
+                animate={isActive ? { scale: 1.3 } : { scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="rounded-full"
+                style={
+                  isActive
+                    ? {
+                        width: 10,
+                        height: 10,
+                        background: MOSS,
+                        boxShadow: `0 0 0 3px ${MOSS_20}`,
+                      }
+                    : isDone
+                      ? { width: 8, height: 8, background: MOSS }
+                      : {
+                          width: 8,
+                          height: 8,
+                          background: MOSS_15,
+                          border: `1.5px solid ${MOSS_25}`,
+                        }
+                }
+              />
+              <span
+                className="mt-2 w-16 text-center font-red-hat text-[10px] leading-tight tracking-wide transition-all duration-300"
+                style={{
+                  color: isActive ? MOSS : isDone ? MOSS_65 : MOSS_30,
+                  fontWeight: isActive ? 700 : isDone ? 600 : 400,
+                }}
+                aria-current={isActive ? "step" : undefined}
+              >
+                {isDone ? "✓ " : ""}
+                {step.shortLabel}
+              </span>
+            </div>
+            {index < RSVP_STEPS.length - 1 && (
+              <motion.div
+                className="mx-1 mt-[4px] h-px flex-1"
+                animate={{
+                  backgroundColor: isDone ? MOSS : MOSS_15,
+                }}
+                transition={{ duration: 0.4 }}
+              />
+            )}
+          </Fragment>
         );
       })}
-    </ol>
+    </div>
   );
 }
 
@@ -104,33 +137,32 @@ function SaveIndicator({
 }) {
   if (status === "idle") return null;
   return (
-    <div
-      className="glass-pill flex items-center gap-2 rounded-full px-3 py-2"
+    <span
+      className={
+        status === "error"
+          ? "font-red-hat text-[11px] text-red-200"
+          : "font-red-hat text-[11px] text-white/45"
+      }
       aria-live="polite"
     >
-      <span
-        className={
-          status === "error"
-            ? "font-red-hat text-[11px] text-red-200"
-            : "font-red-hat text-[11px] text-white/60"
-        }
-      >
-        {status === "saving"
-          ? "Saving…"
-          : status === "saved"
-            ? "Saved"
-            : "Failed to save"}
-      </span>
+      {status === "saving"
+        ? "Saving…"
+        : status === "saved"
+          ? "Saved"
+          : "Failed to save"}
       {status === "error" && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="font-red-hat text-[11px] font-semibold text-white underline underline-offset-2"
-        >
-          Retry
-        </button>
+        <>
+          {" "}
+          <button
+            type="button"
+            onClick={onRetry}
+            className="font-semibold text-white underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -282,61 +314,47 @@ export default function RsvpForm({
       accountId={accountId}
       onBeforeLogout={stopAutosave}
       status={<SaveIndicator status={saveStatus} onRetry={retrySave} />}
+      stepCount={{ current: step + 1, total: RSVP_STEPS.length }}
     >
-      <main className="glass-card w-full max-w-2xl overflow-hidden rounded-3xl">
-        <div className="px-5 pt-7 pb-6 sm:px-8 sm:pt-8">
-          <p className="font-red-hat text-[10px] font-semibold tracking-[0.3em] text-moss/45 uppercase">
-            RSVP
-          </p>
-          <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <h1 className="font-heading text-4xl leading-tight italic text-moss sm:text-5xl">
-                MHacks 2026 Early Application RSVP
-              </h1>
-              <p className="mt-3 font-red-hat text-sm leading-6 text-moss/65">
-                Please complete this form by August 14th to confirm your spot at
-                MHacks 2026. We&apos;re so excited to have you here !!
-              </p>
+      <motion.main
+        initial={{ opacity: 0, y: 32 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.65, ease: EASE, delay: 0.1 }}
+        className="glass-card w-full max-w-2xl overflow-hidden rounded-3xl"
+      >
+        <div className="px-8 pt-8 pb-6">
+          <div className="mb-6">
+            <p className="mb-1 font-red-hat text-[10px] font-semibold tracking-[0.3em] text-moss/45 uppercase">
+              RSVP
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <h1 className="font-heading text-4xl leading-tight tracking-tight text-moss italic sm:text-5xl">
+                  {RSVP_STEPS[step].label}
+                </h1>
+                <Image
+                  src="/yellow_flower.png"
+                  alt=""
+                  width={68}
+                  height={68}
+                  className="pointer-events-none shrink-0 rotate-[-18deg] opacity-30 select-none"
+                />
+              </div>
             </div>
-            <Image
-              src="/yellow_flower.png"
-              alt=""
-              width={68}
-              height={68}
-              className="pointer-events-none hidden shrink-0 rotate-[-18deg] opacity-30 select-none sm:block"
-            />
-          </div>
-          <div className="mt-4 rounded-xl border border-moss/10 bg-white/30 px-4 py-3">
-            <p className="font-red-hat text-xs leading-5 text-moss/60">
-              Your signed-in MHacks account will be associated with uploaded
-              files and this submission.
-            </p>
-            <p className="mt-1 font-red-hat text-xs text-moss/60">
-              <span className="text-destructive">*</span> Indicates a required
-              question
+            <p className="mt-3 max-w-xl font-red-hat text-sm leading-6 text-moss/65">
+              Please complete this form by{" "}
+              <span className="mr-1 font-semibold text-moss">August 14th</span>
+              to confirm your spot at MHacks 2026. We&apos;re so excited to have
+              you here !!
             </p>
           </div>
-          <div className="mt-6">
-            <StepProgress current={step} />
-          </div>
+          <StepBar current={step} />
         </div>
 
-        <div className="h-px bg-moss/8" />
+        <div className="mx-8 h-px bg-moss/8" />
 
         <FormProvider {...methods}>
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="px-5 py-6 sm:px-8 sm:py-7"
-          >
-            <div className="mb-5">
-              <p className="font-red-hat text-[10px] font-semibold tracking-[0.25em] text-moss/45 uppercase">
-                Step {step + 1} of {RSVP_STEPS.length}
-              </p>
-              <h2 className="mt-1 font-heading text-3xl italic text-moss">
-                {RSVP_STEPS[step].label}
-              </h2>
-            </div>
-
+          <form onSubmit={handleSubmit(onSubmit)} className="px-8 py-7">
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={step}
@@ -344,15 +362,15 @@ export default function RsvpForm({
                 initial={
                   reduceMotion
                     ? { opacity: 1 }
-                    : { opacity: 0, x: 24 * direction }
+                    : { opacity: 0, x: 28 * direction }
                 }
                 animate={{ opacity: 1, x: 0 }}
                 exit={
                   reduceMotion
                     ? { opacity: 1 }
-                    : { opacity: 0, x: -24 * direction }
+                    : { opacity: 0, x: -28 * direction }
                 }
-                transition={{ duration: reduceMotion ? 0 : 0.2 }}
+                transition={{ duration: reduceMotion ? 0 : 0.22, ease: EASE }}
               >
                 {step === 0 && <PersonalStep />}
                 {step === 1 && (
@@ -403,26 +421,27 @@ export default function RsvpForm({
 
             <div className="mt-8 flex flex-col-reverse gap-3 border-t border-moss/8 pt-6 sm:flex-row sm:items-center">
               {step > 0 && (
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   disabled={receiptMutationInProgress}
                   onClick={goBack}
+                  className="rounded-full border border-moss/20 px-6 py-2.5 font-red-hat text-[13px] font-medium text-moss transition-colors hover:bg-black/5 disabled:pointer-events-none disabled:opacity-50"
                 >
                   Back
-                </Button>
+                </button>
               )}
               <div className="flex-1" />
               {step < RSVP_STEPS.length - 1 ? (
-                <Button
+                <button
                   type="button"
                   disabled={receiptMutationInProgress}
                   onClick={goNext}
+                  className="rounded-full bg-moss px-7 py-2.5 font-red-hat text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:pointer-events-none disabled:opacity-50"
                 >
                   Continue
-                </Button>
+                </button>
               ) : (
-                <Button
+                <button
                   type="button"
                   aria-disabled={
                     !isComplete || isSubmitting || receiptMutationInProgress
@@ -435,9 +454,14 @@ export default function RsvpForm({
                     }
                     void handleSubmit(onSubmit)();
                   }}
+                  className={`rounded-full bg-moss px-7 py-2.5 font-red-hat text-[13px] font-medium text-white transition-opacity ${
+                    !isComplete || isSubmitting || receiptMutationInProgress
+                      ? "cursor-not-allowed opacity-50"
+                      : "hover:opacity-80"
+                  }`}
                 >
                   {isSubmitting ? "Submitting…" : "Submit RSVP"}
-                </Button>
+                </button>
               )}
             </div>
 
@@ -462,7 +486,7 @@ export default function RsvpForm({
               )}
           </form>
         </FormProvider>
-      </main>
+      </motion.main>
     </RsvpPageShell>
   );
 }

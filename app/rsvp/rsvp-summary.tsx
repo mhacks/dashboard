@@ -46,19 +46,25 @@ function SummarySection({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="border-moss/15 bg-white/35 shadow-none">
-      <CardHeader className="flex-row items-center justify-between">
+    <Card className="border-0 bg-transparent py-0 shadow-none ring-0">
+      <CardHeader className="flex-row items-center justify-between px-0">
         <CardTitle className="font-heading text-xl italic text-moss">
           {title}
         </CardTitle>
         {onEdit && (
-          <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+            className="rounded-full px-3 font-red-hat text-moss/65 hover:bg-black/5 hover:text-moss"
+          >
             <PencilIcon data-icon="inline-start" />
             Edit
           </Button>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         <dl className="flex flex-col">{children}</dl>
       </CardContent>
     </Card>

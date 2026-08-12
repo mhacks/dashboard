@@ -2,7 +2,12 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { FileCheckIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import {
+  CircleHelpIcon,
+  FileCheckIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
 
 import {
   confirmRsvpReceiptUpload,
@@ -23,6 +28,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
@@ -35,12 +45,18 @@ import {
   TSHIRT_OPTIONS,
 } from "./form-options";
 
+const SECTION_CARD_CLASS = "shadow-none";
+const SECTION_CARD_STYLE = { borderColor: "rgba(58,74,38,0.15)" };
+const SECTION_CONTENT_CLASS = "space-y-4 font-red-hat";
+
 function Question({
   label,
   htmlFor,
   required,
   description,
   error,
+  className,
+  helpText,
   children,
 }: {
   label: string;
@@ -48,22 +64,43 @@ function Question({
   required?: boolean;
   description?: string;
   error?: { message?: string };
+  className?: string;
+  helpText?: string;
   children: ReactNode;
 }) {
   const errorId = htmlFor ? `${htmlFor}-error` : undefined;
   return (
     <div
-      className="flex flex-col gap-2"
+      className={`flex flex-col gap-2${className ? ` ${className}` : ""}`}
       data-invalid={error ? true : undefined}
     >
-      <Label htmlFor={htmlFor} className="font-red-hat text-sm text-moss">
-        {label}
-        {required && (
-          <span className="ml-1 text-destructive" aria-hidden="true">
-            *
-          </span>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={htmlFor} className="font-red-hat">
+          {label}
+          {required && (
+            <span className="text-destructive" aria-hidden="true">
+              {" "}
+              *
+            </span>
+          )}
+        </Label>
+        {helpText && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="rounded-full text-moss/45 transition-colors hover:text-moss focus-visible:ring-2 focus-visible:ring-moss/30 focus-visible:outline-none"
+                aria-label={`${label} help`}
+              >
+                <CircleHelpIcon className="size-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6} className="leading-5">
+              <span className="font-red-hat text-xs leading-5">{helpText}</span>
+            </TooltipContent>
+          </Tooltip>
         )}
-      </Label>
+      </div>
       {description && (
         <p className="font-red-hat text-xs leading-5 text-moss/55">
           {description}
@@ -109,10 +146,11 @@ function YesAcknowledgement({
         />
         <Label
           htmlFor={id}
-          className="font-red-hat text-sm leading-6 text-moss"
+          className="font-red-hat text-sm leading-6 text-foreground"
         >
           {children}
-          <span className="ml-1 text-destructive" aria-hidden="true">
+          <span className="text-destructive" aria-hidden="true">
+            {" "}
             *
           </span>
         </Label>
@@ -154,8 +192,12 @@ function BooleanChoice({
         aria-label={id}
         aria-invalid={Boolean(error)}
       >
-        <ToggleGroupItem value="true">Yes</ToggleGroupItem>
-        <ToggleGroupItem value="false">No</ToggleGroupItem>
+        <ToggleGroupItem value="true" className="font-red-hat">
+          Yes
+        </ToggleGroupItem>
+        <ToggleGroupItem value="false" className="font-red-hat">
+          No
+        </ToggleGroupItem>
       </ToggleGroup>
       {error?.message && (
         <p className="font-red-hat text-xs text-destructive" role="alert">
@@ -175,171 +217,190 @@ export function PersonalStep() {
   } = useFormContext<RsvpFormData>();
 
   return (
-    <Card className="border-moss/15 bg-white/35 shadow-none">
-      <CardContent className="flex flex-col gap-5">
-        <Question
-          label="Full legal government name (First, Middle, Last)"
-          htmlFor="legalName"
-          required
-          error={errors.legalName}
-        >
-          <Input
-            id="legalName"
-            autoComplete="name"
-            aria-invalid={Boolean(errors.legalName)}
-            {...register("legalName")}
-          />
-        </Question>
+    <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
+      <CardContent className={SECTION_CONTENT_CLASS}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Question
+            label="Full legal name"
+            htmlFor="legalName"
+            required
+            helpText="We'll verify your identity at check-in. Bring a student ID, driver's license/state ID, passport, or another photo ID that matches this name."
+            error={errors.legalName}
+          >
+            <Input
+              id="legalName"
+              autoComplete="name"
+              aria-invalid={Boolean(errors.legalName)}
+              {...register("legalName")}
+            />
+          </Question>
 
-        <Question
-          label="Preferred name"
-          htmlFor="preferredName"
-          required
-          error={errors.preferredName}
-        >
-          <Input
-            id="preferredName"
-            autoComplete="nickname"
-            aria-invalid={Boolean(errors.preferredName)}
-            {...register("preferredName")}
-          />
-        </Question>
+          <Question
+            label="Preferred name"
+            htmlFor="preferredName"
+            required
+            error={errors.preferredName}
+          >
+            <Input
+              id="preferredName"
+              autoComplete="nickname"
+              aria-invalid={Boolean(errors.preferredName)}
+              {...register("preferredName")}
+            />
+          </Question>
 
-        <Question
-          label="Email address"
-          htmlFor="email"
-          required
-          error={errors.email}
-        >
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            aria-invalid={Boolean(errors.email)}
-            {...register("email")}
-          />
-        </Question>
+          <Question
+            label="Email address"
+            htmlFor="email"
+            required
+            error={errors.email}
+            className="md:col-span-2"
+          >
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              aria-invalid={Boolean(errors.email)}
+              {...register("email")}
+            />
+          </Question>
 
-        <Controller
-          name="emailMatchesApplication"
-          control={control}
-          render={({ field }) => (
-            <YesAcknowledgement
-              id="emailMatchesApplication"
-              checked={field.value ?? false}
-              onCheckedChange={field.onChange}
-              error={errors.emailMatchesApplication}
-            >
-              This is the same email address I used to apply to MHacks 2026.
-            </YesAcknowledgement>
-          )}
-        />
+          <div className="md:col-span-2">
+            <Controller
+              name="emailMatchesApplication"
+              control={control}
+              render={({ field }) => (
+                <YesAcknowledgement
+                  id="emailMatchesApplication"
+                  checked={field.value ?? false}
+                  onCheckedChange={field.onChange}
+                  error={errors.emailMatchesApplication}
+                >
+                  This is the same email address I used to apply to MHacks 2026.
+                </YesAcknowledgement>
+              )}
+            />
+          </div>
 
-        <Controller
-          name="incorrectEmailRiskAcknowledged"
-          control={control}
-          render={({ field }) => (
-            <YesAcknowledgement
-              id="incorrectEmailRiskAcknowledged"
-              checked={field.value ?? false}
-              onCheckedChange={field.onChange}
-              error={errors.incorrectEmailRiskAcknowledged}
-            >
-              I understand that if I have entered the wrong email, I may lose my
-              spot at MHacks 2026.
-            </YesAcknowledgement>
-          )}
-        />
+          <div className="md:col-span-2">
+            <Controller
+              name="incorrectEmailRiskAcknowledged"
+              control={control}
+              render={({ field }) => (
+                <YesAcknowledgement
+                  id="incorrectEmailRiskAcknowledged"
+                  checked={field.value ?? false}
+                  onCheckedChange={field.onChange}
+                  error={errors.incorrectEmailRiskAcknowledged}
+                >
+                  I understand that if I have entered the wrong email, I may
+                  lose my spot at MHacks 2026.
+                </YesAcknowledgement>
+              )}
+            />
+          </div>
 
-        <Question
-          label="Dietary Restrictions"
-          required
-          error={errors.dietaryRestrictions}
-        >
+          <Question
+            label="Dietary Restrictions"
+            required
+            error={errors.dietaryRestrictions}
+            className="md:col-span-2"
+          >
+            <Controller
+              name="dietaryRestrictions"
+              control={control}
+              render={({ field }) => (
+                <ToggleGroup
+                  type="multiple"
+                  value={field.value ?? []}
+                  onValueChange={(next) => {
+                    const current = field.value ?? [];
+                    let normalized = next;
+                    if (next.includes("none") && !current.includes("none")) {
+                      normalized = ["none"];
+                    } else if (next.some((value) => value !== "none")) {
+                      normalized = next.filter((value) => value !== "none");
+                    }
+                    if (!normalized.includes("other")) {
+                      setValue("otherDietaryRestriction", undefined, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }
+                    field.onChange(normalized);
+                  }}
+                  variant="outline"
+                  spacing={2}
+                  className="w-full flex-wrap justify-start"
+                  aria-label="Dietary restrictions"
+                  aria-invalid={Boolean(errors.dietaryRestrictions)}
+                >
+                  {DIETARY_OPTIONS.map((option) => (
+                    <ToggleGroupItem
+                      key={option.value}
+                      value={option.value}
+                      className="font-red-hat"
+                    >
+                      {option.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              )}
+            />
+          </Question>
+
           <Controller
             name="dietaryRestrictions"
             control={control}
-            render={({ field }) => (
-              <ToggleGroup
-                type="multiple"
-                value={field.value ?? []}
-                onValueChange={(next) => {
-                  const current = field.value ?? [];
-                  let normalized = next;
-                  if (next.includes("none") && !current.includes("none")) {
-                    normalized = ["none"];
-                  } else if (next.some((value) => value !== "none")) {
-                    normalized = next.filter((value) => value !== "none");
-                  }
-                  if (!normalized.includes("other")) {
-                    setValue("otherDietaryRestriction", undefined, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }
-                  field.onChange(normalized);
-                }}
-                variant="outline"
-                spacing={2}
-                className="w-full flex-wrap justify-start"
-                aria-label="Dietary restrictions"
-                aria-invalid={Boolean(errors.dietaryRestrictions)}
-              >
-                {DIETARY_OPTIONS.map((option) => (
-                  <ToggleGroupItem key={option.value} value={option.value}>
-                    {option.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            )}
+            render={({ field }) =>
+              field.value?.includes("other") ? (
+                <Question
+                  label="Other dietary restriction"
+                  htmlFor="otherDietaryRestriction"
+                  required
+                  error={errors.otherDietaryRestriction}
+                  className="md:col-span-2"
+                >
+                  <Input
+                    id="otherDietaryRestriction"
+                    aria-invalid={Boolean(errors.otherDietaryRestriction)}
+                    {...register("otherDietaryRestriction")}
+                  />
+                </Question>
+              ) : (
+                <></>
+              )
+            }
           />
-        </Question>
 
-        <Controller
-          name="dietaryRestrictions"
-          control={control}
-          render={({ field }) =>
-            field.value?.includes("other") ? (
-              <Question
-                label="Other dietary restriction"
-                htmlFor="otherDietaryRestriction"
-                required
-                error={errors.otherDietaryRestriction}
-              >
-                <Input
-                  id="otherDietaryRestriction"
-                  aria-invalid={Boolean(errors.otherDietaryRestriction)}
-                  {...register("otherDietaryRestriction")}
-                />
-              </Question>
-            ) : (
-              <></>
-            )
-          }
-        />
-
-        <Question label="T-shirt size" required error={errors.tshirtSize}>
-          <Controller
-            name="tshirtSize"
-            control={control}
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger aria-invalid={Boolean(errors.tshirtSize)}>
-                  <SelectValue placeholder="Select size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {TSHIRT_OPTIONS.map((size) => (
-                      <SelectItem key={size} value={size}>
-                        {size}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Question>
+          <Question
+            label="T-shirt size"
+            required
+            error={errors.tshirtSize}
+            className="md:col-span-2"
+          >
+            <Controller
+              name="tshirtSize"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger aria-invalid={Boolean(errors.tshirtSize)}>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {TSHIRT_OPTIONS.map((size) => (
+                        <SelectItem key={size} value={size}>
+                          {size}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Question>
+        </div>
       </CardContent>
     </Card>
   );
@@ -485,7 +546,7 @@ function ReceiptUpload({
       error={errors.receipt}
     >
       {receipt && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-moss/15 bg-white/40 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-moss/10 bg-moss/5 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <FileCheckIcon className="size-4 shrink-0 text-moss" />
             <span className="truncate font-red-hat text-sm text-moss">
@@ -498,6 +559,7 @@ function ReceiptUpload({
             size="sm"
             disabled={disabled || state === "uploading" || state === "removing"}
             onClick={handleRemove}
+            className="rounded-full border-moss/20 bg-transparent px-3 font-red-hat text-moss hover:bg-black/5"
           >
             <Trash2Icon data-icon="inline-start" />
             Remove
@@ -617,8 +679,8 @@ export function TravelTaxStep({
 
   return (
     <div className="flex flex-col gap-5">
-      <Card className="border-moss/15 bg-white/35 shadow-none">
-        <CardContent className="flex flex-col gap-5">
+      <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
+        <CardContent className={SECTION_CONTENT_CLASS}>
           <Question
             label="How do you plan to travel to MHacks 2026?"
             required
@@ -658,7 +720,7 @@ export function TravelTaxStep({
                     <ToggleGroupItem
                       key={option.value}
                       value={option.value}
-                      className="h-auto min-h-10 justify-start whitespace-normal py-2 text-left"
+                      className="h-auto min-h-10 justify-start whitespace-normal py-2 text-left font-red-hat"
                     >
                       {option.label}
                     </ToggleGroupItem>
@@ -675,7 +737,7 @@ export function TravelTaxStep({
           )}
 
           {travelPlan === "reimbursement" && (
-            <div className="flex flex-col gap-5 rounded-2xl border border-moss/15 bg-white/30 p-4 sm:p-5">
+            <div className="flex flex-col gap-5 rounded-2xl border border-moss/10 bg-moss/5 p-4 sm:p-5">
               <Controller
                 name="travelGuideAcknowledged"
                 control={control}
@@ -738,8 +800,8 @@ export function TravelTaxStep({
         </CardContent>
       </Card>
 
-      <Card className="border-moss/15 bg-white/35 shadow-none">
-        <CardContent className="flex flex-col gap-5">
+      <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
+        <CardContent className={SECTION_CONTENT_CLASS}>
           <div>
             <h2 className="font-heading text-2xl italic text-moss">
               Tax Information
@@ -825,10 +887,10 @@ export function WaiversStep() {
 
   return (
     <div className="flex flex-col gap-5">
-      <Card className="border-moss/15 bg-white/35 shadow-none">
+      <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <p className="font-red-hat text-sm leading-6 text-moss">
+            <p className="font-red-hat text-sm leading-6 text-foreground">
               I confirm that I have read and understood the Activities Waiver
               document. The above agreements are binding upon me, my estate,
               heirs, representatives, and assigns. I understand that selecting
@@ -854,9 +916,9 @@ export function WaiversStep() {
         </CardContent>
       </Card>
 
-      <Card className="border-moss/15 bg-white/35 shadow-none">
+      <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 font-red-hat text-sm leading-6 text-moss">
+          <div className="flex flex-col gap-3 font-red-hat text-sm leading-6 text-foreground">
             <p>
               I hereby grant the MHacks permission to use my likeness in a
               photograph, video, or other digital media (&quot;photo&quot;) in
@@ -904,7 +966,7 @@ export function WaiversStep() {
         </CardContent>
       </Card>
 
-      <Card className="border-moss/15 bg-white/35 shadow-none">
+      <Card className={SECTION_CARD_CLASS} style={SECTION_CARD_STYLE}>
         <CardContent className="flex flex-col gap-3">
           <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] text-moss/45">
             LAST ONE!
