@@ -15,9 +15,14 @@ import {
 } from "@/lib/db/schema/applications";
 import { users, type UserEntry } from "@/lib/db/schema/users";
 import { requireOrganizer } from "@/lib/auth/guards";
+import { blacklistAndDeleteApplicationAsOrganizer } from "@/lib/actions/blacklist.actions";
+import { getPostHogClient } from "@/lib/posthog-server";
 import {
+  blacklistDeleteSchema,
   reviewCompleteSaveSchema,
   reviewEventsInputSchema,
+  type BlacklistDeleteInput,
+  type BlacklistDeleteResult,
   type ReviewCompleteSaveInput,
   type ReviewCompleteSaveResult,
   type ReviewEventRecord,
@@ -316,5 +321,59 @@ export async function getApplicationReviewDetail(
     review: review
       ? withReviewerEmail(review.review, review.reviewerEmail)
       : null,
+  };
+}
+
+/**
+ * Adds the applicant to the blacklist and permanently deletes their
+ * application. Allowed at any review status — a reviewed or flagged
+ * application is removed the same as a pending one.
+ *
+ * `requireOrganizer()` runs before anything else, including input parsing: a
+ * `"use server"` export is a POST endpoint any authenticated session can call
+ * directly, so this guard — not the hidden button or the /admin route gate — is
+ * what restricts the action. Guarding before parsing also means a non-organizer
+ * learns nothing about which application ids are valid.
+ *
+ * blacklistAndDeleteApplicationAsOrganizer re-checks from the session on its
+ * own, so the deletion is gated even if this early return were ever dropped.
+ * The check here is kept for the pre-parse ordering above, and its result is
+ * discarded — the identity written to the blacklist row and to analytics is
+ * the one that function resolved, so there is only ever one answer to "who did
+ * this".
+ */
+export async function blacklistAndDeleteApplication(
+  input: BlacklistDeleteInput,
+): Promise<BlacklistDeleteResult> {
+  await requireOrganizer();
+  const parsed = parseActionInput(blacklistDeleteSchema, input);
+
+  const deleted = await blacklistAndDeleteApplicationAsOrganizer({
+    applicationId: parsed.applicationId,
+    reason: parsed.reason,
+  });
+
+  // Best-effort. posthog-server runs with flushAt: 1 / flushInterval: 0,
+  // so flush() is a live HTTP call — letting it throw here would show the
+  // organizer a failure toast for a deletion that already succeeded.
+  try {
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: deleted.organizer.id,
+      event: "application_deleted",
+      properties: {
+        application_id: parsed.applicationId,
+        applicant_user_id: deleted.userId,
+        reason: parsed.reason,
+      },
+    });
+    await posthog.flush();
+  } catch (error) {
+    console.error("Unable to record application_deleted event:", error);
+  }
+
+  return {
+    applicationId: parsed.applicationId,
+    applicantName: deleted.fullName,
   };
 }

@@ -3,17 +3,18 @@ import {
   CalendarCheck2Icon,
   ClipboardCheckIcon,
   TrophyIcon,
+  UsersRoundIcon,
   type LucideIcon,
 } from "lucide-react";
 
-type AdminLink = {
+export type AdminLink = {
   href: string;
   title: string;
   description: string;
   icon: LucideIcon;
 };
 
-type AdminArea = {
+export type AdminArea = {
   title: string;
   description: string;
   icon: LucideIcon;
@@ -56,6 +57,19 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Responses",
         description: "Review RSVP progress, logistics, receipts, and exports.",
         icon: CalendarCheck2Icon,
+      },
+    ],
+  },
+  {
+    title: "Team",
+    description: "Invite users and manage portal access.",
+    icon: UsersRoundIcon,
+    links: [
+      {
+        href: "/admin/team",
+        title: "User invites",
+        description: "Send email invitations and assign portal roles.",
+        icon: UsersRoundIcon,
       },
     ],
   },
