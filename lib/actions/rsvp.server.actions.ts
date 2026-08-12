@@ -82,13 +82,25 @@ function receiptMatches(
   );
 }
 
+function withSessionIdentity(data: unknown, accountEmail: string) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  return {
+    ...data,
+    email: accountEmail,
+    emailMatchesApplication: true,
+    incorrectEmailRiskAcknowledged: true,
+  };
+}
+
 export async function saveRsvpDraft(
   input: unknown,
 ): Promise<{ updatedAt: string; version: number }> {
   const user = await requireSessionUser();
   assertRsvpOpen();
   const request = saveDraftInputSchema.parse(input);
-  const parsed = rsvpDraftSchema.parse(request.data);
+  const parsed = rsvpDraftSchema.parse(
+    withSessionIdentity(request.data, user.email),
+  );
   const data = { ...parsed } as Record<string, unknown>;
   delete data.receipt;
   const updatedAt = new Date().toISOString();
@@ -139,7 +151,9 @@ export async function saveRsvpDraftWithoutReceipt(input: unknown): Promise<{
   const user = await requireSessionUser();
   assertRsvpOpen();
   const request = saveDraftWithoutReceiptInputSchema.parse(input);
-  const parsed = rsvpDraftSchema.parse(request.data);
+  const parsed = rsvpDraftSchema.parse(
+    withSessionIdentity(request.data, user.email),
+  );
   if (!parsed.travelPlan || parsed.travelPlan === "reimbursement") {
     throw new Error("Choose a non-reimbursement travel plan");
   }
@@ -271,7 +285,9 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
   const user = await requireSessionUser();
   assertRsvpOpen();
   const request = submitRsvpInputSchema.parse(input);
-  const parsed = rsvpFormSchema.parse(request.data);
+  const parsed = rsvpFormSchema.parse(
+    withSessionIdentity(request.data, user.email),
+  );
 
   const [preflight] = await db
     .select({

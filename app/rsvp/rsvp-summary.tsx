@@ -104,14 +104,6 @@ export function RsvpSummary({
         <Separator />
         <SummaryRow label="Email">{answer(values.email)}</SummaryRow>
         <Separator />
-        <SummaryRow label="Application email confirmed">
-          {yesNo(values.emailMatchesApplication)}
-        </SummaryRow>
-        <Separator />
-        <SummaryRow label="Wrong-email risk acknowledged">
-          {yesNo(values.incorrectEmailRiskAcknowledged)}
-        </SummaryRow>
-        <Separator />
         <SummaryRow label="Dietary restrictions">
           {dietary.length > 0 ? dietary.join(", ") : "Not answered"}
         </SummaryRow>

@@ -62,7 +62,7 @@ CREATE TABLE "hacker_rsvps" (
 	CONSTRAINT "hacker_rsvps_email_acknowledgements" CHECK ("hacker_rsvps"."email_matches_application" IS TRUE AND "hacker_rsvps"."incorrect_email_risk_acknowledged" IS TRUE),
 	CONSTRAINT "hacker_rsvps_dietary_values" CHECK (cardinality("hacker_rsvps"."dietary_restrictions") > 0
         AND "hacker_rsvps"."dietary_restrictions" <@ ARRAY[
-          'vegetarian', 'vegan', 'kosher', 'halal', 'gluten-free', 'none', 'other'
+          'vegetarian', 'vegan', 'kosher', 'halal', 'gluten-free', 'nut-free', 'dairy-free', 'none', 'other'
         ]::text[]),
 	CONSTRAINT "hacker_rsvps_dietary_none_exclusive" CHECK (NOT (
         'none' = ANY("hacker_rsvps"."dietary_restrictions")

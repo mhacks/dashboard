@@ -11,6 +11,8 @@ import {
 import { processQueuedRsvpReceiptCleanup } from "@/lib/rsvp/cleanup";
 import { isRsvpOpen } from "@/lib/rsvp/deadline";
 import {
+  DIETARY_RESTRICTION_VALUES,
+  TSHIRT_SIZE_VALUES,
   rsvpDraftSchema,
   rsvpFormSchema,
   rsvpReceiptMetadataSchema,
@@ -35,6 +37,76 @@ export type AttendeeRsvpState =
       draftVersion: number;
       receiptVersion: number;
     };
+
+type ApplicantDefaultSource = Pick<
+  typeof hackerApplicants.$inferSelect,
+  "firstName" | "lastName" | "shirtSize" | "allergiesDescription"
+>;
+
+const RSVP_DIETARY_VALUES = new Set<string>(DIETARY_RESTRICTION_VALUES);
+const RSVP_TSHIRT_VALUES = new Set<string>(TSHIRT_SIZE_VALUES);
+
+function applicationDietaryDefaults(
+  allergiesDescription: string | null,
+): Pick<RsvpDraftData, "dietaryRestrictions" | "otherDietaryRestriction"> {
+  const trimmed = allergiesDescription?.trim() ?? "";
+  const normalized = trimmed.toLowerCase();
+
+  if (!normalized || ["none", "no", "n/a", "na"].includes(normalized)) {
+    return { dietaryRestrictions: ["none"] };
+  }
+
+  const canonical = normalized.replace(/\s+/g, "-");
+  if (RSVP_DIETARY_VALUES.has(canonical) && canonical !== "other") {
+    return {
+      dietaryRestrictions: [
+        canonical as Exclude<
+          (typeof DIETARY_RESTRICTION_VALUES)[number],
+          "none" | "other"
+        >,
+      ],
+    };
+  }
+
+  return {
+    dietaryRestrictions: ["other"],
+    otherDietaryRestriction: trimmed,
+  };
+}
+
+function applicationTshirtSizeDefault(
+  shirtSize: string,
+): RsvpDraftData["tshirtSize"] {
+  const normalized = shirtSize.trim().toUpperCase();
+  return RSVP_TSHIRT_VALUES.has(normalized)
+    ? (normalized as RsvpDraftData["tshirtSize"])
+    : undefined;
+}
+
+function applyApplicantDefaults(
+  draft: RsvpDraftData,
+  application: ApplicantDefaultSource,
+  accountEmail: string,
+): RsvpDraftData {
+  const firstName = application.firstName.trim();
+  const lastName = application.lastName.trim();
+  const legalName = [firstName, lastName].filter(Boolean).join(" ");
+  const dietaryDefaults = draft.dietaryRestrictions?.length
+    ? {}
+    : applicationDietaryDefaults(application.allergiesDescription);
+
+  return {
+    ...draft,
+    legalName: draft.legalName || legalName || undefined,
+    preferredName: draft.preferredName || firstName || undefined,
+    email: accountEmail,
+    emailMatchesApplication: true,
+    incorrectEmailRiskAcknowledged: true,
+    ...dietaryDefaults,
+    tshirtSize:
+      draft.tshirtSize ?? applicationTshirtSizeDefault(application.shirtSize),
+  };
+}
 
 function receiptMetadata(
   row: Pick<
@@ -90,6 +162,10 @@ export async function getAttendeeRsvpState({
   const [row] = await db
     .select({
       applicationId: hackerApplicants.id,
+      applicationFirstName: hackerApplicants.firstName,
+      applicationLastName: hackerApplicants.lastName,
+      applicationShirtSize: hackerApplicants.shirtSize,
+      applicationAllergiesDescription: hackerApplicants.allergiesDescription,
       final: hackerRsvps,
       draft: hackerRsvpDrafts,
     })
@@ -114,7 +190,16 @@ export async function getAttendeeRsvpState({
   }
 
   const parsedDraft = rsvpDraftSchema.safeParse(row.draft?.data ?? {});
-  const draft: RsvpDraftData = parsedDraft.success ? parsedDraft.data : {};
+  const draft = applyApplicantDefaults(
+    parsedDraft.success ? parsedDraft.data : {},
+    {
+      firstName: row.applicationFirstName,
+      lastName: row.applicationLastName,
+      shirtSize: row.applicationShirtSize,
+      allergiesDescription: row.applicationAllergiesDescription,
+    },
+    accountEmail,
+  );
   const receipt = row.draft ? receiptMetadata(row.draft) : null;
   if (receipt) draft.receipt = receipt;
 

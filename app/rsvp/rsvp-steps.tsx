@@ -293,45 +293,13 @@ export function PersonalStep() {
               id="email"
               type="email"
               autoComplete="email"
+              readOnly
+              aria-readonly="true"
               aria-invalid={Boolean(errors.email)}
+              className="cursor-not-allowed bg-moss/5 text-moss/55"
               {...register("email")}
             />
           </Question>
-
-          <div className="md:col-span-2">
-            <Controller
-              name="emailMatchesApplication"
-              control={control}
-              render={({ field }) => (
-                <YesAcknowledgement
-                  id="emailMatchesApplication"
-                  checked={field.value ?? false}
-                  onCheckedChange={field.onChange}
-                  error={errors.emailMatchesApplication}
-                >
-                  This is the same email address I used to apply to MHacks 2026.
-                </YesAcknowledgement>
-              )}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <Controller
-              name="incorrectEmailRiskAcknowledged"
-              control={control}
-              render={({ field }) => (
-                <YesAcknowledgement
-                  id="incorrectEmailRiskAcknowledged"
-                  checked={field.value ?? false}
-                  onCheckedChange={field.onChange}
-                  error={errors.incorrectEmailRiskAcknowledged}
-                >
-                  I understand that if I have entered the wrong email, I may
-                  lose my spot at MHacks 2026.
-                </YesAcknowledgement>
-              )}
-            />
-          </div>
 
           <div className="pt-3 md:col-span-2">
             <p className="font-red-hat text-sm leading-none font-medium text-moss">
@@ -493,43 +461,41 @@ export function PersonalStep() {
             <Controller
               name="dietaryRestrictions"
               control={control}
-              render={({ field }) => (
-                <ToggleGroup
-                  type="multiple"
-                  value={field.value ?? []}
-                  onValueChange={(next) => {
-                    const current = field.value ?? [];
-                    let normalized = next;
-                    if (next.includes("none") && !current.includes("none")) {
-                      normalized = ["none"];
-                    } else if (next.some((value) => value !== "none")) {
-                      normalized = next.filter((value) => value !== "none");
-                    }
-                    if (!normalized.includes("other")) {
-                      setValue("otherDietaryRestriction", undefined, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      });
-                    }
-                    field.onChange(normalized);
-                  }}
-                  variant="outline"
-                  spacing={2}
-                  className="w-full flex-wrap justify-start"
-                  aria-label="Dietary restrictions"
-                  aria-invalid={Boolean(errors.dietaryRestrictions)}
-                >
-                  {DIETARY_OPTIONS.map((option) => (
-                    <ToggleGroupItem
-                      key={option.value}
-                      value={option.value}
-                      className="font-red-hat"
+              render={({ field }) => {
+                const selectedValue = field.value?.includes("other")
+                  ? "other"
+                  : (field.value?.[0] ?? "");
+
+                return (
+                  <Select
+                    value={selectedValue}
+                    onValueChange={(next) => {
+                      field.onChange([next]);
+                      if (next !== "other") {
+                        setValue("otherDietaryRestriction", undefined, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      aria-invalid={Boolean(errors.dietaryRestrictions)}
                     >
-                      {option.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              )}
+                      <SelectValue placeholder="Select if applicable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {DIETARY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                );
+              }}
             />
           </Question>
 

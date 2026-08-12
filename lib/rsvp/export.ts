@@ -37,6 +37,8 @@ const DIETARY_LABELS: Record<
   kosher: "Kosher",
   halal: "Halal",
   "gluten-free": "Gluten-free",
+  "nut-free": "Nut-free",
+  "dairy-free": "Dairy-free",
   none: "None",
   other: "Other",
 };

@@ -189,7 +189,7 @@ export const hackerRsvps = pgTable(
       "hacker_rsvps_dietary_values",
       sql`cardinality(${table.dietaryRestrictions}) > 0
         AND ${table.dietaryRestrictions} <@ ARRAY[
-          'vegetarian', 'vegan', 'kosher', 'halal', 'gluten-free', 'none', 'other'
+          'vegetarian', 'vegan', 'kosher', 'halal', 'gluten-free', 'nut-free', 'dairy-free', 'none', 'other'
         ]::text[]`,
     ),
     check(

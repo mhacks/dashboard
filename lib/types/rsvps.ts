@@ -17,6 +17,8 @@ export const DIETARY_RESTRICTION_VALUES = [
   "kosher",
   "halal",
   "gluten-free",
+  "nut-free",
+  "dairy-free",
   "none",
   "other",
 ] as const;

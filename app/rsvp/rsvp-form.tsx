@@ -42,14 +42,12 @@ function defaultValues(
   draft: RsvpDraftData,
   accountEmail: string,
 ): DefaultValues<RsvpFormData> {
-  const hasDraftEmail = Object.prototype.hasOwnProperty.call(draft, "email");
   return {
     legalName: draft.legalName ?? "",
     preferredName: draft.preferredName ?? "",
-    email: hasDraftEmail ? (draft.email ?? "") : accountEmail,
-    emailMatchesApplication: draft.emailMatchesApplication ?? false,
-    incorrectEmailRiskAcknowledged:
-      draft.incorrectEmailRiskAcknowledged ?? false,
+    email: accountEmail,
+    emailMatchesApplication: true,
+    incorrectEmailRiskAcknowledged: true,
     dietaryRestrictions: draft.dietaryRestrictions ?? [],
     otherDietaryRestriction: draft.otherDietaryRestriction,
     tshirtSize: draft.tshirtSize,
