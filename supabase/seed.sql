@@ -8,7 +8,7 @@ values (
   'resumes',
   false,
   10485760,
-  array['application/pdf']::text[]
+  array['application/pdf', 'image/png', 'image/jpeg']::text[]
 )
 on conflict (id) do update set
   public = excluded.public,

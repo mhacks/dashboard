@@ -1,4 +1,5 @@
 import { desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { applicationSlugSql } from "@/lib/application-slugs";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
@@ -23,8 +24,6 @@ import {
 } from "@/lib/types/application-reviews";
 
 const WHY_MHACKS_PREVIEW_LENGTH = 160;
-
-const applicationSlug = sql<string>`'app_' || substring(md5(${hackerApplicants.userId}::text) from 1 for 24)`;
 
 function countStatuses(items: ReviewListSummaryItem[]): ReviewCounts {
   return items.reduce<ReviewCounts>(
@@ -255,7 +254,7 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
   const applications = await db
     .select({
       id: hackerApplicants.id,
-      slug: applicationSlug,
+      slug: applicationSlugSql,
       userId: hackerApplicants.userId,
       status: hackerApplicants.status,
       firstName: hackerApplicants.firstName,

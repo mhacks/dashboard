@@ -2,6 +2,7 @@
 
 import { desc, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
+import { applicationSlugSql } from "@/lib/application-slugs";
 import { db } from "@/lib/db";
 import {
   hackerApplicants,
@@ -174,8 +175,6 @@ async function conflictResult(
 
 type ReviewSaveConflict = Extract<ReviewCompleteSaveResult, { ok: false }>;
 
-const computedApplicationSlug = sql<string>`'app_' || substring(md5(${hackerApplicants.userId}::text) from 1 for 24)`;
-
 export async function markApplicationReviewed(
   input: ReviewCompleteSaveInput,
 ): Promise<ReviewCompleteSaveResult> {
@@ -288,7 +287,7 @@ export async function getApplicationReviewDetail(
   const [application] = await db
     .select({
       application: hackerApplicants,
-      slug: computedApplicationSlug,
+      slug: applicationSlugSql,
       applicantEmail: users.email,
     })
     .from(hackerApplicants)

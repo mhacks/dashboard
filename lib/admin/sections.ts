@@ -1,5 +1,6 @@
 import {
   BarChart3Icon,
+  CalendarCheck2Icon,
   ClipboardCheckIcon,
   TrophyIcon,
   type LucideIcon,
@@ -42,6 +43,19 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Analytics",
         description: "Demographics, locations, and score trends.",
         icon: BarChart3Icon,
+      },
+    ],
+  },
+  {
+    title: "RSVPs",
+    description: "Track attendance confirmations and event logistics.",
+    icon: CalendarCheck2Icon,
+    links: [
+      {
+        href: "/admin/rsvps",
+        title: "Responses",
+        description: "Review RSVP progress, logistics, receipts, and exports.",
+        icon: CalendarCheck2Icon,
       },
     ],
   },

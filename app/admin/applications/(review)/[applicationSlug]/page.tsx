@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getApplicationReviewDetail } from "@/lib/actions/application-review.server.actions";
+import { applicationSlugSchema } from "@/lib/application-slugs";
 import { getApplicationReviewDashboard } from "@/lib/queries/application-review";
-import { applicationSlugSchema } from "@/lib/types/application-reviews";
 import ApplicationReviewWorkspace from "../../review-workspace";
 
 export default async function AdminApplicationDetailPage({

@@ -1,0 +1,173 @@
+import { asc, eq } from "drizzle-orm";
+
+import {
+  applicationSlugSchema,
+  applicationSlugSql,
+} from "@/lib/application-slugs";
+import { requireOrganizer } from "@/lib/auth/guards";
+import { db } from "@/lib/db";
+import { hackerApplicants } from "@/lib/db/schema/applications";
+import { hackerRsvpDrafts, hackerRsvps } from "@/lib/db/schema/rsvps";
+import { users } from "@/lib/db/schema/users";
+import type { RsvpReceiptDownloadRecord } from "@/lib/rsvp/download";
+import type { AdminRsvpExportRow } from "@/lib/rsvp/export";
+import { isRsvpReceiptContentType } from "@/lib/rsvp/receipt";
+import { deriveRsvpStatus } from "@/lib/rsvp/status";
+import { rsvpRowToFormData } from "@/lib/queries/rsvp";
+import type {
+  AdminRsvpDashboard,
+  AdminRsvpDetail,
+  AdminRsvpSummary,
+} from "@/lib/types/admin-rsvps";
+
+const selection = {
+  application: hackerApplicants,
+  applicationSlug: applicationSlugSql,
+  accountEmail: users.email,
+  draftUserId: hackerRsvpDrafts.userId,
+  final: hackerRsvps,
+};
+
+async function selectAdminRsvpRows() {
+  return db
+    .select(selection)
+    .from(hackerApplicants)
+    .leftJoin(users, eq(users.id, hackerApplicants.userId))
+    .leftJoin(
+      hackerRsvpDrafts,
+      eq(hackerRsvpDrafts.userId, hackerApplicants.userId),
+    )
+    .leftJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id))
+    .orderBy(asc(hackerApplicants.firstName), asc(hackerApplicants.lastName));
+}
+
+type AdminRsvpJoinedRow = Awaited<
+  ReturnType<typeof selectAdminRsvpRows>
+>[number];
+
+function rowToSummary(row: AdminRsvpJoinedRow): AdminRsvpSummary {
+  return {
+    applicationId: row.application.id,
+    applicationSlug: row.applicationSlug,
+    applicationName:
+      `${row.application.firstName} ${row.application.lastName}`.trim(),
+    accountEmail: row.accountEmail ?? "",
+    legalName: row.final?.legalName ?? null,
+    preferredName: row.final?.preferredName ?? null,
+    rsvpEmail: row.final?.email ?? null,
+    status: deriveRsvpStatus({
+      hasFinal: Boolean(row.final),
+      hasDraft: Boolean(row.draftUserId),
+    }),
+    submittedAt: row.final?.submittedAt ?? null,
+    travelPlan: row.final?.travelPlan ?? null,
+    tshirtSize: row.final?.tshirtSize ?? null,
+  };
+}
+
+export async function getAdminRsvpDashboard(): Promise<AdminRsvpDashboard> {
+  await requireOrganizer();
+  const rows = await selectAdminRsvpRows();
+  const summaries = rows.map(rowToSummary);
+  const counts = summaries.reduce<AdminRsvpDashboard["counts"]>(
+    (result, row) => {
+      result.all += 1;
+      result[row.status] += 1;
+      return result;
+    },
+    { all: 0, not_started: 0, in_progress: 0, submitted: 0 },
+  );
+  return { rows: summaries, counts };
+}
+
+export async function getAdminRsvpDetail(
+  slug: string,
+): Promise<AdminRsvpDetail | null> {
+  await requireOrganizer();
+  const parsed = applicationSlugSchema.safeParse(slug);
+  if (!parsed.success) return null;
+
+  const [row] = await db
+    .select(selection)
+    .from(hackerApplicants)
+    .leftJoin(users, eq(users.id, hackerApplicants.userId))
+    .leftJoin(
+      hackerRsvpDrafts,
+      eq(hackerRsvpDrafts.userId, hackerApplicants.userId),
+    )
+    .leftJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id))
+    .where(eq(applicationSlugSql, parsed.data))
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    summary: rowToSummary(row),
+    values: row.final ? rsvpRowToFormData(row.final) : null,
+    hasReceipt: Boolean(
+      row.final?.receiptKey &&
+      row.final.receiptOriginalName &&
+      row.final.receiptContentType &&
+      row.final.receiptSizeBytes,
+    ),
+  };
+}
+
+export async function getAdminRsvpExportRows(): Promise<AdminRsvpExportRow[]> {
+  await requireOrganizer();
+  const rows = await selectAdminRsvpRows();
+  return rows.map((row) => {
+    const summary = rowToSummary(row);
+    const values = row.final ? rsvpRowToFormData(row.final) : null;
+    return {
+      applicationSlug: summary.applicationSlug,
+      applicationName: summary.applicationName,
+      accountEmail: summary.accountEmail,
+      status: summary.status,
+      submittedAt: summary.submittedAt,
+      values,
+      receiptDownloadPath:
+        values?.receipt && row.final
+          ? `/admin/rsvps/${summary.applicationSlug}/receipt`
+          : null,
+    };
+  });
+}
+
+export async function getAdminRsvpReceipt(
+  slug: string,
+): Promise<RsvpReceiptDownloadRecord | null> {
+  await requireOrganizer();
+  const parsed = applicationSlugSchema.safeParse(slug);
+  if (!parsed.success) return null;
+
+  const [row] = await db
+    .select({
+      userId: hackerApplicants.userId,
+      key: hackerRsvps.receiptKey,
+      originalName: hackerRsvps.receiptOriginalName,
+      contentType: hackerRsvps.receiptContentType,
+      sizeBytes: hackerRsvps.receiptSizeBytes,
+    })
+    .from(hackerApplicants)
+    .innerJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id))
+    .where(eq(applicationSlugSql, parsed.data))
+    .limit(1);
+
+  if (
+    !row?.key ||
+    !row.originalName ||
+    !row.contentType ||
+    !isRsvpReceiptContentType(row.contentType) ||
+    !row.sizeBytes
+  ) {
+    return null;
+  }
+
+  return {
+    key: row.key,
+    userId: row.userId,
+    originalName: row.originalName,
+    contentType: row.contentType,
+    sizeBytes: row.sizeBytes,
+  };
+}

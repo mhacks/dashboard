@@ -55,10 +55,6 @@ export const reviewEventsInputSchema = z.object({
   applicationId: z.uuid(),
 });
 
-export const applicationSlugSchema = z
-  .string()
-  .regex(/^app_[a-f0-9]{24}$/, "Invalid application slug");
-
 export const reviewSyncPayloadSchema = z.object({
   sourceUserId: z.uuid(),
   applicationId: z.uuid(),

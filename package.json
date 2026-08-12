@@ -12,6 +12,8 @@
     "dev": "next dev",
     "build": "next build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public",
     "start": "node --env-file=.env.local .next/standalone/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint",
     "format": "prettier --write .",
     "prepare": "husky",
@@ -82,7 +84,8 @@
     "prettier": "^3.9.6",
     "supabase": "^2.109.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "lint-staged": {
     "*": "prettier --write --ignore-unknown",
