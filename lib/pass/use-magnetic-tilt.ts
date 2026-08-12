@@ -75,7 +75,7 @@ export function useMagneticTilt(
     return () => {
       area.removeEventListener("pointermove", onMove);
       area.removeEventListener("pointerleave", settle);
-      gsap.killTweensOf(target);
+      if (target.isConnected) gsap.killTweensOf(target);
     };
   }, [enabled, maxTilt, maxShift]);
 

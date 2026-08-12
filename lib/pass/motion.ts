@@ -204,7 +204,9 @@ export function usePanelEntrance(enabled: boolean) {
       });
     }, root);
 
-    return () => ctx.revert();
+    return () => {
+      if (root.isConnected) ctx.revert();
+    };
   }, [enabled]);
 
   return ref;

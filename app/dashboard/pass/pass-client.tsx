@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import type { TicketState } from "@/lib/pass/types";
+import type { FormatId, TicketState } from "@/lib/pass/types";
 import { formatDef } from "@/lib/pass/formats";
 import { ExportFrame } from "@/components/pass/export-frame";
 import {
@@ -67,12 +67,22 @@ function Preview({ state }: { state: TicketState }) {
     has no width to give the change away.
   */
   const [shown, setShown] = useState(state.format);
+  // Mirrors `shown` for effect cleanup. The effect must not depend on `shown`
+  // state — that re-ran the effect at the flip midpoint — and cleanup must not
+  // call setState, which re-renders during unmount and blows up React while it
+  // tears down the pass's inline SVG (correspondingUseElement in Firefox).
+  const shownRef = useRef<FormatId>(state.format);
   const flipRef = useRef<HTMLDivElement>(null);
   // What the flip has already committed to. A ref, not the state, because the
   // effect must not re-run when the midpoint swap lands — depending on `shown`
   // meant this effect tore its own timeline down halfway through and left the
   // pass stranded edge-on at rotationY: -90.
   const settled = useRef(state.format);
+
+  const revealFormat = (format: FormatId) => {
+    shownRef.current = format;
+    setShown(format);
+  };
 
   useLayoutEffect(() => {
     const target = state.format;
@@ -81,7 +91,7 @@ function Preview({ state }: { state: TicketState }) {
     const el = flipRef.current;
     if (!el || prefersReducedMotion()) {
       settled.current = target;
-      setShown(target);
+      revealFormat(target);
       return;
     }
 
@@ -90,7 +100,7 @@ function Preview({ state }: { state: TicketState }) {
       .to(el, { rotationY: -90, duration: 0.26, ease: "power2.in" })
       .add(() => {
         settled.current = target;
-        setShown(target);
+        revealFormat(target);
       })
       .to(el, { rotationY: 0, duration: 0.36, ease: "power2.out" });
 
@@ -98,8 +108,12 @@ function Preview({ state }: { state: TicketState }) {
       // Only reached if the format changes again mid-flip, or on unmount.
       // Square the pass back up so it can never be left on its edge.
       tl.kill();
-      settled.current = target;
-      gsap.set(el, { rotationY: 0 });
+      // Roll settled back to what is actually on screen so Strict Mode's
+      // setup→cleanup→setup re-run sees settled !== target when the midpoint
+      // never landed. Do not setState here — navigation away would re-render
+      // into a tree React is already unmounting.
+      settled.current = shownRef.current;
+      if (el.isConnected) gsap.set(el, { rotationY: 0 });
     };
   }, [state.format]);
 

@@ -72,11 +72,13 @@ export async function renderFrame(
   format: FormatDef,
 ): Promise<Blob> {
   await loadUsedFaces(node);
-  // Land every in-flight tween first, or a download taken mid-dissolve would
-  // rasterize a half-faded backdrop.
-  settleAnimations();
-
   const fontEmbedCSS = await passFontEmbedCSS(node);
+
+  // After the awaits above, React may have flushed a format-flip midpoint swap
+  // if settle ran too early — settle immediately before capture so the DOM
+  // still matches the `format` dimensions passed in, and half-faded backdrops
+  // are not rasterized either.
+  settleAnimations();
 
   node.setAttribute("data-printing", "");
   let dataUrl: string;
