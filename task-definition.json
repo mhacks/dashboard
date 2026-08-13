@@ -38,16 +38,16 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_SECRET_ACCESS_KEY"
         },
         {
-          "name": "AWS_SES_SMTP_USER",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SMTP_USER"
-        },
-        {
-          "name": "AWS_SES_SMTP_PASSWORD",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SMTP_PASSWORD"
+          "name": "AWS_SES_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_ACCESS_KEY_ID"
         },
         {
           "name": "AWS_SES_SECRET_ACCESS_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SECRET_ACCESS_KEY"
+        },
+        {
+          "name": "EMAIL_CAMPAIGN_PROOF_SECRET",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_PROOF_SECRET"
         },
         {
           "name": "DATABASE_URL",
