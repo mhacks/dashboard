@@ -62,7 +62,7 @@ export default async function AdminRsvpDetailPage({
         <RsvpSummary
           values={detail.values}
           receiptHref={
-            detail.hasReceipt
+            detail.values.receipt
               ? `/admin/rsvps/${detail.summary.applicationSlug}/receipt`
               : undefined
           }

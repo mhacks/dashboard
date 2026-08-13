@@ -2,17 +2,13 @@ import { serializeCsv, type CsvColumn } from "@/lib/rsvp/csv";
 import type { RsvpStatus } from "@/lib/rsvp/status";
 import type { RsvpFormData } from "@/lib/types/rsvps";
 
-type ExportValues = Omit<RsvpFormData, "dietaryRestrictions"> & {
-  dietaryRestrictions: readonly RsvpFormData["dietaryRestrictions"][number][];
-};
-
 export type AdminRsvpExportRow = {
   applicationSlug: string;
   applicationName: string;
   accountEmail: string;
   status: RsvpStatus;
   submittedAt: string | null;
-  values: ExportValues | null;
+  values: RsvpFormData | null;
   receiptDownloadPath: string | null;
 };
 

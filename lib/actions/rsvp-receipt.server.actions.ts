@@ -56,13 +56,12 @@ const receiptUploadLimiter = new RateLimiterMemory({
   duration: 60,
 });
 
-async function assertWritableUser(userId: string): Promise<number> {
-  return db.transaction(async (tx) => {
+async function assertWritableUser(userId: string): Promise<void> {
+  await db.transaction(async (tx) => {
     const application = await lockWritableRsvpApplicant(tx, userId);
     const [draft] = await tx
       .select({
         data: hackerRsvpDrafts.data,
-        receiptVersion: hackerRsvpDrafts.receiptVersion,
       })
       .from(hackerRsvpDrafts)
       .where(eq(hackerRsvpDrafts.userId, userId))
@@ -72,7 +71,6 @@ async function assertWritableUser(userId: string): Promise<number> {
         address: draft?.data as RsvpDraftData | undefined,
       }),
     );
-    return draft?.receiptVersion ?? 0;
   });
 }
 

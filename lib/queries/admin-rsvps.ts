@@ -103,12 +103,6 @@ export async function getAdminRsvpDetail(
   return {
     summary: rowToSummary(row),
     values: row.final ? rsvpRowToFormData(row.final) : null,
-    hasReceipt: Boolean(
-      row.final?.receiptKey &&
-      row.final.receiptOriginalName &&
-      row.final.receiptContentType &&
-      row.final.receiptSizeBytes,
-    ),
   };
 }
 

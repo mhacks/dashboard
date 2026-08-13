@@ -77,7 +77,7 @@ export default async function RsvpPage() {
         >
           <RsvpSummary
             values={state.values}
-            receiptHref={state.receipt ? "/rsvp/receipt" : undefined}
+            receiptHref={state.values.receipt ? "/rsvp/receipt" : undefined}
           />
         </StateCard>
       </RsvpPageShell>

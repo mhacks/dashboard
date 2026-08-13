@@ -31,7 +31,9 @@ import {
 import { getRsvpSteps } from "./form-options";
 import { RsvpPageShell } from "./rsvp-page-shell";
 import { RsvpSummary } from "./rsvp-summary";
-import { PersonalStep, TravelTaxStep, WaiversStep } from "./components";
+import { PersonalStep } from "./components/personal-step";
+import { TravelTaxStep } from "./components/travel-tax-step";
+import { WaiversStep } from "./components/waivers-step";
 import {
   consumeRestorablePendingRsvp,
   useRsvpAutosave,

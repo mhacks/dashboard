@@ -19,7 +19,7 @@ export function RsvpPageShell({
   stepCount,
   children,
 }: {
-  accountId?: string;
+  accountId: string;
   onBeforeLogout?: () => void;
   status?: ReactNode;
   stepCount?: {
@@ -130,7 +130,7 @@ export function RsvpPageShell({
               onClick={async () => {
                 setIsSigningOut(true);
                 onBeforeLogout?.();
-                if (accountId) clearStoredPendingRsvp(accountId);
+                clearStoredPendingRsvp(accountId);
                 await logout();
               }}
               className="glass-pill rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold tracking-widest text-white/55 uppercase transition-colors hover:text-white/80 disabled:opacity-50"

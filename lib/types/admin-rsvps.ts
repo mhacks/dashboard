@@ -25,5 +25,4 @@ export type AdminRsvpDashboard = {
 export type AdminRsvpDetail = {
   summary: AdminRsvpSummary;
   values: RsvpFormData | null;
-  hasReceipt: boolean;
 };

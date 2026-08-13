@@ -235,5 +235,3 @@ export const hackerRsvps = pgTable(
 
 export type HackerRsvpDraftRow = typeof hackerRsvpDrafts.$inferSelect;
 export type HackerRsvpRow = typeof hackerRsvps.$inferSelect;
-export type NewHackerRsvp = typeof hackerRsvps.$inferInsert;
-export type RsvpReceiptCleanupRow = typeof rsvpReceiptCleanup.$inferSelect;

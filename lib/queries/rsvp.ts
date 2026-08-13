@@ -31,13 +31,11 @@ export type AttendeeRsvpState =
   | {
       kind: "submitted";
       values: RsvpFormData;
-      receipt: RsvpReceiptMetadata | null;
       submittedAt: string;
     }
   | {
       kind: "editable" | "closed";
       draft: RsvpDraftData;
-      receipt: RsvpReceiptMetadata | null;
       accountEmail: string;
       travelEligibility: RsvpTravelEligibility;
       draftVersion: number;
@@ -202,7 +200,6 @@ export async function getAttendeeRsvpState({
     return {
       kind: "submitted",
       values: rsvpRowToFormData(row.final),
-      receipt: receiptMetadata(row.final),
       submittedAt: row.final.submittedAt,
     };
   }
@@ -227,7 +224,6 @@ export async function getAttendeeRsvpState({
   return {
     kind: isRsvpOpen(nowMs) ? "editable" : "closed",
     draft,
-    receipt,
     accountEmail,
     travelEligibility: getRsvpTravelEligibility(
       {

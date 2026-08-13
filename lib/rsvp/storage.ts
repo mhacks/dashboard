@@ -2,7 +2,6 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
-  type CopyObjectCommandInput,
 } from "@aws-sdk/client-s3";
 
 import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
@@ -98,30 +97,12 @@ export async function copyRsvpReceipt({
   destinationKey: string;
 }): Promise<void> {
   await s3.send(
-    new CopyObjectCommand(
-      rsvpReceiptCopyInput({
-        bucket: RESUMES_BUCKET,
-        sourceKey,
-        destinationKey,
-      }),
-    ),
+    new CopyObjectCommand({
+      Bucket: RESUMES_BUCKET,
+      CopySource: `${RESUMES_BUCKET}/${sourceKey}`,
+      Key: destinationKey,
+    }),
   );
-}
-
-export function rsvpReceiptCopyInput({
-  bucket,
-  sourceKey,
-  destinationKey,
-}: {
-  bucket: string;
-  sourceKey: string;
-  destinationKey: string;
-}): CopyObjectCommandInput {
-  return {
-    Bucket: bucket,
-    CopySource: `${bucket}/${sourceKey}`,
-    Key: destinationKey,
-  };
 }
 
 export async function deleteRsvpReceipt(key: string): Promise<void> {

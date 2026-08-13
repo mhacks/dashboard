@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 const MAX_DRAFT_REQUEST_BYTES = 32 * 1024;
 const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
+const encoder = new TextEncoder();
 
 export async function POST(request: Request): Promise<Response> {
   const requestUrl = new URL(request.url);
@@ -15,12 +16,8 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (
-    !Number.isFinite(contentLength) ||
-    contentLength <= 0 ||
-    contentLength > MAX_DRAFT_REQUEST_BYTES
-  ) {
+  const body = await request.text();
+  if (!body || encoder.encode(body).byteLength > MAX_DRAFT_REQUEST_BYTES) {
     return new Response("Invalid draft", {
       status: 413,
       headers: PRIVATE_HEADERS,
@@ -28,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    await saveRsvpDraft(await request.json());
+    await saveRsvpDraft(JSON.parse(body));
     return new Response(null, { status: 204, headers: PRIVATE_HEADERS });
   } catch {
     return new Response("Unable to save draft", {

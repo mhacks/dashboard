@@ -206,10 +206,6 @@ export function useRsvpAutosave(
     void flush().catch(() => undefined);
   }, [flush]);
 
-  const updateVersion = useCallback((nextVersion: number) => {
-    version.current = Math.max(version.current, nextVersion);
-  }, []);
-
   const getVersion = useCallback(() => version.current, []);
 
   const cancelPending = useCallback(() => {
@@ -271,7 +267,6 @@ export function useRsvpAutosave(
     flush,
     retry,
     stop,
-    updateVersion,
     getVersion,
     cancelPending,
     completeExternalSave,

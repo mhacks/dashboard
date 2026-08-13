@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-export type FormFieldError = { message?: string };
+type FormFieldError = { message?: string };
 
 export function FormQuestion({
   label,
