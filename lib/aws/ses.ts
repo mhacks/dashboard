@@ -1,42 +1,97 @@
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
+import type SESTransport from "nodemailer/lib/ses-transport";
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "hackathon@mhacks.org";
 const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MHacks Team";
 const SES_REGION = process.env.SES_REGION ?? "us-east-2";
+const SMTP_TIMEOUT_MS = 15_000;
 
-let transporter: Transporter | null | undefined;
+let transporter: Transporter | undefined;
 
-function getTransporter(): Transporter | null {
-  if (transporter !== undefined) return transporter;
+export type SendEmailInput = {
+  to: string | string[];
+  subject: string;
+  text: string;
+  html: string;
+  fromEmail?: string;
+  fromName?: string;
+};
 
-  const accessKeyId = process.env.AWS_SES_SMTP_USER!;
-  const secretAccessKey = process.env.AWS_SES_SECRET_ACCESS_KEY!;
-  if (process.env.NODE_ENV !== "development") {
-    const sesClient = new SESv2Client({
-      region: SES_REGION,
-      credentials: { accessKeyId, secretAccessKey },
-    });
+function getTransporter(): Transporter {
+  if (transporter) return transporter;
 
-    transporter = nodemailer.createTransport({
-      SES: { sesClient, SendEmailCommand },
-    });
-    return transporter;
-  }
+  if (process.env.NODE_ENV === "development") {
+    const smtpHost = process.env.SMTP_HOST;
+    if (!smtpHost) {
+      throw new Error(
+        "Email is not configured. Set SMTP_HOST for local email.",
+      );
+    }
 
-  const smtpHost = process.env.SMTP_HOST;
-  if (smtpHost) {
+    const smtpUser = process.env.AWS_SES_SMTP_USER;
+    const smtpPassword = process.env.AWS_SES_SMTP_PASSWORD;
+
     transporter = nodemailer.createTransport({
       host: smtpHost,
       port: Number(process.env.SMTP_PORT ?? 54325),
       secure: false,
+      auth:
+        smtpUser && smtpPassword
+          ? { user: smtpUser, pass: smtpPassword }
+          : undefined,
+      connectionTimeout: SMTP_TIMEOUT_MS,
+      socketTimeout: SMTP_TIMEOUT_MS,
       tls: { rejectUnauthorized: false },
     });
     return transporter;
   }
 
-  transporter = null;
+  const accessKeyId =
+    process.env.AWS_SES_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey =
+    process.env.AWS_SES_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY;
+
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(
+      "SES credentials are not configured. Set AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY.",
+    );
+  }
+
+  const sesClient = new SESv2Client({
+    region: SES_REGION,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  const sesOptions: SESTransport.Options = {
+    SES: { sesClient, SendEmailCommand },
+  };
+
+  transporter = nodemailer.createTransport(sesOptions);
   return transporter;
+}
+
+function localSmtpConfig() {
+  return `${process.env.SMTP_HOST ?? "127.0.0.1"}:${process.env.SMTP_PORT ?? 54325}`;
+}
+
+function emailSendError(error: unknown) {
+  if (
+    process.env.NODE_ENV === "development" &&
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error.code === "ECONNREFUSED" ||
+      error.code === "ETIMEDOUT" ||
+      error.code === "ESOCKET")
+  ) {
+    return new Error(
+      `Local email SMTP is not reachable at ${localSmtpConfig()}. Start the Supabase local stack/Mailpit before sending email.`,
+      { cause: error },
+    );
+  }
+
+  return error instanceof Error ? error : new Error("Email failed to send.");
 }
 
 export async function sendEmail({
@@ -44,22 +99,20 @@ export async function sendEmail({
   subject,
   text,
   html,
-}: {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-}) {
-  const transporter = getTransporter();
-  if (!transporter) return false;
+  fromEmail = FROM_EMAIL,
+  fromName = FROM_NAME,
+}: SendEmailInput) {
+  try {
+    const info = await getTransporter().sendMail({
+      from: `${fromName} <${fromEmail}>`,
+      to,
+      subject,
+      text,
+      html,
+    });
 
-  await transporter.sendMail({
-    from: `${FROM_NAME} <${FROM_EMAIL}>`,
-    to,
-    subject,
-    text,
-    html,
-  });
-
-  return true;
+    return typeof info.messageId === "string" ? info.messageId : null;
+  } catch (error) {
+    throw emailSendError(error);
+  }
 }

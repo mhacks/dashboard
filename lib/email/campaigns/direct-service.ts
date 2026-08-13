@@ -134,6 +134,17 @@ export async function sendDirectBatch(input: unknown) {
     throw new EmailCampaignError("Add at least one valid recipient", 400);
   }
 
+  if (parsed.invalid.length > 0) {
+    throw new EmailCampaignError(
+      `Fix ${parsed.invalid.length} invalid recipient${
+        parsed.invalid.length === 1 ? "" : "s"
+      } before sending`,
+      400,
+    );
+  }
+
+  assertRequiredMergeColumns(body.template, parsed.columns);
+
   if (body.resolveStaleBatch) {
     await resolveStaleSendBatch({
       runId: body.runId,
@@ -715,6 +726,56 @@ function buildMergeData(email: string, mergeData?: Record<string, string>) {
   };
 }
 
+function assertRequiredMergeColumns(
+  template: DirectEmailTemplateInput,
+  columns: string[],
+) {
+  const columnSet = new Set(columns);
+  const builtInFields = new Set(["email", "name"]);
+  const missing = extractDirectTemplateMergeFields(template).filter(
+    (field) => !builtInFields.has(field) && !columnSet.has(field),
+  );
+
+  if (missing.length > 0) {
+    throw new EmailCampaignError(
+      `Recipient list is missing required merge column${
+        missing.length === 1 ? "" : "s"
+      }: ${missing.join(", ")}`,
+      400,
+    );
+  }
+}
+
+function extractDirectTemplateMergeFields(template: DirectEmailTemplateInput) {
+  const values =
+    template.type === "html"
+      ? [template.subject, template.previewText, template.html]
+      : [
+          template.subject,
+          template.previewText,
+          template.content.eyebrow ?? "",
+          template.content.heading,
+          template.content.intro ?? "",
+          template.content.cta?.label ?? "",
+          template.content.cta?.url ?? "",
+          template.content.footerNote ?? "",
+          ...template.content.sections.flatMap((section) => [
+            section.title ?? "",
+            section.body,
+          ]),
+        ];
+  const fields = new Set<string>();
+  const pattern = /{{\s*([\w.-]+)\s*}}/g;
+
+  for (const value of values) {
+    for (const match of value.matchAll(pattern)) {
+      fields.add(match[1]);
+    }
+  }
+
+  return Array.from(fields).sort((left, right) => left.localeCompare(right));
+}
+
 function campaignLikeFromDirectTemplate(template: DirectEmailTemplateInput) {
   return {
     templateSnapshot: snapshotFromDirectTemplate(template),
@@ -783,11 +844,17 @@ function sign(payload: string) {
 }
 
 function testProofSecret() {
-  return (
-    process.env.EMAIL_CAMPAIGN_PROOF_SECRET ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.DATABASE_URL ??
-    "development-email-proof-secret"
+  if (process.env.EMAIL_CAMPAIGN_PROOF_SECRET) {
+    return process.env.EMAIL_CAMPAIGN_PROOF_SECRET;
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    return "development-email-proof-secret";
+  }
+
+  throw new EmailCampaignError(
+    "EMAIL_CAMPAIGN_PROOF_SECRET is not configured",
+    500,
   );
 }
 

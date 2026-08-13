@@ -7,7 +7,6 @@ import {
   type EmailTemplateRow,
 } from "@/lib/db/schema/email";
 import { EmailCampaignError } from "@/lib/email/campaigns/config";
-import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
 import { defaultEmailTheme, normalizeEmailTheme } from "@/lib/email/theme";
 import {
   getEmailTemplate,
@@ -16,10 +15,8 @@ import {
 import {
   emailTemplateUpsertSchema,
   emailThemeTokensSchema,
-  htmlTemplateUploadSchema,
   type EmailCampaignContent,
   type EmailTemplateType,
-  type EmailThemeTokens,
 } from "@/lib/email/types";
 
 const activeThemeKey = "active";
@@ -77,17 +74,6 @@ export async function createMasterTemplate(input: unknown) {
     .returning();
 
   return templateFromRow(template);
-}
-
-export async function uploadHtmlTemplate(input: unknown) {
-  const payload = htmlTemplateUploadSchema.parse(input);
-  return createMasterTemplate({
-    ...payload,
-    type: "html",
-    content: undefined,
-    sourceTemplateId: "mhacks-announcement",
-    status: "active",
-  });
 }
 
 export async function updateMasterTemplate(templateId: string, input: unknown) {
@@ -169,32 +155,6 @@ export async function saveActiveTheme(input: unknown) {
     .returning();
 
   return normalizeEmailTheme(setting.theme);
-}
-
-export async function renderMasterTemplatePreview(input: {
-  template: MasterTemplate;
-  theme?: EmailThemeTokens;
-}) {
-  if (input.template.type === "html") {
-    return renderHtmlEmail({
-      subject: input.template.subject,
-      previewText: input.template.previewText,
-      html: input.template.html ?? "",
-    });
-  }
-
-  return renderCampaignEmail({
-    templateId: input.template.sourceTemplateId,
-    subject: input.template.subject,
-    previewText: input.template.previewText,
-    content: input.template.content,
-    theme: input.theme ?? defaultEmailTheme,
-    mergeData: {
-      name: "Hacker",
-      email: "hacker@mhacks.org",
-      travel_reimbursement: "150.00",
-    },
-  });
 }
 
 export function getSeedMasterTemplates(): MasterTemplate[] {

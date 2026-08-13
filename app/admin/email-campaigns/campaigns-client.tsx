@@ -103,13 +103,13 @@ interface ToastState {
   description?: string;
 }
 
-const templatesStorageKey = "mhacks-email-master-templates";
 const themeStorageKey = "mhacks-email-active-theme";
 const themeStorageVersionKey = "mhacks-email-active-theme-version";
 const currentThemeStorageVersion = "m26-single-font-config";
 const activeSendStatusStorageKey = "mhacks-email-active-send-status";
 const activeSendRecipientsStorageKey = "mhacks-email-active-send-recipients";
 const activeTestProofStorageKey = "mhacks-email-active-test-proof";
+const builtInRecipientMergeFields = new Set(["email", "name"]);
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
 const emailCampaignViews: Array<{
@@ -273,7 +273,6 @@ export default function EmailCampaignsClient({
     setSelectedTemplateId(template.id);
     setSelectedSectionIndex(0);
     clearSendStatus();
-    storeTemplates(nextTemplates);
     setNotice("Template created.");
   }
 
@@ -300,7 +299,6 @@ export default function EmailCampaignsClient({
       setTemplates(nextTemplates);
       setSelectedTemplateId(savedTemplate.id);
       clearSendStatus();
-      storeTemplates(nextTemplates);
       setNotice("Template uploaded.");
       showToast("success", "Template uploaded", "Saved to the database.");
     } catch {
@@ -308,7 +306,6 @@ export default function EmailCampaignsClient({
       setTemplates(nextTemplates);
       setSelectedTemplateId(template.id);
       clearSendStatus();
-      storeTemplates(nextTemplates);
       setNotice("Upload kept as a local draft. Database save failed.");
       showToast(
         "error",
@@ -418,7 +415,6 @@ export default function EmailCampaignsClient({
     }
 
     setTemplates(nextTemplates);
-    storeTemplates(nextTemplates);
   }
 
   async function deleteSelectedTemplate() {
@@ -437,7 +433,6 @@ export default function EmailCampaignsClient({
       setTemplates(nextTemplates);
       setSelectedTemplateId(nextTemplates[0]?.id ?? "");
       clearSendStatus();
-      storeTemplates(nextTemplates);
       setNotice("Template removed.");
       showToast("success", "Template removed", "Removed from the database.");
     } catch (error) {
@@ -522,7 +517,6 @@ export default function EmailCampaignsClient({
       setSelectedTemplateId(newTemplate.id);
       setSelectedSectionIndex(0);
       clearSendStatus();
-      storeTemplates(nextTemplates);
       setAiDraftText("");
       setNotice("AI draft created as a new template. Review before saving.");
       showToast(
@@ -744,18 +738,14 @@ export default function EmailCampaignsClient({
       let status: DirectSendStatus | null = null;
       const runId = activeSendStatus?.runId ?? crypto.randomUUID();
       let cursor = activeSendStatus?.nextCursor ?? 0;
-      let sentCount = activeSendStatus?.sentCount ?? 0;
-      let failedCount = activeSendStatus?.failedCount ?? 0;
-      let recentFailures: DirectSendStatus["recentFailures"] =
-        activeSendStatus?.recentFailures ?? [];
 
       if (!activeSendStatus) {
         commitSendStatus({
           runId,
           proofKey: currentTestProofKey,
           totalRecipients: recipientResult?.emails.length ?? 0,
-          sentCount,
-          failedCount,
+          sentCount: 0,
+          failedCount: 0,
           pendingCount: recipientResult?.emails.length ?? 0,
           sendingCount: 0,
           nextCursor: cursor,
@@ -763,7 +753,7 @@ export default function EmailCampaignsClient({
           invalid: recipientResult?.invalid ?? [],
           duplicateCount: recipientResult?.duplicateCount ?? 0,
           columns: recipientResult?.columns,
-          recentFailures,
+          recentFailures: [],
         });
       }
 
@@ -776,9 +766,6 @@ export default function EmailCampaignsClient({
             recipients: recipientText,
             testSendToken: proof.token,
             cursor,
-            sentCount,
-            failedCount,
-            recentFailures,
           }),
         });
         commitSendStatus({ ...status, proofKey: currentTestProofKey });
@@ -790,9 +777,6 @@ export default function EmailCampaignsClient({
           }.`,
         );
         cursor = status.nextCursor;
-        sentCount = status.sentCount;
-        failedCount = status.failedCount;
-        recentFailures = status.recentFailures;
 
         if (status.complete) {
           break;
@@ -881,9 +865,6 @@ export default function EmailCampaignsClient({
             template,
             recipients: recipientText,
             cursor: status.nextCursor,
-            sentCount: status.sentCount,
-            failedCount: status.failedCount,
-            recentFailures: status.recentFailures,
             resolveStaleBatch: { cursor: status.staleBatchCursor },
           }),
         },
@@ -967,16 +948,7 @@ export default function EmailCampaignsClient({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const localTemplates = loadStoredTemplates();
       const localTheme = loadStoredTheme();
-      const nextTemplates = mergeTemplates(initialTemplates, localTemplates);
-
-      setTemplates(nextTemplates);
-      setSelectedTemplateId((current) =>
-        nextTemplates.some((template) => template.id === current)
-          ? current
-          : nextTemplates[0]?.id || "",
-      );
 
       if (localTheme) {
         setTheme(localTheme);
@@ -984,7 +956,7 @@ export default function EmailCampaignsClient({
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [initialTemplates]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1123,6 +1095,7 @@ export default function EmailCampaignsClient({
           ) : (
             <SendPanel
               selectedTemplate={selectedTemplate}
+              mergeFields={mergeFields}
               limits={campaignLimits}
               recipientText={recipientText}
               recipientResult={recipientResult}
@@ -1757,6 +1730,7 @@ function MergeFieldsPanel({
 
 function SendPanel({
   selectedTemplate,
+  mergeFields,
   limits,
   recipientText,
   recipientResult,
@@ -1775,6 +1749,7 @@ function SendPanel({
   onResolveStaleBatch,
 }: {
   selectedTemplate: MasterTemplate | null;
+  mergeFields: string[];
   limits: CampaignLimits;
   recipientText: string;
   recipientResult: RecipientSaveResult | null;
@@ -1798,10 +1773,23 @@ function SendPanel({
     (selectedTemplate.type === "html" || selectedTemplate.content),
   );
   const validatedRecipients = recipientResult?.emails.length ?? 0;
+  const requiredRecipientColumns = mergeFields.filter(
+    (field) => !builtInRecipientMergeFields.has(field),
+  );
+  const recipientColumns = new Set(recipientResult?.columns ?? []);
+  const missingRecipientColumns = recipientResult
+    ? requiredRecipientColumns.filter((field) => !recipientColumns.has(field))
+    : [];
   const fullSendUnlocked = Boolean(testSendProof);
   const recipientInputDisabled = !fullSendUnlocked || Boolean(busy);
   const fullSendReady = Boolean(
-    templateCanSend && testSendProof && recipientText.trim(),
+    templateCanSend &&
+    testSendProof &&
+    recipientText.trim() &&
+    recipientResult &&
+    recipientResult.emails.length > 0 &&
+    recipientResult.invalid.length === 0 &&
+    missingRecipientColumns.length === 0,
   );
 
   return (
@@ -2001,7 +1989,14 @@ function SendPanel({
               <p className="mt-2 text-sm text-muted-foreground">
                 Test passed: {testSendProof.sentCount}/
                 {testSendProof.totalCount} sent. Full send unlocked until{" "}
-                {formatTime(testSendProof.expiresAt)}.
+                {formatTime(testSendProof.expiresAt)}.{" "}
+                {recipientResult
+                  ? recipientResult.invalid.length > 0
+                    ? "Fix invalid recipients before sending."
+                    : missingRecipientColumns.length > 0
+                      ? `Missing columns: ${missingRecipientColumns.join(", ")}.`
+                      : "Checked recipient list ready."
+                  : "Check the recipient list to enable full send."}
               </p>
             ) : validatedRecipients > 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -2712,32 +2707,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function mergeTemplates(
-  serverTemplates: MasterTemplate[],
-  localTemplates: MasterTemplate[],
-) {
-  const byId = new Map<string, MasterTemplate>();
-  for (const template of serverTemplates) {
-    byId.set(template.id, template);
-  }
-  for (const template of localTemplates) {
-    if (template.id.startsWith("seed-") && byId.has(template.id)) {
-      continue;
-    }
-    byId.set(template.id, template);
-  }
-  return Array.from(byId.values());
-}
-
-function loadStoredTemplates() {
-  return readStorage<MasterTemplate[]>(templatesStorageKey, []);
-}
-
-function storeTemplates(templates: MasterTemplate[]) {
-  window.localStorage.setItem(templatesStorageKey, JSON.stringify(templates));
-}
-
 function loadStoredTheme() {
+  if (!canUseLocalStorage()) {
+    return null;
+  }
+
   if (
     window.localStorage.getItem(themeStorageVersionKey) !==
     currentThemeStorageVersion
@@ -2750,6 +2724,10 @@ function loadStoredTheme() {
 }
 
 function storeTheme(theme: EmailThemeTokens) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   window.localStorage.setItem(
     themeStorageVersionKey,
     currentThemeStorageVersion,
@@ -2762,6 +2740,10 @@ function loadStoredSendStatus() {
 }
 
 function storeSendStatus(status: DirectSendStatus) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   window.localStorage.setItem(
     activeSendStatusStorageKey,
     JSON.stringify(status),
@@ -2769,18 +2751,34 @@ function storeSendStatus(status: DirectSendStatus) {
 }
 
 function removeStoredSendStatus() {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   window.localStorage.removeItem(activeSendStatusStorageKey);
 }
 
 function loadStoredSendRecipients() {
+  if (!canUseLocalStorage()) {
+    return "";
+  }
+
   return window.localStorage.getItem(activeSendRecipientsStorageKey) ?? "";
 }
 
 function storeSendRecipients(recipients: string) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   window.localStorage.setItem(activeSendRecipientsStorageKey, recipients);
 }
 
 function removeStoredSendRecipients() {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   window.localStorage.removeItem(activeSendRecipientsStorageKey);
 }
 
@@ -2789,10 +2787,18 @@ function loadStoredTestSendProof() {
 }
 
 function storeTestSendProof(proof: TestSendProof) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   window.localStorage.setItem(activeTestProofStorageKey, JSON.stringify(proof));
 }
 
 function removeStoredTestSendProof() {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
   window.localStorage.removeItem(activeTestProofStorageKey);
 }
 
@@ -2964,12 +2970,20 @@ function downloadTextFile({
 }
 
 function readStorage<T>(key: string, fallback: T): T {
+  if (!canUseLocalStorage()) {
+    return fallback;
+  }
+
   try {
     const raw = window.localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
   }
+}
+
+function canUseLocalStorage() {
+  return typeof window !== "undefined" && Boolean(window.localStorage);
 }
 
 const adminPanelClass = "rounded-lg border bg-card";

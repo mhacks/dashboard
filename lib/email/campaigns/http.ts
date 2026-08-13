@@ -43,15 +43,9 @@ export function campaignErrorResponse(error: unknown) {
 }
 
 function campaignUnexpectedError(error: Error) {
-  const cause = error.cause;
-
-  if (
-    error.message.startsWith("Failed query:") &&
-    cause instanceof Error &&
-    cause.message
-  ) {
-    return `Database error: ${cause.message}`;
+  if (error.message.startsWith("Failed query:")) {
+    return "Database error";
   }
 
-  return error.message;
+  return "Unexpected email campaign error";
 }

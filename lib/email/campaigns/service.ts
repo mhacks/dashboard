@@ -1,4 +1,4 @@
-import { sanitizeSesError, sendRenderedEmail } from "@/lib/email/campaigns/ses";
+import { sendEmail } from "@/lib/aws/ses";
 import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type {
@@ -66,7 +66,7 @@ export async function sendSnapshotToEmail(
       campaign.themeSnapshot ?? defaultEmailTheme,
       mergeData,
     );
-    const messageId = await sendRenderedEmail({
+    const messageId = await sendEmail({
       to: email,
       subject: rendered.subject,
       html: rendered.html,
@@ -79,9 +79,17 @@ export async function sendSnapshotToEmail(
       email,
       status: "failed",
       messageId: null,
-      error: sanitizeSesError(error),
+      error: sanitizeEmailError(error),
     };
   }
+}
+
+function sanitizeEmailError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown email error";
 }
 
 async function renderSnapshot(

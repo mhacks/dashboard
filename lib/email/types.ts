@@ -74,14 +74,6 @@ export const emailTemplateUpsertSchema = z.object({
   sourceTemplateId: z.string().min(1).default("mhacks-announcement"),
 });
 
-export const htmlTemplateUploadSchema = z.object({
-  name: z.string().min(1).max(120),
-  description: z.string().max(240).default(""),
-  subject: z.string().min(1).max(180),
-  previewText: z.string().max(220).default(""),
-  html: z.string().min(1).max(maxHtmlTemplateLength),
-});
-
 const mergeDataSchema = z.record(z.string(), z.string()).optional();
 
 export const emailRenderPreviewSchema = z.discriminatedUnion("type", [
@@ -132,7 +124,6 @@ export const directSendOneSchema = z.object({
 
 export const directTestSendSchema = z.object({
   template: directEmailTemplateSchema,
-  emails: z.array(z.string().email()).max(20).default([]),
   mergeData: z.record(z.string(), z.string()).optional(),
 });
 
@@ -142,21 +133,11 @@ export const directBatchSendSchema = z.object({
   recipients: z.string().max(maxRecipientTextLength).default(""),
   testSendToken: z.string().optional(),
   cursor: z.number().int().min(0).default(0),
-  sentCount: z.number().int().min(0).default(0),
-  failedCount: z.number().int().min(0).default(0),
   resolveStaleBatch: z
     .object({
       cursor: z.number().int().min(0),
     })
     .optional(),
-  recentFailures: z
-    .array(
-      z.object({
-        email: z.string(),
-        error: z.string().nullable(),
-      }),
-    )
-    .default([]),
 });
 
 export type EmailCampaignContent = z.infer<typeof emailCampaignContentSchema>;

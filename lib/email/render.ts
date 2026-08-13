@@ -161,8 +161,12 @@ function mergeText(value: string, mergeData: Record<string, string>) {
 function sanitizeHtmlTemplate(html: string) {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/\son\w+="[^"]*"/gi, "")
-    .replace(/\son\w+='[^']*'/gi, "");
+    .replace(/\son[\w:-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(
+      /\s(?:href|src|xlink:href|formaction)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]*)/gi,
+      "",
+    )
+    .replace(/url\(\s*(['"]?)javascript:[^)]+\1\s*\)/gi, "url(#)");
 }
 
 function escapeHtml(value: string) {
