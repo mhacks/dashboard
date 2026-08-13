@@ -35,6 +35,8 @@
     "@marsidev/react-turnstile": "^1.5.3",
     "@modelcontextprotocol/sdk": "1.26.0",
     "@posthog/mcp": "0.9.1",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.110.8",
     "@tanstack/react-table": "^8.21.3",

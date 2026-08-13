@@ -33,61 +33,68 @@
     {
       "idx": 4,
       "version": "7",
+      "when": 1784270014595,
+      "tag": "20260717063334_email_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
       "when": 1786094586927,
       "tag": "20260807092306_add_user_roles",
       "breakpoints": true
     },
     {
-      "idx": 5,
+      "idx": 6,
       "version": "7",
       "when": 1786125250308,
       "tag": "20260807175410_reimbursements",
       "breakpoints": true
     },
     {
-      "idx": 6,
+      "idx": 7,
       "version": "7",
       "when": 1786127661447,
       "tag": "20260807183121_reimbursements_triggers",
       "breakpoints": true
     },
     {
-      "idx": 7,
+      "idx": 8,
       "version": "7",
       "when": 1786127561679,
       "tag": "20260807183241_blacklist",
       "breakpoints": true
     },
     {
-      "idx": 8,
+      "idx": 9,
       "version": "7",
       "when": 1786127577968,
       "tag": "20260807183257_blacklist_triggers",
       "breakpoints": true
     },
     {
-      "idx": 9,
+      "idx": 10,
       "version": "7",
       "when": 1786128366444,
       "tag": "20260807184606_reimbursement_regions_seed",
       "breakpoints": true
     },
     {
-      "idx": 10,
+      "idx": 11,
       "version": "7",
       "when": 1786308150117,
       "tag": "20260809204230_hacker_decisions",
       "breakpoints": true
     },
     {
-      "idx": 11,
+      "idx": 12,
       "version": "7",
       "when": 1786309503715,
       "tag": "20260809210503_reimbursement_status_binary",
       "breakpoints": true
     },
     {
-      "idx": 12,
+      "idx": 13,
       "version": "7",
       "when": 1786315772348,
       "tag": "20260809224932_user_invitations",
