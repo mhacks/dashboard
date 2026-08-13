@@ -93,8 +93,6 @@ function withSessionIdentity(data: unknown, accountEmail: string) {
   return {
     ...data,
     email: accountEmail,
-    emailMatchesApplication: true,
-    incorrectEmailRiskAcknowledged: true,
   };
 }
 
@@ -307,8 +305,6 @@ function finalInsertValues({
     legalName: data.legalName,
     preferredName: data.preferredName,
     email: data.email,
-    emailMatchesApplication: data.emailMatchesApplication,
-    incorrectEmailRiskAcknowledged: data.incorrectEmailRiskAcknowledged,
     dietaryRestrictions: data.dietaryRestrictions,
     otherDietaryRestriction: data.otherDietaryRestriction ?? null,
     tshirtSize: data.tshirtSize,

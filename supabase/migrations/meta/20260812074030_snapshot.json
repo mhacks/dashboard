@@ -1175,18 +1175,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "email_matches_application": {
-          "name": "email_matches_application",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "incorrect_email_risk_acknowledged": {
-          "name": "incorrect_email_risk_acknowledged",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
         "dietary_restrictions": {
           "name": "dietary_restrictions",
           "type": "text[]",
@@ -1369,13 +1357,9 @@
         }
       },
       "checkConstraints": {
-        "hacker_rsvps_email_acknowledgements": {
-          "name": "hacker_rsvps_email_acknowledgements",
-          "value": "\"hacker_rsvps\".\"email_matches_application\" IS TRUE AND \"hacker_rsvps\".\"incorrect_email_risk_acknowledged\" IS TRUE"
-        },
         "hacker_rsvps_dietary_values": {
           "name": "hacker_rsvps_dietary_values",
-          "value": "cardinality(\"hacker_rsvps\".\"dietary_restrictions\") > 0\n        AND \"hacker_rsvps\".\"dietary_restrictions\" <@ ARRAY[\n          'vegetarian', 'vegan', 'kosher', 'halal', 'gluten-free', 'none', 'other'\n        ]::text[]"
+          "value": "cardinality(\"hacker_rsvps\".\"dietary_restrictions\") > 0\n        AND \"hacker_rsvps\".\"dietary_restrictions\" <@ ARRAY[\n          'vegetarian', 'vegan', 'kosher', 'halal', 'gluten-free', 'nut-free', 'dairy-free', 'none', 'other'\n        ]::text[]"
         },
         "hacker_rsvps_dietary_none_exclusive": {
           "name": "hacker_rsvps_dietary_none_exclusive",

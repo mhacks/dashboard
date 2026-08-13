@@ -135,10 +135,6 @@ export const hackerRsvps = pgTable(
     legalName: text("legal_name").notNull(),
     preferredName: text("preferred_name").notNull(),
     email: text().notNull(),
-    emailMatchesApplication: boolean("email_matches_application").notNull(),
-    incorrectEmailRiskAcknowledged: boolean(
-      "incorrect_email_risk_acknowledged",
-    ).notNull(),
     dietaryRestrictions: text("dietary_restrictions").array().notNull(),
     otherDietaryRestriction: text("other_dietary_restriction"),
     tshirtSize: rsvpTshirtSize("tshirt_size").notNull(),
@@ -181,10 +177,6 @@ export const hackerRsvps = pgTable(
     }).onDelete("cascade"),
     unique("hacker_rsvps_user_id_unique").on(table.userId),
     unique("hacker_rsvps_application_id_unique").on(table.applicationId),
-    check(
-      "hacker_rsvps_email_acknowledgements",
-      sql`${table.emailMatchesApplication} IS TRUE AND ${table.incorrectEmailRiskAcknowledged} IS TRUE`,
-    ),
     check(
       "hacker_rsvps_dietary_values",
       sql`cardinality(${table.dietaryRestrictions}) > 0

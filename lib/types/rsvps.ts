@@ -52,9 +52,6 @@ const requiredPlaceText = (label: string, max: number) =>
 
 const draftText = (max: number) => z.string().trim().max(max);
 
-const requiredYes = (message: string) =>
-  z.boolean().refine((value) => value, message);
-
 export const rsvpReceiptMetadataSchema = z.strictObject({
   originalName: requiredText("Receipt filename", 255),
   contentType: z.enum(RSVP_RECEIPT_CONTENT_TYPES),
@@ -75,12 +72,6 @@ const finalFields = {
     .trim()
     .email("Please enter a valid email address")
     .max(320, "Email address is too long"),
-  emailMatchesApplication: requiredYes(
-    "Please confirm this is the email used for your application",
-  ),
-  incorrectEmailRiskAcknowledged: requiredYes(
-    "Please acknowledge the risk of entering the wrong email",
-  ),
   dietaryRestrictions: z
     .array(z.enum(DIETARY_RESTRICTION_VALUES))
     .min(1, "Select at least one dietary option")
@@ -276,8 +267,6 @@ const draftFields = {
   legalName: draftText(200).optional(),
   preferredName: draftText(100).optional(),
   email: draftText(320).optional(),
-  emailMatchesApplication: z.boolean().optional(),
-  incorrectEmailRiskAcknowledged: z.boolean().optional(),
   dietaryRestrictions: z
     .array(z.enum(DIETARY_RESTRICTION_VALUES))
     .max(DIETARY_RESTRICTION_VALUES.length)

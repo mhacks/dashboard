@@ -54,8 +54,6 @@ function defaultValues(
     legalName: draft.legalName ?? "",
     preferredName: draft.preferredName ?? "",
     email: accountEmail,
-    emailMatchesApplication: true,
-    incorrectEmailRiskAcknowledged: true,
     dietaryRestrictions: draft.dietaryRestrictions ?? [],
     otherDietaryRestriction: draft.otherDietaryRestriction,
     tshirtSize: draft.tshirtSize,
@@ -456,7 +454,7 @@ export default function RsvpForm({
                 {currentStep.id === "travel" && (
                   <TravelTaxStep
                     canRequestReimbursement={
-                      travelEligibility.canRequestReimbursement
+                      effectiveTravelEligibility.canRequestReimbursement
                     }
                     receiptMutationInProgress={receiptMutationInProgress}
                     onReceiptMutationChange={setReceiptMutationInProgress}

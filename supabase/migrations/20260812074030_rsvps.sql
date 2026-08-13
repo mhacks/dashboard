@@ -35,8 +35,6 @@ CREATE TABLE "hacker_rsvps" (
 	"legal_name" text NOT NULL,
 	"preferred_name" text NOT NULL,
 	"email" text NOT NULL,
-	"email_matches_application" boolean NOT NULL,
-	"incorrect_email_risk_acknowledged" boolean NOT NULL,
 	"dietary_restrictions" text[] NOT NULL,
 	"other_dietary_restriction" text,
 	"tshirt_size" "rsvp_tshirt_size" NOT NULL,
@@ -59,7 +57,6 @@ CREATE TABLE "hacker_rsvps" (
 	"submitted_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "hacker_rsvps_user_id_unique" UNIQUE("user_id"),
 	CONSTRAINT "hacker_rsvps_application_id_unique" UNIQUE("application_id"),
-	CONSTRAINT "hacker_rsvps_email_acknowledgements" CHECK ("hacker_rsvps"."email_matches_application" IS TRUE AND "hacker_rsvps"."incorrect_email_risk_acknowledged" IS TRUE),
 	CONSTRAINT "hacker_rsvps_dietary_values" CHECK (cardinality("hacker_rsvps"."dietary_restrictions") > 0
         AND "hacker_rsvps"."dietary_restrictions" <@ ARRAY[
           'vegetarian', 'vegan', 'kosher', 'halal', 'gluten-free', 'nut-free', 'dairy-free', 'none', 'other'

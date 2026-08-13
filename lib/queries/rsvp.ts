@@ -116,8 +116,6 @@ function applyApplicantDefaults(
       legalName: draft.legalName || legalName || undefined,
       preferredName: draft.preferredName || firstName || undefined,
       email: accountEmail,
-      emailMatchesApplication: true,
-      incorrectEmailRiskAcknowledged: true,
       ...dietaryDefaults,
       tshirtSize:
         draft.tshirtSize ?? applicationTshirtSizeDefault(application.shirtSize),
@@ -146,8 +144,6 @@ export function rsvpRowToFormData(row: HackerRsvpRow): RsvpFormData {
     legalName: row.legalName,
     preferredName: row.preferredName,
     email: row.email,
-    emailMatchesApplication: row.emailMatchesApplication,
-    incorrectEmailRiskAcknowledged: row.incorrectEmailRiskAcknowledged,
     dietaryRestrictions: row.dietaryRestrictions,
     otherDietaryRestriction: row.otherDietaryRestriction ?? undefined,
     tshirtSize: row.tshirtSize,

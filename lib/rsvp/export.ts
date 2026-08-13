@@ -53,14 +53,6 @@ const ADMIN_RSVP_COLUMNS: readonly CsvColumn<AdminRsvpExportRow>[] = [
   { header: "Preferred Name", value: (row) => row.values?.preferredName },
   { header: "RSVP Email", value: (row) => row.values?.email },
   {
-    header: "Application Email Confirmed",
-    value: (row) => row.values?.emailMatchesApplication,
-  },
-  {
-    header: "Wrong Email Risk Acknowledged",
-    value: (row) => row.values?.incorrectEmailRiskAcknowledged,
-  },
-  {
     header: "Dietary Restrictions",
     value: (row) =>
       row.values?.dietaryRestrictions.map((value) => DIETARY_LABELS[value]),
