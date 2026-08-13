@@ -136,3 +136,27 @@ export function isValidPostalCodeForCountry({
   }
   return true;
 }
+
+export function formatPostalCodeInput(
+  country: string | undefined,
+  value: string,
+): string {
+  if (country === "United States") {
+    const digits = value.replace(/\D/g, "").slice(0, 9);
+    return digits.length > 5
+      ? `${digits.slice(0, 5)}-${digits.slice(5)}`
+      : digits;
+  }
+
+  if (country === "Canada") {
+    const characters = value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 6);
+    return characters.length > 3
+      ? `${characters.slice(0, 3)} ${characters.slice(3)}`
+      : characters;
+  }
+
+  return value.replace(/[^A-Za-z0-9 -]/g, "").slice(0, 32);
+}

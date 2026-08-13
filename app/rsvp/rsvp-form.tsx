@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -16,6 +16,7 @@ import {
   saveRsvpDraftWithoutReceipt,
   submitRsvp,
 } from "@/lib/actions/rsvp.server.actions";
+import { FormStepProgress } from "@/components/forms/form-step-progress";
 import {
   rsvpFormSchema,
   type RsvpDraftData,
@@ -27,22 +28,16 @@ import {
   isAnnArborRegionAddress,
   type RsvpTravelEligibility,
 } from "@/lib/rsvp/travel-eligibility";
-import { getRsvpSteps, type RsvpStep } from "./form-options";
+import { getRsvpSteps } from "./form-options";
 import { RsvpPageShell } from "./rsvp-page-shell";
 import { RsvpSummary } from "./rsvp-summary";
-import { PersonalStep, TravelTaxStep, WaiversStep } from "./rsvp-steps";
+import { PersonalStep, TravelTaxStep, WaiversStep } from "./components";
 import {
   consumeRestorablePendingRsvp,
   useRsvpAutosave,
 } from "./use-rsvp-autosave";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
-const MOSS = "var(--color-moss)";
-const MOSS_15 = "color-mix(in srgb, var(--color-moss) 15%, transparent)";
-const MOSS_20 = "color-mix(in srgb, var(--color-moss) 20%, transparent)";
-const MOSS_25 = "color-mix(in srgb, var(--color-moss) 25%, transparent)";
-const MOSS_30 = "color-mix(in srgb, var(--color-moss) 30%, transparent)";
-const MOSS_65 = "color-mix(in srgb, var(--color-moss) 65%, transparent)";
 
 function defaultValues(
   draft: RsvpDraftData,
@@ -82,71 +77,6 @@ function defaultValues(
     photoReleaseResponse: draft.photoReleaseResponse,
     additionalNotes: draft.additionalNotes ?? "",
   };
-}
-
-function StepBar({
-  current,
-  steps,
-}: {
-  current: number;
-  steps: readonly RsvpStep[];
-}) {
-  return (
-    <div className="flex w-full items-start" aria-label="RSVP progress">
-      {steps.map((step, index) => {
-        const isActive = index === current;
-        const isDone = index < current;
-        return (
-          <Fragment key={step.label}>
-            <div className="flex shrink-0 flex-col items-center">
-              <motion.div
-                animate={isActive ? { scale: 1.3 } : { scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="rounded-full"
-                style={
-                  isActive
-                    ? {
-                        width: 10,
-                        height: 10,
-                        background: MOSS,
-                        boxShadow: `0 0 0 3px ${MOSS_20}`,
-                      }
-                    : isDone
-                      ? { width: 8, height: 8, background: MOSS }
-                      : {
-                          width: 8,
-                          height: 8,
-                          background: MOSS_15,
-                          border: `1.5px solid ${MOSS_25}`,
-                        }
-                }
-              />
-              <span
-                className="mt-2 w-16 text-center font-red-hat text-[10px] leading-tight tracking-wide transition-all duration-300"
-                style={{
-                  color: isActive ? MOSS : isDone ? MOSS_65 : MOSS_30,
-                  fontWeight: isActive ? 700 : isDone ? 600 : 400,
-                }}
-                aria-current={isActive ? "step" : undefined}
-              >
-                {isDone ? "✓ " : ""}
-                {step.shortLabel}
-              </span>
-            </div>
-            {index < steps.length - 1 && (
-              <motion.div
-                className="mx-1 mt-[4px] h-px flex-1"
-                animate={{
-                  backgroundColor: isDone ? MOSS : MOSS_15,
-                }}
-                transition={{ duration: 0.4 }}
-              />
-            )}
-          </Fragment>
-        );
-      })}
-    </div>
-  );
 }
 
 function SaveIndicator({
@@ -493,7 +423,12 @@ export default function RsvpForm({
               you here !!
             </p>
           </div>
-          <StepBar current={step} steps={steps} />
+          <FormStepProgress
+            current={step}
+            steps={steps}
+            label="RSVP progress"
+            itemClassName="w-16"
+          />
         </div>
 
         <div className="mx-8 h-px bg-moss/8" />
