@@ -23,6 +23,22 @@ uses a `.dark` class on an ancestor.
 - **Fonts** — `font-sans`, `font-mono`, `font-heading`, and `font-red-hat` map to
   the fonts loaded in `app/layout.tsx`.
 
+### One exception: the boarding pass studio
+
+`components/pass/` and `app/dashboard/pass/` are styled almost entirely with
+inline `style` props, and that is deliberate — do not "fix" it.
+
+The pass is laid out in the DOM at the exported image's true pixel size
+(1080×1920 for an Instagram story) and only `transform: scale()`-ed down for the
+preview, so `html-to-image` rasterizes the very same node the hacker is looking
+at and lands on the right dimensions by construction. Preview and export cannot
+drift. Tailwind's scale has no 8.5px type or 900px fixed body, and expressing
+these as arbitrary values would be less readable, not more.
+
+The palette still comes from CSS variables — `--mh-*` for the pass, `--ui-*` for
+the chrome — scoped under `.pass-studio` in `globals.css`, following the same
+pattern as `.marketing-site`.
+
 ### Shared component classes
 
 **Deduplicate repeated class combos in [`app/globals.css`](../app/globals.css), not

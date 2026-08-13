@@ -9,8 +9,13 @@ import {
   hackerApplicationDrafts,
   type HackerApplicantRow,
 } from "@/lib/db/schema/applications";
+import {
+  applicantFullName,
+  findBlacklistMatch,
+} from "@/lib/actions/blacklist.actions";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
+import { validateResumeInS3 } from "@/lib/resume";
 
 // Core application logic, parameterized by `userId`, shared by both the web
 // form (cookie-authenticated server actions) and the MCP server (OAuth
@@ -40,19 +45,21 @@ export async function submitHackerApplicationForUser(
   userId: string,
   data: HackerApplicationFormData,
   source: "web" | "mcp",
-): Promise<{ duplicate: boolean }> {
+): Promise<{ duplicate: boolean; blocked: boolean }> {
   const parsed = hackerApplicationSchema.parse(data);
 
-  // `resume` is a plain client-suppliable string (an S3 key), never
-  // otherwise checked against who it was issued to — without this, a
-  // caller could reference another user's key and have it stored against
-  // their own application (and later resolved to a real download URL for
-  // someone else's resume). See lib/aws/s3.ts.
-  if (!resumeKeyBelongsToUser(parsed.resume, userId)) {
-    throw new Error(
-      "Resume must come from your own upload — get a fresh upload URL and try again.",
-    );
+  // Deny-list check first: it is the cheapest gate and runs before any S3 read
+  // or write, so a blocked submission leaves nothing behind. Both entry points
+  // reach this function, so neither can bypass it.
+  const blocked = await findBlacklistMatch(
+    applicantFullName(parsed.firstName, parsed.lastName),
+    parsed.phoneNumber,
+  );
+  if (blocked) {
+    return { duplicate: false, blocked: true };
   }
+
+  const resumeSizeBytes = await validateResumeInS3(parsed.resume, userId);
 
   const result = await db
     .insert(hackerApplicants)
@@ -66,6 +73,13 @@ export async function submitHackerApplicationForUser(
       .where(eq(hackerApplicationDrafts.userId, userId));
 
     const posthog = getPostHogClient();
+    if (source === "mcp") {
+      posthog.capture({
+        distinctId: userId,
+        event: "resume_uploaded",
+        properties: { file_size_bytes: resumeSizeBytes, source: "mcp" },
+      });
+    }
     posthog.capture({
       distinctId: userId,
       event: "application_submitted",
@@ -81,7 +95,7 @@ export async function submitHackerApplicationForUser(
     await posthog.flush();
   }
 
-  return { duplicate: result.length === 0 };
+  return { duplicate: result.length === 0, blocked: false };
 }
 
 export async function saveDraftForUser(

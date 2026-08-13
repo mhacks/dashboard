@@ -42,6 +42,14 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_ACCESS_KEY_ID"
         },
         {
+          "name": "AWS_SES_SMTP_USER",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SMTP_USER"
+        },
+        {
+          "name": "AWS_SES_SMTP_PASSWORD",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SMTP_PASSWORD"
+        },
+        {
           "name": "AWS_SES_SECRET_ACCESS_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SECRET_ACCESS_KEY"
         },
@@ -63,7 +71,7 @@
         },
         {
           "name": "NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/LOGIN_TURNSTILE_SITE_KEY"
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY"
         },
         {
           "name": "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN",
@@ -109,5 +117,5 @@
   },
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
-  "memory": "512"
+  "memory": "1024"
 }
