@@ -63,7 +63,7 @@ export async function validateRsvpReceiptInS3({
     throw new Error("Receipt could not be verified");
   }
   if (!isRsvpReceiptContentType(contentType)) {
-    throw new Error("Receipt must be a PDF or image");
+    throw new Error("Receipt must be a PDF");
   }
 
   assertValidRsvpReceipt({
