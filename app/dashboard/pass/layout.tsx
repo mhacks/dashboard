@@ -46,7 +46,12 @@ export default function PassLayout({
         pass. Without this the first paint of the studio is a blank stage.
       */}
       {/* .src has already been through asset() in lib/pass/backdrops.ts. */}
-      <link rel="preload" as="image" href={backdropDef(DEFAULT_BACKDROP).src} />
+      <link
+        rel="preload"
+        as="image"
+        href={backdropDef(DEFAULT_BACKDROP).src}
+        fetchPriority="high"
+      />
       {children}
     </div>
   );

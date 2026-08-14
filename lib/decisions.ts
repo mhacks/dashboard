@@ -25,7 +25,6 @@ export function isDecided(decision: ApplicationDecision) {
   return decision !== "applied";
 }
 
-/** RSVPing doesn't change the letter, only its call to action. */
 export function decisionOutcome(
   decision: ApplicationDecision,
 ): DecisionOutcome {
@@ -40,16 +39,6 @@ export function decisionRound(
   if (decision === "applied") return null;
   return decision.startsWith("early_") ? "early" : "regular";
 }
-
-export function hasRsvped(decision: ApplicationDecision) {
-  return decision.endsWith("_rsvped");
-}
-
-// TODO: point these at the real RSVP pages once they exist.
-export const RSVP_URL: Record<DecisionRound, string> = {
-  early: "/rsvp/early",
-  regular: "/rsvp/regular",
-};
 
 export const RSVP_DEADLINE: Record<DecisionRound, string> = {
   early: "August 28, 2026",

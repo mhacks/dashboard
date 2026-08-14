@@ -61,8 +61,10 @@ type Props = {
 const LAYER = {
   position: "absolute",
   inset: 0,
-  backgroundSize: "cover",
-  backgroundPosition: "center",
+  width: "100%",
+  height: "100%",
+  objectFit: "cover" as const,
+  objectPosition: "center",
 } as const;
 
 export function ExportFrame({
@@ -83,7 +85,7 @@ export function ExportFrame({
   // The backdrop dissolves and the pass's ink tweens across the same beat, so
   // switching backdrop reads as one change rather than three.
   const { under: backdropUnder, topRef: backdropRef } =
-    useCrossfade<HTMLDivElement>(
+    useCrossfade<HTMLImageElement>(
       backdropDef(state.backdrop).src,
       0.6,
       animateBackdrop,
@@ -104,18 +106,15 @@ export function ExportFrame({
           and inline them as data URLs, and the optimizer's srcset of
           /_next/image?url=… is not something it can resolve. */}
       {backdropUnder ? (
-        <div
-          aria-hidden
-          style={{ ...LAYER, backgroundImage: `url(${backdropUnder})` }}
-        />
+        <img aria-hidden src={backdropUnder} alt="" style={LAYER} />
       ) : null}
-      <div
+      <img
         aria-hidden
         ref={backdropRef}
-        style={{
-          ...LAYER,
-          backgroundImage: `url(${backdropDef(state.backdrop).src})`,
-        }}
+        src={backdropDef(state.backdrop).src}
+        alt=""
+        fetchPriority="high"
+        style={LAYER}
       />
 
       <div

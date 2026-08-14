@@ -1,59 +1,37 @@
-import { and, eq } from "drizzle-orm";
+import { format } from "date-fns";
 
-import { getDraftForUser } from "@/lib/actions/application-form.actions";
-import { completedStepCount, isDraftStarted } from "@/lib/application-steps";
-import { requireSessionUser } from "@/lib/auth/guards";
-import { db } from "@/lib/db";
-import { hackerApplicants } from "@/lib/db/schema/applications";
 import {
-  hackerReimbursements,
-  reimbursementRegions,
-} from "@/lib/db/schema/reimbursements";
-import type { ApplicationDecision } from "@/lib/decisions";
-import { DashboardClient } from "./dashboard-client";
+  ApplicantDashboard,
+  type ApplicantStage,
+} from "@/components/dashboard/applicant-dashboard";
+import { getDraftForUser } from "@/lib/actions/application-form.actions";
+import {
+  APPLICATION_STEPS,
+  completedStepCount,
+  isDraftStarted,
+} from "@/lib/application-steps";
+import { requireSessionUser } from "@/lib/auth/guards";
+import { isDecided } from "@/lib/decisions";
+import {
+  getApplicantDecision,
+  type ApplicantDecisionRow,
+} from "@/lib/queries/applicant-decision";
+
+/**
+ * Stage is derived, never stored. `applied` is the enum's "submitted, no
+ * decision yet" value, so in-review is the absence of a decision rather than a
+ * state of its own.
+ */
+function stageFor(application: ApplicantDecisionRow | null): ApplicantStage {
+  if (!application) return "applying";
+  if (isDecided(application.decision)) return "decision-ready";
+  return "in-review";
+}
 
 export default async function DashboardPage() {
   const { id: userId, role } = await requireSessionUser();
 
-  let application: {
-    firstName: string;
-    decision: ApplicationDecision;
-    createdAt: string;
-    reimbursementCents: number | null;
-  } | null = null;
-
-  try {
-    // Neither join can multiply the applicant row: hacker_reimbursements is
-    // unique per user_id, and region is the regions table's primary key.
-    const rows = await db
-      .select({
-        firstName: hackerApplicants.firstName,
-        decision: hackerApplicants.decision,
-        createdAt: hackerApplicants.createdAt,
-        // Null when there's no approved award — no row, or a denied one. Denied
-        // rows keep their region for audit/analytics but must not grant letter
-        // copy; only status = approved joins through below.
-        reimbursementCents: reimbursementRegions.amountCents,
-      })
-      .from(hackerApplicants)
-      .leftJoin(
-        hackerReimbursements,
-        and(
-          eq(hackerReimbursements.userId, hackerApplicants.userId),
-          eq(hackerReimbursements.status, "approved"),
-        ),
-      )
-      .leftJoin(
-        reimbursementRegions,
-        eq(reimbursementRegions.region, hackerReimbursements.region),
-      )
-      .where(eq(hackerApplicants.userId, userId))
-      .limit(1);
-    application = rows[0] ?? null;
-  } catch (err) {
-    const cause = err instanceof Error ? (err.cause ?? err) : err;
-    console.error("[DB] hacker_applicants query failed:", cause);
-  }
+  const application = await getApplicantDecision(userId);
 
   // Only meaningful before submitting — submitting deletes the draft row. Note
   // /apply writes an empty draft on first visit, so progress is measured from
@@ -73,13 +51,17 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DashboardClient
+    <ApplicantDashboard
       role={role}
       firstName={application?.firstName ?? null}
-      decision={application?.decision ?? null}
-      submittedAt={application?.createdAt ?? null}
-      reimbursementCents={application?.reimbursementCents ?? null}
-      draftSteps={draftSteps}
+      data={{
+        stage: stageFor(application),
+        sectionsComplete: draftSteps,
+        sectionsTotal: APPLICATION_STEPS.length,
+        submittedAt: application
+          ? format(new Date(application.createdAt), "MMMM d, yyyy")
+          : undefined,
+      }}
     />
   );
 }

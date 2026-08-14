@@ -1,26 +1,27 @@
+import { LetterKicker } from "@/components/console/letter";
+
 interface Detail {
-  icon: string;
   label: string;
   value: string;
-  /** Spans both columns on desktop. */
+  /** Spans the full row on desktop. */
   wide?: boolean;
 }
 
+/**
+ * The emoji that used to open each label are gone. They were carrying no
+ * information the label did not already carry, and in a console of rails,
+ * hairlines and mono they were the only rounded, full-colour thing on the
+ * screen. The labels themselves are unchanged.
+ */
 const DETAILS: Detail[] = [
-  { icon: "📅", label: "Dates", value: "October 3–4, 2026" },
+  { label: "Dates", value: "October 3–4, 2026" },
+  { label: "Venue Access", value: "Open 24 hours throughout the weekend" },
   {
-    icon: "⏰",
-    label: "Venue Access",
-    value: "Open 24 hours throughout the weekend",
-  },
-  {
-    icon: "📍",
     label: "Location",
     value: "University of Michigan — North Campus, Ann Arbor, MI",
     wide: true,
   },
   {
-    icon: "ℹ️",
     label: "Accommodations",
     value:
       "Overnight venue access is provided; formal hotel/sleeping accommodations are not offered.",
@@ -30,34 +31,24 @@ const DETAILS: Detail[] = [
 
 export function EventDetails() {
   return (
-    <section
-      aria-labelledby="event-details-title"
-      className="border-t border-ink/15 bg-haze px-[22px] pt-6 pb-9 sm:px-[34px]"
-    >
-      <p
-        id="event-details-title"
-        className="font-red-hat mb-4 text-[11px] font-semibold tracking-[0.28em] text-olive uppercase"
-      >
-        Event Details
-      </p>
+    <>
+      <LetterKicker>Event Details</LetterKicker>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-2.5">
         {DETAILS.map((detail) => (
           <div
             key={detail.label}
-            className={`rounded-tile border border-ink/15 bg-paper px-[18px] py-4 ${
-              detail.wide ? "sm:col-span-2" : ""
+            className={`border border-ui-line bg-ui-paper px-[15px] pt-[13px] pb-3.5 ${
+              detail.wide ? "col-span-full" : ""
             }`}
           >
-            <span className="font-red-hat mb-1 block text-[11px] font-semibold tracking-[0.14em] text-ink/60 uppercase">
-              {detail.icon} {detail.label}
+            <span className="mb-1.5 block font-red-hat-mono text-[10px] tracking-[0.16em] uppercase text-ui-ink-soft">
+              {detail.label}
             </span>
-            <p className="text-[14.5px] leading-normal text-ink">
-              {detail.value}
-            </p>
+            <p className="text-sm leading-snug text-ui-ink">{detail.value}</p>
           </div>
         ))}
       </div>
-    </section>
+    </>
   );
 }
