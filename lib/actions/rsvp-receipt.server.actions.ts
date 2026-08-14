@@ -15,7 +15,7 @@ import { assertAcceptedRsvpDecision } from "@/lib/rsvp/access";
 import { RSVP_DEADLINE_MS, assertRsvpOpen } from "@/lib/rsvp/deadline";
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
-  RSVP_RECEIPT_CONTENT_TYPES,
+  RSVP_RECEIPT_CONTENT_TYPE,
   contentDispositionForReceipt,
   receiptKeyForUser,
   sanitizeReceiptFilename,
@@ -28,7 +28,7 @@ import {
 import type { RsvpDraftData, RsvpReceiptMetadata } from "@/lib/types/rsvps";
 
 const receiptSizeSchema = z.strictObject({
-  contentType: z.enum(RSVP_RECEIPT_CONTENT_TYPES),
+  contentType: z.literal(RSVP_RECEIPT_CONTENT_TYPE),
   sizeBytes: z.number().int().positive().max(MAX_RSVP_RECEIPT_SIZE_BYTES),
 });
 
@@ -188,7 +188,7 @@ export async function getRsvpReceiptPreviewUrl(): Promise<{
   const receipt = z
     .object({
       originalName: z.string(),
-      contentType: z.enum(RSVP_RECEIPT_CONTENT_TYPES),
+      contentType: z.literal(RSVP_RECEIPT_CONTENT_TYPE),
       sizeBytes: z.number().int().positive(),
     })
     .safeParse(draftData(draft?.data).receipt);
