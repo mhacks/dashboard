@@ -1,12 +1,5 @@
 export const RSVP_RECEIPT_CONTENT_TYPE = "application/pdf";
-export const RSVP_RECEIPT_CONTENT_TYPES = [
-  RSVP_RECEIPT_CONTENT_TYPE,
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-] as const;
+export const RSVP_RECEIPT_CONTENT_TYPES = [RSVP_RECEIPT_CONTENT_TYPE] as const;
 
 export type RsvpReceiptContentType =
   (typeof RSVP_RECEIPT_CONTENT_TYPES)[number];
@@ -25,8 +18,6 @@ export function rsvpReceiptKeyBelongsToUser(
 }
 
 const PDF_SIGNATURE = [0x25, 0x50, 0x44, 0x46] as const;
-const JPEG_SIGNATURE = [0xff, 0xd8, 0xff] as const;
-const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
 
 export function isRsvpReceiptContentType(
   value: string,
@@ -44,7 +35,7 @@ export function assertValidRsvpReceipt({
   leadingBytes: Uint8Array;
 }): void {
   if (!isRsvpReceiptContentType(contentType)) {
-    throw new Error("Receipt must be a PDF or image");
+    throw new Error("Receipt must be a PDF");
   }
   if (!Number.isInteger(sizeBytes) || sizeBytes <= 0) {
     throw new Error("Receipt cannot be empty");
@@ -54,7 +45,7 @@ export function assertValidRsvpReceipt({
   }
 
   if (!receiptSignatureMatches(contentType, leadingBytes)) {
-    throw new Error("Receipt must be a valid PDF or image");
+    throw new Error("Receipt must be a valid PDF");
   }
 }
 
@@ -67,41 +58,8 @@ function receiptSignatureMatches(
       (expected, index) => leadingBytes[index] === expected,
     );
   }
-  if (contentType === "image/jpeg") {
-    return JPEG_SIGNATURE.every(
-      (expected, index) => leadingBytes[index] === expected,
-    );
-  }
-  if (contentType === "image/png") {
-    return PNG_SIGNATURE.every(
-      (expected, index) => leadingBytes[index] === expected,
-    );
-  }
-  if (contentType === "image/webp") {
-    return (
-      leadingBytes[0] === 0x52 &&
-      leadingBytes[1] === 0x49 &&
-      leadingBytes[2] === 0x46 &&
-      leadingBytes[3] === 0x46 &&
-      leadingBytes[8] === 0x57 &&
-      leadingBytes[9] === 0x45 &&
-      leadingBytes[10] === 0x42 &&
-      leadingBytes[11] === 0x50
-    );
-  }
 
-  const brand = new TextDecoder("ascii")
-    .decode(leadingBytes.slice(4, 12))
-    .toLowerCase();
-  return (
-    brand.startsWith("ftypheic") ||
-    brand.startsWith("ftypheix") ||
-    brand.startsWith("ftyphevc") ||
-    brand.startsWith("ftyphevx") ||
-    brand.startsWith("ftypheif") ||
-    brand.startsWith("ftypmif1") ||
-    brand.startsWith("ftypmsf1")
-  );
+  return false;
 }
 
 export function sanitizeReceiptFilename(filename: string): string {

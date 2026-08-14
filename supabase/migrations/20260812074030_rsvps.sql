@@ -36,7 +36,7 @@ CREATE TABLE "hacker_rsvps" (
         AND "hacker_rsvps"."receipt_binding_acknowledged" IS TRUE
         AND "hacker_rsvps"."receipt_key" IS NOT NULL
         AND "hacker_rsvps"."receipt_original_name" IS NOT NULL
-        AND "hacker_rsvps"."receipt_content_type" IN ('application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif')
+        AND "hacker_rsvps"."receipt_content_type" IN ('application/pdf')
         AND "hacker_rsvps"."receipt_size_bytes" IS NOT NULL
         AND "hacker_rsvps"."receipt_size_bytes" BETWEEN 1 AND 20971520
       ) OR (
