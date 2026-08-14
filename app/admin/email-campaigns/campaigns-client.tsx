@@ -31,8 +31,13 @@ import type { EmailCampaignContent, EmailThemeTokens } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
 import {
   deleteEmailTemplateAction,
+  parseDirectRecipientsAction,
+  renderEmailPreviewAction,
   saveEmailTemplateAction,
   saveEmailThemeAction,
+  sendDirectBatchAction,
+  sendDirectTestEmailsAction,
+  sendOneDirectEmailAction,
 } from "./actions";
 
 type PreviewMode = "desktop" | "mobile";
@@ -556,13 +561,7 @@ export default function EmailCampaignsClient({
           };
 
     try {
-      const rendered = await api<{ html: string }>(
-        "/api/admin/email/render/preview",
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-        },
-      );
+      const rendered = await renderEmailPreviewAction(payload);
       setPreviewHtml(rendered.html);
     } catch {
       setPreviewHtml("");
@@ -578,13 +577,9 @@ export default function EmailCampaignsClient({
       "Validating addresses and merge columns.",
     );
     try {
-      const parsed = await api<RecipientSaveResult>(
-        "/api/admin/email/send/recipients",
-        {
-          method: "POST",
-          body: JSON.stringify({ recipients: recipientText }),
-        },
-      );
+      const parsed = await parseDirectRecipientsAction({
+        recipients: recipientText,
+      });
       setRecipientResult(parsed);
       clearSendStatus();
       setSendNotice(`${parsed.emails.length} recipients ready.`);
@@ -612,19 +607,10 @@ export default function EmailCampaignsClient({
     setSendNotice("");
     showToast("loading", "Sending email", `Sending to ${sendOneEmail}.`);
     try {
-      const data = await api<{
-        result: {
-          status: string;
-          messageId: string | null;
-          error: string | null;
-        };
-      }>("/api/admin/email/send/one", {
-        method: "POST",
-        body: JSON.stringify({
-          template,
-          email: sendOneEmail,
-          mergeData: effectiveMergePreviewData,
-        }),
+      const data = await sendOneDirectEmailAction({
+        template,
+        email: sendOneEmail,
+        mergeData: effectiveMergePreviewData,
       });
       setSendNotice(
         data.result.status === "sent"
@@ -661,20 +647,9 @@ export default function EmailCampaignsClient({
       "Required server-managed test addresses queued.",
     );
     try {
-      const data = await api<{
-        results: Array<{
-          status: string;
-          messageId: string | null;
-          error: string | null;
-        }>;
-        testSendToken: string | null;
-        testSendExpiresAt: string | null;
-      }>("/api/admin/email/send/test", {
-        method: "POST",
-        body: JSON.stringify({
-          template,
-          mergeData: effectiveMergePreviewData,
-        }),
+      const data = await sendDirectTestEmailsAction({
+        template,
+        mergeData: effectiveMergePreviewData,
       });
       const sent = data.results.filter((result) => result.status === "sent");
       const firstFailure = data.results.find(
@@ -758,15 +733,12 @@ export default function EmailCampaignsClient({
       }
 
       for (let batch = 0; batch < 1000; batch += 1) {
-        status = await api<DirectSendStatus>("/api/admin/email/send/start", {
-          method: "POST",
-          body: JSON.stringify({
-            runId,
-            template,
-            recipients: recipientText,
-            testSendToken: proof.token,
-            cursor,
-          }),
+        status = await sendDirectBatchAction({
+          runId,
+          template,
+          recipients: recipientText,
+          testSendToken: proof.token,
+          cursor,
         });
         commitSendStatus({ ...status, proofKey: currentTestProofKey });
         showToast(
@@ -856,19 +828,13 @@ export default function EmailCampaignsClient({
     setBusy("start-send");
     setSendNotice("Resolving checked batch...");
     try {
-      const nextStatus = await api<DirectSendStatus>(
-        "/api/admin/email/send/start",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            runId: status.runId,
-            template,
-            recipients: recipientText,
-            cursor: status.nextCursor,
-            resolveStaleBatch: { cursor: status.staleBatchCursor },
-          }),
-        },
-      );
+      const nextStatus = await sendDirectBatchAction({
+        runId: status.runId,
+        template,
+        recipients: recipientText,
+        cursor: status.nextCursor,
+        resolveStaleBatch: { cursor: status.staleBatchCursor },
+      });
 
       commitSendStatus({ ...nextStatus, proofKey: currentTestProofKey });
       if (nextStatus.complete) {
@@ -2377,25 +2343,6 @@ function parseEmailCampaignSurface(search: string): EmailCampaignSurface {
   }
 
   return "builder";
-}
-
-async function api<T>(
-  url: string,
-  init?: RequestInit & { skipJsonHeader?: boolean },
-): Promise<T> {
-  const headers = init?.skipJsonHeader
-    ? init.headers
-    : { "Content-Type": "application/json", ...init?.headers };
-  const response = await fetch(url, { ...init, headers });
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data.error === "string" ? data.error : "Request failed",
-    );
-  }
-
-  return data as T;
 }
 
 function buildAiTemplateContext(
