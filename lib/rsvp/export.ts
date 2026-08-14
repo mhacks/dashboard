@@ -9,7 +9,6 @@ export type AdminRsvpExportRow = {
   status: RsvpStatus;
   submittedAt: string | null;
   values: RsvpFormData | null;
-  receiptDownloadPath: string | null;
 };
 
 const STATUS_LABELS: Record<RsvpStatus, string> = {
@@ -71,10 +70,6 @@ const ADMIN_RSVP_COLUMNS: readonly CsvColumn<AdminRsvpExportRow>[] = [
   {
     header: "Receipt Filename",
     value: (row) => row.values?.receipt?.originalName,
-  },
-  {
-    header: "Receipt Download Path",
-    value: (row) => row.receiptDownloadPath,
   },
   {
     header: "Receipt Binding Acknowledged",
