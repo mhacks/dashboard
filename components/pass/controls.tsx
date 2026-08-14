@@ -283,6 +283,7 @@ export function BackdropChips({
               width={120}
               height={62}
               quality={40}
+              priority={selected}
               className="block h-[62px] w-full object-cover"
             />
             <span

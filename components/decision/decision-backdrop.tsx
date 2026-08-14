@@ -1,19 +1,32 @@
+import Image from "next/image";
+
+const BACKDROPS = {
+  accepted: "/decision/bg-accepted.jpg",
+  rejected: "/decision/bg-rejected.png",
+} as const;
+
 /**
  * The photograph behind a decision letter.
- *
- * Which image loads is decided entirely in CSS from the nearest
- * [data-decision] ancestor (see app/globals.css), so the decision path ships
- * no client JavaScript and the letter stays a server component.
  *
  * One layer, not two: the scrim that used to sit over this is gone. The
  * console sheet separates itself from the photograph with a hairline and a
  * drop shadow, and the wash only muddied the picture.
  */
-export function DecisionBackdrop() {
+export function DecisionBackdrop({
+  outcome,
+}: {
+  outcome: keyof typeof BACKDROPS;
+}) {
   return (
-    <div
-      aria-hidden
-      className="backdrop-photo fixed inset-0 -z-20 bg-moss bg-cover bg-center bg-no-repeat"
-    />
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-moss">
+      <Image
+        src={BACKDROPS[outcome]}
+        alt=""
+        fill
+        sizes="100vw"
+        priority
+        className="object-cover object-center"
+      />
+    </div>
   );
 }

@@ -65,10 +65,10 @@ export function ResultsLetter({
   const accepted = outcome === "accepted";
 
   return (
-    <div data-decision={outcome}>
-      <DecisionBackdrop />
+    <div data-decision={outcome} className="relative min-h-screen">
+      <DecisionBackdrop outcome={accepted ? "accepted" : "rejected"} />
 
-      <main>
+      <main className="relative z-10">
         {/*
           `centred` for the rejection, the one screen short enough to sit in
           the middle of the window and the one that should: a short letter
@@ -164,6 +164,8 @@ function AcceptedBody({
               public/decision — it is not in the repo yet. */}
           <Showcase
             image="/decision/sticker-bouquet.png"
+            width={512}
+            height={512}
             caption="MFlower"
             cutout
           >

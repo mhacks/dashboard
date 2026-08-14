@@ -1,7 +1,26 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { Rail } from "./rail";
+
+function ConsoleFieldPhoto() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 bg-[#8f8f8a]"
+    >
+      <Image
+        src="/decision/bg-console.jpg"
+        alt=""
+        fill
+        sizes="100vw"
+        priority
+        className="object-cover object-center"
+      />
+    </div>
+  );
+}
 
 /**
  * The console shell: a screened photograph edge to edge, and a sheet of paper
@@ -28,21 +47,21 @@ export function ConsoleShell({
   /**
    * Whether the shell paints its own garden. Off for the decision letters,
    * which sit on <DecisionBackdrop> instead — their photograph is chosen by
-   * the decision, and a field here would cover it.
+   * the decision.
    */
   field?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "flex min-h-screen flex-col px-2.5 pt-3 pb-4 sm:px-6.5 sm:pt-9 sm:pb-11",
-        field && "console-field bg-[#8f8f8a]",
+        "relative flex min-h-screen flex-col px-2.5 pt-3 pb-4 sm:px-6.5 sm:pt-9 sm:pb-11",
         centred && "justify-center",
       )}
     >
+      {field ? <ConsoleFieldPhoto /> : null}
       <div
         className={cn(
-          "console-sheet mx-auto w-full border border-ui-line-strong shadow-[0_2px_30px_rgba(23,23,26,0.22)]",
+          "console-sheet relative z-10 mx-auto w-full border border-ui-line-strong shadow-[0_2px_30px_rgba(23,23,26,0.22)]",
           width === "letter" ? "max-w-[680px]" : "max-w-[1064px]",
         )}
       >

@@ -12,7 +12,6 @@ import {
 } from "@/components/console/shell";
 import { ToolCard, ToolGrid } from "@/components/console/tool-card";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
-import { Footer } from "@/components/landing/sections/Footer";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
 import type { UserRole } from "@/lib/db/schema/users";
 
@@ -62,8 +61,6 @@ export function ApplicantDashboard({
           <ConsoleFooterRule />
         </ConsolePage>
       </ConsoleShell>
-
-      <Footer variant="compact" />
     </>
   );
 }

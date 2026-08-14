@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 /**
@@ -94,12 +95,16 @@ export function Signoff({ children }: { children: ReactNode }) {
 export function Showcase({
   children,
   image,
+  width,
+  height,
   caption,
   /** A die-cut sticker has its own edge — a frame would draw a box around it. */
   cutout = false,
 }: {
   children: ReactNode;
   image: string;
+  width: number;
+  height: number;
   caption: string;
   cutout?: boolean;
 }) {
@@ -108,12 +113,12 @@ export function Showcase({
       <div>{children}</div>
 
       <figure className="m-0">
-        {/* Plain <img>: these are fixed-width previews of other products, and
-            there is nothing for the image optimiser to decide. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={image}
           alt=""
+          width={width}
+          height={height}
+          sizes="240px"
           className={`block h-auto w-full ${cutout ? "py-1" : "border border-ui-line-strong"}`}
         />
         <figcaption className="mt-[7px] block font-red-hat-mono text-[10px] tracking-[0.14em] uppercase text-ui-ink-soft">

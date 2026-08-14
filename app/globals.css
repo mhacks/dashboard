@@ -295,61 +295,6 @@
 }
 
 /* ===========================================================================
-   DECISION BACKDROP
-
-   The fixed photograph behind the decision letter. Which image loads is
-   decided in CSS from the nearest [data-decision] ancestor, so the decision
-   path ships no client JavaScript.
-
-   These once carried a scrim each. It existed to separate a cream card from a
-   busy photograph; the console sheet does that itself with a hairline border
-   and a drop shadow, and the heavy wash only muddied the photographs
-   underneath. If a sheet ever loses its edge again, the scrim — not the
-   photo — is the thing to bring back.
-   =========================================================================== */
-:root {
-  --bg-accepted: url("/decision/bg-accepted.jpg");
-  --bg-accepted-fallback: linear-gradient(
-    160deg,
-    #d5e0d6 0%,
-    #84a484 55%,
-    #3f6b46 100%
-  );
-  --bg-rejected: url("/decision/bg-rejected.png");
-  --bg-rejected-fallback: linear-gradient(
-    160deg,
-    #9a9a95 0%,
-    #6d6f69 55%,
-    #45473f 100%
-  );
-  /* The dashboard stands on the same screened garden the boarding-pass studio
-     uses behind its passes — greyscale, so the console stays colourless. */
-  --bg-console: url("/decision/bg-console.jpg");
-  --bg-console-fallback: linear-gradient(
-    160deg,
-    #b9b9b3 0%,
-    #8f8f8a 55%,
-    #5e5e59 100%
-  );
-}
-
-/* Phones are retina too, so they would otherwise pull the full 2.5MB desktop
-   image to fill a ~430px viewport. */
-@media (max-width: 700px) {
-  :root {
-    --bg-accepted: url("/decision/bg-accepted-sm.jpg");
-  }
-}
-
-[data-decision="accepted"] .backdrop-photo {
-  background-image: var(--bg-accepted), var(--bg-accepted-fallback);
-}
-
-[data-decision="rejected"] .backdrop-photo {
-  background-image: var(--bg-rejected), var(--bg-rejected-fallback);
-}
-
-/* ===========================================================================
    THE CONSOLE SHEET
 
    Hand-written for the same reason the backdrop is: an ordered-dither dot
@@ -360,16 +305,9 @@
    This is the stock the dashboard and the decision letter are both printed
    on. It is trimmed well short of the window (max-width, in ConsoleShell) so
    the photograph shows down both edges — the boarding-pass studio's own
-   arrangement, where the pass never bleeds to the frame.
+   arrangement, where the pass never bleeds to the frame. The garden behind
+   the sheet is a next/image layer in ConsoleShell, not a CSS background.
    =========================================================================== */
-.console-field {
-  background-image: var(--bg-console), var(--bg-console-fallback);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-}
-
 .console-sheet {
   background-color: var(--color-ui-surface);
   background-image:

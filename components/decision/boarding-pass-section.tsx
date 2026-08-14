@@ -22,6 +22,8 @@ export function BoardingPassSection() {
 
       <Showcase
         image="/decision/preview-boarding-pass.jpg"
+        width={520}
+        height={924}
         caption="The boarding pass studio"
       >
         <LetterBody>
