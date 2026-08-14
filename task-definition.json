@@ -46,10 +46,6 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SECRET_ACCESS_KEY"
         },
         {
-          "name": "EMAIL_CAMPAIGN_PROOF_SECRET",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_CAMPAIGN_PROOF_SECRET"
-        },
-        {
           "name": "DATABASE_URL",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DATABASE_URL"
         },

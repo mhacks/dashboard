@@ -1,9 +1,4 @@
-import {
-  createHash,
-  createHmac,
-  randomUUID,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
@@ -49,7 +44,8 @@ interface RecentFailure {
   error: string | null;
 }
 
-export function parseDirectRecipients(input: unknown) {
+export async function parseDirectRecipients(input: unknown) {
+  await requireOrganizer();
   const body = directRecipientParseSchema.parse(input);
   const parsed = parseRecipientText(body.recipients);
   enforceRecipientLimit(parsed.emails.length);
@@ -103,19 +99,17 @@ export async function sendDirectTestEmails(input: unknown) {
   const testSendExpiresAt = testSendToken
     ? new Date(Date.now() + successfulTestProofWindowMs).toISOString()
     : null;
-  const signedTestSendToken =
-    testSendToken && testSendExpiresAt
-      ? signTestSendProof({
-          organizerId: organizer.id,
-          templateFingerprint,
-          testSendToken,
-          testSendExpiresAt,
-        })
-      : null;
+  if (testSendToken && testSendExpiresAt) {
+    await recordSuccessfulTestSend({
+      organizerId: organizer.id,
+      templateFingerprint,
+      testSendToken,
+    });
+  }
 
   return {
     results,
-    testSendToken: signedTestSendToken,
+    testSendToken,
     testSendExpiresAt,
   };
 }
@@ -159,7 +153,7 @@ export async function sendDirectBatch(input: unknown) {
     return sendRunStatus(body.runId, parsed);
   }
 
-  assertSuccessfulTestSend({
+  await assertSuccessfulTestSend({
     organizer,
     template: body.template,
     testSendToken: body.testSendToken,
@@ -615,7 +609,7 @@ function batchIsStale(batch: EmailSendBatchRow) {
   );
 }
 
-function findSuccessfulTestSend({
+async function findSuccessfulTestSend({
   organizer,
   template,
   testSendToken,
@@ -623,32 +617,44 @@ function findSuccessfulTestSend({
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
   testSendToken: string | undefined;
-}): ApprovedTestSend | null {
+}): Promise<ApprovedTestSend | null> {
   if (!testSendToken) {
     return null;
   }
 
   const expectedFingerprint = fingerprintDirectTemplate(template);
   const now = Date.now();
-  const proof = verifyTestSendProof(testSendToken);
+  const [proof] = await db
+    .select()
+    .from(emailSendRuns)
+    .where(eq(emailSendRuns.id, testSendToken))
+    .limit(1);
 
   if (
     !proof ||
     proof.organizerId !== organizer.id ||
     proof.templateFingerprint !== expectedFingerprint ||
-    Date.parse(proof.testSendExpiresAt) <= now
+    proof.status !== "test_sent"
   ) {
+    return null;
+  }
+
+  const testSendExpiresAt = new Date(
+    Date.parse(proof.createdAt) + successfulTestProofWindowMs,
+  ).toISOString();
+
+  if (Date.parse(testSendExpiresAt) <= now) {
     return null;
   }
 
   return {
     templateFingerprint: expectedFingerprint,
-    testSendToken: proof.testSendToken,
-    testSendExpiresAt: proof.testSendExpiresAt,
+    testSendToken,
+    testSendExpiresAt,
   };
 }
 
-function assertSuccessfulTestSend({
+async function assertSuccessfulTestSend({
   organizer,
   template,
   testSendToken,
@@ -656,8 +662,8 @@ function assertSuccessfulTestSend({
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
   testSendToken: string | undefined;
-}): ApprovedTestSend {
-  const matchingProof = findSuccessfulTestSend({
+}): Promise<ApprovedTestSend> {
+  const matchingProof = await findSuccessfulTestSend({
     organizer,
     template,
     testSendToken,
@@ -671,6 +677,29 @@ function assertSuccessfulTestSend({
   }
 
   return matchingProof;
+}
+
+async function recordSuccessfulTestSend({
+  organizerId,
+  templateFingerprint,
+  testSendToken,
+}: {
+  organizerId: string;
+  templateFingerprint: string;
+  testSendToken: string;
+}) {
+  const now = new Date().toISOString();
+
+  await db.insert(emailSendRuns).values({
+    id: testSendToken,
+    organizerId,
+    templateFingerprint,
+    recipientListHash: "test-send-proof",
+    totalRecipients: requiredEmailCampaignTestRecipients.length,
+    status: "test_sent",
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
 function fingerprintDirectTemplate(template: DirectEmailTemplateInput) {
@@ -784,86 +813,6 @@ function campaignLikeFromDirectTemplate(template: DirectEmailTemplateInput) {
         ? (template.theme ?? defaultEmailTheme)
         : null,
   };
-}
-
-function signTestSendProof(proof: ApprovedTestSend & { organizerId: string }) {
-  const payload = base64UrlEncode(JSON.stringify(proof));
-  const signature = sign(payload);
-
-  return `${payload}.${signature}`;
-}
-
-function verifyTestSendProof(token: string) {
-  const [payload, signature] = token.split(".");
-
-  if (!payload || !signature || !signatureMatches(payload, signature)) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(base64UrlDecode(payload)) as Record<
-      string,
-      unknown
-    >;
-
-    if (
-      typeof parsed.organizerId !== "string" ||
-      typeof parsed.templateFingerprint !== "string" ||
-      typeof parsed.testSendToken !== "string" ||
-      typeof parsed.testSendExpiresAt !== "string"
-    ) {
-      return null;
-    }
-
-    return {
-      organizerId: parsed.organizerId,
-      templateFingerprint: parsed.templateFingerprint,
-      testSendToken: parsed.testSendToken,
-      testSendExpiresAt: parsed.testSendExpiresAt,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function signatureMatches(payload: string, signature: string) {
-  const expected = sign(payload);
-  const expectedBuffer = Buffer.from(expected);
-  const actualBuffer = Buffer.from(signature);
-
-  return (
-    expectedBuffer.length === actualBuffer.length &&
-    timingSafeEqual(expectedBuffer, actualBuffer)
-  );
-}
-
-function sign(payload: string) {
-  return createHmac("sha256", testProofSecret())
-    .update(payload)
-    .digest("base64url");
-}
-
-function testProofSecret() {
-  if (process.env.EMAIL_CAMPAIGN_PROOF_SECRET) {
-    return process.env.EMAIL_CAMPAIGN_PROOF_SECRET;
-  }
-
-  if (process.env.NODE_ENV === "development") {
-    return "development-email-proof-secret";
-  }
-
-  throw new EmailCampaignError(
-    "EMAIL_CAMPAIGN_PROOF_SECRET is not configured",
-    500,
-  );
-}
-
-function base64UrlEncode(value: string) {
-  return Buffer.from(value, "utf8").toString("base64url");
-}
-
-function base64UrlDecode(value: string) {
-  return Buffer.from(value, "base64url").toString("utf8");
 }
 
 function sleep(ms: number) {

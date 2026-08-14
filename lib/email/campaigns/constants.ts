@@ -13,16 +13,16 @@ export const requiredEmailCampaignTestRecipients = [
     email: "anishcha@umich.edu",
     mergeData: {
       first_name: "Anish",
-      last_name: "Chawla",
-      name: "Anish Chawla",
+      last_name: "Chandra",
+      name: "Anish Chandra",
     },
   },
   {
     email: "yeungh@umich.edu",
     mergeData: {
-      first_name: "Howard",
+      first_name: "Hang",
       last_name: "Yeung",
-      name: "Howard Yeung",
+      name: "Hang Yeung",
     },
   },
   {
