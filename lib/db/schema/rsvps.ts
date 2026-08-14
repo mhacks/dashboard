@@ -17,7 +17,7 @@ import { authUid, authenticatedRole, authUsers } from "drizzle-orm/supabase";
 
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
-  RSVP_RECEIPT_CONTENT_TYPES,
+  RSVP_RECEIPT_CONTENT_TYPE,
 } from "../../rsvp/receipt";
 import { hackerApplicants } from "./applications";
 import { isOrganizer } from "./rls";
@@ -25,7 +25,7 @@ import { users } from "./users";
 
 const MAX_RSVP_RECEIPT_SIZE_SQL = sql.raw(String(MAX_RSVP_RECEIPT_SIZE_BYTES));
 const RSVP_RECEIPT_CONTENT_TYPES_SQL = sql.raw(
-  RSVP_RECEIPT_CONTENT_TYPES.map((type) => `'${type}'`).join(", "),
+  `'${RSVP_RECEIPT_CONTENT_TYPE}'`,
 );
 
 export const rsvpTravelPlan = pgEnum("rsvp_travel_plan", [

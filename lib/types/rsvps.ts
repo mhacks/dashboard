@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
-  RSVP_RECEIPT_CONTENT_TYPES,
+  RSVP_RECEIPT_CONTENT_TYPE,
 } from "@/lib/rsvp/receipt";
 import {
   isKnownCanadianProvince,
@@ -54,7 +54,7 @@ const draftText = (max: number) => z.string().trim().max(max);
 
 export const rsvpReceiptMetadataSchema = z.strictObject({
   originalName: requiredText("Receipt filename", 255),
-  contentType: z.enum(RSVP_RECEIPT_CONTENT_TYPES),
+  contentType: z.literal(RSVP_RECEIPT_CONTENT_TYPE),
   sizeBytes: z
     .number()
     .int()

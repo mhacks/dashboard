@@ -1,8 +1,6 @@
 export const RSVP_RECEIPT_CONTENT_TYPE = "application/pdf";
-export const RSVP_RECEIPT_CONTENT_TYPES = [RSVP_RECEIPT_CONTENT_TYPE] as const;
 
-export type RsvpReceiptContentType =
-  (typeof RSVP_RECEIPT_CONTENT_TYPES)[number];
+export type RsvpReceiptContentType = typeof RSVP_RECEIPT_CONTENT_TYPE;
 
 export const MAX_RSVP_RECEIPT_SIZE_BYTES = 20 * 1024 * 1024;
 
@@ -22,7 +20,7 @@ const PDF_SIGNATURE = [0x25, 0x50, 0x44, 0x46] as const;
 export function isRsvpReceiptContentType(
   value: string,
 ): value is RsvpReceiptContentType {
-  return RSVP_RECEIPT_CONTENT_TYPES.some((type) => type === value);
+  return value === RSVP_RECEIPT_CONTENT_TYPE;
 }
 
 export function assertValidRsvpReceipt({
@@ -53,7 +51,7 @@ function receiptSignatureMatches(
   contentType: RsvpReceiptContentType,
   leadingBytes: Uint8Array,
 ): boolean {
-  if (contentType === "application/pdf") {
+  if (contentType === RSVP_RECEIPT_CONTENT_TYPE) {
     return PDF_SIGNATURE.every(
       (expected, index) => leadingBytes[index] === expected,
     );
