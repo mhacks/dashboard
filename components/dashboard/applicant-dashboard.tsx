@@ -24,8 +24,7 @@ import type { UserRole } from "@/lib/db/schema/users";
  * The stage is derived in app/dashboard/page.tsx from the decision and the
  * saved draft, never stored — the two can't drift.
  */
-export type ApplicantStage =
-  "applying" | "in-review" | "decision-ready" | "rsvp-confirmed";
+export type ApplicantStage = "applying" | "in-review" | "decision-ready";
 
 export type ApplicantDashboardData = {
   stage: ApplicantStage;
@@ -57,7 +56,6 @@ export function ApplicantDashboard({
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
-          {data.stage === "rsvp-confirmed" ? <RsvpConfirmedPanels /> : null}
 
           {role === "organizer" ? <OrganizerTools /> : null}
 
@@ -178,48 +176,6 @@ function DecisionReadyPanel() {
 
       <ViewApplicationLink />
     </Panel>
-  );
-}
-
-/* ——— 4 · rsvp confirmed ———————————————————————————————————————— */
-
-function RsvpConfirmedPanels() {
-  return (
-    <>
-      <Panel eyebrow="YOUR APPLICATION" status="Going">
-        <PanelHeading lede="Full schedule details, check-in instructions, and hacker guides will be sent to your email as we get closer to October.">
-          Your spot is locked in
-        </PanelHeading>
-
-        <StatusLine
-          steps={[{ label: "RSVP Confirmed", done: true }]}
-          note="October 3–4, 2026 · Ann Arbor, MI"
-        />
-
-        <div className="flex flex-wrap items-center gap-3.5">
-          <ButtonLink
-            href="/dashboard/decision"
-            variant="outline"
-            external={false}
-          >
-            Re-read your letter
-          </ButtonLink>
-        </div>
-      </Panel>
-
-      <div className="flex flex-col gap-3.5">
-        <Rail label="WHAT'S NEXT" />
-
-        <ToolGrid>
-          <ToolCard
-            eyebrow="OPTIONAL & FUN"
-            name="Build your boarding pass"
-            description="Add your name, your home city, and a few stickers, then download it as a PNG."
-            href="/dashboard/pass"
-          />
-        </ToolGrid>
-      </div>
-    </>
   );
 }
 

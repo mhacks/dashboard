@@ -11,7 +11,7 @@ import {
   isDraftStarted,
 } from "@/lib/application-steps";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { hasRsvped, isDecided } from "@/lib/decisions";
+import { isDecided } from "@/lib/decisions";
 import {
   getApplicantDecision,
   type ApplicantDecisionRow,
@@ -24,7 +24,6 @@ import {
  */
 function stageFor(application: ApplicantDecisionRow | null): ApplicantStage {
   if (!application) return "applying";
-  if (hasRsvped(application.decision)) return "rsvp-confirmed";
   if (isDecided(application.decision)) return "decision-ready";
   return "in-review";
 }

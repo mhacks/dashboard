@@ -25,7 +25,6 @@ export function isDecided(decision: ApplicationDecision) {
   return decision !== "applied";
 }
 
-/** RSVPing doesn't change the letter, only its call to action. */
 export function decisionOutcome(
   decision: ApplicationDecision,
 ): DecisionOutcome {
@@ -41,12 +40,6 @@ export function decisionRound(
   return decision.startsWith("early_") ? "early" : "regular";
 }
 
-export function hasRsvped(decision: ApplicationDecision) {
-  return decision.endsWith("_rsvped");
-}
-
-// RSVP happens in place on the decision letter — see
-// lib/actions/rsvp.server.actions.ts. There is no RSVP page to link to.
 export const RSVP_DEADLINE: Record<DecisionRound, string> = {
   early: "August 28, 2026",
   regular: "September 26, 2026",

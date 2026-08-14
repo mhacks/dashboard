@@ -16,12 +16,10 @@ import { DecisionBackdrop } from "@/components/decision/decision-backdrop";
 import { EventDetails } from "@/components/decision/event-details";
 import { renderParagraph } from "@/components/decision/render-paragraph";
 import { RsvpButton } from "@/components/decision/rsvp-button";
-import { confirmRsvp } from "@/lib/actions/rsvp.server.actions";
 import {
   decisionLetter,
   decisionOutcome,
   decisionRound,
-  hasRsvped,
   RSVP_DEADLINE,
   type ApplicationDecision,
 } from "@/lib/decisions";
@@ -30,9 +28,7 @@ import {
  * The decision letter, as a page.
  *
  * It reads as a newsletter: welcome + RSVP, then the event details, then the
- * optional extras, on alternating paper/well bands. Everything but the RSVP
- * button is server-rendered — the letter arrives fully formed rather than
- * being revealed by client state.
+ * optional extras, on alternating paper/well bands.
  *
  * Copy comes from lib/decisions.ts, which is round-aware and knows about
  * travel reimbursement. This component owns the structure; it never owns the
@@ -87,7 +83,6 @@ export function ResultsLetter({
                 letter={letter}
                 applicantName={applicantName}
                 deadline={RSVP_DEADLINE[round]}
-                rsvped={hasRsvped(decision)}
                 discordInviteUrl={discordInviteUrl}
                 bouquetGameUrl={bouquetGameUrl}
               />
@@ -109,14 +104,12 @@ function AcceptedBody({
   letter,
   applicantName,
   deadline,
-  rsvped,
   discordInviteUrl,
   bouquetGameUrl,
 }: {
   letter: Letter;
   applicantName: string;
   deadline: string;
-  rsvped: boolean;
   discordInviteUrl?: string;
   bouquetGameUrl?: string;
 }) {
@@ -133,11 +126,7 @@ function AcceptedBody({
           <LetterBody key={paragraph}>{renderParagraph(paragraph)}</LetterBody>
         ))}
 
-        <RsvpButton
-          deadline={deadline}
-          onConfirm={confirmRsvp}
-          initiallyConfirmed={rsvped}
-        />
+        <RsvpButton deadline={deadline} />
       </LetterSection>
 
       <LetterSection tone="well">

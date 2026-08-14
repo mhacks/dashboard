@@ -13,11 +13,10 @@ export const metadata: Metadata = {
 /**
  * The decision letter's own route, rather than a modal on the dashboard.
  *
- * A letter is a document: it wants a URL that can be mailed and reloaded, a
- * full page to be read and screenshotted on, and room for the RSVP mutation to
- * revalidate underneath it. The gate mirrors /dashboard/pass — anyone without
- * a released decision goes back to the dashboard rather than seeing an empty
- * page.
+ * A letter is a document: it wants a URL that can be mailed and reloaded and a
+ * full page to be read and screenshotted on. The gate mirrors /dashboard/pass —
+ * anyone without a released decision goes back to the dashboard rather than
+ * seeing an empty page.
  */
 export default async function DecisionPage() {
   const { id: userId } = await requireSessionUser();
