@@ -92,6 +92,13 @@
       "when": 1786315772348,
       "tag": "20260809224932_user_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786520430222,
+      "tag": "20260812074030_rsvps",
+      "breakpoints": true
     }
   ]
 }
