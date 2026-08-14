@@ -45,12 +45,8 @@ export function hasRsvped(decision: ApplicationDecision) {
   return decision.endsWith("_rsvped");
 }
 
-// TODO: point these at the real RSVP pages once they exist.
-export const RSVP_URL: Record<DecisionRound, string> = {
-  early: "/rsvp/early",
-  regular: "/rsvp/regular",
-};
-
+// RSVP happens in place on the decision letter — see
+// lib/actions/rsvp.server.actions.ts. There is no RSVP page to link to.
 export const RSVP_DEADLINE: Record<DecisionRound, string> = {
   early: "August 28, 2026",
   regular: "September 26, 2026",

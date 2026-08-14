@@ -78,6 +78,27 @@
   /* Decision letters — confirmed-RSVP state, card/tile geometry, elevation. */
   --color-confirmed: #ecfdf5;
   --color-confirmed-ink: #065f46;
+
+  /* Console palette — the interface colours from the boarding-pass studio,
+     promoted out of the .pass-studio scope (where they live as raw --ui-*
+     properties) so the dashboard and the decision letter are printed on the
+     same stock. Colourless on purpose: the character comes from the
+     photograph behind the sheet, not from the chrome. */
+  --color-ui-paper: #ffffff; /* panels, tiles */
+  --color-ui-surface: #f6f6f4; /* the sheet itself */
+  --color-ui-well: #f0f0ec; /* header bars, alternating letter bands */
+  --color-ui-ink: #17171a; /* primary text, filled marks */
+  --color-ui-ink-soft: #6d6d70; /* labels, helper text */
+  --color-ui-line: #deded8; /* hairlines */
+  --color-ui-line-strong: #b6b6b0; /* box-drawing rules, tile borders */
+  --color-ui-selected: #ecece8; /* the wash behind a chosen chip */
+
+  /* Box-drawing and block glyphs (the rails, the density ramps, the [x]
+     marks): Red Hat Mono has no U+2500/U+2580 coverage and renders tofu, so
+     these fall through to a system mono. Mirrors --mh-ui-glyph. */
+  --font-glyph:
+    var(--font-red-hat-mono), ui-monospace, "SF Mono", Menlo,
+    "DejaVu Sans Mono", "Segoe UI Symbol", monospace;
   --radius-card: 22px;
   --radius-tile: 14px;
   --shadow-card:
@@ -278,14 +299,15 @@
 /* ===========================================================================
    DECISION BACKDROP
 
-   The two fixed layers behind the decision letter: photo, then scrim. Which
-   image loads is decided in CSS from the nearest [data-decision] ancestor, so
-   the decision path ships no client JavaScript.
+   The fixed photograph behind the decision letter. Which image loads is
+   decided in CSS from the nearest [data-decision] ancestor, so the decision
+   path ships no client JavaScript.
 
-   The scrims differ per state on purpose. The accepted photo is high-key
-   against a ~240-luminance card, so its scrim is deliberately heavy — it is
-   what separates the card from its background. Lightening it makes the letter
-   dissolve into the photo.
+   These once carried a scrim each. It existed to separate a cream card from a
+   busy photograph; the console sheet does that itself with a hairline border
+   and a drop shadow, and the heavy wash only muddied the photographs
+   underneath. If a sheet ever loses its edge again, the scrim — not the
+   photo — is the thing to bring back.
    =========================================================================== */
 :root {
   --bg-accepted: url("/decision/bg-accepted.jpg");
@@ -295,19 +317,6 @@
     #84a484 55%,
     #3f6b46 100%
   );
-  --scrim-accepted:
-    radial-gradient(
-      120% 85% at 50% 40%,
-      rgba(31, 42, 22, 0.22) 0%,
-      rgba(31, 42, 22, 0.5) 100%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(31, 42, 22, 0.3) 0%,
-      rgba(31, 42, 22, 0.2) 40%,
-      rgba(31, 42, 22, 0.46) 100%
-    );
-
   --bg-rejected: url("/decision/bg-rejected.png");
   --bg-rejected-fallback: linear-gradient(
     160deg,
@@ -315,18 +324,15 @@
     #6d6f69 55%,
     #45473f 100%
   );
-  --scrim-rejected:
-    radial-gradient(
-      120% 85% at 50% 42%,
-      rgba(24, 30, 20, 0.2) 0%,
-      rgba(24, 30, 20, 0.52) 100%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(24, 30, 20, 0.42) 0%,
-      rgba(24, 30, 20, 0.3) 40%,
-      rgba(24, 30, 20, 0.52) 100%
-    );
+  /* The dashboard stands on the same screened garden the boarding-pass studio
+     uses behind its passes — greyscale, so the console stays colourless. */
+  --bg-console: url("/decision/bg-console.jpg");
+  --bg-console-fallback: linear-gradient(
+    160deg,
+    #b9b9b3 0%,
+    #8f8f8a 55%,
+    #5e5e59 100%
+  );
 }
 
 /* Phones are retina too, so they would otherwise pull the full 2.5MB desktop
@@ -341,16 +347,69 @@
   background-image: var(--bg-accepted), var(--bg-accepted-fallback);
 }
 
-[data-decision="accepted"] .backdrop-scrim {
-  background-image: var(--scrim-accepted);
-}
-
 [data-decision="rejected"] .backdrop-photo {
   background-image: var(--bg-rejected), var(--bg-rejected-fallback);
 }
 
-[data-decision="rejected"] .backdrop-scrim {
-  background-image: var(--scrim-rejected);
+/* ===========================================================================
+   THE CONSOLE SHEET
+
+   Hand-written for the same reason the backdrop is: an ordered-dither dot
+   screen layered under scanlines is two background-images with different
+   sizes, which utilities cannot express without becoming less readable than
+   the CSS.
+
+   This is the stock the dashboard and the decision letter are both printed
+   on. It is trimmed well short of the window (max-width, in ConsoleShell) so
+   the photograph shows down both edges — the boarding-pass studio's own
+   arrangement, where the pass never bleeds to the frame.
+   =========================================================================== */
+.console-field {
+  background-image: var(--bg-console), var(--bg-console-fallback);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.console-sheet {
+  background-color: var(--color-ui-surface);
+  background-image:
+    radial-gradient(rgba(23, 23, 26, 0.09) 0.6px, transparent 0.7px),
+    repeating-linear-gradient(
+      0deg,
+      rgba(23, 23, 26, 0.045) 0,
+      rgba(23, 23, 26, 0.045) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  background-size:
+    5px 5px,
+    100% 3px;
+}
+
+/* The prompt cursor after the masthead title — the one piece of ambient
+   motion on the page, and the thing that says this surface is a terminal
+   rather than a document. */
+@keyframes console-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.console-cursor {
+  animation: console-blink 1.1s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-cursor {
+    animation: none;
+  }
 }
 
 @layer components {
