@@ -13,7 +13,7 @@ import {
 } from "@/lib/actions/rsvp-receipt.server.actions";
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
-  RSVP_RECEIPT_CONTENT_TYPES,
+  RSVP_RECEIPT_CONTENT_TYPE,
   isRsvpReceiptContentType,
 } from "@/lib/rsvp/receipt";
 import type { RsvpFormData } from "@/lib/types/rsvps";
@@ -81,7 +81,7 @@ export function ReceiptUpload({
     if (disabled) return;
     if (!isRsvpReceiptContentType(file.type)) {
       setState("error");
-      setMessage("Choose a PDF or image file.");
+      setMessage("Choose a PDF file.");
       return;
     }
     if (file.size <= 0 || file.size > MAX_RSVP_RECEIPT_SIZE_BYTES) {
@@ -148,7 +148,7 @@ export function ReceiptUpload({
       label="Travel reimbursement receipt"
       htmlFor="receipt"
       required
-      description="Upload 1 PDF or image file. Max 20 MB."
+      description="Upload 1 PDF file. Max 20 MB."
       error={errors.receipt}
     >
       {receipt && (
@@ -194,7 +194,7 @@ export function ReceiptUpload({
           ref={inputRef}
           id="receipt"
           type="file"
-          accept={RSVP_RECEIPT_CONTENT_TYPES.join(",")}
+          accept={RSVP_RECEIPT_CONTENT_TYPE}
           disabled={disabled || state === "uploading"}
           aria-invalid={Boolean(errors.receipt)}
           onChange={(event) => {
