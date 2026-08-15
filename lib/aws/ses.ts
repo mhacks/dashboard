@@ -47,8 +47,12 @@ function getTransporter(): Transporter {
     return transporter;
   }
 
+  // AWS_SES_SMTP_USER holds the IAM access key id in the deployed task
+  // definition: SES labels that value the "SMTP username" in its console.
   const accessKeyId =
-    process.env.AWS_SES_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID;
+    process.env.AWS_SES_ACCESS_KEY_ID ??
+    process.env.AWS_SES_SMTP_USER ??
+    process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey =
     process.env.AWS_SES_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY;
 
