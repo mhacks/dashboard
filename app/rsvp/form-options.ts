@@ -17,6 +17,7 @@ export const RSVP_STEPS: readonly {
     fields: [
       "firstName",
       "lastName",
+      "phoneNumber",
       "email",
       "dietaryRestrictions",
       "otherDietaryRestriction",

@@ -82,6 +82,7 @@ export default async function RsvpPage() {
         >
           <RsvpSummary
             values={state.values}
+            reimbursementCents={state.reimbursementCents}
             receiptHref={state.values.receipt ? "/rsvp/receipt" : undefined}
           />
         </StateCard>
@@ -99,6 +100,7 @@ export default async function RsvpPage() {
         >
           <RsvpSummary
             values={state.draft}
+            reimbursementCents={state.reimbursementCents}
             travelStepIndex={state.travelEligibility.showTravelStep ? 1 : null}
             waiversStepIndex={state.travelEligibility.showTravelStep ? 2 : 1}
           />
@@ -113,6 +115,7 @@ export default async function RsvpPage() {
       accountEmail={state.accountEmail}
       travelEligibility={state.travelEligibility}
       draftVersion={state.draftVersion}
+      reimbursementCents={state.reimbursementCents}
     />
   );
 }

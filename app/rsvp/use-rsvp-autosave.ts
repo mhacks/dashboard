@@ -79,19 +79,26 @@ export function useRsvpAutosave(initialVersion: number) {
     [clearSavedTimer, clearTimer, persist],
   );
 
-  const flush = useCallback(async () => {
-    if (stopped.current) return;
-    clearTimer();
-    if (!hasPending.current) {
-      await queue.current;
-      return;
-    }
-    latestSequence.current += 1;
-    const sequence = latestSequence.current;
-    clearSavedTimer();
-    setStatus("saving");
-    await persist(latest.current, sequence);
-  }, [clearSavedTimer, clearTimer, persist]);
+  const flush = useCallback(
+    async (override?: Partial<RsvpFormData>) => {
+      if (stopped.current) return;
+      clearTimer();
+      if (override !== undefined) {
+        latest.current = override;
+        hasPending.current = true;
+      }
+      if (!hasPending.current) {
+        await queue.current;
+        return;
+      }
+      latestSequence.current += 1;
+      const sequence = latestSequence.current;
+      clearSavedTimer();
+      setStatus("saving");
+      await persist(latest.current, sequence);
+    },
+    [clearSavedTimer, clearTimer, persist],
+  );
 
   const retry = useCallback(() => {
     void flush().catch(() => undefined);

@@ -8,6 +8,10 @@ import type { ApplicationDecision } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import {
+  hackerReimbursements,
+  reimbursementRegions,
+} from "@/lib/db/schema/reimbursements";
+import {
   hackerRsvpDrafts,
   hackerRsvps,
   type HackerRsvpDraftRow,
@@ -22,6 +26,7 @@ import { deleteRsvpReceipt, validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
 import {
   applyTravelEligibilityDefaults,
   getRsvpTravelEligibility,
+  hasApprovedTravelAward,
   type RsvpTravelEligibility,
 } from "@/lib/rsvp/travel-eligibility";
 import {
@@ -319,12 +324,24 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
       transportationType: hackerApplicants.transportationType,
       comingFrom: hackerApplicants.comingFrom,
       needsTravelReimbursement: hackerApplicants.needsTravelReimbursement,
+      reimbursementCents: reimbursementRegions.amountCents,
       finalSubmittedAt: hackerRsvps.submittedAt,
       draft: hackerRsvpDrafts,
     })
     .from(hackerApplicants)
     .leftJoin(hackerRsvps, eq(hackerRsvps.userId, user.id))
     .leftJoin(hackerRsvpDrafts, eq(hackerRsvpDrafts.userId, user.id))
+    .leftJoin(
+      hackerReimbursements,
+      and(
+        eq(hackerReimbursements.userId, hackerApplicants.userId),
+        eq(hackerReimbursements.status, "approved"),
+      ),
+    )
+    .leftJoin(
+      reimbursementRegions,
+      eq(reimbursementRegions.region, hackerReimbursements.region),
+    )
     .where(eq(hackerApplicants.userId, user.id))
     .limit(1);
 
@@ -346,19 +363,27 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
     };
   }
 
-  const travelEligibility = getRsvpTravelEligibility(preflight, {
-    address:
-      request.data && typeof request.data === "object"
-        ? (request.data as RsvpDraftData)
-        : undefined,
-  });
+  const travelEligibility = getRsvpTravelEligibility(
+    {
+      transportationType: preflight.transportationType,
+      comingFrom: preflight.comingFrom,
+      needsTravelReimbursement: preflight.needsTravelReimbursement,
+      hasTravelAward: hasApprovedTravelAward(preflight.reimbursementCents),
+    },
+    {
+      address:
+        request.data && typeof request.data === "object"
+          ? (request.data as RsvpDraftData)
+          : undefined,
+    },
+  );
   if (
     travelEligibility.showTravelStep &&
     !travelEligibility.canRequestReimbursement &&
     requestedReimbursement(request.data)
   ) {
     throw new Error(
-      "Travel reimbursement is only available if you requested it on your application.",
+      "Travel reimbursement is only available if you have an approved travel reimbursement award.",
     );
   }
   const parsed = rsvpFormSchema.parse(
@@ -491,6 +516,7 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
         decision: rsvpedDecision(application.decision),
         firstName: parsed.firstName,
         lastName: parsed.lastName,
+        phoneNumber: parsed.phoneNumber,
         shirtSize: parsed.tshirtSize,
         allergiesDescription: applicationAllergiesDescription(parsed),
         updatedAt: new Date().toISOString(),

@@ -2,7 +2,7 @@
 
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 
@@ -10,6 +10,10 @@ import { requireSessionUser } from "@/lib/auth/guards";
 import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
+import {
+  hackerReimbursements,
+  reimbursementRegions,
+} from "@/lib/db/schema/reimbursements";
 import { hackerRsvpDrafts, hackerRsvps } from "@/lib/db/schema/rsvps";
 import { assertAcceptedRsvpDecision } from "@/lib/rsvp/access";
 import { RSVP_DEADLINE_MS, assertRsvpOpen } from "@/lib/rsvp/deadline";
@@ -24,6 +28,7 @@ import { validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
 import {
   assertReceiptUploadAllowed,
   getRsvpTravelEligibility,
+  hasApprovedTravelAward,
 } from "@/lib/rsvp/travel-eligibility";
 import type { RsvpDraftData, RsvpReceiptMetadata } from "@/lib/types/rsvps";
 
@@ -60,12 +65,24 @@ async function assertCanUploadReceipt(
       transportationType: hackerApplicants.transportationType,
       comingFrom: hackerApplicants.comingFrom,
       needsTravelReimbursement: hackerApplicants.needsTravelReimbursement,
+      reimbursementCents: reimbursementRegions.amountCents,
       finalId: hackerRsvps.id,
       draftData: hackerRsvpDrafts.data,
     })
     .from(hackerApplicants)
     .leftJoin(hackerRsvps, eq(hackerRsvps.userId, userId))
     .leftJoin(hackerRsvpDrafts, eq(hackerRsvpDrafts.userId, userId))
+    .leftJoin(
+      hackerReimbursements,
+      and(
+        eq(hackerReimbursements.userId, hackerApplicants.userId),
+        eq(hackerReimbursements.status, "approved"),
+      ),
+    )
+    .leftJoin(
+      reimbursementRegions,
+      eq(reimbursementRegions.region, hackerReimbursements.region),
+    )
     .where(eq(hackerApplicants.userId, userId))
     .limit(1);
 
@@ -79,9 +96,17 @@ async function assertCanUploadReceipt(
 
   const data = draftData(row.draftData);
   assertReceiptUploadAllowed(
-    getRsvpTravelEligibility(row, {
-      address: data as RsvpDraftData,
-    }),
+    getRsvpTravelEligibility(
+      {
+        transportationType: row.transportationType,
+        comingFrom: row.comingFrom,
+        needsTravelReimbursement: row.needsTravelReimbursement,
+        hasTravelAward: hasApprovedTravelAward(row.reimbursementCents),
+      },
+      {
+        address: data as RsvpDraftData,
+      },
+    ),
   );
   if (data.travelPlan !== "reimbursement") {
     throw new Error("Choose travel reimbursement before uploading a receipt.");

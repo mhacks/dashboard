@@ -49,19 +49,6 @@ export const ADMIN_AREAS: AdminArea[] = [
     ],
   },
   {
-    title: "RSVPs",
-    description: "Track attendance confirmations and event logistics.",
-    icon: CalendarCheck2Icon,
-    links: [
-      {
-        href: "/admin/rsvps",
-        title: "Responses",
-        description: "Review RSVP progress, logistics, receipts, and exports.",
-        icon: CalendarCheck2Icon,
-      },
-    ],
-  },
-  {
     title: "Communications",
     description: "Create and send organizer-managed email updates.",
     icon: MailIcon,
@@ -72,6 +59,19 @@ export const ADMIN_AREAS: AdminArea[] = [
         description:
           "Build templates, preview merge fields, and send CSV lists.",
         icon: MailIcon,
+      },
+    ],
+  },
+  {
+    title: "RSVPs",
+    description: "Track attendance confirmations and event logistics.",
+    icon: CalendarCheck2Icon,
+    links: [
+      {
+        href: "/admin/rsvps",
+        title: "Responses",
+        description: "Review RSVP progress, logistics, receipts, and exports.",
+        icon: CalendarCheck2Icon,
       },
     ],
   },

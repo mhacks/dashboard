@@ -1,10 +1,18 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
+import {
+  hackerReimbursements,
+  reimbursementRegions,
+} from "@/lib/db/schema/reimbursements";
 import { hackerRsvps } from "@/lib/db/schema/rsvps";
 import { assertRsvpOpen } from "@/lib/rsvp/deadline";
+import {
+  hasApprovedTravelAward,
+  type RsvpTravelEligibilitySource,
+} from "@/lib/rsvp/travel-eligibility";
 
 export type RsvpTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
@@ -21,14 +29,7 @@ export function assertAcceptedRsvpDecision(
 export async function lockWritableRsvpApplicant(
   tx: RsvpTransaction,
   userId: string,
-): Promise<{
-  id: string;
-  userId: string;
-  decision: ApplicationDecision;
-  transportationType: string;
-  comingFrom: string;
-  needsTravelReimbursement: boolean;
-}> {
+): Promise<RsvpTravelEligibilitySource> {
   assertRsvpOpen();
 
   const [application] = await tx
@@ -59,6 +60,26 @@ export async function lockWritableRsvpApplicant(
     throw new Error("Your RSVP has already been submitted");
   }
 
+  const [award] = await tx
+    .select({ amountCents: reimbursementRegions.amountCents })
+    .from(hackerReimbursements)
+    .innerJoin(
+      reimbursementRegions,
+      eq(reimbursementRegions.region, hackerReimbursements.region),
+    )
+    .where(
+      and(
+        eq(hackerReimbursements.userId, userId),
+        eq(hackerReimbursements.status, "approved"),
+      ),
+    )
+    .limit(1);
+
   assertRsvpOpen();
-  return application;
+  return {
+    transportationType: application.transportationType,
+    comingFrom: application.comingFrom,
+    needsTravelReimbursement: application.needsTravelReimbursement,
+    hasTravelAward: hasApprovedTravelAward(award?.amountCents),
+  };
 }

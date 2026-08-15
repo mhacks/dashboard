@@ -11,7 +11,14 @@ export type RsvpTravelEligibilitySource = {
   transportationType: string;
   comingFrom: string;
   needsTravelReimbursement: boolean;
+  hasTravelAward: boolean;
 };
+
+export function hasApprovedTravelAward(
+  reimbursementCents: number | null | undefined,
+): boolean {
+  return reimbursementCents != null && reimbursementCents > 0;
+}
 
 export type RsvpAddressSource = {
   streetAddress?: string | null;
@@ -113,13 +120,16 @@ export function getRsvpTravelEligibility(
     ? isAnnArborRegionAddress(options.address ?? {})
     : isAnnArborRegionApplicant(source);
 
+  const canApplyForReimbursement =
+    source.needsTravelReimbursement && source.hasTravelAward;
+
   return {
     showTravelStep: !isLocal,
-    canRequestReimbursement: !isLocal && source.needsTravelReimbursement,
-    nonLocalCanRequestReimbursement: source.needsTravelReimbursement,
+    canRequestReimbursement: !isLocal && canApplyForReimbursement,
+    nonLocalCanRequestReimbursement: canApplyForReimbursement,
     defaultTravelPlan: isLocal
       ? "local"
-      : source.needsTravelReimbursement
+      : canApplyForReimbursement
         ? "reimbursement"
         : "self-funded",
   };
@@ -155,7 +165,7 @@ export function applyTravelEligibilityDefaults<T extends RsvpDraftData>(
 export function assertReceiptUploadAllowed(eligibility: RsvpTravelEligibility) {
   if (!eligibility.canRequestReimbursement) {
     throw new Error(
-      "Travel reimbursement receipts are only available if you requested travel reimbursement on your application.",
+      "Travel reimbursement receipts are only available if you have an approved travel reimbursement award.",
     );
   }
 }
