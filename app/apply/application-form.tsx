@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
@@ -12,6 +12,7 @@ import {
   hackerApplicationSchema,
 } from "@/lib/types/applications";
 
+import { FormStepProgress } from "@/components/forms/form-step-progress";
 import AcademicInformation from "./components/academic-information";
 import PersonalInformation from "./components/personal-information";
 import Essays from "./components/essays";
@@ -33,12 +34,6 @@ import { ArrowLeft, Bot } from "lucide-react";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
-const MOSS = "var(--color-moss)";
-const MOSS_15 = "color-mix(in srgb, var(--color-moss) 15%, transparent)";
-const MOSS_20 = "color-mix(in srgb, var(--color-moss) 20%, transparent)";
-const MOSS_25 = "color-mix(in srgb, var(--color-moss) 25%, transparent)";
-const MOSS_30 = "color-mix(in srgb, var(--color-moss) 30%, transparent)";
-const MOSS_65 = "color-mix(in srgb, var(--color-moss) 65%, transparent)";
 
 // Shared with the dashboard, which derives draft progress from the same steps.
 const STEPS = APPLICATION_STEPS;
@@ -85,64 +80,6 @@ const SECTION_OF_FIELD: Partial<
 // Max number of section names to spell out in the "please complete" message
 // before collapsing the rest into "and N more".
 const MAX_SECTIONS_SHOWN = 3;
-
-function StepBar({ current }: { current: number }) {
-  return (
-    <div className="w-full flex items-start">
-      {STEPS.map((step, i) => {
-        const isDone = i < current;
-        const isActive = i === current;
-        return (
-          <React.Fragment key={i}>
-            <div className="flex flex-col items-center shrink-0">
-              <motion.div
-                animate={isActive ? { scale: 1.3 } : { scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="rounded-full"
-                style={
-                  isActive
-                    ? {
-                        width: 10,
-                        height: 10,
-                        background: MOSS,
-                        boxShadow: `0 0 0 3px ${MOSS_20}`,
-                      }
-                    : isDone
-                      ? { width: 8, height: 8, background: MOSS }
-                      : {
-                          width: 8,
-                          height: 8,
-                          background: MOSS_15,
-                          border: `1.5px solid ${MOSS_25}`,
-                        }
-                }
-              />
-              <span
-                className="mt-2 text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat text-center w-14"
-                style={{
-                  color: isActive ? MOSS : isDone ? MOSS_65 : MOSS_30,
-                  fontWeight: isActive ? 700 : isDone ? 600 : 400,
-                }}
-              >
-                {isDone ? "✓ " : ""}
-                {step.label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <motion.div
-                className="flex-1 h-px mx-1 mt-[4px]"
-                animate={{
-                  backgroundColor: isDone ? MOSS : MOSS_15,
-                }}
-                transition={{ duration: 0.4 }}
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
 
 function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
   return {
@@ -614,7 +551,11 @@ export default function ApplyPage({
                 </Link>
               </div>
             </div>
-            <StepBar current={step} />
+            <FormStepProgress
+              current={step}
+              steps={STEPS}
+              label="Application progress"
+            />
           </div>
 
           <div className="h-px mx-8 bg-moss/8" />
