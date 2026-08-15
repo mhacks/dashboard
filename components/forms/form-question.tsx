@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { CircleHelpIcon } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -148,6 +149,14 @@ export function YesAcknowledgement({
   );
 }
 
+const booleanChoiceItemClass = cn(
+  "h-9 min-w-[4.5rem] bg-card font-red-hat text-foreground",
+  "hover:bg-moss/10 hover:text-moss dark:hover:bg-sage/10 dark:hover:text-sage",
+  "data-[state=on]:border-moss data-[state=on]:bg-moss data-[state=on]:font-medium data-[state=on]:text-white data-[state=on]:shadow-sm",
+  "dark:data-[state=on]:border-sage dark:data-[state=on]:bg-sage dark:data-[state=on]:text-night",
+  "data-[state=on]:hover:bg-moss data-[state=on]:hover:text-white dark:data-[state=on]:hover:bg-sage dark:data-[state=on]:hover:text-night",
+);
+
 export function BooleanChoice({
   id,
   value,
@@ -182,10 +191,10 @@ export function BooleanChoice({
         }
         disabled={disabled}
       >
-        <ToggleGroupItem value="true" className="font-red-hat">
+        <ToggleGroupItem value="true" className={booleanChoiceItemClass}>
           Yes
         </ToggleGroupItem>
-        <ToggleGroupItem value="false" className="font-red-hat">
+        <ToggleGroupItem value="false" className={booleanChoiceItemClass}>
           No
         </ToggleGroupItem>
       </ToggleGroup>
