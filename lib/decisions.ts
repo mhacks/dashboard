@@ -40,6 +40,15 @@ export function decisionRound(
   return decision.startsWith("early_") ? "early" : "regular";
 }
 
+export function hasRsvped(decision: ApplicationDecision) {
+  return decision.endsWith("_rsvped");
+}
+
+export const RSVP_URL: Record<DecisionRound, string> = {
+  early: "/rsvp",
+  regular: "/rsvp",
+};
+
 export const RSVP_DEADLINE: Record<DecisionRound, string> = {
   early: "August 28, 2026",
   regular: "September 26, 2026",
