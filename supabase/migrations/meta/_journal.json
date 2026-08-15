@@ -99,6 +99,13 @@
       "when": 1786761461448,
       "tag": "20260815023741_email_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786763562979,
+      "tag": "20260815031242_rsvps",
+      "breakpoints": true
     }
   ]
 }

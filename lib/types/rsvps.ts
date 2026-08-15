@@ -1,0 +1,300 @@
+import { z } from "zod";
+
+import {
+  MAX_RSVP_RECEIPT_SIZE_BYTES,
+  RSVP_RECEIPT_CONTENT_TYPE,
+} from "@/lib/rsvp/receipt";
+import {
+  isKnownCanadianProvince,
+  isKnownCountry,
+  isKnownUsState,
+  isValidPostalCodeForCountry,
+} from "@/lib/geo/address";
+
+export const DIETARY_RESTRICTION_VALUES = [
+  "vegetarian",
+  "vegan",
+  "kosher",
+  "halal",
+  "gluten-free",
+  "nut-free",
+  "dairy-free",
+  "none",
+  "other",
+] as const;
+
+export const TSHIRT_SIZE_VALUES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+
+export const TRAVEL_PLAN_VALUES = [
+  "local",
+  "self-funded",
+  "reimbursement",
+] as const;
+
+const requiredText = (label: string, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required`)
+    .max(max, `${label} must be ${max} characters or fewer`);
+
+const requiredAddressText = (label: string, max: number, min = 2) =>
+  requiredText(label, max).min(
+    min,
+    `${label} must be at least ${min} characters`,
+  );
+
+const requiredPlaceText = (label: string, max: number) =>
+  requiredAddressText(label, max).refine(
+    (value) => /\p{L}/u.test(value) && !/\d/.test(value),
+    `${label} should contain letters, not numbers`,
+  );
+
+const draftText = (max: number) => z.string().trim().max(max);
+
+export const rsvpReceiptMetadataSchema = z.strictObject({
+  originalName: requiredText("Receipt filename", 255),
+  contentType: z.literal(RSVP_RECEIPT_CONTENT_TYPE),
+  sizeBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_RSVP_RECEIPT_SIZE_BYTES, "Receipt exceeds the 20MB limit"),
+});
+
+export type RsvpReceiptMetadata = z.infer<typeof rsvpReceiptMetadataSchema>;
+
+const finalFields = {
+  firstName: requiredText("Legal first name", 100),
+  lastName: requiredText("Legal last name", 100),
+  phoneNumber: z.e164("Please enter a valid phone number"),
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email address")
+    .max(320, "Email address is too long"),
+  dietaryRestrictions: z
+    .array(z.enum(DIETARY_RESTRICTION_VALUES))
+    .min(1, "Select at least one dietary option")
+    .max(DIETARY_RESTRICTION_VALUES.length),
+  otherDietaryRestriction: z.string().trim().max(500).optional(),
+  tshirtSize: z.enum(TSHIRT_SIZE_VALUES, {
+    error: "Please select a T-shirt size",
+  }),
+  travelPlan: z.enum(TRAVEL_PLAN_VALUES, {
+    error: "Please select a travel plan",
+  }),
+  travelGuideAcknowledged: z.boolean().optional(),
+  flightBooked: z.boolean().optional(),
+  receipt: rsvpReceiptMetadataSchema.optional(),
+  receiptBindingAcknowledged: z.boolean().optional(),
+  streetAddress: requiredAddressText("Street address", 200, 5),
+  city: requiredPlaceText("City", 100),
+  stateOrProvince: z.string().trim().max(100).optional(),
+  postalCode: z.string().trim().max(32).optional(),
+  country: requiredText("Country", 100).refine(
+    isKnownCountry,
+    "Select a valid country",
+  ),
+  activitiesWaiverResponse: z.boolean({
+    error: "Please answer the Activities Waiver question",
+  }),
+  photoReleaseResponse: z.boolean({
+    error: "Please answer the Photo Release question",
+  }),
+  additionalNotes: z.string().trim().max(2_000).optional(),
+};
+
+const conditionalKeys = [
+  "travelGuideAcknowledged",
+  "flightBooked",
+  "receipt",
+  "receiptBindingAcknowledged",
+] as const;
+
+function normalizeConditionalFields<
+  T extends {
+    travelPlan?: string;
+    dietaryRestrictions?: readonly string[];
+    otherDietaryRestriction?: string;
+    travelGuideAcknowledged?: boolean;
+    flightBooked?: boolean;
+    receipt?: RsvpReceiptMetadata;
+    receiptBindingAcknowledged?: boolean;
+    country?: string;
+    stateOrProvince?: string;
+    postalCode?: string;
+  },
+>(value: T): T {
+  const normalized = { ...value };
+  if (normalized.travelPlan !== "reimbursement") {
+    for (const key of conditionalKeys) delete normalized[key];
+  }
+
+  if (
+    !Array.isArray(normalized.dietaryRestrictions) ||
+    !normalized.dietaryRestrictions.includes("other")
+  ) {
+    delete normalized.otherDietaryRestriction;
+  }
+
+  if (
+    "country" in normalized &&
+    normalized.country !== "United States" &&
+    normalized.country !== "Canada"
+  ) {
+    delete normalized.stateOrProvince;
+    delete normalized.postalCode;
+  }
+
+  return normalized;
+}
+
+type DietaryData = {
+  dietaryRestrictions?: readonly string[];
+  otherDietaryRestriction?: string;
+};
+
+function validateDietarySelections(
+  data: DietaryData,
+  ctx: z.RefinementCtx,
+  requireOtherDetails: boolean,
+): void {
+  const restrictions = data.dietaryRestrictions;
+  if (!restrictions) return;
+
+  if (new Set(restrictions).size !== restrictions.length) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["dietaryRestrictions"],
+      message: "Dietary options cannot be selected more than once",
+    });
+  }
+  if (restrictions.includes("none") && restrictions.length > 1) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["dietaryRestrictions"],
+      message: "None cannot be combined with another dietary option",
+    });
+  }
+  if (
+    requireOtherDetails &&
+    restrictions.includes("other") &&
+    !data.otherDietaryRestriction?.trim()
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["otherDietaryRestriction"],
+      message: "Please describe your other dietary restriction",
+    });
+  }
+}
+
+const finalRsvpObjectSchema = z
+  .strictObject(finalFields)
+  .superRefine((data, ctx) => {
+    validateDietarySelections(data, ctx, true);
+
+    if (
+      data.country === "United States" &&
+      (!data.stateOrProvince || !isKnownUsState(data.stateOrProvince))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stateOrProvince"],
+        message: "Select a valid U.S. state or territory",
+      });
+    }
+    if (
+      data.country === "Canada" &&
+      (!data.stateOrProvince || !isKnownCanadianProvince(data.stateOrProvince))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stateOrProvince"],
+        message: "Select a valid Canadian province or territory",
+      });
+    }
+    if (
+      (data.country === "United States" || data.country === "Canada") &&
+      !isValidPostalCodeForCountry({
+        country: data.country,
+        postalCode: data.postalCode ?? "",
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["postalCode"],
+        message:
+          data.country === "United States"
+            ? "Enter a valid 5-digit or ZIP+4 code"
+            : data.country === "Canada"
+              ? "Enter a valid Canadian postal code"
+              : "Enter a valid ZIP or postal code",
+      });
+    }
+
+    if (data.travelPlan !== "reimbursement") return;
+
+    const requiredConfirmations = [
+      ["travelGuideAcknowledged", data.travelGuideAcknowledged],
+      ["flightBooked", data.flightBooked],
+      ["receiptBindingAcknowledged", data.receiptBindingAcknowledged],
+    ] as const;
+    for (const [field, value] of requiredConfirmations) {
+      if (value !== true) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message: "Please confirm Yes",
+        });
+      }
+    }
+    if (!data.receipt) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["receipt"],
+        message: "Please upload a travel reimbursement receipt",
+      });
+    }
+  })
+  .transform(normalizeConditionalFields);
+
+export const rsvpFormSchema = finalRsvpObjectSchema;
+
+export type RsvpFormData = z.infer<typeof rsvpFormSchema>;
+
+const draftFields = {
+  firstName: draftText(100).optional(),
+  lastName: draftText(100).optional(),
+  phoneNumber: draftText(16).optional(),
+  email: draftText(320).optional(),
+  dietaryRestrictions: z
+    .array(z.enum(DIETARY_RESTRICTION_VALUES))
+    .max(DIETARY_RESTRICTION_VALUES.length)
+    .optional(),
+  otherDietaryRestriction: draftText(500).optional(),
+  tshirtSize: z.enum(TSHIRT_SIZE_VALUES).optional(),
+  travelPlan: z.enum(TRAVEL_PLAN_VALUES).optional(),
+  travelGuideAcknowledged: z.boolean().optional(),
+  flightBooked: z.boolean().optional(),
+  receipt: rsvpReceiptMetadataSchema.optional(),
+  receiptBindingAcknowledged: z.boolean().optional(),
+  streetAddress: draftText(200).optional(),
+  city: draftText(100).optional(),
+  stateOrProvince: draftText(100).optional(),
+  postalCode: draftText(32).optional(),
+  country: draftText(100).optional(),
+  activitiesWaiverResponse: z.boolean().optional(),
+  photoReleaseResponse: z.boolean().optional(),
+  additionalNotes: draftText(2_000).optional(),
+};
+
+const draftRsvpObjectSchema = z
+  .strictObject(draftFields)
+  .superRefine((data, ctx) => validateDietarySelections(data, ctx, false))
+  .transform(normalizeConditionalFields);
+
+export const rsvpDraftSchema = draftRsvpObjectSchema;
+
+export type RsvpDraftData = z.infer<typeof rsvpDraftSchema>;
