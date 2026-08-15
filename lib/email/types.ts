@@ -131,7 +131,7 @@ export const directBatchSendSchema = z.object({
   runId: z.string().uuid(),
   template: directEmailTemplateSchema,
   recipients: z.string().max(maxRecipientTextLength).default(""),
-  testSendToken: z.string().optional(),
+  testSendToken: z.string().uuid().optional(),
   cursor: z.number().int().min(0).default(0),
   resolveStaleBatch: z
     .object({
