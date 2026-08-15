@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CheckCircle2Icon, Clock3Icon, LockKeyholeIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { requireSessionUser } from "@/lib/auth/guards";
+import { getSessionUser } from "@/lib/auth/session";
 import { getAttendeeRsvpState } from "@/lib/queries/rsvp";
 import { RsvpPageShell } from "./rsvp-page-shell";
 import RsvpForm from "./rsvp-form";
@@ -40,7 +41,11 @@ function StateCard({
 }
 
 export default async function RsvpPage() {
-  const user = await requireSessionUser();
+  const user = await getSessionUser();
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent("/rsvp")}`);
+  }
+
   const state = await getAttendeeRsvpState({
     userId: user.id,
     accountEmail: user.email,
