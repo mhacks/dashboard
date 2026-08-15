@@ -112,6 +112,6 @@
     "operatingSystemFamily": "LINUX"
   },
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
+  "cpu": "512",
   "memory": "1024"
 }
