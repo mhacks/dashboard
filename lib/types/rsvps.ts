@@ -67,6 +67,7 @@ export type RsvpReceiptMetadata = z.infer<typeof rsvpReceiptMetadataSchema>;
 const finalFields = {
   firstName: requiredText("Legal first name", 100),
   lastName: requiredText("Legal last name", 100),
+  phoneNumber: z.e164("Please enter a valid phone number"),
   email: z
     .string()
     .trim()
@@ -266,6 +267,7 @@ export type RsvpFormData = z.infer<typeof rsvpFormSchema>;
 const draftFields = {
   firstName: draftText(100).optional(),
   lastName: draftText(100).optional(),
+  phoneNumber: draftText(16).optional(),
   email: draftText(320).optional(),
   dietaryRestrictions: z
     .array(z.enum(DIETARY_RESTRICTION_VALUES))
