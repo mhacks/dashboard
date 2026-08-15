@@ -44,7 +44,7 @@ export function ApplicantDashboard({
   firstName: string | null;
 }) {
   return (
-    <>
+    <div className="font-red-hat">
       <ConsoleShell>
         <ConsolePage>
           <Masthead
@@ -61,7 +61,7 @@ export function ApplicantDashboard({
           <ConsoleFooterRule />
         </ConsolePage>
       </ConsoleShell>
-    </>
+    </div>
   );
 }
 
