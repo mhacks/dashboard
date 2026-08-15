@@ -22,6 +22,7 @@ import {
   type RsvpDraftData,
   type RsvpFormData,
 } from "@/lib/types/rsvps";
+import { countryRequiresPostalCode } from "@/lib/geo/address";
 import {
   applyTravelEligibilityDefaults,
   hasRsvpAddressTravelSignal,
@@ -69,7 +70,9 @@ function defaultValues(
     streetAddress: draft.streetAddress ?? "",
     city: draft.city ?? "",
     stateOrProvince: draft.stateOrProvince ?? "",
-    postalCode: draft.postalCode ?? "",
+    postalCode: countryRequiresPostalCode(draft.country)
+      ? (draft.postalCode ?? "")
+      : draft.postalCode || undefined,
     country: draft.country ?? "",
     activitiesWaiverResponse: draft.activitiesWaiverResponse,
     photoReleaseResponse: draft.photoReleaseResponse,
@@ -550,7 +553,10 @@ export default function RsvpForm({
                 className="mt-3 text-right font-red-hat text-xs text-destructive"
                 role="alert"
               >
-                Please complete the required questions before submitting.
+                {completeResult.success
+                  ? "Please complete the required questions before submitting."
+                  : (completeResult.error.issues[0]?.message ??
+                    "Please complete the required questions before submitting.")}
               </p>
             )}
           </form>
