@@ -1,6 +1,6 @@
 {
   "id": "86d5008d-bd24-4966-83d3-1268a5a91767",
-  "prevId": "27906d7a-cf41-4a5e-9136-98bf90b1dce0",
+  "prevId": "5a38aba3-1b91-40cd-a55c-1e7ace6863bf",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -28,6 +28,14 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
+        },
+        "decision": {
+          "name": "decision",
+          "type": "application_decision",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'applied'"
         },
         "first_name": {
           "name": "first_name",
@@ -643,6 +651,536 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.blacklist": {
+      "name": "blacklist",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_name_normalized": {
+          "name": "full_name_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "nullif(lower(regexp_replace(btrim(\"full_name\"), '[[:space:]]+', ' ', 'g')), '')",
+            "type": "stored"
+          }
+        },
+        "phone_number": {
+          "name": "phone_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_number_normalized": {
+          "name": "phone_number_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "nullif(regexp_replace(\"phone_number\", '[^0-9+]', '', 'g'), '')",
+            "type": "stored"
+          }
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "blacklist_full_name_normalized_key": {
+          "name": "blacklist_full_name_normalized_key",
+          "columns": [
+            {
+              "expression": "full_name_normalized",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"blacklist\".\"full_name_normalized\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "blacklist_phone_number_normalized_key": {
+          "name": "blacklist_phone_number_normalized_key",
+          "columns": [
+            {
+              "expression": "phone_number_normalized",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"blacklist\".\"phone_number_normalized\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "blacklist_created_by_user_id_fkey": {
+          "name": "blacklist_created_by_user_id_fkey",
+          "tableFrom": "blacklist",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "blacklist_organizer_select": {
+          "name": "blacklist_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "blacklist_organizer_insert": {
+          "name": "blacklist_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "blacklist_organizer_update": {
+          "name": "blacklist_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "blacklist_organizer_delete": {
+          "name": "blacklist_organizer_delete",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
+      "checkConstraints": {
+        "blacklist_identifier_present_check": {
+          "name": "blacklist_identifier_present_check",
+          "value": "\"blacklist\".\"full_name\" is not null or \"blacklist\".\"phone_number\" is not null"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.hacker_reimbursements": {
+      "name": "hacker_reimbursements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region": {
+          "name": "region",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "reimbursement_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'approved'"
+        },
+        "decided_by_user_id": {
+          "name": "decided_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "hacker_reimbursements_user_id_fkey": {
+          "name": "hacker_reimbursements_user_id_fkey",
+          "tableFrom": "hacker_reimbursements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "hacker_reimbursements_region_fkey": {
+          "name": "hacker_reimbursements_region_fkey",
+          "tableFrom": "hacker_reimbursements",
+          "tableTo": "reimbursement_regions",
+          "columnsFrom": [
+            "region"
+          ],
+          "columnsTo": [
+            "region"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "hacker_reimbursements_decided_by_user_id_fkey": {
+          "name": "hacker_reimbursements_decided_by_user_id_fkey",
+          "tableFrom": "hacker_reimbursements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "decided_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "hacker_reimbursements_user_id_unique": {
+          "name": "hacker_reimbursements_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {
+        "hacker_reimbursements_select_own_or_organizer": {
+          "name": "hacker_reimbursements_select_own_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"hacker_reimbursements\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_reimbursements_organizer_insert": {
+          "name": "hacker_reimbursements_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_reimbursements_organizer_update": {
+          "name": "hacker_reimbursements_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "hacker_reimbursements_organizer_delete": {
+          "name": "hacker_reimbursements_organizer_delete",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.reimbursement_regions": {
+      "name": "reimbursement_regions",
+      "schema": "",
+      "columns": {
+        "region": {
+          "name": "region",
+          "type": "smallint",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "reimbursement_regions_select_authenticated": {
+          "name": "reimbursement_regions_select_authenticated",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "true"
+        }
+      },
+      "checkConstraints": {
+        "reimbursement_regions_amount_cents_check": {
+          "name": "reimbursement_regions_amount_cents_check",
+          "value": "\"reimbursement_regions\".\"amount_cents\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.user_invitations": {
+      "name": "user_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invited_by": {
+          "name": "invited_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accepted_at": {
+          "name": "accepted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_invitations_invited_by_users_id_fk": {
+          "name": "user_invitations_invited_by_users_id_fk",
+          "tableFrom": "user_invitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "invited_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "user_invitations_organizer_select": {
+          "name": "user_invitations_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "user_invitations_organizer_insert": {
+          "name": "user_invitations_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        },
+        "user_invitations_organizer_update": {
+          "name": "user_invitations_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
+          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'hacker'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {
+        "users_select_own_or_organizer": {
+          "name": "users_select_own_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
     "public.email_send_batches": {
       "name": "email_send_batches",
       "schema": "",
@@ -1210,60 +1748,22 @@
       },
       "checkConstraints": {},
       "isRLSEnabled": true
-    },
-    "public.users": {
-      "name": "users",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "user_role",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'hacker'"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "users_email_unique": {
-          "name": "users_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
-        }
-      },
-      "policies": {
-        "users_select_own_or_organizer": {
-          "name": "users_select_own_or_organizer",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"users\".\"id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
     }
   },
   "enums": {
+    "public.application_decision": {
+      "name": "application_decision",
+      "schema": "public",
+      "values": [
+        "applied",
+        "early_accepted",
+        "early_rsvped",
+        "early_rejected",
+        "regular_accepted",
+        "regular_rsvped",
+        "regular_rejected"
+      ]
+    },
     "public.application_status": {
       "name": "application_status",
       "schema": "public",
@@ -1281,12 +1781,12 @@
         "review_completed"
       ]
     },
-    "public.email_template_type": {
-      "name": "email_template_type",
+    "public.reimbursement_status": {
+      "name": "reimbursement_status",
       "schema": "public",
       "values": [
-        "structured",
-        "html"
+        "approved",
+        "denied"
       ]
     },
     "public.user_role": {
@@ -1294,7 +1794,18 @@
       "schema": "public",
       "values": [
         "hacker",
-        "organizer"
+        "organizer",
+        "admin",
+        "volunteer",
+        "judge"
+      ]
+    },
+    "public.email_template_type": {
+      "name": "email_template_type",
+      "schema": "public",
+      "values": [
+        "structured",
+        "html"
       ]
     }
   },
@@ -1302,6 +1813,17 @@
   "sequences": {},
   "roles": {},
   "policies": {
+    "organizers_receive_invite_realtime": {
+      "name": "organizers_receive_invite_realtime",
+      "as": "PERMISSIVE",
+      "for": "SELECT",
+      "to": [
+        "authenticated"
+      ],
+      "using": "public.is_organizer() AND realtime.topic() = 'user-invites:dashboard'",
+      "schema": "realtime",
+      "on": "\"realtime\".\"messages\""
+    },
     "organizers_receive_review_realtime": {
       "name": "organizers_receive_review_realtime",
       "as": "PERMISSIVE",
@@ -1310,6 +1832,17 @@
         "authenticated"
       ],
       "using": "public.is_organizer() AND (\n  realtime.topic() = 'application-review:dashboard'\n  OR realtime.topic() LIKE 'application-review:%'\n)",
+      "schema": "realtime",
+      "on": "\"realtime\".\"messages\""
+    },
+    "organizers_send_invite_realtime": {
+      "name": "organizers_send_invite_realtime",
+      "as": "PERMISSIVE",
+      "for": "INSERT",
+      "to": [
+        "authenticated"
+      ],
+      "withCheck": "public.is_organizer() AND realtime.topic() = 'user-invites:dashboard'",
       "schema": "realtime",
       "on": "\"realtime\".\"messages\""
     },
