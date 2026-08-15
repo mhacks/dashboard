@@ -2378,8 +2378,9 @@ function buildAiTemplateContext(
               },
             ],
             cta: {
-              label: "optional CTA label",
-              url: "optional plain http(s) or mailto URL; Markdown link syntax is accepted and normalized",
+              label:
+                "the button text — required together with url, see rules below",
+              url: "plain http(s) or mailto URL; Markdown link syntax is accepted and normalized — required together with label",
             },
             footerNote: "optional footer note",
           },
@@ -2396,6 +2397,7 @@ function buildAiTemplateContext(
     "- Merge fields must be written as {{field_name}}.",
     "- Do not invent applicant segments, audience sources, backend behavior, or sending rules.",
     "- Do not include scripts, event handlers, tracking pixels, external forms, or javascript URLs.",
+    "- The cta field is entirely optional, but if you include it, both label and url are required together — never send one without the other. If you don't know the real destination URL, omit the cta field entirely rather than guessing or leaving url blank.",
     "- The imported draft will become a new local template; it will not overwrite the source template.",
     "- The organizer will review before saving or sending.",
     "",
