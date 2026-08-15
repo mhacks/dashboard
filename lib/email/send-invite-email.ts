@@ -25,10 +25,7 @@ async function sendOrThrow({
   text: string;
   html: string;
 }) {
-  const sent = await sendEmail({ to, subject, text, html });
-  if (!sent) {
-    throw new Error("Email is not configured.");
-  }
+  await sendEmail({ to, subject, text, html });
 }
 
 export async function sendInviteEmail(
