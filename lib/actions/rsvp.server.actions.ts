@@ -162,6 +162,25 @@ export async function saveRsvpDraft(
     const data = { ...parsed } as Record<string, unknown>;
     delete data.receipt;
 
+    if (parsed.travelPlan === "reimbursement") {
+      const [draft] = await tx
+        .select({
+          userId: hackerRsvpDrafts.userId,
+          data: hackerRsvpDrafts.data,
+        })
+        .from(hackerRsvpDrafts)
+        .where(eq(hackerRsvpDrafts.userId, user.id))
+        .limit(1);
+      const receipt = receiptFromDraft(draft);
+      if (receipt) {
+        data.receipt = {
+          originalName: receipt.originalName,
+          contentType: receipt.contentType,
+          sizeBytes: receipt.sizeBytes,
+        };
+      }
+    }
+
     await tx
       .insert(hackerRsvpDrafts)
       .values({
