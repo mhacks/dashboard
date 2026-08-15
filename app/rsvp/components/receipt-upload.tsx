@@ -7,9 +7,8 @@ import { FileCheckIcon, UploadIcon } from "lucide-react";
 import { FormQuestion } from "@/components/forms/form-question";
 import { Input } from "@/components/ui/input";
 import {
-  confirmRsvpReceiptUpload,
   getRsvpReceiptPreviewUrl,
-  requestRsvpReceiptUpload,
+  uploadRsvpReceipt,
 } from "@/lib/actions/rsvp-receipt.server.actions";
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
@@ -96,35 +95,19 @@ export function ReceiptUpload({
     setMessage("Uploading and verifying receipt...");
     try {
       await beforeMutation();
-      const { uploadUrl } = await requestRsvpReceiptUpload({
-        contentType: file.type,
-        sizeBytes: file.size,
-      });
-      const upload = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!upload.ok) throw new Error("Storage rejected the upload");
+      const body = new FormData();
+      body.append("file", file);
+      const result = await uploadRsvpReceipt(body);
+      if ("error" in result) {
+        throw new Error(result.error);
+      }
       if (
         operation !== operationRef.current ||
         getValues("travelPlan") !== "reimbursement"
       ) {
         return;
       }
-
-      const confirmed = await confirmRsvpReceiptUpload({
-        originalName: file.name,
-        contentType: file.type,
-        sizeBytes: file.size,
-      });
-      if (
-        operation !== operationRef.current ||
-        getValues("travelPlan") !== "reimbursement"
-      ) {
-        return;
-      }
-      setValue("receipt", confirmed.receipt, {
+      setValue("receipt", result.receipt, {
         shouldDirty: true,
         shouldValidate: true,
       });

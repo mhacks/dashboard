@@ -16,10 +16,10 @@ import {
 } from "@/lib/db/schema/reimbursements";
 import { hackerRsvpDrafts, hackerRsvps } from "@/lib/db/schema/rsvps";
 import { assertAcceptedRsvpDecision } from "@/lib/rsvp/access";
-import { RSVP_DEADLINE_MS, assertRsvpOpen } from "@/lib/rsvp/deadline";
+import { assertRsvpOpen } from "@/lib/rsvp/deadline";
 import {
-  MAX_RSVP_RECEIPT_SIZE_BYTES,
   RSVP_RECEIPT_CONTENT_TYPE,
+  assertValidRsvpReceipt,
   contentDispositionForReceipt,
   receiptKeyForUser,
   sanitizeReceiptFilename,
@@ -31,17 +31,6 @@ import {
   hasApprovedTravelAward,
 } from "@/lib/rsvp/travel-eligibility";
 import type { RsvpDraftData, RsvpReceiptMetadata } from "@/lib/types/rsvps";
-
-const receiptSizeSchema = z.strictObject({
-  contentType: z.literal(RSVP_RECEIPT_CONTENT_TYPE),
-  sizeBytes: z.number().int().positive().max(MAX_RSVP_RECEIPT_SIZE_BYTES),
-});
-
-const receiptUploadRequestSchema = receiptSizeSchema;
-
-const receiptConfirmationSchema = receiptSizeSchema.extend({
-  originalName: z.string().trim().min(1).max(255),
-});
 
 const receiptUploadLimiter = new RateLimiterMemory({
   points: 10,
@@ -115,61 +104,56 @@ async function assertCanUploadReceipt(
   return data;
 }
 
-export async function requestRsvpReceiptUpload(input: unknown): Promise<{
-  uploadUrl: string;
-}> {
+// Web upload path (receipt-upload.tsx) — same tradeoff as uploadResume: a
+// single browser-driven upload is rare enough that buffering the file here
+// is acceptable in exchange for the PDF magic-byte check.
+export async function uploadRsvpReceipt(
+  formData: FormData,
+): Promise<{ error: string } | { receipt: RsvpReceiptMetadata }> {
   const user = await requireSessionUser();
   assertRsvpOpen();
-  const parsed = receiptUploadRequestSchema.parse(input);
   try {
     await receiptUploadLimiter.consume(user.id);
   } catch {
-    throw new Error("Too many receipt uploads. Please wait and try again.");
+    return { error: "Too many receipt uploads. Please wait and try again." };
   }
 
-  await assertCanUploadReceipt(user.id);
-
-  const key = receiptKeyForUser(user.id);
-  const command = new PutObjectCommand({
-    Bucket: RESUMES_BUCKET,
-    Key: key,
-    ContentType: parsed.contentType,
-    ContentLength: parsed.sizeBytes,
-  });
-  const secondsUntilDeadline = Math.max(
-    1,
-    Math.floor((RSVP_DEADLINE_MS - Date.now()) / 1_000),
-  );
-  const uploadUrl = await getSignedUrl(s3, command, {
-    expiresIn: Math.min(300, secondsUntilDeadline),
-  });
-
-  return {
-    uploadUrl,
-  };
-}
-
-export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
-  receipt: RsvpReceiptMetadata;
-}> {
-  const user = await requireSessionUser();
-  assertRsvpOpen();
-  const parsed = receiptConfirmationSchema.parse(input);
-
-  const key = receiptKeyForUser(user.id);
-  await validateRsvpReceiptInS3({
-    key,
-    userId: user.id,
-    expectedContentType: parsed.contentType,
-    expectedSizeBytes: parsed.sizeBytes,
-  });
-  const originalName = sanitizeReceiptFilename(parsed.originalName);
-  const updatedAt = new Date().toISOString();
   const existingData = await assertCanUploadReceipt(user.id);
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { error: "No file provided" };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  try {
+    assertValidRsvpReceipt({
+      contentType: file.type,
+      sizeBytes: file.size,
+      leadingBytes: buffer.subarray(0, 16),
+    });
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Invalid receipt",
+    };
+  }
+
+  const key = receiptKeyForUser(user.id);
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: RESUMES_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: RSVP_RECEIPT_CONTENT_TYPE,
+      ContentLength: buffer.length,
+    }),
+  );
+
+  const originalName = sanitizeReceiptFilename(file.name);
+  const updatedAt = new Date().toISOString();
   const receipt = {
     originalName,
-    contentType: parsed.contentType,
-    sizeBytes: parsed.sizeBytes,
+    contentType: RSVP_RECEIPT_CONTENT_TYPE,
+    sizeBytes: buffer.length,
   } satisfies RsvpReceiptMetadata;
 
   await db
@@ -193,9 +177,7 @@ export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
       },
     });
 
-  return {
-    receipt,
-  };
+  return { receipt };
 }
 
 export async function getRsvpReceiptPreviewUrl(): Promise<{
