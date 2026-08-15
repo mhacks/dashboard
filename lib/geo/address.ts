@@ -120,6 +120,23 @@ export function isKnownCanadianProvince(value: string): boolean {
   return CANADA_PROVINCE_NAMES_OR_CODES.has(normalized(value));
 }
 
+const US_POSTAL_CODE = String.raw`\d{5}(-\d{4})?`;
+const CANADA_POSTAL_CODE = String.raw`[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d`;
+
+export const US_POSTAL_CODE_PATTERN = new RegExp(`^${US_POSTAL_CODE}$`);
+export const CANADA_POSTAL_CODE_PATTERN = new RegExp(
+  `^${CANADA_POSTAL_CODE}$`,
+  "i",
+);
+export const US_OR_CANADA_POSTAL_CODE_PATTERN = new RegExp(
+  `^(?:${US_POSTAL_CODE}|${CANADA_POSTAL_CODE})$`,
+  "i",
+);
+
+export function countryRequiresPostalCode(country: string | undefined) {
+  return country === "United States" || country === "Canada";
+}
+
 export function isValidPostalCodeForCountry({
   country,
   postalCode,
@@ -128,12 +145,8 @@ export function isValidPostalCodeForCountry({
   postalCode: string;
 }): boolean {
   const value = postalCode.trim();
-  if (country === "United States") return /^\d{5}(-\d{4})?$/.test(value);
-  if (country === "Canada") {
-    return /^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d$/i.test(
-      value,
-    );
-  }
+  if (country === "United States") return US_POSTAL_CODE_PATTERN.test(value);
+  if (country === "Canada") return CANADA_POSTAL_CODE_PATTERN.test(value);
   return true;
 }
 

@@ -5,10 +5,12 @@ import {
   RSVP_RECEIPT_CONTENT_TYPE,
 } from "@/lib/rsvp/receipt";
 import {
+  countryRequiresPostalCode,
   isKnownCanadianProvince,
   isKnownCountry,
   isKnownUsState,
   isValidPostalCodeForCountry,
+  US_OR_CANADA_POSTAL_CODE_PATTERN,
 } from "@/lib/geo/address";
 
 export const DIETARY_RESTRICTION_VALUES = [
@@ -91,7 +93,12 @@ const finalFields = {
   streetAddress: requiredAddressText("Street address", 200, 5),
   city: requiredPlaceText("City", 100),
   stateOrProvince: z.string().trim().max(100).optional(),
-  postalCode: z.string().trim().max(32).optional(),
+  postalCode: z
+    .string()
+    .trim()
+    .max(32)
+    .regex(US_OR_CANADA_POSTAL_CODE_PATTERN, "Enter a valid ZIP or postal code")
+    .optional(),
   country: requiredText("Country", 100).refine(
     isKnownCountry,
     "Select a valid country",
@@ -216,7 +223,7 @@ const finalRsvpObjectSchema = z
       });
     }
     if (
-      (data.country === "United States" || data.country === "Canada") &&
+      countryRequiresPostalCode(data.country) &&
       !isValidPostalCodeForCountry({
         country: data.country,
         postalCode: data.postalCode ?? "",

@@ -18,6 +18,7 @@ import {
   CANADA_PROVINCE_OPTIONS,
   COUNTRY_OPTIONS,
   US_STATE_OPTIONS,
+  countryRequiresPostalCode,
   formatPostalCodeInput,
 } from "@/lib/geo/address";
 import type { RsvpFormData } from "@/lib/types/rsvps";
@@ -156,10 +157,14 @@ export function PersonalStep() {
                     shouldDirty: true,
                     shouldValidate: true,
                   });
-                  setValue("postalCode", "", {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
+                  setValue(
+                    "postalCode",
+                    countryRequiresPostalCode(next) ? "" : undefined,
+                    {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    },
+                  );
                 }}
               >
                 <SelectTrigger
@@ -238,7 +243,16 @@ export function PersonalStep() {
             label={country === "United States" ? "ZIP Code" : "Postal Code"}
             htmlFor="postalCode"
             required
-            error={errors.postalCode}
+            error={
+              errors.postalCode
+                ? {
+                    message:
+                      country === "United States"
+                        ? "Enter a valid 5-digit or ZIP+4 code"
+                        : "Enter a valid Canadian postal code",
+                  }
+                : undefined
+            }
           >
             <Controller
               name="postalCode"
