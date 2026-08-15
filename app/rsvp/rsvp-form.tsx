@@ -52,6 +52,7 @@ function defaultValues(
   return {
     firstName: draft.firstName ?? "",
     lastName: draft.lastName ?? "",
+    phoneNumber: draft.phoneNumber ?? "",
     email: accountEmail,
     dietaryRestrictions: draft.dietaryRestrictions ?? [],
     otherDietaryRestriction: draft.otherDietaryRestriction,
@@ -119,11 +120,13 @@ export default function RsvpForm({
   accountEmail,
   travelEligibility,
   draftVersion,
+  reimbursementCents,
 }: {
   draft: RsvpDraftData;
   accountEmail: string;
   travelEligibility: RsvpTravelEligibility;
   draftVersion: number;
+  reimbursementCents: number | null;
 }) {
   const reduceMotion = useReducedMotion();
   const [step, setStep] = useState(0);
@@ -153,8 +156,15 @@ export default function RsvpForm({
     mode: "onChange",
     defaultValues: defaultValues(draft, accountEmail, travelEligibility),
   });
-  const { control, watch, trigger, handleSubmit, setValue, clearErrors } =
-    methods;
+  const {
+    control,
+    watch,
+    trigger,
+    handleSubmit,
+    setValue,
+    clearErrors,
+    getValues,
+  } = methods;
   const watchedValues = useWatch({ control }) as RsvpDraftData;
   const effectiveTravelEligibility = useMemo(() => {
     const address = {
@@ -301,7 +311,7 @@ export default function RsvpForm({
     ) as RsvpFormData;
     try {
       scheduleSave(submissionValues);
-      await flushSave();
+      await flushSave(submissionValues);
       const result = await submitRsvp({
         data: submissionValues,
       });
@@ -347,6 +357,7 @@ export default function RsvpForm({
           </div>
           <RsvpSummary
             values={submitted.values}
+            reimbursementCents={reimbursementCents}
             receiptHref={
               submitted.values.travelPlan === "reimbursement"
                 ? "/rsvp/receipt"
@@ -393,7 +404,7 @@ export default function RsvpForm({
             </div>
             <p className="mt-3 max-w-xl font-red-hat text-sm leading-6 text-moss/65">
               Please complete this form by{" "}
-              <span className="mr-1 font-semibold text-moss">August 14th</span>
+              <span className="mr-1 font-semibold text-moss">August 21st</span>
               to confirm your spot at MHacks 2026. We&apos;re so excited to have
               you here !!
             </p>
@@ -433,9 +444,12 @@ export default function RsvpForm({
                     canRequestReimbursement={
                       effectiveTravelEligibility.canRequestReimbursement
                     }
+                    reimbursementCents={reimbursementCents}
                     receiptMutationInProgress={receiptMutationInProgress}
                     onReceiptMutationChange={setReceiptMutationInProgress}
-                    beforeReceiptMutation={flushSave}
+                    beforeReceiptMutation={async () => {
+                      await flushSave(getValues());
+                    }}
                     commitTravelPlanChange={async (data) => {
                       cancelPendingSave();
                       const saved = await saveRsvpDraftWithoutReceipt({
@@ -450,6 +464,7 @@ export default function RsvpForm({
                 {currentStep.id === "review" && (
                   <RsvpSummary
                     values={normalizedWatchedValues}
+                    reimbursementCents={reimbursementCents}
                     travelStepIndex={
                       travelStepIndex >= 0 ? travelStepIndex : null
                     }

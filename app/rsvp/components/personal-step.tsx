@@ -2,6 +2,7 @@
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 
+import { formatPhoneNumber } from "@/app/apply/utils";
 import { FormQuestion } from "@/components/forms/form-question";
 import { FormSectionCard } from "@/components/forms/form-section-card";
 import { Input } from "@/components/ui/input";
@@ -85,6 +86,34 @@ export function PersonalStep() {
             aria-invalid={Boolean(errors.email)}
             className="cursor-not-allowed bg-moss/5 text-moss/55"
             {...register("email")}
+          />
+        </FormQuestion>
+
+        <FormQuestion
+          label="Phone number"
+          htmlFor="phoneNumber"
+          required
+          error={errors.phoneNumber}
+          className="md:col-span-2"
+        >
+          <Controller
+            name="phoneNumber"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="phoneNumber"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                aria-invalid={Boolean(errors.phoneNumber)}
+                value={field.value ?? ""}
+                onChange={(event) =>
+                  field.onChange(formatPhoneNumber(event.target.value))
+                }
+                onBlur={field.onBlur}
+                placeholder="+12345678901"
+              />
+            )}
           />
         </FormQuestion>
 

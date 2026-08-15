@@ -1,8 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { decisionOutcome } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
+import {
+  hackerReimbursements,
+  reimbursementRegions,
+} from "@/lib/db/schema/reimbursements";
 import {
   hackerRsvpDrafts,
   hackerRsvps,
@@ -12,6 +16,7 @@ import { isRsvpOpen } from "@/lib/rsvp/deadline";
 import {
   applyTravelEligibilityDefaults,
   getRsvpTravelEligibility,
+  hasApprovedTravelAward,
   type RsvpTravelEligibility,
 } from "@/lib/rsvp/travel-eligibility";
 import {
@@ -31,6 +36,8 @@ export type AttendeeRsvpState =
       kind: "submitted";
       values: RsvpFormData;
       submittedAt: string;
+      /** Approved travel award in cents, or null when none. */
+      reimbursementCents: number | null;
     }
   | {
       kind: "editable" | "closed";
@@ -38,12 +45,37 @@ export type AttendeeRsvpState =
       accountEmail: string;
       travelEligibility: RsvpTravelEligibility;
       draftVersion: number;
+      /** Approved travel award in cents, or null when none. */
+      reimbursementCents: number | null;
     };
+
+/** Matches the decision letter: only positive awards are shown to applicants. */
+function awardedReimbursementCents(
+  cents: number | null | undefined,
+): number | null {
+  return hasApprovedTravelAward(cents) ? cents! : null;
+}
+
+function travelEligibilitySource(
+  application: Pick<
+    ApplicantDefaultSource,
+    "transportationType" | "comingFrom" | "needsTravelReimbursement"
+  >,
+  reimbursementCents: number | null | undefined,
+) {
+  return {
+    transportationType: application.transportationType,
+    comingFrom: application.comingFrom,
+    needsTravelReimbursement: application.needsTravelReimbursement,
+    hasTravelAward: hasApprovedTravelAward(reimbursementCents),
+  };
+}
 
 type ApplicantDefaultSource = Pick<
   typeof hackerApplicants.$inferSelect,
   | "firstName"
   | "lastName"
+  | "phoneNumber"
   | "shirtSize"
   | "allergiesDescription"
   | "transportationType"
@@ -61,9 +93,12 @@ function applicationRsvpDefaults(
   const firstName = application.firstName.trim();
   const lastName = application.lastName.trim();
 
+  const phoneNumber = application.phoneNumber.trim();
+
   return {
     firstName: firstName || undefined,
     lastName: lastName || undefined,
+    phoneNumber: phoneNumber || undefined,
     email: accountEmail,
     ...applicationDietaryDefaults(application.allergiesDescription),
     tshirtSize: applicationTshirtSizeDefault(application.shirtSize),
@@ -111,6 +146,7 @@ function applyApplicantDefaults(
   draft: RsvpDraftData,
   application: ApplicantDefaultSource,
   accountEmail: string,
+  reimbursementCents: number | null | undefined,
 ): RsvpDraftData {
   const applicationDefaults = applicationRsvpDefaults(
     application,
@@ -119,9 +155,12 @@ function applyApplicantDefaults(
   const dietaryDefaults = draft.dietaryRestrictions?.length
     ? {}
     : applicationDietaryDefaults(application.allergiesDescription);
-  const travelEligibility = getRsvpTravelEligibility(application, {
-    address: draft,
-  });
+  const travelEligibility = getRsvpTravelEligibility(
+    travelEligibilitySource(application, reimbursementCents),
+    {
+      address: draft,
+    },
+  );
 
   return applyTravelEligibilityDefaults(
     {
@@ -130,6 +169,7 @@ function applyApplicantDefaults(
       email: accountEmail,
       firstName: draft.firstName || applicationDefaults.firstName,
       lastName: draft.lastName || applicationDefaults.lastName,
+      phoneNumber: draft.phoneNumber || applicationDefaults.phoneNumber,
       ...dietaryDefaults,
       tshirtSize: draft.tshirtSize ?? applicationDefaults.tshirtSize,
     },
@@ -191,12 +231,14 @@ export async function getAttendeeRsvpState({
       applicationDecision: hackerApplicants.decision,
       applicationFirstName: hackerApplicants.firstName,
       applicationLastName: hackerApplicants.lastName,
+      applicationPhoneNumber: hackerApplicants.phoneNumber,
       applicationShirtSize: hackerApplicants.shirtSize,
       applicationAllergiesDescription: hackerApplicants.allergiesDescription,
       applicationTransportationType: hackerApplicants.transportationType,
       applicationComingFrom: hackerApplicants.comingFrom,
       applicationNeedsTravelReimbursement:
         hackerApplicants.needsTravelReimbursement,
+      reimbursementCents: reimbursementRegions.amountCents,
       final: hackerRsvps,
       draft: hackerRsvpDrafts,
     })
@@ -206,6 +248,17 @@ export async function getAttendeeRsvpState({
       hackerRsvpDrafts,
       eq(hackerRsvpDrafts.userId, hackerApplicants.userId),
     )
+    .leftJoin(
+      hackerReimbursements,
+      and(
+        eq(hackerReimbursements.userId, hackerApplicants.userId),
+        eq(hackerReimbursements.status, "approved"),
+      ),
+    )
+    .leftJoin(
+      reimbursementRegions,
+      eq(reimbursementRegions.region, hackerReimbursements.region),
+    )
     .where(eq(hackerApplicants.userId, userId))
     .limit(1);
 
@@ -213,6 +266,8 @@ export async function getAttendeeRsvpState({
   if (decisionOutcome(row.applicationDecision) !== "accepted") {
     return { kind: "not-eligible" };
   }
+
+  const reimbursementCents = awardedReimbursementCents(row.reimbursementCents);
 
   if (row.final) {
     return {
@@ -222,6 +277,7 @@ export async function getAttendeeRsvpState({
         {
           firstName: row.applicationFirstName,
           lastName: row.applicationLastName,
+          phoneNumber: row.applicationPhoneNumber,
           shirtSize: row.applicationShirtSize,
           allergiesDescription: row.applicationAllergiesDescription,
           transportationType: row.applicationTransportationType,
@@ -231,6 +287,7 @@ export async function getAttendeeRsvpState({
         accountEmail,
       ),
       submittedAt: row.final.submittedAt,
+      reimbursementCents,
     };
   }
 
@@ -240,6 +297,7 @@ export async function getAttendeeRsvpState({
     {
       firstName: row.applicationFirstName,
       lastName: row.applicationLastName,
+      phoneNumber: row.applicationPhoneNumber,
       shirtSize: row.applicationShirtSize,
       allergiesDescription: row.applicationAllergiesDescription,
       transportationType: row.applicationTransportationType,
@@ -247,6 +305,7 @@ export async function getAttendeeRsvpState({
       needsTravelReimbursement: row.applicationNeedsTravelReimbursement,
     },
     accountEmail,
+    row.reimbursementCents,
   );
 
   return {
@@ -254,13 +313,17 @@ export async function getAttendeeRsvpState({
     draft,
     accountEmail,
     travelEligibility: getRsvpTravelEligibility(
-      {
-        transportationType: row.applicationTransportationType,
-        comingFrom: row.applicationComingFrom,
-        needsTravelReimbursement: row.applicationNeedsTravelReimbursement,
-      },
+      travelEligibilitySource(
+        {
+          transportationType: row.applicationTransportationType,
+          comingFrom: row.applicationComingFrom,
+          needsTravelReimbursement: row.applicationNeedsTravelReimbursement,
+        },
+        row.reimbursementCents,
+      ),
       { address: draft },
     ),
     draftVersion: 0,
+    reimbursementCents,
   };
 }

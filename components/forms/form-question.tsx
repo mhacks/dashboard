@@ -91,13 +91,19 @@ export function YesAcknowledgement({
   onCheckedChange,
   children,
   error,
+  disabled = false,
+  disabledMessage,
 }: {
   id: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   children: ReactNode;
   error?: FormFieldError;
+  disabled?: boolean;
+  disabledMessage?: string;
 }) {
+  const helperId = disabledMessage ? `${id}-helper` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-start gap-3">
@@ -106,12 +112,16 @@ export function YesAcknowledgement({
           checked={checked}
           onCheckedChange={(value) => onCheckedChange(value === true)}
           aria-invalid={Boolean(error)}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={
+            [helperId, errorId].filter(Boolean).join(" ") || undefined
+          }
+          disabled={disabled}
           className="mt-0.5"
         />
         <Label
           htmlFor={id}
-          className="block min-w-0 flex-1 font-red-hat text-sm leading-6 text-foreground"
+          aria-disabled={disabled || undefined}
+          className={`block min-w-0 flex-1 font-red-hat text-sm leading-6 text-foreground${disabled ? " cursor-not-allowed opacity-60" : ""}`}
         >
           {children}
           <span className="text-destructive" aria-hidden="true">
@@ -120,9 +130,14 @@ export function YesAcknowledgement({
           </span>
         </Label>
       </div>
+      {disabledMessage && (
+        <p id={helperId} className="font-red-hat text-xs text-moss/55">
+          {disabledMessage}
+        </p>
+      )}
       {error?.message && (
         <p
-          id={`${id}-error`}
+          id={errorId}
           className="font-red-hat text-xs text-destructive"
           role="alert"
         >

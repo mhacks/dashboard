@@ -3,6 +3,7 @@ import { ExternalLinkIcon, PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { formatCents } from "@/lib/currency";
 import type { RsvpDraftData, RsvpFormData } from "@/lib/types/rsvps";
 import { DIETARY_LABELS, TRAVEL_LABELS } from "./form-options";
 
@@ -75,12 +76,14 @@ export function RsvpSummary({
   values,
   onEdit,
   receiptHref,
+  reimbursementCents = null,
   travelStepIndex = values.travelPlan === "local" ? null : 1,
   waiversStepIndex = values.travelPlan === "local" ? 1 : 2,
 }: {
   values: SummaryValues;
   onEdit?: (step: number) => void;
   receiptHref?: string;
+  reimbursementCents?: number | null;
   travelStepIndex?: number | null;
   waiversStepIndex?: number;
 }) {
@@ -107,6 +110,10 @@ export function RsvpSummary({
         </SummaryRow>
         <Separator />
         <SummaryRow label="Email">{answer(values.email)}</SummaryRow>
+        <Separator />
+        <SummaryRow label="Phone number">
+          {answer(values.phoneNumber)}
+        </SummaryRow>
         <Separator />
         <SummaryRow label="Dietary restrictions">
           {dietary.length > 0 ? dietary.join(", ") : "Not answered"}
@@ -158,6 +165,14 @@ export function RsvpSummary({
           </SummaryRow>
           {values.travelPlan === "reimbursement" && (
             <>
+              {reimbursementCents != null && (
+                <>
+                  <Separator />
+                  <SummaryRow label="Reimbursement amount">
+                    {formatCents(reimbursementCents)}
+                  </SummaryRow>
+                </>
+              )}
               <Separator />
               <SummaryRow label="Travel Guide acknowledged">
                 {yesNo(values.travelGuideAcknowledged)}

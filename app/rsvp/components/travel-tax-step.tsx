@@ -9,18 +9,24 @@ import {
 } from "@/components/forms/form-question";
 import { FormSectionCard } from "@/components/forms/form-section-card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { formatCents } from "@/lib/currency";
 import type { RsvpFormData } from "@/lib/types/rsvps";
 import { TRAVEL_OPTIONS } from "../form-options";
 import { ReceiptUpload } from "./receipt-upload";
 
+const TRAVEL_GUIDE_URL =
+  "https://docs.google.com/document/d/1wYGboHlqKiUywumBq-UM7klsGA3XOtYwYxxxhywLpa4/edit?usp=sharing";
+
 export function TravelTaxStep({
   canRequestReimbursement,
+  reimbursementCents,
   receiptMutationInProgress,
   beforeReceiptMutation,
   onReceiptMutationChange,
   commitTravelPlanChange,
 }: {
   canRequestReimbursement: boolean;
+  reimbursementCents: number | null;
   receiptMutationInProgress: boolean;
   beforeReceiptMutation: () => Promise<void>;
   onReceiptMutationChange: (inProgress: boolean) => void;
@@ -34,10 +40,23 @@ export function TravelTaxStep({
     formState: { errors },
   } = useFormContext<RsvpFormData>();
   const travelPlan = useWatch({ control, name: "travelPlan" });
+  const travelGuideAcknowledged = useWatch({
+    control,
+    name: "travelGuideAcknowledged",
+  });
   const [branchError, setBranchError] = useState<string | null>(null);
+  const [travelGuideOpened, setTravelGuideOpened] = useState(false);
+  const travelGuideUnlocked =
+    travelGuideOpened || travelGuideAcknowledged === true;
+  const handleOpenTravelGuide = () => setTravelGuideOpened(true);
   const travelOptions = TRAVEL_OPTIONS.filter((option) =>
     canRequestReimbursement ? true : option.value !== "reimbursement",
   );
+  const reimbursementLabel =
+    reimbursementCents != null
+      ? `I will apply for a travel reimbursement (${formatCents(reimbursementCents)}).`
+      : TRAVEL_OPTIONS.find((option) => option.value === "reimbursement")!
+          .label;
 
   useEffect(() => {
     if (
@@ -141,6 +160,9 @@ export function TravelTaxStep({
                     );
                   } else {
                     field.onChange(next);
+                    if (next === "reimbursement") {
+                      void beforeReceiptMutation();
+                    }
                   }
                 }}
                 variant="outline"
@@ -157,7 +179,9 @@ export function TravelTaxStep({
                     value={option.value}
                     className="h-auto min-h-10 justify-start whitespace-normal py-2 text-left font-red-hat"
                   >
-                    {option.label}
+                    {option.value === "reimbursement"
+                      ? reimbursementLabel
+                      : option.label}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -172,12 +196,21 @@ export function TravelTaxStep({
         )}
 
         <p className="font-red-hat text-xs leading-5 text-moss/55">
-          Only hackers who indicated they needed travel reimbursement on their
-          application are eligible for reimbursement.
+          Only hackers with an approved travel reimbursement award can apply for
+          reimbursement.
         </p>
 
         {canRequestReimbursement && travelPlan === "reimbursement" && (
           <div className="flex flex-col gap-5 rounded-2xl border border-moss/10 bg-white/70 p-4 shadow-[0_1px_0_rgba(58,74,38,0.08)] sm:p-5">
+            {reimbursementCents != null && (
+              <p className="font-red-hat text-sm leading-6 text-moss">
+                Your approved travel reimbursement is{" "}
+                <span className="font-semibold">
+                  {formatCents(reimbursementCents)}
+                </span>
+                .
+              </p>
+            )}
             <Controller
               name="travelGuideAcknowledged"
               control={control}
@@ -187,12 +220,19 @@ export function TravelTaxStep({
                   checked={field.value ?? false}
                   onCheckedChange={field.onChange}
                   error={errors.travelGuideAcknowledged}
+                  disabled={!travelGuideUnlocked}
+                  disabledMessage={
+                    travelGuideUnlocked
+                      ? undefined
+                      : "Open the MHacks 2026 Travel Guide before acknowledging."
+                  }
                 >
                   I have read the{" "}
                   <a
-                    href="https://docs.google.com/document/d/1wYGboHlqKiUywumBq-UM7klsGA3XOtYwYxxxhywLpa4/edit?usp=sharing"
+                    href={TRAVEL_GUIDE_URL}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={handleOpenTravelGuide}
                     className="font-medium text-moss underline underline-offset-4"
                   >
                     MHacks 2026 Travel Guide
