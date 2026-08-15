@@ -25,7 +25,6 @@ export function CampaignTemplate({
   variant?: CampaignEmailVariant;
 }) {
   void variant;
-  const hasCta = Boolean(content.cta);
   const sections = content.sections.map((section) => (
     <EmailSection
       key={section.id}
@@ -48,24 +47,19 @@ export function CampaignTemplate({
         <Text style={paragraphStyle(theme)}>{content.intro}</Text>
       ) : null}
 
-      {content.cta ? (
-        <EmailCta
-          label={content.cta.label}
-          url={content.cta.url}
-          theme={theme}
-        />
-      ) : null}
+      {sections}
 
-      {hasCta ? (
+      {content.cta ? (
         <>
           <EmailDivider theme={theme} />
-          {sections}
+          <EmailCta
+            label={content.cta.label}
+            url={content.cta.url}
+            theme={theme}
+          />
         </>
       ) : (
-        <>
-          {sections}
-          <EmailDivider theme={theme} />
-        </>
+        <EmailDivider theme={theme} />
       )}
 
       <EmailFooter note={content.footerNote} theme={theme} />

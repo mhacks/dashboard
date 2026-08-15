@@ -220,7 +220,7 @@ const paragraphStyle = (theme: EmailThemeTokens) => ({
   fontSize: theme.bodySize,
   fontWeight: "400",
   lineHeight: "24px",
-  margin: "24px 0",
+  margin: "0 0 16px",
 });
 
 const strongStyle = {
@@ -258,7 +258,7 @@ const sectionHeadingStyle = (theme: EmailThemeTokens) => ({
   fontSize: "20px",
   lineHeight: "30px",
   fontWeight: "700",
-  margin: "0",
+  margin: "0 0 12px",
 });
 
 const logo = {
@@ -278,7 +278,7 @@ const eyebrowStyle = (theme: EmailThemeTokens) => ({
 });
 
 const sectionBlock = {
-  margin: "24px 0",
+  margin: "24px 0 0",
 };
 
 const codeBlock = (theme: EmailThemeTokens) => ({
