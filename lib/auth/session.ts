@@ -18,5 +18,22 @@ export async function getSessionUser(): Promise<UserEntry | null> {
     .where(eq(users.id, user.id))
     .limit(1);
 
-  return row ?? null;
+  if (row) return row;
+  if (!user.email) return null;
+
+  const [created] = await db
+    .insert(users)
+    .values({
+      id: user.id,
+      email: user.email,
+    })
+    .onConflictDoUpdate({
+      target: users.id,
+      set: {
+        email: user.email,
+      },
+    })
+    .returning();
+
+  return created ?? null;
 }
