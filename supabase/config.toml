@@ -41,6 +41,7 @@ enabled = true
 sql_paths = [
   "./seed.sql",
   "./seeds/application-review-demo.sql",
+  "./seeds/explicit-status-reimbursement-demo.sql",
   "./seeds/team-invites-demo.sql",
 ]
 
