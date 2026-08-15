@@ -508,26 +508,17 @@ export default function EmailCampaignsClient({
         selectedTemplate,
         mergeFields,
       );
-      const now = new Date().toISOString();
-      const newTemplate: MasterTemplate = {
-        ...selectedTemplate,
-        ...draft,
-        id: `local-template-${crypto.randomUUID()}`,
-        name: draft.name ?? `${selectedTemplate.name} AI draft`,
-        status: "active",
-        updatedAt: now,
-      };
-      const nextTemplates = [newTemplate, ...templates];
-      setTemplates(nextTemplates);
-      setSelectedTemplateId(newTemplate.id);
+      updateSelectedTemplate(draft);
       setSelectedSectionIndex(0);
       clearSendStatus();
       setAiDraftText("");
-      setNotice("AI draft created as a new template. Review before saving.");
+      setNotice(
+        "AI draft applied to the current template. Review before saving.",
+      );
       showToast(
         "success",
-        "AI draft created",
-        "The source template was not changed.",
+        "AI draft applied",
+        "Review the changes, then save the template.",
       );
     } catch (error) {
       const message = errorMessage(error);
@@ -1562,8 +1553,8 @@ function AiDraftPanel({
           </div>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             Copy a strict template context for ChatGPT or a local agent, then
-            paste its JSON draft here. Imports create a new local template and
-            never overwrite the source template.
+            paste its JSON draft here. Imports apply the draft to the current
+            template in place.
           </p>
         </div>
         <Button
@@ -1589,7 +1580,8 @@ function AiDraftPanel({
       />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          Importing creates a new local draft. It does not save or send.
+          Importing updates the current template locally. It does not save or
+          send.
         </p>
         <Button
           type="button"
@@ -2389,7 +2381,7 @@ function buildAiTemplateContext(
   return [
     "# MHacks Email Template Drafting Context (Beta)",
     "",
-    "You are drafting a NEW email template for MHacks organizers using the current template as context. Return ONLY valid JSON. Do not include Markdown fences or commentary.",
+    "You are revising the CURRENT email template below for MHacks organizers. Return ONLY valid JSON. Do not include Markdown fences or commentary.",
     "",
     "Rules:",
     "- Keep the message concise and operational.",
@@ -2398,7 +2390,9 @@ function buildAiTemplateContext(
     "- Do not invent applicant segments, audience sources, backend behavior, or sending rules.",
     "- Do not include scripts, event handlers, tracking pixels, external forms, or javascript URLs.",
     "- The cta field is entirely optional, but if you include it, both label and url are required together — never send one without the other. If you don't know the real destination URL, omit the cta field entirely rather than guessing or leaving url blank.",
-    "- The imported draft will become a new local template; it will not overwrite the source template.",
+    "- Top-level fields you omit (name, description, subject, previewText) are left unchanged on the current template.",
+    "- If you include content (or html), return the COMPLETE block — it replaces the existing one wholesale, it is not merged field by field.",
+    "- The imported draft is applied to the current template in place; it will not create a separate template.",
     "- The organizer will review before saving or sending.",
     "",
     `Template type: ${template.type}`,
