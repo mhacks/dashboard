@@ -18,7 +18,13 @@ site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://127.0.0.1:3000/**"]
 
 [auth.rate_limit]
-email_sent = 30
+# Shared local + production limits (merged on `pnpm supabase config push`).
+# Project-wide OTP/email sends per hour.
+email_sent = 2000
+# OTP sign-in requests per IP per 5 minutes.
+sign_in_sign_ups = 200
+# OTP verification attempts per IP per 5 minutes.
+token_verifications = 200
 
 [auth.mfa.totp]
 enroll_enabled = true
@@ -26,7 +32,17 @@ verify_enabled = true
 
 [auth.email]
 enable_confirmations = true
-max_frequency = "1m0s"
+max_frequency = "30s"
+
+# Local Mailpit — required so auth.rate_limit.email_sent applies in dev.
+[auth.email.smtp]
+enabled = true
+host = "127.0.0.1"
+port = 54325
+user = "postmaster@local.dev"
+pass = "password"
+admin_email = "hackathon@mhacks.org"
+sender_name = "MHacks Team"
 
 [auth.oauth_server]
 enabled = true
