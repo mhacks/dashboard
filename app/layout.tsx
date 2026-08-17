@@ -13,6 +13,7 @@ import { AuthStateSync } from "@/components/auth-state-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { EVENT, eventTitle } from "@/lib/config/event";
+import { CONTACT } from "@/lib/config/contact";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,7 +52,7 @@ const redHatMono = Red_Hat_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://mhacks.org"),
+  metadataBase: new URL(CONTACT.website),
   title: eventTitle(),
   description: `${EVENT.name} is ${EVENT.host}'s flagship hackathon. 24 hours of building at the intersection of nature and technology. ${EVENT.city}, ${EVENT.season}.`,
   openGraph: {

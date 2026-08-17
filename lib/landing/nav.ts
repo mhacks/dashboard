@@ -2,6 +2,7 @@ import type { MouseEvent } from "react";
 
 import { asset } from "@/lib/landing/asset";
 import { scrollToHash } from "@/lib/landing/scroll";
+import { supportMailto } from "@/lib/config/contact";
 
 export interface MarketingNavItem {
   label: string;
@@ -19,7 +20,7 @@ export const MARKETING_NAV_ITEMS: MarketingNavItem[] = [
 
 export const FOOTER_NAV_ITEMS: MarketingNavItem[] = [
   ...MARKETING_NAV_ITEMS,
-  { label: "Contact", href: "mailto:hackathon@mhacks.org" },
+  { label: "Contact", href: supportMailto },
   {
     label: "MLH Policies",
     href: "https://github.com/MLH/mlh-policies/blob/main/code-of-conduct.md",

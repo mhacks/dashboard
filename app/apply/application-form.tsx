@@ -31,6 +31,7 @@ import { MHacksLogo } from "@/components/mhacks-logo";
 import posthog from "posthog-js";
 import { ArrowLeft, Bot } from "lucide-react";
 import { EVENT } from "@/lib/config/event";
+import { CONTACT, supportMailto } from "@/lib/config/contact";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -362,10 +363,10 @@ export default function ApplyPage({
                 We&apos;re unable to accept an application from you for{" "}
                 {EVENT.fullName}. If you believe this is a mistake, reach out to{" "}
                 <a
-                  href="mailto:hackathon@mhacks.org"
+                  href={supportMailto}
                   className="underline underline-offset-2 hover:opacity-80"
                 >
-                  hackathon@mhacks.org
+                  {CONTACT.supportEmail}
                 </a>
                 .
               </>

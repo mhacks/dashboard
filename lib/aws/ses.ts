@@ -1,9 +1,10 @@
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import type SESTransport from "nodemailer/lib/ses-transport";
+import { CONTACT } from "@/lib/config/contact";
 
-const FROM_EMAIL = process.env.EMAIL_FROM ?? "hackathon@mhacks.org";
-const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MHacks Team";
+const FROM_EMAIL = process.env.EMAIL_FROM ?? CONTACT.fromEmail;
+const FROM_NAME = process.env.EMAIL_FROM_NAME ?? CONTACT.fromName;
 const SES_REGION = process.env.SES_REGION ?? "us-east-2";
 const SMTP_TIMEOUT_MS = 15_000;
 

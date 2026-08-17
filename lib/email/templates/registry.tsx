@@ -5,6 +5,7 @@ import {
 } from "@/lib/email/templates/campaign-template";
 import type { EmailCampaignContent, EmailThemeTokens } from "@/lib/email/types";
 import { EVENT } from "@/lib/config/event";
+import { CONTACT, websiteUrl } from "@/lib/config/contact";
 
 export interface EmailTemplateDefinition {
   id: string;
@@ -80,10 +81,11 @@ export const emailTemplates = [
       ],
       cta: {
         label: "Start application",
-        url: "https://mhacks.org/apply?utm_source=email&utm_medium=campaign&utm_campaign=mhacks_applications_open",
+        url: websiteUrl(
+          "/apply?utm_source=email&utm_medium=campaign&utm_campaign=mhacks_applications_open",
+        ),
       },
-      footerNote:
-        "Questions? Reply to this email or reach out to hackathon@mhacks.org.",
+      footerNote: `Questions? Reply to this email or reach out to ${CONTACT.supportEmail}.`,
     },
   }),
   template({
@@ -106,7 +108,7 @@ export const emailTemplates = [
       ],
       cta: {
         label: "Learn more",
-        url: "https://mhacks.org",
+        url: CONTACT.website,
       },
       footerNote: `Questions? Reply to this email or reach out to the ${EVENT.name} team.`,
     },
@@ -132,12 +134,12 @@ export const emailTemplates = [
         {
           id: "stay-connected",
           title: "Stay Connected",
-          body: "Follow us on social media for the latest MHacks updates and announcements!\n\nQuestions? Reach out to us anytime at hackathon@mhacks.org\n\nWe're excited to have you join the MHacks community!\n\n- MHacks Team",
+          body: `Follow us on social media for the latest ${EVENT.name} updates and announcements!\n\nQuestions? Reach out to us anytime at ${CONTACT.supportEmail}\n\nWe're excited to have you join the ${EVENT.name} community!\n\n- ${EVENT.name} Team`,
         },
       ],
       cta: {
         label: "Confirm email",
-        url: "https://mhacks.org",
+        url: CONTACT.website,
       },
       footerNote: "",
     },
@@ -168,7 +170,7 @@ export const emailTemplates = [
       ],
       cta: {
         label: "View travel details",
-        url: "https://mhacks.org",
+        url: CONTACT.website,
       },
       footerNote: `Reimbursement details are subject to verification by the ${EVENT.name} team.`,
     },

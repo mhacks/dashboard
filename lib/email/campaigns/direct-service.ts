@@ -11,7 +11,7 @@ import {
   EmailCampaignError,
   getCampaignLimits,
 } from "@/lib/email/campaigns/config";
-import { requiredEmailCampaignTestRecipients } from "@/lib/email/campaigns/constants";
+import { getRequiredEmailCampaignTestRecipients } from "@/lib/email/campaigns/constants";
 import {
   mergeDataForEmail,
   parseRecipientText,
@@ -68,7 +68,7 @@ export async function sendDirectTestEmails(input: unknown) {
   const organizer = await requireOrganizer();
   const body = directTestSendSchema.parse(input);
   const templateFingerprint = fingerprintDirectTemplate(body.template);
-  const recipients = requiredEmailCampaignTestRecipients;
+  const recipients = getRequiredEmailCampaignTestRecipients();
   const campaignLike = {
     templateSnapshot: snapshotFromDirectTemplate(body.template),
     themeSnapshot:
@@ -695,7 +695,7 @@ async function recordSuccessfulTestSend({
     organizerId,
     templateFingerprint,
     recipientListHash: "test-send-proof",
-    totalRecipients: requiredEmailCampaignTestRecipients.length,
+    totalRecipients: getRequiredEmailCampaignTestRecipients().length,
     status: "test_sent",
     createdAt: now,
     updatedAt: now,

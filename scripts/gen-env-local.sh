@@ -56,6 +56,9 @@ RESUMES_REGION="local"
 # Email (Mailpit — see docs/local-development.md)
 SMTP_HOST="127.0.0.1"
 SMTP_PORT="54325"
+# Campaign sending is gated on a successful test send to these addresses.
+# Locally they are placeholders — Mailpit catches everything regardless.
+EMAIL_TEST_RECIPIENTS="Test Organizer <organizer@example.test>"
 
 # Cloudflare
 NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY="1x00000000000000000000AA"

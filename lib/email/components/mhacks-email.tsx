@@ -14,6 +14,7 @@ import { emailAssets, emailSocialLinks } from "@/lib/email/assets";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type { EmailThemeTokens } from "@/lib/email/types";
 import { EVENT } from "@/lib/config/event";
+import { CONTACT } from "@/lib/config/contact";
 
 export function EmailHeader({
   eyebrow,
@@ -159,7 +160,7 @@ export function EmailFooter({
           <Text style={websiteWrap}>
             {EVENT.name},{" "}
             <Link href={emailSocialLinks.website} style={websiteLink(theme)}>
-              www.mhacks.org
+              {CONTACT.website.replace("https://", "")}
             </Link>
           </Text>
         </Column>

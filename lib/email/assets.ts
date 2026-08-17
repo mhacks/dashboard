@@ -1,3 +1,5 @@
+import { CONTACT } from "@/lib/config/contact";
+
 const driveImage = (fileId: string, width: number) =>
   `https://drive.google.com/thumbnail?id=${fileId}&sz=w${width}`;
 
@@ -15,9 +17,6 @@ export const emailAssets = {
 } as const;
 
 export const emailSocialLinks = {
-  linkedin: "https://www.linkedin.com/company/mhacks",
-  x: "https://x.com/mhacks",
-  instagram: "https://www.instagram.com/mhacks_/",
-  youtube: "https://www.youtube.com/@mhacks-official",
-  website: "https://www.mhacks.org",
+  ...CONTACT.socials,
+  website: CONTACT.website,
 } as const;

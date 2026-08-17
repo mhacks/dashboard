@@ -28,7 +28,11 @@ import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
 import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { CONTACT, websiteUrl } from "@/lib/config/contact";
 import { EVENT } from "@/lib/config/event";
+
+// Shown to agents that cannot perform HTTP uploads themselves.
+const applyUrl = websiteUrl("/apply").replace(/^https?:\/\//, "");
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -283,8 +287,7 @@ const baseHandler = createMcpHandler(
       "apply_get_draft",
       {
         title: "Get application draft",
-        description:
-          "Returns the authenticated user's in-progress application draft, if any (e.g. started on the web form or in a previous chat). Call this before interviewing the user so you only ask about fields that are still missing — never re-ask what's already saved. `resumeUploaded` tells you whether a resume is already on file, so you can skip that step. If `resumeUploaded` is false: if you can execute HTTP requests yourself, use apply_get_resume_upload_url; otherwise tell the user to upload their resume at mhacks.org/apply and call apply_get_draft again afterward to confirm it's on file.",
+        description: `Returns the authenticated user's in-progress application draft, if any (e.g. started on the web form or in a previous chat). Call this before interviewing the user so you only ask about fields that are still missing — never re-ask what's already saved. \`resumeUploaded\` tells you whether a resume is already on file, so you can skip that step. If \`resumeUploaded\` is false: if you can execute HTTP requests yourself, use apply_get_resume_upload_url; otherwise tell the user to upload their resume at ${applyUrl} and call apply_get_draft again afterward to confirm it's on file.`,
         inputSchema: {},
       },
       async (_input, extra) => {
@@ -402,7 +405,7 @@ const baseHandler = createMcpHandler(
             return jsonText({
               submitted: false,
               blocked: true,
-              message: `We're unable to accept an application from you for ${EVENT.fullName}. Do not retry with altered details — tell the user to contact hackathon@mhacks.org if they believe this is a mistake.`,
+              message: `We're unable to accept an application from you for ${EVENT.fullName}. Do not retry with altered details — tell the user to contact ${CONTACT.supportEmail} if they believe this is a mistake.`,
             });
           }
           return jsonText(
@@ -460,7 +463,7 @@ const baseHandler = createMcpHandler(
       "apply_get_resume_upload_url",
       {
         title: "Get resume upload URL",
-        description: `Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage \`key\`. Requires \`fileSizeBytes\` — the exact size of the PDF you're about to upload (e.g. from a filesystem stat) — capped at ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB; the presigned URL is only valid for that exact byte count, so a mismatched or oversized upload will be rejected by S3, not silently truncated or allowed through. Upload the PDF bytes directly to \`uploadUrl\` yourself (e.g. \`curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>\`), then pass the returned \`key\` as the \`resume\` field of apply_submit. Safe to call again if you need a new URL (e.g. the previous one expired or the file size changed) — it always points at the same resume slot, so re-uploading replaces rather than duplicates. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at mhacks.org/apply instead, then re-check with apply_get_draft.`,
+        description: `Returns a short-lived presigned S3 URL for uploading a PDF resume via HTTP PUT (Content-Type: application/pdf), plus the storage \`key\`. Requires \`fileSizeBytes\` — the exact size of the PDF you're about to upload (e.g. from a filesystem stat) — capped at ${MAX_RESUME_SIZE_BYTES / (1024 * 1024)}MB; the presigned URL is only valid for that exact byte count, so a mismatched or oversized upload will be rejected by S3, not silently truncated or allowed through. Upload the PDF bytes directly to \`uploadUrl\` yourself (e.g. \`curl -T resume.pdf -H 'Content-Type: application/pdf' <uploadUrl>\`), then pass the returned \`key\` as the \`resume\` field of apply_submit. Safe to call again if you need a new URL (e.g. the previous one expired or the file size changed) — it always points at the same resume slot, so re-uploading replaces rather than duplicates. Only call this if you can execute HTTP requests — if you can't, tell the user to upload their resume at ${applyUrl} instead, then re-check with apply_get_draft.`,
         inputSchema: {
           fileSizeBytes: z
             .number()
@@ -512,7 +515,7 @@ const baseHandler = createMcpHandler(
                 "2. Call apply_get_draft. If a draft exists, treat its fields as already answered — never re-ask for them. If `resumeUploaded` is true, skip the resume step.",
                 "3. Call apply_get_schema and interview the user only for fields that are still missing, one topic at a time.",
                 "4. Checkpoint progress with apply_save_draft as sections complete. It merges into the saved draft, so you only need to pass the fields you just collected.",
-                "5. Resume: if no resume is on file, prefer apply_get_resume_upload_url (upload the PDF via HTTP PUT, then use the returned key). If you cannot perform HTTP uploads, tell the user to upload it at mhacks.org/apply and call apply_get_draft again to confirm it landed.",
+                `5. Resume: if no resume is on file, prefer apply_get_resume_upload_url (upload the PDF via HTTP PUT, then use the returned key). If you cannot perform HTTP uploads, tell the user to upload it at ${applyUrl} and call apply_get_draft again to confirm it landed.`,
                 "6. Read the MLH Code of Conduct, Privacy Policy, and communications terms to the user and get an explicit yes/no for each — never assume or infer consent. Only set a boolean to true after the user affirms it. Also get the user's explicit confirmation that the application is not AI slop (notAiSlop) — do not set it to true on their behalf.",
                 "7. Call apply_submit with all collected fields and `confirm` omitted. This validates everything and returns the full application back to you WITHOUT submitting — show every field verbatim (not a paraphrase) to the user and get their explicit yes. If it returns a validation error instead, fix the specific fields with the user and retry this step.",
                 "8. Once the user has explicitly confirmed, call apply_submit again with the same fields plus confirm: true to actually submit — submission cannot be undone from this chat. If it returns { duplicate: true }, tell the user they already applied.",

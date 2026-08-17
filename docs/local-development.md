@@ -21,6 +21,19 @@ Day-to-day local development only needs `.env.local`. Root `.env` is for operati
 touch the remote (e.g. `supabase config push`) — see
 [Remote development](./remote-development.md).
 
+### `EMAIL_TEST_RECIPIENTS`
+
+Sending an email campaign is gated on a successful test send first, and this is the list
+it must reach — a comma-separated set of addresses, each either `you@example.edu` or
+`Your Name <you@example.edu>` (the second form supplies `first_name`/`last_name`/`name`
+merge data, so the test exercises the same merge fields a real campaign uses).
+
+`pnpm db:start` writes a placeholder into `.env.local`; Mailpit catches it locally, so
+nothing leaves your machine. In production it comes from SSM
+(see [`task-definition.json`](../task-definition.json)) so the addresses stay out of git.
+Campaign sending throws with a clear message if it is unset — that is deliberate, since an
+empty list would let the gate pass without a single test email being delivered.
+
 ## 1. Start the local stack
 
 `pnpm db:start` (= `supabase start` + env generation) boots a full Supabase stack in

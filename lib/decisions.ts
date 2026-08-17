@@ -3,6 +3,7 @@
 // builds its pgEnum from APPLICATION_DECISIONS, so the enum and this union can
 // never drift apart. (lib/currency is pure formatting, no database.)
 
+import { CONTACT } from "./config/contact";
 import { EVENT } from "./config/event";
 import { formatCents } from "./currency";
 
@@ -55,7 +56,7 @@ export const RSVP_DEADLINE: Record<DecisionRound, string> = {
   regular: "September 19, 2026",
 };
 
-export const SUPPORT_EMAIL = "hackathon@mhacks.org";
+export const SUPPORT_EMAIL = CONTACT.supportEmail;
 
 export type DecisionLetter = {
   /** Appended to the letterhead wordmark, e.g. "Early Decision". */

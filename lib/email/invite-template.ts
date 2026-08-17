@@ -2,6 +2,7 @@ import { formatLongDateTimeWithZone } from "@/lib/format/date";
 import { userRoleLabel } from "@/lib/display/user-roles";
 import type { InvitableUserRole } from "@/lib/types/user-invitations";
 import { EVENT } from "@/lib/config/event";
+import { CONTACT, supportMailto } from "@/lib/config/contact";
 
 function escapeHtml(value: string) {
   return value
@@ -102,7 +103,7 @@ export function buildInviteEmail({
     "",
     `This invite expires on ${expiration}.`,
     "",
-    "Questions? Contact hackathon@mhacks.org.",
+    `Questions? Contact ${CONTACT.supportEmail}.`,
     "",
     `— The ${EVENT.name} Team`,
   ].join("\n");
@@ -439,10 +440,10 @@ export function buildInviteEmail({
                 >
                   Questions? Reach out to us anytime at
                   <a
-                    href="mailto:hackathon@mhacks.org"
+                    href="${supportMailto}"
                     style="color: #4285f4; text-decoration: underline"
                   >
-                    hackathon@mhacks.org
+                    ${CONTACT.supportEmail}
                   </a>.
                 </p>
 
@@ -487,7 +488,7 @@ export function buildRoleChangeEmail({
     "Sign in to access your updated permissions:",
     loginUrl,
     "",
-    "Questions? Contact hackathon@mhacks.org.",
+    `Questions? Contact ${CONTACT.supportEmail}.`,
     "",
     `— The ${EVENT.name} Team`,
   ].join("\n");

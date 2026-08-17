@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EVENT } from "@/lib/config/event";
+import { CONTACT } from "@/lib/config/contact";
 
 const maxRecipientTextLength = 300_000;
 const maxHtmlTemplateLength = 500_000;
@@ -165,7 +166,7 @@ export const defaultCampaignContent: EmailCampaignContent = {
   ],
   cta: {
     label: "Open dashboard",
-    url: "https://mhacks.org",
+    url: CONTACT.website,
   },
   footerNote: `Questions? Reply to this email or contact the ${EVENT.name} team.`,
 };

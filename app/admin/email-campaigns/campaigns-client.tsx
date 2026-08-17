@@ -41,6 +41,7 @@ import {
 } from "./actions";
 import { formatTimeOfDay } from "@/lib/format/date";
 import { EVENT } from "@/lib/config/event";
+import { CONTACT } from "@/lib/config/contact";
 
 type PreviewMode = "desktop" | "mobile";
 export type EmailCampaignSurface = "builder" | "styles" | "send";
@@ -265,7 +266,7 @@ export default function EmailCampaignsClient({
         ],
         cta: {
           label: "Learn more",
-          url: "https://mhacks.org",
+          url: CONTACT.website,
         },
         footerNote: `Questions? Reach out to the ${EVENT.name} team.`,
       },
@@ -1498,8 +1499,7 @@ function BuilderPanel({
                       cta: {
                         label: event.target.value,
                         url:
-                          selectedTemplate.content?.cta?.url ??
-                          "https://mhacks.org",
+                          selectedTemplate.content?.cta?.url ?? CONTACT.website,
                       },
                     })
                   }

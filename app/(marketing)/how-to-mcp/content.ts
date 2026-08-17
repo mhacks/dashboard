@@ -1,11 +1,12 @@
 import { EVENT } from "@/lib/config/event";
+import { websiteUrl } from "@/lib/config/contact";
 
 /**
  * Single source for the How to MCP page copy. Human-mode JSX in HowToMcp.tsx
  * renders from these exports; MACHINE_MD is generated from the same data.
  */
 
-export const SERVER_URL = "https://www.mhacks.org/mcp";
+export const SERVER_URL = websiteUrl("/mcp");
 
 export const INTRO = `${EVENT.name} has an MCP server that lets you apply through Claude, Codex, or any other MCP-capable agent instead of filling out the web form by hand. Your agent can read the application schema, save a draft, ask you questions, upload your resume, and submit, all tied to your real, logged-in ${EVENT.name} account.`;
 
@@ -60,7 +61,7 @@ export const AUTH_NOTES: AuthNote[] = [
     lead: "Resume upload usually won't happen through the agent.",
     parts: [
       "Uploading requires the agent to make its own HTTP request with the file's raw bytes. Attaching a PDF to the chat only lets the agent read it. Coding-agent clients with their own network access (Claude Code, Codex, Cursor) can do this; standard Claude.ai / Claude Desktop chat can't, so expect your agent to tell you to upload your resume yourself at ",
-      { text: "mhacks.org/apply", href: "https://www.mhacks.org/apply" },
+      { text: "mhacks.org/apply", href: websiteUrl("/apply") },
       ", then it'll confirm it landed before continuing.",
     ],
   },
@@ -70,7 +71,7 @@ export const AUTH_NOTES: AuthNote[] = [
       "See and revoke any agent's access at ",
       {
         text: "mhacks.org/account/connections",
-        href: "https://www.mhacks.org/account/connections",
+        href: websiteUrl("/account/connections"),
       },
       ".",
     ],
