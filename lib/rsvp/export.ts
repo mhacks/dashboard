@@ -1,5 +1,5 @@
+import { serializeCsv, type CsvColumn } from "@/lib/csv";
 import { formatCents } from "@/lib/currency";
-import { serializeCsv, type CsvColumn } from "@/lib/rsvp/csv";
 import type { RsvpStatus } from "@/lib/rsvp/status";
 import type { AdminRsvpAward } from "@/lib/types/admin-rsvps";
 import type { RsvpFormData } from "@/lib/types/rsvps";

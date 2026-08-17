@@ -1,3 +1,5 @@
+import { normalizeColumnName, parseCsvLine } from "@/lib/csv";
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface ParsedRecipient {
@@ -143,46 +145,4 @@ function parseRecipientCsv(input: string): ParsedRecipients {
   }
 
   return { recipients, emails, invalid, duplicateCount, columns };
-}
-
-function parseCsvLine(line: string) {
-  const values: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const nextChar = line[index + 1];
-
-    if (char === '"' && inQuotes && nextChar === '"') {
-      current += '"';
-      index += 1;
-      continue;
-    }
-
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      values.push(current.trim());
-      current = "";
-      continue;
-    }
-
-    current += char;
-  }
-
-  values.push(current.trim());
-  return values;
-}
-
-function normalizeColumnName(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^\uFEFF/, "")
-    .replace(/\s+/g, "_")
-    .replace(/[^\w.-]/g, "");
 }
