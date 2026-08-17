@@ -10,12 +10,13 @@ import {
 import { FormSectionCard } from "@/components/forms/form-section-card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EVENT } from "@/lib/config/event";
+import { LINKS } from "@/lib/config/links";
 import { formatCents } from "@/lib/currency";
-import { TRAVEL_GUIDE_URL } from "@/lib/rsvp/travel-guide";
 import type { RsvpFormData } from "@/lib/types/rsvps";
 import { TRAVEL_OPTIONS } from "../form-options";
 import { ReceiptUpload } from "./receipt-upload";
 
+const TRAVEL_GUIDE_URL = LINKS.documents.travelGuide;
 export function TravelTaxStep({
   canRequestReimbursement,
   reimbursementCents,

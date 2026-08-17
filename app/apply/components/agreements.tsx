@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { HackerApplicationFormData } from "@/lib/types/applications";
+import { LINKS } from "@/lib/config/links";
 
 // stopPropagation so clicking a policy link doesn't toggle the checkbox the
 // surrounding <Label> is bound to.
@@ -50,7 +51,7 @@ const Agreements = ({
             >
               <span>
                 I have read and agree to the{" "}
-                <PolicyLink href="https://github.com/MLH/mlh-policies/blob/main/code-of-conduct.md">
+                <PolicyLink href={LINKS.mlh.codeOfConduct}>
                   MLH Code of Conduct
                 </PolicyLink>
                 .<span className="text-destructive"> *</span>
@@ -87,15 +88,15 @@ const Agreements = ({
                 with Major League Hacking for event administration, ranking, and
                 MLH/DEV administration (including the creation of linked
                 accounts on MLH and DEV (dev.to)) in line with the{" "}
-                <PolicyLink href="https://github.com/MLH/mlh-policies/blob/main/privacy-policy.md">
+                <PolicyLink href={LINKS.mlh.privacyPolicy}>
                   MLH Privacy Policy
                 </PolicyLink>
                 . I further agree to the terms of both the{" "}
-                <PolicyLink href="https://github.com/MLH/mlh-policies/blob/main/contest-terms.md">
+                <PolicyLink href={LINKS.mlh.contestTerms}>
                   MLH Contest Terms and Conditions
                 </PolicyLink>{" "}
                 and the{" "}
-                <PolicyLink href="https://github.com/MLH/mlh-policies/blob/main/privacy-policy.md">
+                <PolicyLink href={LINKS.mlh.privacyPolicy}>
                   MLH Privacy Policy
                 </PolicyLink>
                 .<span className="text-destructive"> *</span>

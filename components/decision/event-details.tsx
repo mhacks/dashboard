@@ -1,5 +1,5 @@
 import { LetterBody, LetterKicker } from "@/components/console/letter";
-import { TRAVEL_GUIDE_URL } from "@/lib/rsvp/travel-guide";
+import { LINKS } from "@/lib/config/links";
 
 interface Detail {
   label: string;
@@ -54,7 +54,7 @@ export function EventDetails() {
       <LetterBody>
         Read the{" "}
         <a
-          href={TRAVEL_GUIDE_URL}
+          href={LINKS.documents.travelGuide}
           target="_blank"
           rel="noreferrer"
           className="font-medium underline underline-offset-4"

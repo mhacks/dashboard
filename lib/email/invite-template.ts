@@ -3,6 +3,7 @@ import { userRoleLabel } from "@/lib/display/user-roles";
 import type { InvitableUserRole } from "@/lib/types/user-invitations";
 import { EVENT } from "@/lib/config/event";
 import { CONTACT, supportMailto } from "@/lib/config/contact";
+import { EMAIL_ASSETS } from "@/lib/config/links";
 
 function escapeHtml(value: string) {
   return value
@@ -185,7 +186,7 @@ export function buildInviteEmail({
             <tr>
               <td align="center" style="padding: 40px 40px 20px">
                 <img
-                  src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
+                  src="${EMAIL_ASSETS.logo}"
                   alt="${EVENT.name}"
                   width="120"
                   style="
@@ -570,7 +571,7 @@ export function buildRoleChangeEmail({
             <tr>
               <td align="center" style="padding: 40px 40px 20px">
                 <img
-                  src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
+                  src="${EMAIL_ASSETS.logo}"
                   alt="${EVENT.name}"
                   width="120"
                   style="

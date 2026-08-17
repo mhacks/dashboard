@@ -10,7 +10,7 @@ import {
   Section,
   Text,
 } from "@react-email/components";
-import { emailAssets, emailSocialLinks } from "@/lib/email/assets";
+import { EMAIL_ASSETS } from "@/lib/config/links";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type { EmailThemeTokens } from "@/lib/email/types";
 import { EVENT } from "@/lib/config/event";
@@ -30,7 +30,7 @@ export function EmailHeader({
       <Img
         alt={EVENT.name}
         height="80"
-        src={emailAssets.logoBadge}
+        src={EMAIL_ASSETS.logoBadge}
         style={logo}
         width="80"
       />
@@ -116,7 +116,7 @@ export function EmailDivider({
     <Section style={flowerDividerWrap}>
       <Img
         alt=""
-        src={emailAssets.flowerDivider}
+        src={EMAIL_ASSETS.flowerDivider}
         style={flowerDivider}
         width="100%"
       />
@@ -159,7 +159,7 @@ export function EmailFooter({
         <Column style={footerColumn}>
           <Text style={websiteWrap}>
             {EVENT.name},{" "}
-            <Link href={emailSocialLinks.website} style={websiteLink(theme)}>
+            <Link href={CONTACT.website} style={websiteLink(theme)}>
               {CONTACT.website.replace("https://", "")}
             </Link>
           </Text>
@@ -167,44 +167,44 @@ export function EmailFooter({
         <Column style={socialColumn}>
           <Row style={socialIconsRow}>
             <Column style={socialIconColumn}>
-              <Link href={emailSocialLinks.linkedin} style={socialLink}>
+              <Link href={CONTACT.socials.linkedin} style={socialLink}>
                 <Img
                   alt="LinkedIn"
                   height="32"
-                  src={emailAssets.socials.linkedin}
+                  src={EMAIL_ASSETS.socials.linkedin}
                   style={socialIcon}
                   width="32"
                 />
               </Link>
             </Column>
             <Column style={socialIconColumn}>
-              <Link href={emailSocialLinks.x} style={socialLink}>
+              <Link href={CONTACT.socials.x} style={socialLink}>
                 <Img
                   alt="X"
                   height="32"
-                  src={emailAssets.socials.x}
+                  src={EMAIL_ASSETS.socials.x}
                   style={socialIcon}
                   width="32"
                 />
               </Link>
             </Column>
             <Column style={socialIconColumn}>
-              <Link href={emailSocialLinks.instagram} style={socialLink}>
+              <Link href={CONTACT.socials.instagram} style={socialLink}>
                 <Img
                   alt="Instagram"
                   height="32"
-                  src={emailAssets.socials.instagram}
+                  src={EMAIL_ASSETS.socials.instagram}
                   style={socialIcon}
                   width="32"
                 />
               </Link>
             </Column>
             <Column style={socialIconColumn}>
-              <Link href={emailSocialLinks.youtube} style={socialLink}>
+              <Link href={CONTACT.socials.youtube} style={socialLink}>
                 <Img
                   alt="YouTube"
                   height="32"
-                  src={emailAssets.socials.youtube}
+                  src={EMAIL_ASSETS.socials.youtube}
                   style={socialIcon}
                   width="32"
                 />

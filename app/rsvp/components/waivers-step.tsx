@@ -8,9 +8,9 @@ import { FormSectionCard } from "@/components/forms/form-section-card";
 import { Textarea } from "@/components/ui/textarea";
 import { EVENT } from "@/lib/config/event";
 import type { RsvpFormData } from "@/lib/types/rsvps";
+import { LINKS } from "@/lib/config/links";
 
-const ACTIVITIES_WAIVER_URL =
-  "https://drive.google.com/file/d/1K6OsDr_UCc3lrtSCYjtXt2MIpCwyfWZy/view?usp=sharing";
+const ACTIVITIES_WAIVER_URL = LINKS.documents.activitiesWaiver;
 
 export function WaiversStep() {
   const {
