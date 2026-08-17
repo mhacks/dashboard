@@ -50,7 +50,7 @@ export const RSVP_URL: Record<DecisionRound, string> = {
 };
 
 export const RSVP_DEADLINE: Record<DecisionRound, string> = {
-  early: "August 28, 2026",
+  early: "August 21, 2026",
   regular: "September 26, 2026",
 };
 
