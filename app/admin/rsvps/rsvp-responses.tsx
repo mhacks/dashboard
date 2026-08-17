@@ -35,6 +35,7 @@ import type {
   AdminRsvpSummary,
 } from "@/lib/types/admin-rsvps";
 import type { RsvpStatus } from "@/lib/rsvp/status";
+import { formatMediumDateTime } from "@/lib/format/date";
 
 const PAGE_SIZE = 25;
 
@@ -231,10 +232,7 @@ export function RsvpResponses({
                   <TableCell>{statusBadge(row.status)}</TableCell>
                   <TableCell>
                     {row.submittedAt
-                      ? new Intl.DateTimeFormat("en-US", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }).format(new Date(row.submittedAt))
+                      ? formatMediumDateTime(row.submittedAt)
                       : "—"}
                   </TableCell>
                   <TableCell>
