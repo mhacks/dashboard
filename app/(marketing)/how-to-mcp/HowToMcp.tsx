@@ -7,6 +7,7 @@ import { PillTabGroup } from "@/components/landing/PillTabGroup";
 import { CopyChip, CommandBlock } from "@/components/landing/CopyBlock";
 import Image from "next/image";
 import { DOT_PAPER_BG, GRAIN_240 } from "@/lib/landing/textures";
+import { EVENT } from "@/lib/config/event";
 import {
   AUTH_NOTES,
   CLIENT_GUIDES,
@@ -190,7 +191,7 @@ function HumanMode() {
       <div className="flex flex-col gap-8">
         <Rise className="flex flex-col gap-3">
           <h1 className="font-display text-4xl font-medium italic leading-[0.98] tracking-tight text-moss-700 sm:text-5xl lg:text-6xl">
-            Connect an AI agent to MHacks
+            Connect an AI agent to {EVENT.name}
           </h1>
           <p className="max-w-2xl text-[16px] leading-relaxed text-moss-700/80">
             {INTRO}

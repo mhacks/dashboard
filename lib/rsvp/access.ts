@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/schema/reimbursements";
 import { hackerRsvps } from "@/lib/db/schema/rsvps";
 import { assertRsvpOpen } from "@/lib/rsvp/deadline";
+import { EVENT } from "@/lib/config/event";
 import {
   hasApprovedTravelAward,
   type RsvpTravelEligibilitySource,
@@ -22,7 +23,9 @@ export function assertAcceptedRsvpDecision(
   decision: ApplicationDecision,
 ): void {
   if (decisionOutcome(decision) !== "accepted") {
-    throw new Error("An accepted MHacks 2026 application is required to RSVP");
+    throw new Error(
+      `An accepted ${EVENT.fullName} application is required to RSVP`,
+    );
   }
 }
 
@@ -46,7 +49,7 @@ export async function lockWritableRsvpApplicant(
     .for("update");
 
   if (!application) {
-    throw new Error("A submitted MHacks 2026 application is required");
+    throw new Error(`A submitted ${EVENT.fullName} application is required`);
   }
   assertAcceptedRsvpDecision(application.decision);
 

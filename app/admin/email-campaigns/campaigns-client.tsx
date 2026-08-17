@@ -40,6 +40,7 @@ import {
   sendOneDirectEmailAction,
 } from "./actions";
 import { formatTimeOfDay } from "@/lib/format/date";
+import { EVENT } from "@/lib/config/event";
 
 type PreviewMode = "desktop" | "mobile";
 export type EmailCampaignSurface = "builder" | "styles" | "send";
@@ -246,14 +247,14 @@ export default function EmailCampaignsClient({
   function createStructuredTemplate() {
     const template: MasterTemplate = {
       id: `local-template-${crypto.randomUUID()}`,
-      name: "New MHacks template",
+      name: `New ${EVENT.name} template`,
       type: "structured",
       description: "Reusable campaign template",
-      subject: "An update from MHacks",
-      previewText: "A quick update from the MHacks team.",
+      subject: `An update from ${EVENT.name}`,
+      previewText: `A quick update from the ${EVENT.name} team.`,
       content: {
-        eyebrow: "MHacks Update",
-        heading: "A new MHacks update",
+        eyebrow: `${EVENT.name} Update`,
+        heading: `A new ${EVENT.name} update`,
         intro: "Hi {{name}},",
         sections: [
           {
@@ -266,7 +267,7 @@ export default function EmailCampaignsClient({
           label: "Learn more",
           url: "https://mhacks.org",
         },
-        footerNote: "Questions? Reach out to the MHacks team.",
+        footerNote: `Questions? Reach out to the ${EVENT.name} team.`,
       },
       html: null,
       status: "active",
@@ -289,8 +290,8 @@ export default function EmailCampaignsClient({
       name: file.name.replace(/\.html$/i, "") || "Uploaded template",
       type: "html",
       description: "Uploaded HTML email",
-      subject: "An update from MHacks",
-      previewText: "A quick update from the MHacks team.",
+      subject: `An update from ${EVENT.name}`,
+      previewText: `A quick update from the ${EVENT.name} team.`,
       content: null,
       html,
       status: "active",
@@ -1148,7 +1149,7 @@ function EmailCampaignHeader({
       <div className={classes.row}>
         <div className="min-w-0">
           <p className="font-red-hat text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
-            MHacks Organizer
+            {EVENT.name} Organizer
           </p>
           <h1 className={classes.title}>Email Campaigns</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
@@ -2380,9 +2381,9 @@ function buildAiTemplateContext(
         };
 
   return [
-    "# MHacks Email Template Drafting Context (Beta)",
+    `# ${EVENT.name} Email Template Drafting Context (Beta)`,
     "",
-    "You are revising the CURRENT email template below for MHacks organizers. Return ONLY valid JSON. Do not include Markdown fences or commentary.",
+    `You are revising the CURRENT email template below for ${EVENT.name} organizers. Return ONLY valid JSON. Do not include Markdown fences or commentary.`,
     "",
     "Rules:",
     "- Keep the message concise and operational.",

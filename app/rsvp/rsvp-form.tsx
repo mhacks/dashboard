@@ -37,6 +37,7 @@ import { TravelTaxStep } from "./components/travel-tax-step";
 import { WaiversStep } from "./components/waivers-step";
 import { useRsvpAutosave } from "./use-rsvp-autosave";
 import { formatMediumDateTime } from "@/lib/format/date";
+import { EVENT } from "@/lib/config/event";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 
@@ -405,8 +406,8 @@ export default function RsvpForm({
             <p className="mt-3 max-w-xl font-red-hat text-sm leading-6 text-moss/65">
               Please complete this form by{" "}
               <span className="mr-1 font-semibold text-moss">August 21st</span>
-              to confirm your spot at MHacks 2026. We&apos;re so excited to have
-              you here !!
+              to confirm your spot at {EVENT.fullName}. We&apos;re so excited to
+              have you here !!
             </p>
           </div>
           <FormStepProgress

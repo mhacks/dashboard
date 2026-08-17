@@ -21,6 +21,7 @@ import { prefersReducedMotion, usePanelEntrance } from "@/lib/pass/motion";
 import { useFitScale } from "@/lib/pass/use-fit-scale";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useMounted } from "@/hooks/use-mounted";
+import { EVENT } from "@/lib/config/event";
 
 const DESKTOP = "(min-width: 1024px)";
 
@@ -376,7 +377,7 @@ function Controls({
                   back to the unaddressed original for the rare application
                   submitted without a first name. */}
               <span style={{ whiteSpace: "nowrap" }}>
-                {firstName ? `${firstName}.` : "MHacks."}
+                {firstName ? `${firstName}.` : `${EVENT.name}.`}
                 <span
                   aria-hidden
                   className="mh-cursor"

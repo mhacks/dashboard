@@ -20,8 +20,9 @@
   by looking at the sample output.
 */
 
-// TODO(config): read from lib/config/event.ts once it exists.
-const EVENT_TIME_ZONE = "America/Detroit";
+import { EVENT } from "@/lib/config/event";
+
+const EVENT_TIME_ZONE = EVENT.timezone;
 const EVENT_LOCALE = "en-US";
 
 export type DateInput = Date | string | number;

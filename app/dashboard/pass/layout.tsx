@@ -12,15 +12,16 @@ import { DEFAULT_BACKDROP, backdropDef } from "@/lib/pass/backdrops";
   No `weight` — it is a variable font, so this is one woff2 covering 300–700
   instead of the five static instances an explicit weight array would emit.
 */
+import { EVENT } from "@/lib/config/event";
+
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Boarding Pass · MHacks 2026",
-  description:
-    "Personalize your MHacks 2026 boarding pass and take it with you.",
+  title: `Boarding Pass · ${EVENT.fullName}`,
+  description: `Personalize your ${EVENT.fullName} boarding pass and take it with you.`,
 };
 
 /**

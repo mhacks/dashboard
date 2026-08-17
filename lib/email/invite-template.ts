@@ -1,6 +1,7 @@
 import { formatLongDateTimeWithZone } from "@/lib/format/date";
 import { userRoleLabel } from "@/lib/display/user-roles";
 import type { InvitableUserRole } from "@/lib/types/user-invitations";
+import { EVENT } from "@/lib/config/event";
 
 function escapeHtml(value: string) {
   return value
@@ -20,34 +21,33 @@ const ROLE_INVITE_CONTENT: Record<
   { description: string; nextSteps: string[] }
 > = {
   hacker: {
-    description: "You've been invited to join the MHacks portal as a hacker.",
+    description: `You've been invited to join the ${EVENT.name} portal as a hacker.`,
     nextSteps: [
-      "Access your MHacks dashboard",
+      `Access your ${EVENT.name} dashboard`,
       "Apply for upcoming hackathons",
       "Manage your profile and applications",
     ],
   },
   organizer: {
-    description:
-      "You've been invited as an organizer for the MHacks review portal.",
+    description: `You've been invited as an organizer for the ${EVENT.name} review portal.`,
     nextSteps: [
-      "Access the MHacks review portal",
+      `Access the ${EVENT.name} review portal`,
       "Review and manage hacker applications",
       "Collaborate with the organizing team",
     ],
   },
   volunteer: {
-    description: "You've been invited as a volunteer for the MHacks portal.",
+    description: `You've been invited as a volunteer for the ${EVENT.name} portal.`,
     nextSteps: [
-      "Access the MHacks portal",
-      "Support event operations during MHacks",
+      `Access the ${EVENT.name} portal`,
+      `Support event operations during ${EVENT.name}`,
       "Coordinate with the organizing team",
     ],
   },
   judge: {
-    description: "You've been invited as a judge for the MHacks portal.",
+    description: `You've been invited as a judge for the ${EVENT.name} portal.`,
     nextSteps: [
-      "Access the MHacks portal",
+      `Access the ${EVENT.name} portal`,
       "Review and score hackathon projects",
       "Collaborate with organizers and other judges",
     ],
@@ -85,7 +85,7 @@ export function buildInviteEmail({
   const safeLoginUrl = escapeHtml(loginUrl);
   const nextSteps = whatsNextItems(role);
 
-  const subject = `You're invited to MHacks as ${roleLabel}`;
+  const subject = `You're invited to ${EVENT.name} as ${roleLabel}`;
 
   const text = [
     roleDescription(role),
@@ -104,7 +104,7 @@ export function buildInviteEmail({
     "",
     "Questions? Contact hackathon@mhacks.org.",
     "",
-    "— The MHacks Team",
+    `— The ${EVENT.name} Team`,
   ].join("\n");
 
   const html = `<!doctype html>
@@ -112,7 +112,7 @@ export function buildInviteEmail({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MHacks | You're Invited</title>
+    <title>${EVENT.name} | You're Invited</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -185,7 +185,7 @@ export function buildInviteEmail({
               <td align="center" style="padding: 40px 40px 20px">
                 <img
                   src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
-                  alt="MHacks"
+                  alt="${EVENT.name}"
                   width="120"
                   style="
                     display: block;
@@ -226,7 +226,7 @@ export function buildInviteEmail({
                     line-height: 1.2;
                   "
                 >
-                  Join MHacks as ${escapeHtml(roleLabel)}
+                  Join ${EVENT.name} as ${escapeHtml(roleLabel)}
                 </h1>
 
                 <p
@@ -326,7 +326,7 @@ export function buildInviteEmail({
                     padding: 14px 28px;
                   "
                 >
-                  Sign in to MHacks
+                  Sign in to ${EVENT.name}
                 </a>
                 <p
                   style="
@@ -454,7 +454,7 @@ export function buildInviteEmail({
                     font-weight: 700;
                   "
                 >
-                  &mdash; The MHacks Team
+                  &mdash; The ${EVENT.name} Team
                 </p>
               </td>
             </tr>
@@ -479,17 +479,17 @@ export function buildRoleChangeEmail({
   const safeLoginUrl = escapeHtml(loginUrl);
   const nextSteps = whatsNextItems(role);
 
-  const subject = `Your MHacks role has been updated to ${roleLabel}`;
+  const subject = `Your ${EVENT.name} role has been updated to ${roleLabel}`;
 
   const text = [
-    `Your MHacks portal role has been updated to ${roleLabel}.`,
+    `Your ${EVENT.name} portal role has been updated to ${roleLabel}.`,
     "",
     "Sign in to access your updated permissions:",
     loginUrl,
     "",
     "Questions? Contact hackathon@mhacks.org.",
     "",
-    "— The MHacks Team",
+    `— The ${EVENT.name} Team`,
   ].join("\n");
 
   const html = `<!doctype html>
@@ -497,7 +497,7 @@ export function buildRoleChangeEmail({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MHacks | Role Updated</title>
+    <title>${EVENT.name} | Role Updated</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -570,7 +570,7 @@ export function buildRoleChangeEmail({
               <td align="center" style="padding: 40px 40px 20px">
                 <img
                   src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
-                  alt="MHacks"
+                  alt="${EVENT.name}"
                   width="120"
                   style="
                     display: block;
@@ -622,7 +622,7 @@ export function buildRoleChangeEmail({
                     line-height: 1.6;
                   "
                 >
-                  Your MHacks portal role has been updated. Sign in to access
+                  Your ${EVENT.name} portal role has been updated. Sign in to access
                   your updated permissions.
                 </p>
 
@@ -641,7 +641,7 @@ export function buildRoleChangeEmail({
                       padding: 14px 28px;
                     "
                   >
-                    Sign in to MHacks
+                    Sign in to ${EVENT.name}
                   </a>
                 </p>
               </td>
@@ -685,7 +685,7 @@ export function buildRoleChangeEmail({
                     font-weight: 700;
                   "
                 >
-                  &mdash; The MHacks Team
+                  &mdash; The ${EVENT.name} Team
                 </p>
               </td>
             </tr>

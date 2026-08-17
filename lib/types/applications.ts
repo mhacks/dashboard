@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { UserEntry } from "../db/schema/users";
 import type { ApplicationDecision } from "../decisions";
+import { EVENT } from "@/lib/config/event";
 
 export const baseApplicationSchema = z.object({
   // Personal Information
@@ -47,7 +48,7 @@ export const baseApplicationSchema = z.object({
     // .describe() is the only way the question text and word-count rule
     // survive into the JSON Schema apply_get_schema returns to MCP agents.
     .describe(
-      'Question: "MHacks is funding you for a year to do anything. What would you do?" Between 10 and 100 words (600 character max).',
+      `Question: "${EVENT.name} is funding you for a year to do anything. What would you do?" Between 10 and 100 words (600 character max).`,
     ),
   whyMhacks: z
     .string()
@@ -62,7 +63,7 @@ export const baseApplicationSchema = z.object({
       "Please limit your response to 200 words",
     )
     .describe(
-      'Question: "Why MHacks?" Between 20 and 200 words (1200 character max).',
+      `Question: "Why ${EVENT.name}?" Between 20 and 200 words (1200 character max).`,
     ),
   hillToDieOn: z
     .string()

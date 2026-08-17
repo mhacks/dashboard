@@ -9,6 +9,7 @@ import type { PlacedSticker } from "@/components/pass/stickers";
 import { bouquetDef } from "@/components/pass/bouquets";
 import { ticketTheme } from "@/lib/pass/themes";
 import { barcodeFor, passCodeFor } from "@/lib/pass/hash";
+import { EVENT } from "@/lib/config/event";
 
 /*
   Everything both orientations share. The landscape and portrait passes are two
@@ -64,7 +65,7 @@ export function useTicketData(state: TicketState) {
 
 export function ticketAriaLabel(d: ReturnType<typeof useTicketData>): string {
   return [
-    `MHacks 2026 boarding pass.`,
+    `${EVENT.fullName} boarding pass.`,
     d.isEmpty ? "No passenger name yet." : `Passenger ${d.typed}.`,
     `From ${d.origin} to ${DESTINATION}.`,
     `Flight ${FLIGHT}. Class ${d.cls}. ${DATE}.`,

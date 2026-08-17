@@ -13,6 +13,7 @@ import {
 import { emailAssets, emailSocialLinks } from "@/lib/email/assets";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type { EmailThemeTokens } from "@/lib/email/types";
+import { EVENT } from "@/lib/config/event";
 
 export function EmailHeader({
   eyebrow,
@@ -26,7 +27,7 @@ export function EmailHeader({
   return (
     <Section>
       <Img
-        alt="MHacks"
+        alt={EVENT.name}
         height="80"
         src={emailAssets.logoBadge}
         style={logo}
@@ -156,7 +157,7 @@ export function EmailFooter({
       <Row style={footerRow}>
         <Column style={footerColumn}>
           <Text style={websiteWrap}>
-            MHacks,{" "}
+            {EVENT.name},{" "}
             <Link href={emailSocialLinks.website} style={websiteLink(theme)}>
               www.mhacks.org
             </Link>

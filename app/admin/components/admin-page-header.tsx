@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AdminHeaderActions } from "./admin-header-actions";
 import { adminPageHeaderClasses } from "./admin-page-header-layout";
+import { EVENT } from "@/lib/config/event";
 
 export function AdminPageHeader({
   title,
@@ -22,7 +23,7 @@ export function AdminPageHeader({
       <div className={classes.row}>
         <div className="min-w-0">
           <p className="font-red-hat text-xs font-semibold uppercase tracking-[0.22em] text-moss/55 dark:text-sage/60">
-            MHacks Organizer
+            {EVENT.name} Organizer
           </p>
           <h1 className={classes.title}>{title}</h1>
           {description ? (

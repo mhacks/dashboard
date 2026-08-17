@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EVENT } from "@/lib/config/event";
 
 const maxRecipientTextLength = 300_000;
 const maxHtmlTemplateLength = 500_000;
@@ -152,8 +153,8 @@ export type DirectEmailTemplateInput = z.infer<
 >;
 
 export const defaultCampaignContent: EmailCampaignContent = {
-  eyebrow: "MHacks Update",
-  heading: "A new MHacks update",
+  eyebrow: `${EVENT.name} Update`,
+  heading: `A new ${EVENT.name} update`,
   intro: "Hi there,",
   sections: [
     {
@@ -166,5 +167,5 @@ export const defaultCampaignContent: EmailCampaignContent = {
     label: "Open dashboard",
     url: "https://mhacks.org",
   },
-  footerNote: "Questions? Reply to this email or contact the MHacks team.",
+  footerNote: `Questions? Reply to this email or contact the ${EVENT.name} team.`,
 };

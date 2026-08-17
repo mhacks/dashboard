@@ -14,6 +14,7 @@ import { ToolCard, ToolGrid } from "@/components/console/tool-card";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
 import type { UserRole } from "@/lib/db/schema/users";
+import { EVENT } from "@/lib/config/event";
 
 /**
  * Where an applicant stands. `stage` chooses the panel and nothing else does,
@@ -93,7 +94,7 @@ function ApplyingPanel({ data }: { data: ApplicantDashboardData }) {
         lede={
           started
             ? "Your progress is saved. Finish the remaining sections whenever you're ready."
-            : "Applications for MHacks 2026 are open. It takes about fifteen minutes, and you can save your progress as you go."
+            : `Applications for ${EVENT.fullName} are open. It takes about fifteen minutes, and you can save your progress as you go.`
         }
       >
         {started ? "Pick up where you left off" : "You haven't applied yet"}

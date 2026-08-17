@@ -9,6 +9,7 @@ import {
 } from "@/components/forms/form-question";
 import { FormSectionCard } from "@/components/forms/form-section-card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { EVENT } from "@/lib/config/event";
 import { formatCents } from "@/lib/currency";
 import { TRAVEL_GUIDE_URL } from "@/lib/rsvp/travel-guide";
 import type { RsvpFormData } from "@/lib/types/rsvps";
@@ -134,7 +135,7 @@ export function TravelTaxStep({
     <div className="flex flex-col gap-5">
       <FormSectionCard>
         <FormQuestion
-          label="How do you plan to travel to MHacks 2026?"
+          label={`How do you plan to travel to ${EVENT.fullName}?`}
           required
           error={errors.travelPlan}
         >
@@ -237,7 +238,7 @@ export function TravelTaxStep({
                   disabledMessage={
                     travelGuideUnlocked
                       ? undefined
-                      : "Open the MHacks 2026 Travel Guide before acknowledging."
+                      : `Open the ${EVENT.fullName} Travel Guide before acknowledging.`
                   }
                 >
                   I have read the{" "}
@@ -248,7 +249,7 @@ export function TravelTaxStep({
                     onClick={handleOpenTravelGuide}
                     className="font-medium text-moss underline underline-offset-4"
                   >
-                    MHacks 2026 Travel Guide
+                    {EVENT.fullName} Travel Guide
                   </a>{" "}
                   and understand I will only be eligible for travel
                   reimbursement if all criteria are met. I understand that if
@@ -268,7 +269,7 @@ export function TravelTaxStep({
                   onCheckedChange={field.onChange}
                   error={errors.flightBooked}
                 >
-                  I have booked my flight to MHacks 2026.
+                  I have booked my flight to {EVENT.fullName}.
                 </YesAcknowledgement>
               )}
             />

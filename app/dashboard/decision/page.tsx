@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 
 import { ResultsLetter } from "@/components/decision/results-letter";
 import { requireSessionUser } from "@/lib/auth/guards";
+import { EVENT } from "@/lib/config/event";
 import { isDecided } from "@/lib/decisions";
 import { getApplicantDecision } from "@/lib/queries/applicant-decision";
 
 export const metadata: Metadata = {
-  title: "Your decision · MHacks 2026",
+  title: `Your decision · ${EVENT.fullName}`,
 };
 
 /**

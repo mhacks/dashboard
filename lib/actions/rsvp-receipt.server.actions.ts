@@ -31,6 +31,7 @@ import {
   hasApprovedTravelAward,
 } from "@/lib/rsvp/travel-eligibility";
 import type { RsvpDraftData, RsvpReceiptMetadata } from "@/lib/types/rsvps";
+import { EVENT } from "@/lib/config/event";
 
 const receiptSizeSchema = z.strictObject({
   contentType: z.literal(RSVP_RECEIPT_CONTENT_TYPE),
@@ -87,7 +88,7 @@ async function assertCanUploadReceipt(
     .limit(1);
 
   if (!row) {
-    throw new Error("A submitted MHacks 2026 application is required");
+    throw new Error(`A submitted ${EVENT.fullName} application is required`);
   }
   assertAcceptedRsvpDecision(row.decision);
   if (row.finalId) {

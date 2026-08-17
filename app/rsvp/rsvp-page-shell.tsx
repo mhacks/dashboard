@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { logout } from "@/lib/actions/auth.server.actions";
+import { EVENT } from "@/lib/config/event";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 
@@ -101,7 +102,7 @@ export function RsvpPageShell({
                 <MHacksLogo size={20} />
               </Link>
               <span className="font-heading text-[17px] leading-none italic text-white">
-                MHacks 2026
+                {EVENT.fullName}
               </span>
             </div>
             <Link

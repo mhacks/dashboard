@@ -23,6 +23,7 @@ import {
 import { assertRsvpOpen } from "@/lib/rsvp/deadline";
 import { receiptKeyForUser } from "@/lib/rsvp/receipt";
 import { deleteRsvpReceipt, validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
+import { EVENT } from "@/lib/config/event";
 import {
   applyTravelEligibilityDefaults,
   getRsvpTravelEligibility,
@@ -346,7 +347,7 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
     .limit(1);
 
   if (!preflight) {
-    throw new Error("A submitted MHacks 2026 application is required");
+    throw new Error(`A submitted ${EVENT.fullName} application is required`);
   }
   assertAcceptedRsvpDecision(preflight.applicationDecision);
   if (preflight.finalSubmittedAt) {
@@ -424,7 +425,7 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
       .where(eq(hackerApplicants.userId, user.id))
       .for("update");
     if (!application) {
-      throw new Error("A submitted MHacks 2026 application is required");
+      throw new Error(`A submitted ${EVENT.fullName} application is required`);
     }
     assertAcceptedRsvpDecision(application.decision);
 

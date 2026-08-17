@@ -9,6 +9,7 @@ import { RsvpPageShell } from "./rsvp-page-shell";
 import RsvpForm from "./rsvp-form";
 import { RsvpSummary } from "./rsvp-summary";
 import { formatMediumDateTime } from "@/lib/format/date";
+import { EVENT } from "@/lib/config/event";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function RsvpPage() {
         <StateCard
           icon={<LockKeyholeIcon />}
           title="RSVP Not Available"
-          description="An accepted MHacks 2026 application is required before you can complete this RSVP."
+          description={`An accepted ${EVENT.fullName} application is required before you can complete this RSVP.`}
         >
           <div className="flex justify-center">
             <Button asChild>

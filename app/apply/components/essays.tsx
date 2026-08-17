@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FormField } from "../utils";
 import { HackerApplicationFormData } from "@/lib/types/applications";
+import { EVENT } from "@/lib/config/event";
 
 function wordCount(s: string) {
   return s.trim().split(/\s+/).filter(Boolean).length;
@@ -54,10 +55,10 @@ const Essays = ({
   return (
     <Card style={{ borderColor: "rgba(58,74,38,0.15)" }}>
       <CardContent className="space-y-4">
-        <FormField label="Why MHacks?" required>
+        <FormField label={`Why ${EVENT.name}?`} required>
           <Textarea
             {...register("whyMhacks")}
-            placeholder="Why do you want to come to MHacks specifically?"
+            placeholder={`Why do you want to come to ${EVENT.name} specifically?`}
             rows={4}
           />
           <div className="flex items-start justify-between gap-2">
@@ -73,7 +74,7 @@ const Essays = ({
         </FormField>
 
         <FormField
-          label="MHacks is funding you for a year to do anything. What would you do?"
+          label={`${EVENT.name} is funding you for a year to do anything. What would you do?`}
           required
         >
           <Textarea

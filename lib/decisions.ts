@@ -3,6 +3,7 @@
 // builds its pgEnum from APPLICATION_DECISIONS, so the enum and this union can
 // never drift apart. (lib/currency is pure formatting, no database.)
 
+import { EVENT } from "./config/event";
 import { formatCents } from "./currency";
 
 export const APPLICATION_DECISIONS = [
@@ -74,7 +75,7 @@ export type DecisionLetter = {
   signOff: string;
 };
 
-const SIGN_OFF = "— The MHacks 2026 Team";
+const SIGN_OFF = `— The ${EVENT.fullName} Team`;
 
 const ROUND_LABEL: Record<DecisionRound, string> = {
   early: "Early Decision",
@@ -86,10 +87,9 @@ const FOOTNOTE =
 
 type LetterBody = Omit<DecisionLetter, "roundLabel">;
 
-const ACCEPTED_HEADING = "You're in! Welcome to MHacks 2026.";
+const ACCEPTED_HEADING = `You're in! Welcome to ${EVENT.fullName}.`;
 
-const ACCEPTED_INTRO =
-  "Congratulations! We were thoroughly impressed by your application and are thrilled to offer you a spot at MHacks 2026. Space is limited, so please confirm your attendance below to lock in your spot.";
+const ACCEPTED_INTRO = `Congratulations! We were thoroughly impressed by your application and are thrilled to offer you a spot at ${EVENT.fullName}. Space is limited, so please confirm your attendance below to lock in your spot.`;
 
 // Travel reimbursement is an early-round benefit only, so the second paragraph
 // of an accepted letter depends on the round and — for early — on whether the
@@ -97,8 +97,7 @@ const ACCEPTED_INTRO =
 const REIMBURSEMENT_AWARDED = (amount: string) =>
   `Because you applied before the early deadline on August 7, we're also able to offer you **${amount}** in travel reimbursement toward your trip to Ann Arbor. We'll send instructions for claiming it closer to the event.`;
 
-const REIMBURSEMENT_NONE =
-  "Because you applied before the early deadline on August 7, you were also considered for travel reimbursement. It's limited and decided separately from admission — we would love to have you attend, but we're unable to provide reimbursement at this time. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.";
+const REIMBURSEMENT_NONE = `Because you applied before the early deadline on August 7, you were also considered for travel reimbursement. It's limited and decided separately from admission — we would love to have you attend, but we're unable to provide reimbursement at this time. Everything else at ${EVENT.name} — meals, workshops, mentors, and the event itself — is completely free.`;
 
 /**
  * `reimbursementCents` is the applicant's awarded tier in cents, or null when
@@ -142,18 +141,18 @@ function acceptedLetter(
 // than standing it alone above the headline.
 const REJECTED: Record<DecisionRound, LetterBody> = {
   early: {
-    heading: "An update on your MHacks 2026 application",
+    heading: `An update on your ${EVENT.fullName} application`,
     body: [
-      "thank you for applying to MHacks 2026. We received a record-breaking number of applications in our early round this year, making our selection process harder than ever. Unfortunately, due to strict venue capacity, we aren't able to offer you a spot this time around.",
+      `thank you for applying to ${EVENT.fullName}. We received a record-breaking number of applications in our early round this year, making our selection process harder than ever. Unfortunately, due to strict venue capacity, we aren't able to offer you a spot this time around.`,
       "Please know that this outcome is not a reflection of your potential or technical ability. The caliber of applications was exceptional across the board. We genuinely appreciate the time you took to share your work with us, and we hope to see your application again for future events.",
     ],
     signOff: SIGN_OFF,
   },
   regular: {
-    heading: "An update on your MHacks 2026 application",
+    heading: `An update on your ${EVENT.fullName} application`,
     body: [
-      "thank you for applying to MHacks 2026. We received a record-breaking number of applications in our regular round this year, making our selection process harder than ever. Unfortunately, due to strict venue capacity, we aren't able to offer you a spot this time around.",
-      "This is our final decision for MHacks 2026. Please know that this outcome is not a reflection of your potential or technical ability — the caliber of applications was exceptional across the board. We genuinely appreciate the time you took to share your work with us, and we hope to see your application again for future events.",
+      `thank you for applying to ${EVENT.fullName}. We received a record-breaking number of applications in our regular round this year, making our selection process harder than ever. Unfortunately, due to strict venue capacity, we aren't able to offer you a spot this time around.`,
+      `This is our final decision for ${EVENT.fullName}. Please know that this outcome is not a reflection of your potential or technical ability — the caliber of applications was exceptional across the board. We genuinely appreciate the time you took to share your work with us, and we hope to see your application again for future events.`,
     ],
     signOff: SIGN_OFF,
   },

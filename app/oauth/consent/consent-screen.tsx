@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { EVENT } from "@/lib/config/event";
 import {
   approveAuthorization,
   denyAuthorization,
@@ -34,10 +35,10 @@ interface ConsentDetails {
 // connection gets — this list must stay in sync with the tools registered
 // in app/mcp/route.ts.
 const GRANTED_CAPABILITIES = [
-  "See your MHacks identity (user ID and email)",
+  `See your ${EVENT.name} identity (user ID and email)`,
   "View your application status and draft, if any",
   "Save and edit your draft application",
-  "Submit your MHacks application on your behalf — this is final and cannot be undone from the app",
+  `Submit your ${EVENT.name} application on your behalf — this is final and cannot be undone from the app`,
   "Request a link to upload a resume to your account",
 ];
 
@@ -80,7 +81,7 @@ export function ConsentScreen({
             <span className="font-medium" style={{ color: "#3A4A26" }}>
               {details.client.name}
             </span>{" "}
-            wants to access your MHacks account as{" "}
+            wants to access your {EVENT.name} account as{" "}
             <span className="font-medium">{details.user.email}</span>.
           </p>
         </CardHeader>
@@ -105,7 +106,7 @@ export function ConsentScreen({
               className="font-red-hat text-[11px] mt-2"
               style={{ color: "rgba(58,74,38,0.55)" }}
             >
-              Every app you approve gets this same full access — MHacks
+              Every app you approve gets this same full access — {EVENT.name}
               doesn&apos;t currently support granting a narrower set of
               permissions.
             </p>

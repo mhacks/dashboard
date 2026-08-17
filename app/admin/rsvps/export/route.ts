@@ -1,3 +1,4 @@
+import { eventSlug } from "@/lib/config/event";
 import { getAdminRsvpExportRows } from "@/lib/queries/admin-rsvps";
 import { serializeAdminRsvpExport } from "@/lib/rsvp/export";
 
@@ -12,7 +13,7 @@ export async function GET(): Promise<Response> {
     return new Response(csv, {
       headers: {
         "Cache-Control": "private, no-store",
-        "Content-Disposition": `attachment; filename="mhacks-2026-rsvps-${date}.csv"`,
+        "Content-Disposition": `attachment; filename="${eventSlug()}-rsvps-${date}.csv"`,
         "Content-Type": "text/csv; charset=utf-8",
         "X-Content-Type-Options": "nosniff",
       },

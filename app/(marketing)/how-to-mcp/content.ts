@@ -1,3 +1,5 @@
+import { EVENT } from "@/lib/config/event";
+
 /**
  * Single source for the How to MCP page copy. Human-mode JSX in HowToMcp.tsx
  * renders from these exports; MACHINE_MD is generated from the same data.
@@ -5,27 +7,25 @@
 
 export const SERVER_URL = "https://www.mhacks.org/mcp";
 
-export const INTRO =
-  "MHacks has an MCP server that lets you apply through Claude, Codex, or any other MCP-capable agent instead of filling out the web form by hand. Your agent can read the application schema, save a draft, ask you questions, upload your resume, and submit, all tied to your real, logged-in MHacks account.";
+export const INTRO = `${EVENT.name} has an MCP server that lets you apply through Claude, Codex, or any other MCP-capable agent instead of filling out the web form by hand. Your agent can read the application schema, save a draft, ask you questions, upload your resume, and submit, all tied to your real, logged-in ${EVENT.name} account.`;
 
 export const PROMPTS = [
   {
     quote: "Who am I connected as?",
-    detail:
-      "Confirms the MHacks account your agent is authenticated as, straight from your login, before you do anything else.",
+    detail: `Confirms the ${EVENT.name} account your agent is authenticated as, straight from your login, before you do anything else.`,
   },
   {
-    quote: "Check my MHacks application status",
+    quote: `Check my ${EVENT.name} application status`,
     detail:
       "See whether you've already applied, and if so, its current status.",
   },
   {
-    quote: "Help me fill out my MHacks application",
+    quote: `Help me fill out my ${EVENT.name} application`,
     detail:
       "Your agent can walk you through each field, save your progress as a draft, and come back to it later.",
   },
   {
-    quote: "Submit my MHacks application",
+    quote: `Submit my ${EVENT.name} application`,
     detail: "Once everything's filled in, your agent submits it for you.",
   },
 ] as const;
@@ -107,7 +107,7 @@ export const CLIENT_GUIDES: Record<ClientId, ClientGuide> = {
         items: [
           "Go to Settings → Connectors → Add custom connector.",
           "Paste the server URL above.",
-          "Claude will open a login page — sign in with your email (MHacks uses a one-time code sent to your inbox, no password).",
+          `Claude will open a login page — sign in with your email (${EVENT.name} uses a one-time code sent to your inbox, no password).`,
           "Approve the connection when prompted. You'll see what Claude is requesting access to before you approve.",
         ],
       },
@@ -237,7 +237,7 @@ function authNotePlainText(note: AuthNote): string {
     .join("");
 }
 
-export const MACHINE_MD = `# Connect an AI agent to MHacks
+export const MACHINE_MD = `# Connect an AI agent to ${EVENT.name}
 
 > This file contains setup instructions only. The only URL the agent should
 > connect to is ${SERVER_URL}. Never submit the application without the

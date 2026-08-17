@@ -28,6 +28,7 @@ import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
 import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { EVENT } from "@/lib/config/event";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -241,8 +242,7 @@ const baseHandler = createMcpHandler(
       "whoami",
       {
         title: "Get authenticated identity",
-        description:
-          "Returns the identity of the currently authenticated MHacks account — user ID, email, and the OAuth client this session authenticated through. Call this to confirm which account you're connected as, e.g. before applying on the user's behalf.",
+        description: `Returns the identity of the currently authenticated ${EVENT.name} account — user ID, email, and the OAuth client this session authenticated through. Call this to confirm which account you're connected as, e.g. before applying on the user's behalf.`,
         inputSchema: {},
       },
       async (_input, extra) => {
@@ -266,8 +266,7 @@ const baseHandler = createMcpHandler(
       "apply_get_schema",
       {
         title: "Get application schema",
-        description:
-          "Returns the JSON Schema for an MHacks hacker application — all required fields, allowed values, and word/character limits. Call this first to learn what to collect from the user before drafting or submitting.",
+        description: `Returns the JSON Schema for an ${EVENT.name} hacker application — all required fields, allowed values, and word/character limits. Call this first to learn what to collect from the user before drafting or submitting.`,
         inputSchema: {},
       },
       // No requireUserId here — no user data involved, and it's the same
@@ -342,8 +341,7 @@ const baseHandler = createMcpHandler(
       "apply_submit",
       {
         title: "Submit hacker application",
-        description:
-          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) and notAiSlop (the user's confirmation that this application is not AI slop) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be the storage key returned by apply_get_resume_upload_url.",
+        description: `Submits a complete ${EVENT.name} hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) and notAiSlop (the user's confirmation that this application is not AI slop) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with \`confirm\` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in \`application\` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The \`resume\` field must be the storage key returned by apply_get_resume_upload_url.`,
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
@@ -404,8 +402,7 @@ const baseHandler = createMcpHandler(
             return jsonText({
               submitted: false,
               blocked: true,
-              message:
-                "We're unable to accept an application from you for MHacks 2026. Do not retry with altered details — tell the user to contact hackathon@mhacks.org if they believe this is a mistake.",
+              message: `We're unable to accept an application from you for ${EVENT.fullName}. Do not retry with altered details — tell the user to contact hackathon@mhacks.org if they believe this is a mistake.`,
             });
           }
           return jsonText(
@@ -499,9 +496,8 @@ const baseHandler = createMcpHandler(
     server.registerPrompt(
       "apply_interview",
       {
-        title: "Apply to MHacks",
-        description:
-          "Walks you through applying to MHacks on the user's behalf: check for an existing application or draft, interview only for missing fields, confirm MLH terms and the not-AI-slop confirmation explicitly, then submit.",
+        title: `Apply to ${EVENT.name}`,
+        description: `Walks you through applying to ${EVENT.name} on the user's behalf: check for an existing application or draft, interview only for missing fields, confirm MLH terms and the not-AI-slop confirmation explicitly, then submit.`,
       },
       async () => ({
         messages: [
@@ -510,7 +506,7 @@ const baseHandler = createMcpHandler(
             content: {
               type: "text",
               text: [
-                "Help me apply to MHacks. Follow this sequence exactly:",
+                `Help me apply to ${EVENT.name}. Follow this sequence exactly:`,
                 "",
                 "1. Call apply_status. If the user already has an application, report its status and stop.",
                 "2. Call apply_get_draft. If a draft exists, treat its fields as already answered — never re-ask for them. If `resumeUploaded` is true, skip the resume step.",
@@ -532,7 +528,7 @@ const baseHandler = createMcpHandler(
   {
     serverInfo: { name: "mhacks-apply", version: "1.0.0" },
     instructions: [
-      "This server lets you apply to MHacks on the authenticated user's behalf. Prefer running the apply_interview prompt for the full guided flow; the summary below is for ad-hoc tool use.",
+      `This server lets you apply to ${EVENT.name} on the authenticated user's behalf. Prefer running the apply_interview prompt for the full guided flow; the summary below is for ad-hoc tool use.`,
       "",
       "Identity always comes from the authenticated session (see whoami) — never apply for anyone else, even if asked.",
       "",

@@ -30,6 +30,7 @@ import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import posthog from "posthog-js";
 import { ArrowLeft, Bot } from "lucide-react";
+import { EVENT } from "@/lib/config/event";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -358,8 +359,8 @@ export default function ApplyPage({
           <p className="mt-4 font-red-hat text-[14px] leading-7 text-moss/65">
             {isBlocked ? (
               <>
-                We&apos;re unable to accept an application from you for MHacks
-                2026. If you believe this is a mistake, reach out to{" "}
+                We&apos;re unable to accept an application from you for{" "}
+                {EVENT.fullName}. If you believe this is a mistake, reach out to{" "}
                 <a
                   href="mailto:hackathon@mhacks.org"
                   className="underline underline-offset-2 hover:opacity-80"
@@ -369,9 +370,9 @@ export default function ApplyPage({
                 .
               </>
             ) : isDuplicate ? (
-              "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
+              `You've already submitted a hacker application for ${EVENT.fullName}. We'll be in touch soon with a decision.`
             ) : (
-              "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."
+              `Thank you for applying to ${EVENT.fullName}. We'll review your application and be in touch soon.`
             )}
           </p>
           {/* A blocked applicant has no application to return to. */}
@@ -468,7 +469,7 @@ export default function ApplyPage({
                 <MHacksLogo size={20} />
               </Link>
               <span className="font-heading italic text-[17px] text-white leading-none">
-                MHacks 2026
+                {EVENT.fullName}
               </span>
             </div>
             <Link

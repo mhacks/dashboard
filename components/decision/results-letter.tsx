@@ -16,6 +16,7 @@ import { DecisionBackdrop } from "@/components/decision/decision-backdrop";
 import { EventDetails } from "@/components/decision/event-details";
 import { renderParagraph } from "@/components/decision/render-paragraph";
 import { RsvpButton } from "@/components/decision/rsvp-button";
+import { EVENT } from "@/lib/config/event";
 import {
   decisionLetter,
   decisionOutcome,
@@ -149,7 +150,7 @@ function AcceptedBody({
           </LetterBody>
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <ButtonLink href={discordInviteUrl} variant="outline">
-              Join the MHacks Discord
+              Join the {EVENT.name} Discord
             </ButtonLink>
           </div>
         </LetterSection>
@@ -171,7 +172,7 @@ function AcceptedBody({
           >
             <LetterBody>
               Design your own flower bouquet with Michigan-native wildflowers!
-              Download your bouquet as a sticker to decorate your MHacks
+              Download your bouquet as a sticker to decorate your {EVENT.name}
               boarding pass. Remember to tag us on social media for a feature!
             </LetterBody>
             <div className="mt-5 flex flex-wrap items-center gap-4">

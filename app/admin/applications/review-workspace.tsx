@@ -104,6 +104,7 @@ import {
   formatReviewDisplayValue,
 } from "./display-formatters";
 import { ReviewEventTimeline } from "./review-event-timeline";
+import { EVENT } from "@/lib/config/event";
 import {
   formatMediumDate,
   formatMediumDateTime,
@@ -1676,7 +1677,7 @@ export default function ApplicationReviewWorkspace({
 
             <Section title="Essays">
               <EssayBlock
-                label="Why MHacks?"
+                label={`Why ${EVENT.name}?`}
                 value={selectedDetail.application.whyMhacks}
               />
               <EssayBlock

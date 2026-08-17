@@ -4,6 +4,7 @@ import { MlhBadge } from "@/components/landing/MlhBadge";
 import { CtaButton } from "@/components/landing/cta-button";
 import { asset } from "@/lib/landing/asset";
 import { GRAIN_140 } from "@/lib/landing/textures";
+import { EVENT } from "@/lib/config/event";
 
 const DOT_GRID = [
   "radial-gradient(circle, rgba(255,255,255,0.3) 0.5px, transparent 0.5px)",
@@ -108,8 +109,8 @@ export default function NotFound() {
             </h1>
 
             <p className="max-w-md text-[11px] font-medium uppercase tracking-[0.18em] text-cream md:text-[13px] md:tracking-[0.3em] [text-shadow:0_1px_12px_rgba(20,30,10,0.55)]">
-              This path did not bloom, but MHacks is still right where you left
-              it.
+              This path did not bloom, but {EVENT.name} is still right where you
+              left it.
             </p>
 
             <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">

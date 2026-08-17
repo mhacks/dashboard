@@ -6,6 +6,7 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { BooleanChoice, FormQuestion } from "@/components/forms/form-question";
 import { FormSectionCard } from "@/components/forms/form-section-card";
 import { Textarea } from "@/components/ui/textarea";
+import { EVENT } from "@/lib/config/event";
 import type { RsvpFormData } from "@/lib/types/rsvps";
 
 const ACTIVITIES_WAIVER_URL =
@@ -44,7 +45,7 @@ export function WaiversStep() {
             document. The above agreements are binding upon me, my estate,
             heirs, representatives, and assigns. I understand that selecting
             &quot;No&quot; will not allow me to participate in some activities
-            at MHacks 2026.
+            at {EVENT.fullName}.
             <span className="ml-1 text-destructive" aria-hidden="true">
               *
             </span>
@@ -73,25 +74,26 @@ export function WaiversStep() {
       <FormSectionCard contentClassName="flex flex-col gap-4">
         <div className="flex flex-col gap-3 font-red-hat text-sm leading-6 text-foreground">
           <p>
-            I hereby grant the MHacks permission to use my likeness in a
+            I hereby grant the {EVENT.name} permission to use my likeness in a
             photograph, video, or other digital media (&quot;photo&quot;) in any
             and all of its publications, including web-based publications,
             without payment or other consideration.
           </p>
           <p>
             I understand and agree that all photos will become the property of
-            the MHacks and will not be returned.
+            the {EVENT.name} and will not be returned.
           </p>
           <p>
-            I hereby irrevocably authorize the MHacks to edit, alter, copy,
-            exhibit, publish, or distribute these photos for any lawful purpose.
-            In addition, I waive any right to inspect or approve the finished
-            product wherein my likeness appears. Additionally, I waive any right
-            to royalties or other compensation arising or related to the use of
-            the photo.
+            I hereby irrevocably authorize the {EVENT.name} to edit, alter,
+            copy, exhibit, publish, or distribute these photos for any lawful
+            purpose. In addition, I waive any right to inspect or approve the
+            finished product wherein my likeness appears. Additionally, I waive
+            any right to royalties or other compensation arising or related to
+            the use of the photo.
           </p>
           <p>
-            I hereby hold harmless, release, and forever discharge the MHacks
+            I hereby hold harmless, release, and forever discharge the{" "}
+            {EVENT.name}
             from all claims, demands, and causes of action which I, my heirs,
             representatives, executors, administrators, or any other persons
             acting on my behalf or on behalf of my estate have or may have by
@@ -123,7 +125,7 @@ export function WaiversStep() {
           LAST ONE!
         </p>
         <FormQuestion
-          label="Anything else you'd like the MHacks Team to know?"
+          label={`Anything else you'd like the ${EVENT.name} Team to know?`}
           htmlFor="additionalNotes"
           error={errors.additionalNotes}
         >

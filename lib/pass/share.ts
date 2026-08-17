@@ -1,6 +1,7 @@
 import { getFontEmbedCSS, toPng } from "html-to-image";
 import type { FormatDef } from "@/lib/pass/formats";
 import { settleAnimations } from "./motion";
+import { EVENT } from "@/lib/config/event";
 
 /*
   Getting the pass off the page.
@@ -12,8 +13,8 @@ import { settleAnimations } from "./motion";
   platform's own app instead, which is the same outcome without any of that.
 */
 
-const SHARE_TITLE = "MHacks 2026";
-const SHARE_TEXT = "I'm going to MHacks 2026. See you in Ann Arbor.";
+const SHARE_TITLE = EVENT.fullName;
+const SHARE_TEXT = `I'm going to ${EVENT.fullName}. See you in ${EVENT.city}.`;
 
 /*
   html-to-image inlines every @font-face it can find, and the dashboard

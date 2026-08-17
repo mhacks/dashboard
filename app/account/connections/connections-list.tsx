@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { revokeGrant } from "@/lib/actions/oauth-grants.server.actions";
 import { formatMediumDate } from "@/lib/format/date";
+import { EVENT } from "@/lib/config/event";
 
 // Matches Supabase's `OAuthGrant` shape
 // (packages/core/auth-js/src/lib/types.ts) structurally, without importing
@@ -48,8 +49,8 @@ export function ConnectionsList({ grants }: { grants: Grant[] }) {
             className="mt-2 font-red-hat text-[13px] text-center"
             style={{ color: "rgba(58,74,38,0.6)" }}
           >
-            Apps you&apos;ve given access to your MHacks account. Revoking an
-            app signs it out immediately.
+            Apps you&apos;ve given access to your {EVENT.name} account. Revoking
+            an app signs it out immediately.
           </p>
         </CardHeader>
 

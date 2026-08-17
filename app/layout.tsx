@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthStateSync } from "@/components/auth-state-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { EVENT, eventTitle } from "@/lib/config/event";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,13 +52,11 @@ const redHatMono = Red_Hat_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mhacks.org"),
-  title: "MHacks 2026 · Digital Garden",
-  description:
-    "MHacks is the University of Michigan's flagship hackathon. 24 hours of building at the intersection of nature and technology. Ann Arbor, Fall 2026.",
+  title: eventTitle(),
+  description: `${EVENT.name} is ${EVENT.host}'s flagship hackathon. 24 hours of building at the intersection of nature and technology. ${EVENT.city}, ${EVENT.season}.`,
   openGraph: {
-    title: "MHacks 2026 · Digital Garden",
-    description:
-      "The University of Michigan's flagship hackathon. Build something that grows.",
+    title: eventTitle(),
+    description: `The flagship hackathon of ${EVENT.host}. Build something that grows.`,
     type: "website",
   },
 };
@@ -74,7 +73,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <meta name="apple-mobile-web-app-title" content="MHacks" />
+      <meta name="apple-mobile-web-app-title" content={EVENT.name} />
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${redHatDisplay.variable} ${redHatMono.variable} antialiased`}
         suppressHydrationWarning
