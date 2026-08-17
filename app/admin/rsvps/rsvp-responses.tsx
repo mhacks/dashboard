@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { DownloadIcon, SearchIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, SearchIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAdminRsvpReceiptDownloadUrl } from "@/lib/actions/admin-rsvps.server.actions";
+import { formatCents } from "@/lib/currency";
 import { clampPageIndex, getPageCount, paginateSlice } from "@/lib/pagination";
 import type {
   AdminRsvpDashboard,
@@ -57,6 +60,39 @@ function statusBadge(status: RsvpStatus) {
     return <Badge variant="secondary">In progress</Badge>;
   }
   return <Badge variant="outline">Not started</Badge>;
+}
+
+function ReceiptCell({ row }: { row: AdminRsvpSummary }) {
+  const [isPending, startTransition] = useTransition();
+
+  if (!row.receipt) return <span className="text-muted-foreground">—</span>;
+  const { originalName } = row.receipt;
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={isPending}
+      className="max-w-56 justify-start px-2"
+      title={originalName}
+      onClick={() =>
+        startTransition(async () => {
+          const url = await getAdminRsvpReceiptDownloadUrl(row.applicationSlug);
+          if (!url) {
+            toast.error(
+              `Could not open the receipt for ${row.applicationName}.`,
+            );
+            return;
+          }
+          window.location.assign(url);
+        })
+      }
+    >
+      <FileTextIcon data-icon="inline-start" />
+      <span className="truncate">{originalName}</span>
+    </Button>
+  );
 }
 
 function searchableText(row: AdminRsvpSummary): string {
@@ -165,6 +201,8 @@ export function RsvpResponses({
               <TableHead>Status</TableHead>
               <TableHead>Submitted</TableHead>
               <TableHead>Travel</TableHead>
+              <TableHead>Reimbursement region</TableHead>
+              <TableHead>Receipt</TableHead>
               <TableHead>T-shirt</TableHead>
             </TableRow>
           </TableHeader>
@@ -172,7 +210,7 @@ export function RsvpResponses({
             {visibleRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={8}
                   className="h-28 text-center text-muted-foreground"
                 >
                   No RSVP responses match these filters.
@@ -201,6 +239,14 @@ export function RsvpResponses({
                   </TableCell>
                   <TableCell>
                     {row.travelPlan ? TRAVEL_LABELS[row.travelPlan] : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {row.award
+                      ? `${row.award.regionLabel} · ${formatCents(row.award.amountCents)}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <ReceiptCell row={row} />
                   </TableCell>
                   <TableCell>{row.tshirtSize ?? "—"}</TableCell>
                 </TableRow>

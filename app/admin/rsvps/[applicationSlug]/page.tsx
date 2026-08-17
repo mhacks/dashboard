@@ -12,6 +12,7 @@ import {
   getAdminRsvpDetailAction,
   getAdminRsvpReceiptDownloadUrl,
 } from "@/lib/actions/admin-rsvps.server.actions";
+import { formatCents } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function AdminRsvpDetailPage({
   const receiptHref = detail.values?.receipt
     ? await getAdminRsvpReceiptDownloadUrl(applicationSlug)
     : null;
+  const { award } = detail.summary;
 
   return (
     <AdminPageShell width="narrow">
@@ -51,6 +53,12 @@ export default async function AdminRsvpDetailPage({
             <p className="text-xs text-muted-foreground">
               Account email: {detail.summary.accountEmail}
             </p>
+            {award && (
+              <p className="text-xs text-muted-foreground">
+                Reimbursement: {award.regionLabel} ·{" "}
+                {formatCents(award.amountCents)}
+              </p>
+            )}
           </div>
           {detail.summary.status === "submitted" ? (
             <Badge>Submitted</Badge>
