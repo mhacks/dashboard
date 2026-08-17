@@ -1,4 +1,5 @@
-import { LetterKicker } from "@/components/console/letter";
+import { LetterBody, LetterKicker } from "@/components/console/letter";
+import { TRAVEL_GUIDE_URL } from "@/lib/rsvp/travel-guide";
 
 interface Detail {
   label: string;
@@ -49,6 +50,19 @@ export function EventDetails() {
           </div>
         ))}
       </div>
+
+      <LetterBody>
+        Read the{" "}
+        <a
+          href={TRAVEL_GUIDE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium underline underline-offset-4"
+        >
+          MHacks 2026 Travel Guide
+        </a>{" "}
+        for everything you need to know about getting to Ann Arbor.
+      </LetterBody>
     </>
   );
 }
