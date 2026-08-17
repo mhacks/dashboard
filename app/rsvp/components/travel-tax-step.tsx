@@ -10,12 +10,10 @@ import {
 import { FormSectionCard } from "@/components/forms/form-section-card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatCents } from "@/lib/currency";
+import { TRAVEL_GUIDE_URL } from "@/lib/rsvp/travel-guide";
 import type { RsvpFormData } from "@/lib/types/rsvps";
 import { TRAVEL_OPTIONS } from "../form-options";
 import { ReceiptUpload } from "./receipt-upload";
-
-const TRAVEL_GUIDE_URL =
-  "https://docs.google.com/document/d/1wYGboHlqKiUywumBq-UM7klsGA3XOtYwYxxxhywLpa4/edit?usp=sharing";
 
 export function TravelTaxStep({
   canRequestReimbursement,
@@ -199,6 +197,21 @@ export function TravelTaxStep({
           Only hackers with an approved travel reimbursement award can apply for
           reimbursement.
         </p>
+
+        {travelPlan === "self-funded" && (
+          <p className="font-red-hat text-sm leading-6 text-moss">
+            Please read the{" "}
+            <a
+              href={TRAVEL_GUIDE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-moss underline underline-offset-4"
+            >
+              MHacks 2026 Travel Guide
+            </a>{" "}
+            before you travel to Ann Arbor.
+          </p>
+        )}
 
         {canRequestReimbursement && travelPlan === "reimbursement" && (
           <div className="flex flex-col gap-5 rounded-2xl border border-moss/10 bg-white/70 p-4 shadow-[0_1px_0_rgba(58,74,38,0.08)] sm:p-5">
