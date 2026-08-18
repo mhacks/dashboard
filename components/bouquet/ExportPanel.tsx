@@ -96,6 +96,13 @@ export default function ExportPanel({
       <h2>wrap it up</h2>
       <p className="ep-sub">
         Use your unique sticker to decorate your{" "}
+        {/* Still target="_blank" now that TICKET_URL is an in-app route, and
+            deliberately so: the bouquet lives entirely in this component's
+            reducer with nothing persisted, so navigating away in the same tab
+            would throw away the arrangement — including for someone who
+            clicks through before hitting download. A plain <a> rather than
+            next/link for the same reason: a new tab is a fresh document
+            load, so there's no client-side navigation to optimise. */}
         <a
           className="ep-link"
           href={TICKET_URL}

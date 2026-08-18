@@ -223,10 +223,12 @@ export const STICKER_BORDERS = [
   { id: "lilac", name: "lilac", hex: "#E6E1EC" },
 ];
 
-/* Linked from the export panel's caption. Points at the main MHacks site
-   for now — swap for a more specific in-app destination (e.g. /rsvp) if
-   one becomes the right target. */
-export const TICKET_URL = "https://mhacks.org/";
+/* Linked from the export panel's caption ("decorate your MHacks ticket").
+   The pass IS the ticket, and it has the bouquet slot the downloaded sticker
+   is meant to go in — so this closes the loop that BOUQUET_GAME_URL in
+   components/pass/bouquets.tsx opens in the other direction:
+   pass → build a bouquet → download → back to the pass to upload it. */
+export const TICKET_URL = "/dashboard/pass";
 
 export const SCENE = {
   width: 789, // canvas coordinate space (the panel + rail take the rest)

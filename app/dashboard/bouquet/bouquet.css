@@ -39,54 +39,124 @@
   box-sizing: border-box;
 }
 
+/* Shared at every size. `overflow: hidden` and `min-height: 100vh` are
+   desktop-only (below, under the 1024px query) — on mobile the page is a
+   normal scrolling stack, and hiding overflow would clip it.
+
+   #E4D9C6 is the beige field the game sits on, carried over from the
+   standalone app. Note this is the *only* background left on the frame: the
+   cream paper card that used to back #stage / #inventory / #rail is gone
+   (along with its drop shadow and grain overlay), so this beige reads
+   directly behind the panels rather than peeking out around a card. */
 .bouquet-app {
   margin: 0;
-  min-height: 100vh;
   background: #e4d9c6;
   font-family: var(--font);
   color: var(--ink);
-  overflow: hidden;
 }
 
-/* ── fixed 1280×720 canvas, scaled to fit ─────────────────── */
+/* ── fixed 1280×720 canvas, scaled to fit (desktop only) ──── */
 /* #viewport IS the .bouquet-app element (both attributes on the same node in
    BouquetBuilder.tsx), so this must be a compound selector — the descendant
    form `.bouquet-app #viewport` never matches, since there's no separate
-   .bouquet-app ancestor to descend from. */
-.bouquet-app#viewport {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  z-index: 100;
-}
+   .bouquet-app ancestor to descend from. Pinning it full-viewport only makes
+   sense for the fixed-diorama desktop layout; on mobile it's just a normal
+   block in the page's own scroll, so this whole rule is desktop-only. */
+
+/* No `background` on the stage: the paper card the game used to sit on is
+   gone, so the only painted surface left is the diorama itself (the
+   wall/tiles/table bands inside #canvas) — everything else lets the host
+   page show through. --paper is still used, but only where a surface has to
+   be opaque to stay readable over artwork: the stem label pill, the export
+   panel, the confirm popover, the wrap button's hover state.
+
+   `position: relative` is shared (not gated to desktop like the sizing
+   below): several children (`.bg` and the scene layers) are
+   `position: absolute`, and without a positioned #stage they'd anchor to
+   whatever ancestor is positioned instead — nothing, on mobile, since
+   #viewport's `position: fixed` is desktop-only too — and spill past the
+   stage to cover the whole page. */
 .bouquet-app #stage {
   position: relative;
-  width: 1280px;
-  height: 720px;
-  display: flex;
-  overflow: hidden;
-  background: var(--paper);
-  transform-origin: 50% 50%;
-  box-shadow: 0 18px 60px -18px rgba(70, 51, 40, 0.45);
 }
 
-/* ── grain ─────────────────────────────────────────────────── */
-.bouquet-app .grain {
-  position: absolute;
-  inset: 0;
-  background-size: 256px 256px;
-  opacity: 0.1;
-  mix-blend-mode: multiply;
-  pointer-events: none;
-  z-index: 900;
+@media (min-width: 1024px) {
+  .bouquet-app {
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  .bouquet-app#viewport {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    z-index: 100;
+  }
+
+  /* No `box-shadow` either — it was the paper card's drop shadow, and with
+     the card gone it would just be a shadow cast by nothing. */
+  .bouquet-app #stage {
+    width: 1280px;
+    height: 720px;
+    display: flex;
+    overflow: hidden;
+    transform-origin: 50% 50%;
+  }
 }
+
+@media (max-width: 1023px) {
+  /* No JS-driven `transform` here — the whole-stage scale-to-fit script only
+     runs on desktop. */
+  .bouquet-app #stage {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+  }
+
+  /* #inventory/#rail/#canvas are DOM siblings in source order inventory →
+     rail → canvas (BouquetBuilder.tsx renders them in that order for
+     desktop's row layout, left to right). The mobile layout wants scene on
+     top instead — `order` reshuffles the visual stack without touching the
+     component tree, keeping every component in steps 4-6 logic-identical,
+     CSS-only. */
+  .bouquet-app #rail {
+    order: 2;
+  }
+  .bouquet-app #inventory {
+    order: 3;
+  }
+
+  /* `container-type: inline-size` turns #canvas into a query container, so
+     .arrangement below can read its width back out as `cqw` units — this
+     is what gives #canvas real height on mobile (closing the gap noted in
+     step 2: its own children are all `position: absolute` and otherwise
+     contribute nothing to its intrinsic height). */
+  .bouquet-app #canvas {
+    order: 1;
+    container-type: inline-size;
+    aspect-ratio: 789 / 720;
+    width: 100%;
+  }
+
+  /* NB: the mobile `.arrangement` scale rule is NOT here — it has to live
+     after `.arrangement`'s own base rule further down the file, or the base
+     `left: 50%; transform: translateX(-50%)` wins on source order. See the
+     comment on that rule for the full story. */
+}
+
+/* The paper-grain overlay that used to sit here is gone along with the paper
+   card it textured. Removing it was not only cosmetic: it spanned the whole
+   stage with `mix-blend-mode: multiply`, so once the surface beneath it went
+   transparent it would have multiplied straight onto the dashboard's own
+   background, darkening a stage-sized rectangle of the host page. Its <div>
+   is removed from BouquetBuilder.tsx too, rather than left as dead markup. */
 
 /* ═══════════════ inventory ═══════════════ */
+/* transparent — the flower cards carry their own per-card colour, so they
+   still read fine without a panel behind them */
 .bouquet-app #inventory {
-  width: 435px;
-  flex: none;
-  background: var(--paper);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -95,6 +165,13 @@
     width 0.7s cubic-bezier(0.4, 0, 0.2, 1),
     padding 0.7s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.4s ease;
+}
+
+@media (min-width: 1024px) {
+  .bouquet-app #inventory {
+    width: 435px;
+    flex: none;
+  }
 }
 
 .bouquet-app .tabrow {
@@ -214,6 +291,25 @@
   opacity: 0.62;
 }
 
+/* Two columns instead of three: cards are already real, unscaled CSS
+   pixels here (nothing shrinks them the way the old whole-stage transform
+   did), but bigger is still a more comfortable tap target than "technically
+   visible." `.cardname`'s font-size grows to match. `font-size` alone
+   (not the whole `font` shorthand again) is enough — it overrides just
+   that sub-property of the shorthand above, leaving weight/line-height/
+   family as they were. Placed after the base .grid/.cardname rules for the
+   same cascade-order reason as step 4's rail fix: equal specificity, later
+   source wins, regardless of which rule is the conditional one. */
+@media (max-width: 1023px) {
+  .bouquet-app .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bouquet-app .card .cardname {
+    font-size: 13px;
+  }
+}
+
 @keyframes bouquet-shake {
   0%,
   100% {
@@ -297,10 +393,9 @@
 }
 
 /* ═══════════════ tool rail ═══════════════ */
+/* transparent — the tool glyphs are stroked in --ink and keep their own
+   hover/active fills */
 .bouquet-app #rail {
-  width: 56px;
-  flex: none;
-  background: var(--paper);
   padding: 30px 0 22px;
   display: flex;
   flex-direction: column;
@@ -309,6 +404,13 @@
   transition:
     width 0.7s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.4s ease;
+}
+
+@media (min-width: 1024px) {
+  .bouquet-app #rail {
+    width: 56px;
+    flex: none;
+  }
 }
 
 .bouquet-app .rail-tools {
@@ -340,6 +442,33 @@
 
 .bouquet-app .tool.trash {
   margin-top: 14px;
+}
+
+/* On mobile the rail is a horizontal strip under the scene rather than a
+   56px side column, so both the rail itself and its tool list flip from
+   column to row; `.tool.trash`'s gap-from-the-cluster follows suit
+   (margin-top → margin-left). Deliberately placed *after* the three base
+   rules above rather than next to #rail's own desktop `@media` block:
+   media queries don't add specificity, so with equal specificity the later
+   rule in source order always wins regardless of which one is conditional
+   — putting this before the base rules would have left it silently
+   overridden at every width. ToolRail.tsx is untouched — same `.inert`
+   toggling, same markup, only these rules differ by breakpoint. */
+@media (max-width: 1023px) {
+  .bouquet-app #rail {
+    flex-direction: row;
+    justify-content: center;
+    padding: 12px 0;
+  }
+
+  .bouquet-app .rail-tools {
+    flex-direction: row;
+  }
+
+  .bouquet-app .tool.trash {
+    margin-top: 0;
+    margin-left: 14px;
+  }
 }
 
 /* the rail is now only per-stem tools, so all of it dims together */
@@ -375,20 +504,39 @@
 /* ═══════════════ canvas ═══════════════ */
 .bouquet-app #canvas {
   position: relative;
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   transition: flex-grow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 1024px) {
+  .bouquet-app #canvas {
+    flex: 1;
+  }
 }
 
 .bouquet-app .bg {
   position: absolute;
   inset: 0;
 }
+/* `display: block` is not redundant — it defends against Tailwind. The
+   bottom band's markup is <div class="band table">, and Tailwind ships a
+   `.table { display: table }` utility that the dashboard's global stylesheet
+   pulls in. `.bouquet-app .table` (0,2,0) beats the bare `.table` (0,1,0)
+   for the properties it declares, but it never declared `display`, so the
+   utility leaked through unopposed: the band became a shrink-to-fit table
+   box, collapsed to zero width with no content in it, and the red table
+   never painted — the vase appeared to stand on the page background.
+   Setting it on `.band` rather than `.table` covers every band at once and
+   keeps any future band safe from the same collision.
+   (Audited the rest: `.grid` is the only other bouquet class colliding with
+   a Tailwind utility, and it's harmless — the bouquet rule sets its own
+   `display: grid`.) */
 .bouquet-app .band {
   position: absolute;
   left: 0;
   right: 0;
+  display: block;
 }
 
 .bouquet-app .wall {
@@ -431,11 +579,19 @@
   -webkit-user-drag: none;
   transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
-/* On wrap the canvas widens to 1280 and the arrangement slides left; centred
-   in the new canvas the sign ends up 12px from the export panel. Following the
-   bouquet keeps it above the vase and well clear of the panel. */
-.bouquet-app #stage.wrapped .wall-plaque {
-  transform: translateX(-50%) translateX(-190px);
+
+/* The 340px above is a desktop measurement — 43% of the 789-wide scene. It
+   sits in `.bg`, which is sized in percentages and therefore scales, but the
+   plaque itself does not, so on a narrow screen it swells to fill the wall:
+   91% of the scene at 375px, and wider than the scene itself at 320px (where
+   #canvas's `overflow: hidden` just crops the ends off the sign). Restating
+   both the width and the offset as fractions of the container's width keeps
+   it at a constant 43% the way the rest of the scene is. */
+@media (max-width: 1023px) {
+  .bouquet-app .wall-plaque {
+    width: calc(100cqw * 340 / 789);
+    top: calc(100cqw * 20 / 789);
+  }
 }
 
 .bouquet-app .table {
@@ -466,15 +622,56 @@
 
 /* ── the arrangement keeps its own 789-wide coordinate space so
       the bouquet stays glued to the vase when `wrap` widens the
-      canvas underneath it ── */
+      canvas underneath it ──
+   `height: 720px` rather than `100%`: on desktop this is numerically
+   identical (#canvas is always exactly 720px tall there, guaranteed by the
+   fixed-height flex-row #stage), but on mobile #canvas's height comes from
+   `aspect-ratio` and would otherwise stretch .arrangement's box out of its
+   789×720 native proportions before the scale-to-fit below ever runs. */
 .bouquet-app .arrangement {
   position: absolute;
   top: 0;
   left: 50%;
   width: 789px;
-  height: 100%;
+  height: 720px;
   transform: translateX(-50%);
   transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* The scene's 789×720 native coordinate space (see geometry.ts) scaled to
+   whatever width #canvas actually renders at — same idea as the whole-stage
+   desktop scale, scoped to the scene. Pure CSS rather than a JS
+   ResizeObserver deliberately: a JS-computed scale can only apply after
+   mount, so — the same class of bug already fixed twice for the desktop
+   stage — the arrangement would flash at native 789px for a frame first.
+   `calc(100cqw / 789px)` reads #canvas's width back out (it's the container,
+   see its `container-type` above); dividing a length by a length is what
+   makes the result the unitless ratio `scale()` requires.
+
+   MUST stay after the base rule above, not up with the other mobile rules
+   near the top of the file: it overrides `left` and `transform`, media
+   queries add no specificity, and at equal specificity the later rule in
+   source order wins. Written in the top block first, this silently lost to
+   the base rule at every width — the scene rendered unscaled at 789px, so
+   on a phone only the top of it fit #canvas's clipped box and the vase sat
+   far below the visible area (wall and tiles, no vase).
+
+   `transform-origin: top left` + `left: 0` are both load-bearing. The
+   default origin is the element's own centre, and scaling a 720px-tall box
+   about its centre pushes its top edge *down* by (1-s)*360px — enough to
+   bury the vase on a narrow screen even once the rule does apply. Anchoring
+   to the top-left corner makes it a pure shrink toward that corner, so
+   scene (0,0) stays at canvas (0,0). And since the scaled width is exactly
+   100cqw, it fills the canvas edge to edge with no centring needed — the
+   inherited `translateX(-50%)` has to go, since with a top-left origin it
+   is no longer scaled with the box and would shift everything a flat
+   394.5px left at every width. */
+@media (max-width: 1023px) {
+  .bouquet-app .arrangement {
+    left: 0;
+    transform-origin: top left;
+    transform: scale(calc(100cqw / 789px));
+  }
 }
 
 .bouquet-app .stems {
@@ -599,13 +796,6 @@
 
 /* ── export panel (wrapped state only) ── */
 .bouquet-app .export-panel {
-  position: absolute;
-  right: 38px;
-  top: 50%;
-  /* 402 left the one-line caption fitting with 0.1px to spare — any font
-     metric variance would have dropped "ticket!" onto its own line */
-  width: 420px;
-  transform: translateY(-50%) translateX(24px);
   background: var(--paper);
   border: 1px solid var(--ink);
   border-radius: 20px;
@@ -617,13 +807,51 @@
     opacity 0.4s ease,
     transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+@media (min-width: 1024px) {
+  .bouquet-app .export-panel {
+    position: absolute;
+    right: 38px;
+    top: 50%;
+    /* 402 left the one-line caption fitting with 0.1px to spare — any font
+       metric variance would have dropped "ticket!" onto its own line */
+    width: 420px;
+    transform: translateY(-50%) translateX(24px);
+  }
+}
+
 .bouquet-app #stage.wrapped .export-panel {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
   transition:
     opacity 0.45s ease 0.45s,
     transform 0.55s cubic-bezier(0.4, 0, 0.2, 1) 0.45s;
+}
+
+@media (min-width: 1024px) {
+  .bouquet-app #stage.wrapped .export-panel {
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* `display: none` while closed, rather than leaning on the shared
+   opacity/pointer-events toggle above. On desktop that toggle suffices — the
+   card is out of flow, so an invisible-but-present box costs nothing. On
+   mobile the card sits in Scene's overlay layer directly over the artwork,
+   where a merely-transparent panel would still cover it.
+
+   Trade-off: a `display: none` → `block` swap has no previous rendered state
+   to animate from, so the card's own opacity/transform transition doesn't run
+   on mobile — open/close is instant there, a fade on desktop. Deliberate: the
+   scroll-up on wrap (BouquetBuilder.tsx) is what carries the motion now. */
+@media (max-width: 1023px) {
+  .bouquet-app .export-panel {
+    display: none;
+  }
+
+  .bouquet-app #stage.wrapped .export-panel {
+    display: block;
+  }
 }
 
 .bouquet-app .export-panel h2 {
@@ -808,6 +1036,21 @@
   width: 236px;
   text-align: center;
 }
+
+/* That 885px is a coordinate inside the 1280-wide desktop stage — on a phone
+   it lands far off the right edge, so tapping "reset" appeared to do nothing
+   (and, since mobile #stage has no `overflow: hidden` to contain it, dragged
+   the page into horizontal scroll). `position: fixed` re-anchors it to the
+   viewport instead of the stage, which also keeps it on screen no matter how
+   far down the column you've scrolled — an absolutely-positioned popover at
+   `top: 46%` of a tall mobile #stage can easily sit past the fold. */
+@media (max-width: 1023px) {
+  .bouquet-app .confirm {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+  }
+}
 .bouquet-app .confirm p {
   margin: 2px 0 13px;
   font: 600 15px/1.4 var(--font);
@@ -853,23 +1096,164 @@
 }
 
 /* ═══════════════ wrapped (end state) ═══════════════ */
-/* The panels collapse their width so the canvas grows into the full
-   1280. `.arrangement` is centre-anchored, so the bouquet slides to
-   the middle on its own rather than being re-laid-out. */
-.bouquet-app #stage.wrapped #inventory,
-.bouquet-app #stage.wrapped #rail {
-  width: 0;
-  padding-left: 0;
-  padding-right: 0;
-  opacity: 0;
-  pointer-events: none;
-}
+/* Every size keeps the diorama and tucks the export card into its
+   bottom-right corner; only the sizing differs. The card's natural height is
+   ~466px (a 208px sticker preview plus heading, caption, swatches, button and
+   footer links) and the scene's height is locked to its aspect ratio at
+   `width x 720/789` = `width x 0.9125`, so below ~700px the card has to give
+   ground — hence the compact variant.
+
+     >= 1024px   desktop — scene and card side by side (rules further below)
+     700-1023px  card at full size, bouquet at 50% of the scene width
+     <  700px    compact card (fluid preview, tighter type), bouquet at 34%
+
+   Measured across 320-699px, the compact card fits the scene at every width
+   from 360px up, and the bouquet always clears the card's left edge. 320px
+   is the one exception — the caption wraps to a third line in a ~170px-wide
+   card and pushes it ~20px over — which is what `max-height` +
+   `overflow-y: auto` below is for: the card scrolls its last few pixels
+   internally instead of spilling over the artwork. */
 .bouquet-app #stage.wrapped .overlays .wrap-btn {
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;
 }
-/* shifted left to clear the export panel on the right */
-.bouquet-app #stage.wrapped .arrangement {
-  transform: translateX(-50%) translateX(-212px) scale(1.02);
+
+/* Shared by every non-desktop wrapped layout. The tool rail and flower
+   catalog are builder-only surfaces, so they go away entirely.
+
+   The arrangement is re-anchored `bottom: 0` (from its usual `top: 0`) and
+   scaled about `bottom left`. That pairing is the whole trick: the scene box
+   is a fixed 789x720, but #canvas's height comes from its aspect-ratio and
+   at these widths is SHORTER than 720 — so an origin at the box's own bottom
+   edge would sit below the visible canvas, and scaling about `top left`
+   would lift the vase off the table by a growing gap. Anchoring the box's
+   bottom to the canvas's bottom and scaling from that corner keeps the vase
+   standing on the table band at every width, and pulls the bouquet leftward
+   as it shrinks — clear of the card.
+
+   Must come after the `display: block` rule in the export-panel section:
+   identical specificity there (1 id + 3 classes), so source order decides. */
+@media (max-width: 1023px) {
+  /* Only the tool rail goes: it acts on a selected stem, and Scene refuses
+     selections while wrapped, so it would sit there permanently inert. The
+     flower catalog stays put below the scene — you can keep swapping blooms
+     and vases and watch the sticker preview in the card update live, without
+     having to go back through "keep editing" first. */
+  .bouquet-app #stage.wrapped #rail {
+    display: none;
+  }
+
+  .bouquet-app #stage.wrapped .arrangement {
+    top: auto;
+    bottom: 0;
+    transform-origin: bottom left;
+  }
+
+  .bouquet-app #stage.wrapped .export-panel {
+    position: absolute;
+    top: auto;
+    left: auto;
+    transform: none;
+    /* never taller than the scene; scroll inside rather than over the art */
+    overflow-y: auto;
+  }
+}
+
+/* Small screens: the card shrinks rather than stepping aside. Widths are
+   percentages of #stage (the card's containing block, and full-bleed here),
+   so they track the scene without needing a container query. The preview —
+   half the card's height at full size — becomes the fluid part, since it is
+   the one element that can lose height without costing legibility. */
+@media (max-width: 699px) {
+  .bouquet-app #stage.wrapped .arrangement {
+    transform: scale(calc(34cqw / 789px));
+  }
+
+  .bouquet-app #stage.wrapped .export-panel {
+    right: 8px;
+    bottom: 8px;
+    width: min(420px, 62%);
+    max-height: calc(100% - 16px);
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+
+  .bouquet-app .export-panel h2 {
+    font-size: 17px;
+  }
+  .bouquet-app .ep-sub {
+    margin-top: 5px;
+    font-size: 12px;
+  }
+  .bouquet-app .ep-swatches {
+    margin-top: 10px;
+    gap: 8px;
+  }
+  .bouquet-app .ep-swatch {
+    width: 22px;
+    height: 22px;
+  }
+  /* 28vw tracks the scene width (#stage is full-bleed on mobile), floored so
+     the sticker stays recognisable and capped at its desktop size */
+  .bouquet-app .ep-preview {
+    height: clamp(64px, 28vw, 208px);
+    margin: 10px 0 8px;
+  }
+  /* "die-cut PNG · transparent background" is reassurance, not instruction —
+     the first thing to cut when the card is fighting for height */
+  .bouquet-app .ep-meta {
+    display: none;
+  }
+  .bouquet-app .ep-actions .pill {
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+  .bouquet-app .ep-footlinks {
+    margin-top: 8px;
+  }
+  .bouquet-app .ep-textlink {
+    font-size: 12px;
+  }
+}
+
+/* Roomy enough for the card at its natural size. */
+@media (min-width: 700px) and (max-width: 1023px) {
+  .bouquet-app #stage.wrapped .arrangement {
+    transform: scale(calc(50cqw / 789px));
+  }
+
+  .bouquet-app #stage.wrapped .export-panel {
+    right: 16px;
+    bottom: 16px;
+    width: min(420px, calc(100% - 32px));
+    max-height: calc(100% - 32px);
+  }
+}
+
+@media (min-width: 1024px) {
+  /* The panels collapse their width so the canvas grows into the full
+     1280. `.arrangement` is centre-anchored, so the bouquet slides to
+     the middle on its own rather than being re-laid-out. */
+  .bouquet-app #stage.wrapped #inventory,
+  .bouquet-app #stage.wrapped #rail {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* On wrap the canvas widens to 1280 and the arrangement slides left;
+     centred in the new canvas the sign ends up 12px from the export panel.
+     Following the bouquet keeps it above the vase and well clear of the
+     panel. */
+  .bouquet-app #stage.wrapped .wall-plaque {
+    transform: translateX(-50%) translateX(-190px);
+  }
+
+  /* shifted left to clear the export panel on the right */
+  .bouquet-app #stage.wrapped .arrangement {
+    transform: translateX(-50%) translateX(-212px) scale(1.02);
+  }
 }
