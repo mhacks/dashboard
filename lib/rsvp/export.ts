@@ -1,5 +1,7 @@
+import { formatCents } from "@/lib/currency";
 import { serializeCsv, type CsvColumn } from "@/lib/rsvp/csv";
 import type { RsvpStatus } from "@/lib/rsvp/status";
+import type { AdminRsvpAward } from "@/lib/types/admin-rsvps";
 import type { RsvpFormData } from "@/lib/types/rsvps";
 
 export type AdminRsvpExportRow = {
@@ -8,6 +10,7 @@ export type AdminRsvpExportRow = {
   accountEmail: string;
   status: RsvpStatus;
   submittedAt: string | null;
+  award: AdminRsvpAward | null;
   values: RsvpFormData | null;
 };
 
@@ -67,6 +70,15 @@ const ADMIN_RSVP_COLUMNS: readonly CsvColumn<AdminRsvpExportRow>[] = [
     value: (row) => row.values?.travelGuideAcknowledged,
   },
   { header: "Flight Booked", value: (row) => row.values?.flightBooked },
+  {
+    header: "Reimbursement Region",
+    value: (row) => row.award?.regionLabel,
+  },
+  {
+    header: "Reimbursement Amount",
+    value: (row) =>
+      row.award ? formatCents(row.award.amountCents) : undefined,
+  },
   {
     header: "Receipt Filename",
     value: (row) => row.values?.receipt?.originalName,

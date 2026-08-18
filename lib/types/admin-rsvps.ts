@@ -1,5 +1,10 @@
 import type { RsvpStatus } from "@/lib/rsvp/status";
-import type { RsvpFormData } from "@/lib/types/rsvps";
+import type { RsvpFormData, RsvpReceiptMetadata } from "@/lib/types/rsvps";
+
+export type AdminRsvpAward = {
+  regionLabel: string;
+  amountCents: number;
+};
 
 export type AdminRsvpSummary = {
   applicationId: string;
@@ -10,6 +15,8 @@ export type AdminRsvpSummary = {
   submittedAt: string | null;
   travelPlan: RsvpFormData["travelPlan"] | null;
   tshirtSize: RsvpFormData["tshirtSize"] | null;
+  award: AdminRsvpAward | null;
+  receipt: RsvpReceiptMetadata | null;
 };
 
 export type AdminRsvpCounts = Record<"all" | RsvpStatus, number>;
