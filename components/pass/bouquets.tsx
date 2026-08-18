@@ -9,8 +9,8 @@ import type { BouquetId } from "@/lib/pass/types";
   drops that PNG into the slot as their own mark on the pass.
 */
 
-/** The bouquet mini-game. Fill this in and the fine print becomes a real link. */
-export const BOUQUET_GAME_URL = "";
+/** The bouquet mini-game, now ported in-app from becccasun/mhacks-bouquet. */
+export const BOUQUET_GAME_URL = "/dashboard/bouquet";
 
 export const BOUQUET_FINE_PRINT_PREFIX =
   "Create and add your own unique bouquet with ";

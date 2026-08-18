@@ -1,0 +1,875 @@
+/* Ported from becccasun/mhacks-bouquet (src/app/globals.css). Everything is
+   scoped under .bouquet-app instead of :root/html/body: this file is a plain
+   global CSS import, and Next.js applies imported global CSS to the whole
+   document regardless of which route imports it, so unscoped `html, body`
+   rules here would hide scroll and repaint the background on every other
+   page in the dashboard the moment someone visits /bouquet. */
+
+.bouquet-app {
+  --paper: #f6efe1;
+  --ink: #463328;
+  --wall: #f6c395;
+  --table: #e7684c;
+  --wood-grain: #d3543a;
+  --tile-line: #a9c5d5;
+  --glass: #7ebebf;
+  --water: #4f8b9b;
+  /* Cards use only --card-blue and --card-cream. These two stay defined as
+     part of the palette (--coral is still referenced below) but are no longer
+     assigned to any card. */
+  --card-coral: #ee9c87;
+  --card-mustard: #e7c26a;
+  --card-blue: #b7d3dd;
+  --card-cream: #f0e3c8;
+  --leaf: #9ab78e;
+  --stem: #7f9b6a;
+
+  /* added: the spec tokenizes the tile *line* but not the tile face.
+     Derived as a pale tint of --card-blue so it stays in-family. */
+  --tile-face: #e4eef2;
+  --coral: var(--card-coral);
+
+  --font:
+    var(--font-quicksand), "Nunito", ui-rounded, "SF Pro Rounded", system-ui,
+    sans-serif;
+}
+
+.bouquet-app,
+.bouquet-app * {
+  box-sizing: border-box;
+}
+
+.bouquet-app {
+  margin: 0;
+  min-height: 100vh;
+  background: #e4d9c6;
+  font-family: var(--font);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/* ── fixed 1280×720 canvas, scaled to fit ─────────────────── */
+/* #viewport IS the .bouquet-app element (both attributes on the same node in
+   BouquetBuilder.tsx), so this must be a compound selector — the descendant
+   form `.bouquet-app #viewport` never matches, since there's no separate
+   .bouquet-app ancestor to descend from. */
+.bouquet-app#viewport {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 100;
+}
+.bouquet-app #stage {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  display: flex;
+  overflow: hidden;
+  background: var(--paper);
+  transform-origin: 50% 50%;
+  box-shadow: 0 18px 60px -18px rgba(70, 51, 40, 0.45);
+}
+
+/* ── grain ─────────────────────────────────────────────────── */
+.bouquet-app .grain {
+  position: absolute;
+  inset: 0;
+  background-size: 256px 256px;
+  opacity: 0.1;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 900;
+}
+
+/* ═══════════════ inventory ═══════════════ */
+.bouquet-app #inventory {
+  width: 435px;
+  flex: none;
+  background: var(--paper);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    width 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.4s ease;
+}
+
+.bouquet-app .tabrow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.bouquet-app .stem-count {
+  margin-left: auto;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font: 700 13px/1 var(--font);
+  font-variant-numeric: tabular-nums; /* no width jitter as the count ticks */
+  color: var(--ink);
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+.bouquet-app .stem-count.full {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.bouquet-app .tabs {
+  display: flex;
+  gap: 20px;
+}
+
+.bouquet-app .tab {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 500 15px/1 var(--font);
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.16s ease;
+}
+.bouquet-app .tab:hover {
+  opacity: 0.8;
+}
+.bouquet-app .tab.active {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.bouquet-app .grid-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Headroom for the hover lift and its drop shadow. The top row's cards sat
+     flush against this container's content edge, so rising 3px clipped them
+     against the overflow and the shadow's blur was sheared off too. The
+     negative margins cancel the padding, so the grid still sits exactly where
+     it did — only the clipping region grew. */
+  margin: -12px -12px -10px;
+  padding: 12px 12px 10px;
+}
+.bouquet-app .grid-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.bouquet-app .grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.bouquet-app .card {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border: 0;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.bouquet-app .card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px -8px rgba(70, 51, 40, 0.5);
+}
+.bouquet-app .card:active {
+  transform: translateY(-1px);
+}
+
+/* art centred, stem bleeding off the bottom edge */
+.bouquet-app .card img {
+  position: absolute;
+  left: 50%;
+  bottom: -6%;
+  transform: translateX(-50%);
+  height: 92%;
+  width: auto;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.bouquet-app .card .cardname {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  text-align: center;
+  font: 600 11px/1 var(--font);
+  color: var(--ink);
+  opacity: 0.62;
+}
+
+@keyframes bouquet-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+.bouquet-app .card.shake {
+  animation: bouquet-shake 0.34s ease;
+}
+
+.bouquet-app .empty {
+  margin: 28px 4px;
+  font: 500 14px/1.5 var(--font);
+  color: var(--ink);
+  opacity: 0.45;
+}
+
+/* Sits at the top of the panel, above the tabs, so it reads as an instruction
+   for the whole screen rather than a caption for the buttons below. */
+.bouquet-app .panel-blurb {
+  flex: none;
+  margin: 0 0 18px;
+  font: 500 13.5px/1.45 var(--font);
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  /* fitting on one line would mean dropping to 12.5px, too small for the
+     first thing you're meant to read; balancing the two lines beats letting
+     "wildflowers!" hang alone on the second */
+  text-wrap: balance;
+}
+
+/* ── whole-bouquet actions, in the panel rather than the rail ── */
+.bouquet-app .panel-actions {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+}
+.bouquet-app .action-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 14px;
+  font: 600 14px/1 var(--font);
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+.bouquet-app .action-pill:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+.bouquet-app .action-pill:active {
+  transform: translateY(1px);
+}
+.bouquet-app .action-pill.open {
+  background: var(--ink);
+  color: var(--paper);
+}
+.bouquet-app .ap-icon {
+  display: flex;
+}
+
+/* ═══════════════ tool rail ═══════════════ */
+.bouquet-app #rail {
+  width: 56px;
+  flex: none;
+  background: var(--paper);
+  padding: 30px 0 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  transition:
+    width 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.4s ease;
+}
+
+.bouquet-app .rail-tools {
+  display: flex;
+  flex-direction: column;
+}
+
+.bouquet-app .tool {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border-radius: 8px;
+  transition:
+    background 0.14s ease,
+    transform 0.14s ease;
+}
+.bouquet-app .tool:hover {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.bouquet-app .tool:active {
+  transform: scale(0.9);
+}
+
+.bouquet-app .tool.trash {
+  margin-top: 14px;
+}
+
+/* the rail is now only per-stem tools, so all of it dims together */
+.bouquet-app #rail.inert .rail-tools,
+.bouquet-app #rail.inert .trash {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── hover tooltip for the rail tools ── */
+.bouquet-app .tip {
+  position: absolute;
+  /* rail's right edge (435 panel + 56 rail) + 8 */
+  left: 499px;
+  z-index: 950;
+  transform: translateY(-50%);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: 600 12.5px/1 var(--font);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+/* short delay so sweeping down the rail doesn't strobe */
+.bouquet-app .tip.on {
+  opacity: 1;
+  transition: opacity 0.14s ease 0.22s;
+}
+
+/* ═══════════════ canvas ═══════════════ */
+.bouquet-app #canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  transition: flex-grow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bouquet-app .bg {
+  position: absolute;
+  inset: 0;
+}
+.bouquet-app .band {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.bouquet-app .wall {
+  top: 0;
+  height: 30%;
+  background: var(--wall);
+}
+
+.bouquet-app .tiles {
+  top: 30%;
+  height: 45%;
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0 47px,
+      var(--tile-line) 47px 48px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 47px,
+      var(--tile-line) 47px 48px
+    ),
+    var(--tile-face);
+  background-position:
+    24px 0,
+    0 12px,
+    0 0;
+}
+
+/* Hung in the peach wall band (0–216 of the 720 scene). Sized so the board
+   clears the band's lower edge — the string and nail take the top 29.5% of
+   the artwork, so the visible board sits roughly y 60–176. */
+.bouquet-app .wall-plaque {
+  position: absolute;
+  left: 50%;
+  top: 20px;
+  width: 340px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  -webkit-user-drag: none;
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* On wrap the canvas widens to 1280 and the arrangement slides left; centred
+   in the new canvas the sign ends up 12px from the export panel. Following the
+   bouquet keeps it above the vase and well clear of the panel. */
+.bouquet-app #stage.wrapped .wall-plaque {
+  transform: translateX(-50%) translateX(-190px);
+}
+
+.bouquet-app .table {
+  top: 75%;
+  height: 25%;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 13px,
+      color-mix(in srgb, var(--wood-grain) 62%, transparent) 13px 15px
+    ),
+    var(--table);
+}
+/* seam shadow so the vase feels seated rather than pasted */
+.bouquet-app .table::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 26px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ink) 20%, transparent),
+    transparent
+  );
+}
+
+/* ── the arrangement keeps its own 789-wide coordinate space so
+      the bouquet stays glued to the vase when `wrap` widens the
+      canvas underneath it ── */
+.bouquet-app .arrangement {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 789px;
+  height: 100%;
+  transform: translateX(-50%);
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bouquet-app .stems {
+  position: absolute;
+  inset: 0;
+}
+
+.bouquet-app .stem {
+  position: absolute;
+  transform-box: border-box;
+  will-change: transform;
+  transition:
+    transform 0.22s cubic-bezier(0.34, 1.3, 0.5, 1),
+    width 0.22s cubic-bezier(0.34, 1.3, 0.5, 1),
+    height 0.22s cubic-bezier(0.34, 1.3, 0.5, 1),
+    top 0.22s cubic-bezier(0.34, 1.3, 0.5, 1),
+    left 0.22s cubic-bezier(0.34, 1.3, 0.5, 1),
+    filter 0.16s ease;
+  pointer-events: none; /* hit-testing is done on alpha, in JS */
+  -webkit-user-drag: none;
+}
+
+@keyframes bouquet-drop-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.bouquet-app .stem.new {
+  animation: bouquet-drop-in 0.3s ease both;
+}
+
+/* Chained drop-shadows trace the artwork's alpha, so both states follow
+   the painted edge instead of a bounding rectangle.
+   Selected is a crisp cream cut-out edge plus a soft ink glow — a solid
+   ink outline was tried first and simply fattened the dark flowers
+   (the hyacinth spike) into a blob. */
+.bouquet-app .stem.hovered {
+  filter: drop-shadow(0 0 3px var(--paper)) drop-shadow(0 0 3px var(--paper));
+}
+.bouquet-app .stem.selected {
+  filter: drop-shadow(0 1.8px 0 var(--paper))
+    drop-shadow(0 -1.8px 0 var(--paper)) drop-shadow(1.8px 0 0 var(--paper))
+    drop-shadow(-1.8px 0 0 var(--paper))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--ink) 60%, transparent));
+}
+
+/* Contact shadow. The vase (z 50) covers everything above its base, so only
+   the sliver below the base line and the flare at the sides actually show.
+   It was centred on the base line, leaving 11px pooled underneath, which
+   read as the vase hovering above its own shadow — it now sits high enough
+   that just ~5px escapes, hugging the base. */
+.bouquet-app .vase-shadow {
+  position: absolute;
+  height: 20px;
+  z-index: 49;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--ink) 42%, transparent) 0%,
+    color-mix(in srgb, var(--ink) 26%, transparent) 45%,
+    transparent 72%
+  );
+  pointer-events: none;
+}
+
+.bouquet-app .vase {
+  position: absolute;
+  z-index: 50; /* opaque — every stem sits behind it */
+  pointer-events: none;
+  -webkit-user-drag: none;
+  transition: opacity 0.2s ease;
+}
+
+/* ── overlays ── */
+.bouquet-app .overlays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.bouquet-app .overlays > * {
+  pointer-events: auto;
+}
+
+.bouquet-app .label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: 600 14px/1 var(--font);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.bouquet-app .wrap-btn {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  background: var(--card-cream);
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 10px 20px;
+  font: 600 16px/1 var(--font);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease;
+}
+.bouquet-app .wrap-btn:hover {
+  transform: translateY(-2px);
+  background: var(--paper);
+}
+.bouquet-app .wrap-btn:active {
+  transform: translateY(0);
+}
+
+/* ── export panel (wrapped state only) ── */
+.bouquet-app .export-panel {
+  position: absolute;
+  right: 38px;
+  top: 50%;
+  /* 402 left the one-line caption fitting with 0.1px to spare — any font
+     metric variance would have dropped "ticket!" onto its own line */
+  width: 420px;
+  transform: translateY(-50%) translateX(24px);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 20px;
+  padding: 20px 22px 18px;
+  z-index: 70;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.4s ease,
+    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bouquet-app #stage.wrapped .export-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+  transition:
+    opacity 0.45s ease 0.45s,
+    transform 0.55s cubic-bezier(0.4, 0, 0.2, 1) 0.45s;
+}
+
+.bouquet-app .export-panel h2 {
+  margin: 0;
+  font: 700 21px/1 var(--font);
+}
+.bouquet-app .ep-sub {
+  margin: 7px 0 0;
+  font: 500 13px/1.5 var(--font);
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+.bouquet-app .ep-link {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+.bouquet-app .ep-link:hover {
+  background: color-mix(in srgb, var(--coral) 40%, transparent);
+}
+
+/* ── die-cut border swatches ── */
+.bouquet-app .ep-swatches {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.bouquet-app .ep-swatch-label {
+  font: 600 12.5px/1 var(--font);
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.bouquet-app .ep-swatch-row {
+  display: flex;
+  gap: 8px;
+}
+.bouquet-app .ep-swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  /* every option is near-white, so without this ring the swatches would be
+     invisible against the panel's own paper background */
+  border: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  cursor: pointer;
+  transition: transform 0.14s ease;
+}
+.bouquet-app .ep-swatch:hover {
+  transform: scale(1.14);
+}
+.bouquet-app .ep-swatch.active {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 2px var(--paper),
+    0 0 0 3.5px var(--ink);
+}
+
+/* checkerboard so the sticker's transparent die-cut is legible */
+.bouquet-app .ep-preview {
+  position: relative;
+  height: 208px;
+  margin: 13px 0 10px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background-color: var(--card-cream);
+  background-image:
+    linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--ink) 8%, transparent) 25%,
+      transparent 25% 75%,
+      color-mix(in srgb, var(--ink) 8%, transparent) 75%
+    ),
+    linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--ink) 8%, transparent) 25%,
+      transparent 25% 75%,
+      color-mix(in srgb, var(--ink) 8%, transparent) 75%
+    );
+  background-size: 18px 18px;
+  background-position:
+    0 0,
+    9px 9px;
+}
+/* Absolutely positioned rather than a centred grid item. Both `max-height:
+   100%` and `height: 100%` resolve against an indefinite grid row here and
+   fall back to auto, which let a 9:16 story preview render 630px tall in a
+   220px box and get clipped to its top third. `inset` gives a definite box
+   for object-fit to letterbox into. */
+.bouquet-app .ep-preview img {
+  position: absolute;
+  inset: 9px;
+  width: calc(100% - 18px);
+  height: calc(100% - 18px);
+  object-fit: contain;
+  display: block;
+}
+.bouquet-app .ep-preview img[src=""] {
+  display: none;
+}
+.bouquet-app .ep-spinner {
+  position: absolute;
+  font: 600 13px/1 var(--font);
+  color: var(--ink);
+  opacity: 0.55;
+}
+.bouquet-app .ep-preview.ready .ep-spinner {
+  display: none;
+}
+
+.bouquet-app .ep-meta {
+  margin: 0 0 12px;
+  font: 500 12px/1 var(--font);
+  opacity: 0.55;
+}
+
+.bouquet-app .ep-actions {
+  display: flex;
+  gap: 8px;
+}
+.bouquet-app .ep-actions .pill {
+  flex: 1;
+  padding: 11px 15px;
+  font-size: 15px;
+}
+.bouquet-app .ep-actions .pill[disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.bouquet-app .ep-footlinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 12px;
+}
+.bouquet-app .ep-dot {
+  color: var(--ink);
+  opacity: 0.35;
+  font-size: 13px;
+}
+.bouquet-app .ep-textlink {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: 600 13px/1 var(--font);
+  color: var(--ink);
+  opacity: 0.55;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bouquet-app .ep-textlink:hover {
+  opacity: 0.9;
+}
+
+.bouquet-app .wrap-btn[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── popovers ── */
+.bouquet-app .popover[hidden] {
+  display: none;
+} /* beats the display:flex below */
+.bouquet-app .popover {
+  position: absolute;
+  z-index: 800;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 10px 24px -12px rgba(70, 51, 40, 0.7);
+}
+.bouquet-app .confirm {
+  left: 885px;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  width: 236px;
+  text-align: center;
+}
+.bouquet-app .confirm p {
+  margin: 2px 0 13px;
+  font: 600 15px/1.4 var(--font);
+}
+.bouquet-app .confirm-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.bouquet-app .pill {
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 7px 15px;
+  font: 600 14px/1 var(--font);
+  cursor: pointer;
+}
+.bouquet-app .pill.ghost {
+  background: transparent;
+  color: var(--ink);
+}
+.bouquet-app .pill.solid {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Vases live in their own catalog tab; the rail's vase button is gone.
+   Flowers are all portrait so a height-only rule fits them, but the pitcher
+   is wider than it is tall and was overflowing its card by 11px, clipping
+   the handle and spout. Bounding BOTH axes with auto width/height scales
+   to fit whichever edge binds first, so any future vase art is safe too. */
+.bouquet-app .card.vase-card img {
+  left: 50%;
+  bottom: 9%;
+  transform: translateX(-50%);
+  width: auto;
+  height: auto;
+  max-width: 78%;
+  max-height: 70%;
+}
+.bouquet-app .card.vase-card.active {
+  box-shadow: inset 0 0 0 3px var(--ink);
+}
+
+/* ═══════════════ wrapped (end state) ═══════════════ */
+/* The panels collapse their width so the canvas grows into the full
+   1280. `.arrangement` is centre-anchored, so the bouquet slides to
+   the middle on its own rather than being re-laid-out. */
+.bouquet-app #stage.wrapped #inventory,
+.bouquet-app #stage.wrapped #rail {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.bouquet-app #stage.wrapped .overlays .wrap-btn {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+/* shifted left to clear the export panel on the right */
+.bouquet-app #stage.wrapped .arrangement {
+  transform: translateX(-50%) translateX(-212px) scale(1.02);
+}
