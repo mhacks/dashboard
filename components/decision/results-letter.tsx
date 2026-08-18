@@ -77,7 +77,9 @@ export function ResultsLetter({
         */}
         <ConsoleShell width="letter" field={false} centred={!accepted}>
           <article>
-            <PanelBar eyebrow={`MHACKS 2026 · ${letter.roundLabel}`} />
+            <PanelBar
+              eyebrow={`${EVENT.fullName.toUpperCase()} · ${letter.roundLabel}`}
+            />
 
             {accepted ? (
               <AcceptedBody

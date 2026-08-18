@@ -1,5 +1,7 @@
 import { LetterBody, LetterKicker } from "@/components/console/letter";
 import { LINKS } from "@/lib/config/links";
+import { EVENT } from "@/lib/config/event";
+import { EVENT_DATES, VENUE } from "@/lib/config/schedule";
 
 interface Detail {
   label: string;
@@ -15,17 +17,16 @@ interface Detail {
  * screen. The labels themselves are unchanged.
  */
 const DETAILS: Detail[] = [
-  { label: "Dates", value: "October 3–4, 2026" },
-  { label: "Venue Access", value: "Open 24 hours throughout the weekend" },
+  { label: "Dates", value: EVENT_DATES.label },
+  { label: "Venue Access", value: VENUE.access },
   {
     label: "Location",
-    value: "University of Michigan — North Campus, Ann Arbor, MI",
+    value: VENUE.label,
     wide: true,
   },
   {
     label: "Accommodations",
-    value:
-      "Overnight venue access is provided; formal hotel/sleeping accommodations are not offered.",
+    value: VENUE.accommodations,
     wide: true,
   },
 ];
@@ -59,7 +60,7 @@ export function EventDetails() {
           rel="noreferrer"
           className="font-medium underline underline-offset-4"
         >
-          MHacks 2026 Travel Guide
+          {EVENT.fullName} Travel Guide
         </a>{" "}
         for everything you need to know about getting to Ann Arbor.
       </LetterBody>

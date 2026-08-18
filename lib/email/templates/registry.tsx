@@ -6,6 +6,7 @@ import {
 import type { EmailCampaignContent, EmailThemeTokens } from "@/lib/email/types";
 import { EVENT } from "@/lib/config/event";
 import { CONTACT, websiteUrl } from "@/lib/config/contact";
+import { EVENT_DATES } from "@/lib/config/schedule";
 
 export interface EmailTemplateDefinition {
   id: string;
@@ -70,7 +71,7 @@ export const emailTemplates = [
           body:
             "**Early application deadline:** August 7, 2026\n\n" +
             "**Final application deadline:** September 12, 2026\n\n" +
-            `**${EVENT.fullName}:** October 3-4, 2026 at ${EVENT.host}`,
+            `**${EVENT.fullName}:** ${EVENT_DATES.label} at ${EVENT.host}`,
         },
         {
           id: "closing",

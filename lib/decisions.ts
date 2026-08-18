@@ -4,8 +4,10 @@
 // never drift apart. (lib/currency is pure formatting, no database.)
 
 import { CONTACT } from "./config/contact";
+import { RSVP_DEADLINES } from "./config/schedule";
 import { EVENT } from "./config/event";
 import { formatCents } from "./currency";
+import { formatEventDate } from "./format/date";
 
 export const APPLICATION_DECISIONS = [
   "applied",
@@ -51,9 +53,14 @@ export const RSVP_URL: Record<DecisionRound, string> = {
   regular: "/rsvp",
 };
 
+/**
+ * Display text for each round's RSVP deadline, formatted from the instants in
+ * lib/config/schedule.ts rather than written out by hand — the previous
+ * hand-written version had drifted a week past what the server enforced.
+ */
 export const RSVP_DEADLINE: Record<DecisionRound, string> = {
-  early: "August 21, 2026",
-  regular: "September 19, 2026",
+  early: formatEventDate(RSVP_DEADLINES.early),
+  regular: formatEventDate(RSVP_DEADLINES.regular),
 };
 
 export const SUPPORT_EMAIL = CONTACT.supportEmail;
