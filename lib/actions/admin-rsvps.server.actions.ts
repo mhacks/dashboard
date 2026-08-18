@@ -4,7 +4,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { requireOrganizer } from "@/lib/auth/guards";
-import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
+import { UPLOADS_BUCKET, s3 } from "@/lib/aws/s3";
 import {
   getAdminRsvpDetail,
   getAdminRsvpReceipt,
@@ -50,7 +50,7 @@ export async function getAdminRsvpReceiptDownloadUrl(
     return await getSignedUrl(
       s3,
       new GetObjectCommand({
-        Bucket: RESUMES_BUCKET,
+        Bucket: UPLOADS_BUCKET,
         Key: receipt.key,
         ResponseContentDisposition: contentDispositionForReceipt(
           receipt.originalName,

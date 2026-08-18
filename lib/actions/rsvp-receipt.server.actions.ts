@@ -7,7 +7,7 @@ import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 
 import { requireSessionUser } from "@/lib/auth/guards";
-import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
+import { UPLOADS_BUCKET, s3 } from "@/lib/aws/s3";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import {
@@ -131,7 +131,7 @@ export async function requestRsvpReceiptUpload(input: unknown): Promise<{
 
   const key = receiptKeyForUser(user.id);
   const command = new PutObjectCommand({
-    Bucket: RESUMES_BUCKET,
+    Bucket: UPLOADS_BUCKET,
     Key: key,
     ContentType: parsed.contentType,
     ContentLength: parsed.sizeBytes,
@@ -231,7 +231,7 @@ export async function getRsvpReceiptPreviewUrl(): Promise<{
   const previewUrl = await getSignedUrl(
     s3,
     new GetObjectCommand({
-      Bucket: RESUMES_BUCKET,
+      Bucket: UPLOADS_BUCKET,
       Key: key,
       ResponseContentDisposition: contentDispositionForReceipt(
         receipt.data.originalName,
