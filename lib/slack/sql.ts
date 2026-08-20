@@ -8,6 +8,8 @@ const ALLOWED_TABLES = new Set([
   "hacker_application_review_events",
   "hacker_application_drafts",
   "users",
+  "blacklist",
+  "reimbursement_regions",
 ]);
 
 const FORBIDDEN =

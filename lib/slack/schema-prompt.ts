@@ -73,8 +73,28 @@ hacker_application_review_events (
   created_at timestamptz not null
 )
 
+blacklist (
+  id uuid PK,
+  full_name text,                    -- optional; at least one of name or phone is set
+  full_name_normalized text,         -- generated; lowercased collapsed whitespace
+  phone_number text,                 -- optional
+  phone_number_normalized text,      -- generated; digits and + only
+  reason text,
+  created_by_user_id uuid references users(id),
+  created_at timestamptz not null,
+  updated_at timestamptz not null
+)
+
+reimbursement_regions (
+  region smallint PK,
+  label text not null,
+  amount_cents integer not null      -- travel reimbursement tier amount
+)
+
 Join applicants to users on hacker_applicants.user_id = users.id for applicant email.
 Join reviews to users on hacker_application_reviews.reviewer_user_id = users.id for reviewer email.
+Join blacklist.created_by_user_id to users.id for who added the entry.
 An application is submitted when a hacker_applicants row exists. Drafts in hacker_application_drafts are not submissions.
 reviewed_at IS NULL means the scorecard is still a draft.
+blacklist is the organizer deny list: match on normalized name OR phone. Amounts in reimbursement_regions are cents.
 `;
