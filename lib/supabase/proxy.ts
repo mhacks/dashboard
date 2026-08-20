@@ -24,6 +24,11 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  const { pathname } = request.nextUrl;
+  if (pathname === "/api/slack" || pathname.startsWith("/api/slack/")) {
+    return NextResponse.next({ request });
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -59,7 +64,6 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
 
   const user = data?.claims;
-  const { pathname } = request.nextUrl;
   // Exact match or a real path segment underneath — plain `.startsWith`
   // would also match unintended siblings like `/mcp-evil` or
   // `/loginx` if such a route ever gets added.

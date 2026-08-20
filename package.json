@@ -24,6 +24,7 @@
     "db:migrate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit migrate"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.42",
     "@aws-sdk/client-s3": "^3.1092.0",
     "@aws-sdk/client-sesv2": "^3.1106.0",
     "@aws-sdk/s3-request-presigner": "^3.1092.0",
@@ -37,9 +38,11 @@
     "@posthog/mcp": "0.9.1",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
+    "@slack/web-api": "^8.0.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.110.8",
     "@tanstack/react-table": "^8.21.3",
+    "ai": "^7.0.66",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
