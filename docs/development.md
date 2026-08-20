@@ -6,6 +6,7 @@ How a change travels from your laptop to the shared remote.
 - [Remote development](./remote-development.md)
 - [Development tools](./development-tools.md)
 - [Writing docs](./writing.md)
+- [Slack bot](./slack.md)
 
 ## Ownership
 
