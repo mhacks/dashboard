@@ -919,3 +919,81 @@ html.lg-refract .liquid-glass {
   color: var(--ui-ink);
   border-color: var(--ui-line-strong);
 }
+
+.liquid-glass-edge {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgba(29, 36, 18, 0.14);
+}
+
+.liquid-glass-surface {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.liquid-glass-surface-strong {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.liquid-glass-card {
+  border: 1px solid rgba(29, 36, 18, 0.14);
+  background: #fbfaf4;
+  box-shadow: var(--shadow-e-2);
+  transition:
+    background-color 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.liquid-glass-card:hover {
+  background: #ffffff;
+  box-shadow: var(--shadow-e-3);
+}
+
+.day-picker-glass {
+  position: relative;
+  isolation: isolate;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+
+.day-picker-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(255, 255, 255, 0.35) 28%,
+    rgba(68, 87, 33, 0.08) 70%,
+    rgba(31, 42, 22, 0.12)
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+}
+
+.day-picker-glass::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    140% 90% at 20% -10%,
+    rgba(255, 255, 255, 0.55),
+    transparent 55%
+  );
+  opacity: 0.7;
+}
