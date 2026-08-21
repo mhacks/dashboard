@@ -8,6 +8,7 @@ import {
   sendDirectTestEmails,
   sendOneDirectEmail,
 } from "@/lib/email/campaigns/direct-service";
+import { resolveEmailAudience } from "@/lib/email/campaigns/audience-service";
 import { renderEmailPreview } from "@/lib/email/render";
 import {
   createMasterTemplate,
@@ -56,6 +57,10 @@ export async function renderEmailPreviewAction(input: unknown) {
 
 export async function parseDirectRecipientsAction(input: unknown) {
   return parseDirectRecipients(input);
+}
+
+export async function resolveEmailAudienceAction(input: unknown) {
+  return resolveEmailAudience(input);
 }
 
 export async function sendOneDirectEmailAction(input: unknown) {
