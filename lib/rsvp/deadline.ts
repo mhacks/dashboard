@@ -1,4 +1,4 @@
-export const RSVP_DEADLINE_ISO = "2026-08-22T03:59:59.999Z";
+export const RSVP_DEADLINE_ISO = "2026-08-23T03:59:59.999Z";
 export const RSVP_DEADLINE_MS = Date.parse(RSVP_DEADLINE_ISO);
 
 export function isRsvpOpen(nowMs = Date.now()): boolean {
