@@ -1,21 +1,15 @@
-import * as React from "react";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 const MOBILE_BREAKPOINT = 768;
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState(
-    () =>
-      typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT,
-  );
-
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-
-  return !!isMobile;
+/**
+ * Tracks whether the viewport is below the mobile breakpoint.
+ *
+ * Was a second, near-identical copy of useMediaQuery — the shadcn-vendored
+ * version, which additionally read window.innerWidth in its useState
+ * initializer. use-media-query.ts documents why that is a problem: Next
+ * prerenders client components on the server, where there is no window.
+ */
+export function useIsMobile(): boolean {
+  return useMediaQuery(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
 }
