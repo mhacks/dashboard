@@ -7,8 +7,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Copy,
+  Database,
   Download,
   FileText,
+  Filter,
   Laptop,
   ListChecks,
   Loader2,
@@ -27,12 +29,17 @@ import {
 import { AdminHeaderActions } from "@/app/admin/components/admin-header-actions";
 import { adminPageHeaderClasses } from "@/app/admin/components/admin-page-header-layout";
 import { Button } from "@/components/ui/button";
-import type { EmailCampaignContent, EmailThemeTokens } from "@/lib/email/types";
+import type {
+  EmailAudienceQuery,
+  EmailCampaignContent,
+  EmailThemeTokens,
+} from "@/lib/email/types";
 import { cn } from "@/lib/utils";
 import {
   deleteEmailTemplateAction,
   parseDirectRecipientsAction,
   renderEmailPreviewAction,
+  resolveEmailAudienceAction,
   saveEmailTemplateAction,
   saveEmailThemeAction,
   sendDirectBatchAction,
@@ -44,6 +51,7 @@ type PreviewMode = "desktop" | "mobile";
 export type EmailCampaignSurface = "builder" | "styles" | "send";
 type TemplateType = "structured" | "html";
 type ToastTone = "loading" | "success" | "error" | "info";
+type RecipientSource = "manual" | "audience";
 
 export interface MasterTemplate {
   id: string;
@@ -71,6 +79,11 @@ interface RecipientSaveResult {
   invalid: string[];
   duplicateCount: number;
   columns?: string[];
+}
+
+interface AudienceResolveResult extends RecipientSaveResult {
+  recipientText: string;
+  label: string;
 }
 
 interface DirectSendStatus {
@@ -117,6 +130,37 @@ const activeTestProofStorageKey = "mhacks-email-active-test-proof";
 const builtInRecipientMergeFields = new Set(["email", "name"]);
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
+const defaultAudienceQuery: EmailAudienceQuery = {
+  decisionGroup: "all_applicants",
+  travelAward: "any",
+  rsvpTravelPlan: "any",
+};
+const audienceDecisionOptions = [
+  ["all_applicants", "All applicants"],
+  ["accepted", "All accepted"],
+  ["rsvped", "All RSVPed"],
+  ["rejected", "All rejected"],
+  ["early_accepted_or_rsvped", "Early accepted or RSVPed"],
+  ["regular_accepted_or_rsvped", "Regular accepted or RSVPed"],
+  ["applied", "Applied"],
+  ["early_accepted", "Early accepted"],
+  ["early_rsvped", "Early RSVPed"],
+  ["early_rejected", "Early rejected"],
+  ["regular_accepted", "Regular accepted"],
+  ["regular_rsvped", "Regular RSVPed"],
+  ["regular_rejected", "Regular rejected"],
+] satisfies Array<[EmailAudienceQuery["decisionGroup"], string]>;
+const audienceTravelAwardOptions = [
+  ["any", "Any travel award"],
+  ["approved", "Approved travel reimbursement"],
+  ["none", "No approved travel reimbursement"],
+] satisfies Array<[EmailAudienceQuery["travelAward"], string]>;
+const audienceRsvpTravelPlanOptions = [
+  ["any", "Any RSVP travel plan"],
+  ["local", "Local"],
+  ["self-funded", "Self-funded"],
+  ["reimbursement", "Reimbursement"],
+] satisfies Array<[EmailAudienceQuery["rsvpTravelPlan"], string]>;
 const emailCampaignViews: Array<{
   value: EmailCampaignSurface;
   label: string;
@@ -149,6 +193,11 @@ export default function EmailCampaignsClient({
   );
   const [recipientResult, setRecipientResult] =
     useState<RecipientSaveResult | null>(null);
+  const [recipientSource, setRecipientSource] =
+    useState<RecipientSource>("manual");
+  const [audienceQuery, setAudienceQuery] =
+    useState<EmailAudienceQuery>(defaultAudienceQuery);
+  const [audienceLabel, setAudienceLabel] = useState("");
   const [sendOneEmail, setSendOneEmail] = useState("");
   const testEmails = serverManagedTestListLabel;
   const [sendNotice, setSendNotice] = useState("");
@@ -562,6 +611,7 @@ export default function EmailCampaignsClient({
   async function checkRecipientList() {
     setBusy("check-recipients");
     setSendNotice("");
+    setAudienceLabel("");
     showToast(
       "loading",
       "Checking recipient list",
@@ -587,6 +637,61 @@ export default function EmailCampaignsClient({
       showToast("error", "Could not check list", message);
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function loadAudienceRecipients() {
+    setBusy("load-audience");
+    setSendNotice("");
+    showToast(
+      "loading",
+      "Loading group",
+      "Resolving recipients from Supabase.",
+    );
+    try {
+      const resolved = (await resolveEmailAudienceAction({
+        query: audienceQuery,
+      })) as AudienceResolveResult;
+      setRecipientText(resolved.recipientText);
+      storeSendRecipients(resolved.recipientText);
+      setRecipientResult(resolved);
+      setAudienceLabel(resolved.label);
+      clearSendStatus();
+      setSendNotice(`${resolved.emails.length} recipients loaded.`);
+      showToast(
+        "success",
+        "Group loaded",
+        `${resolved.emails.length} valid recipient${
+          resolved.emails.length === 1 ? "" : "s"
+        } from ${resolved.label}.`,
+      );
+    } catch (error) {
+      const message = errorMessage(error);
+      setSendNotice(message);
+      showToast("error", "Could not load group", message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function updateAudienceQuery(patch: Partial<EmailAudienceQuery>) {
+    setAudienceQuery((current) => ({ ...current, ...patch }));
+    setAudienceLabel("");
+    setRecipientResult(null);
+    setRecipientText("");
+    removeStoredSendRecipients();
+    clearSendStatus();
+  }
+
+  function changeRecipientSource(source: RecipientSource) {
+    setRecipientSource(source);
+    setRecipientResult(null);
+    setAudienceLabel("");
+    clearSendStatus();
+
+    if (source === "audience") {
+      setRecipientText("");
+      removeStoredSendRecipients();
     }
   }
 
@@ -800,6 +905,7 @@ export default function EmailCampaignsClient({
   function clearCompletedSend() {
     setRecipientText("");
     setRecipientResult(null);
+    setAudienceLabel("");
     removeStoredSendRecipients();
     removeStoredSendStatus();
   }
@@ -1054,20 +1160,27 @@ export default function EmailCampaignsClient({
               selectedTemplate={selectedTemplate}
               mergeFields={mergeFields}
               limits={campaignLimits}
+              recipientSource={recipientSource}
               recipientText={recipientText}
               recipientResult={recipientResult}
+              audienceQuery={audienceQuery}
+              audienceLabel={audienceLabel}
               sendOneEmail={sendOneEmail}
               testEmails={testEmails}
               sendStatus={activeSendStatus}
               testSendProof={activeTestSendProof}
               notice={sendNotice}
               busy={busy}
+              onRecipientSourceChange={changeRecipientSource}
               onRecipientTextChange={(value) => {
                 setRecipientText(value);
                 storeSendRecipients(value);
                 setRecipientResult(null);
+                setAudienceLabel("");
                 clearSendStatus();
               }}
+              onAudienceQueryChange={updateAudienceQuery}
+              onLoadAudience={() => void loadAudienceRecipients()}
               onCheckRecipients={() => void checkRecipientList()}
               onSendOneEmailChange={setSendOneEmail}
               onSendOne={() => void sendOneRecipient()}
@@ -1690,15 +1803,21 @@ function SendPanel({
   selectedTemplate,
   mergeFields,
   limits,
+  recipientSource,
   recipientText,
   recipientResult,
+  audienceQuery,
+  audienceLabel,
   sendOneEmail,
   testEmails,
   sendStatus,
   testSendProof,
   notice,
   busy,
+  onRecipientSourceChange,
   onRecipientTextChange,
+  onAudienceQueryChange,
+  onLoadAudience,
   onCheckRecipients,
   onSendOneEmailChange,
   onSendOne,
@@ -1709,15 +1828,21 @@ function SendPanel({
   selectedTemplate: MasterTemplate | null;
   mergeFields: string[];
   limits: CampaignLimits;
+  recipientSource: RecipientSource;
   recipientText: string;
   recipientResult: RecipientSaveResult | null;
+  audienceQuery: EmailAudienceQuery;
+  audienceLabel: string;
   sendOneEmail: string;
   testEmails: string;
   sendStatus: DirectSendStatus | null;
   testSendProof: TestSendProof | null;
   notice: string;
   busy: string | null;
+  onRecipientSourceChange: (source: RecipientSource) => void;
   onRecipientTextChange: (value: string) => void;
+  onAudienceQueryChange: (patch: Partial<EmailAudienceQuery>) => void;
+  onLoadAudience: () => void;
   onCheckRecipients: () => void;
   onSendOneEmailChange: (value: string) => void;
   onSendOne: () => void;
@@ -1739,7 +1864,8 @@ function SendPanel({
     ? requiredRecipientColumns.filter((field) => !recipientColumns.has(field))
     : [];
   const fullSendUnlocked = Boolean(testSendProof);
-  const recipientInputDisabled = !fullSendUnlocked || Boolean(busy);
+  const recipientInputDisabled =
+    !fullSendUnlocked || Boolean(busy) || recipientSource === "audience";
   const fullSendReady = Boolean(
     templateCanSend &&
     testSendProof &&
@@ -1826,21 +1952,142 @@ function SendPanel({
               Recipients
             </p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Paste emails or CSV with an{" "}
-              <code className={codeClass}>email</code> column plus merge columns
-              like <code className={codeClass}>name</code>.
+              Paste a list manually or load a Supabase group as CSV. Group rows
+              include <code className={codeClass}>email</code>,{" "}
+              <code className={codeClass}>first_name</code>, decision, RSVP, and
+              travel reimbursement columns.
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className={adminSecondaryButtonClass}
-            disabled={recipientInputDisabled || !recipientText.trim()}
-            onClick={onCheckRecipients}
-          >
-            <Users />
-            {busy === "check-recipients" ? "Checking..." : "Check list"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={recipientSource === "manual" ? "default" : "ghost"}
+              className={
+                recipientSource === "manual"
+                  ? adminPrimaryButtonClass
+                  : adminSecondaryButtonClass
+              }
+              onClick={() => onRecipientSourceChange("manual")}
+              disabled={Boolean(busy)}
+            >
+              <Users />
+              Manual
+            </Button>
+            <Button
+              type="button"
+              variant={recipientSource === "audience" ? "default" : "ghost"}
+              className={
+                recipientSource === "audience"
+                  ? adminPrimaryButtonClass
+                  : adminSecondaryButtonClass
+              }
+              onClick={() => onRecipientSourceChange("audience")}
+              disabled={Boolean(busy)}
+            >
+              <Database />
+              Groups
+            </Button>
+          </div>
         </div>
+        {recipientSource === "audience" ? (
+          <div className="mt-4 rounded-md border border-border bg-card p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <Filter className="size-4 text-muted-foreground" />
+                <p className="text-sm font-semibold text-foreground">
+                  Audience query
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                className={adminSecondaryButtonClass}
+                disabled={!fullSendUnlocked || Boolean(busy)}
+                onClick={onLoadAudience}
+              >
+                <Database />
+                {busy === "load-audience" ? "Loading..." : "Load group"}
+              </Button>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-3">
+              <Field label="Decision group">
+                <select
+                  className={inputClass}
+                  value={audienceQuery.decisionGroup}
+                  disabled={Boolean(busy)}
+                  onChange={(event) =>
+                    onAudienceQueryChange({
+                      decisionGroup: event.target
+                        .value as EmailAudienceQuery["decisionGroup"],
+                    })
+                  }
+                >
+                  {audienceDecisionOptions.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Travel award">
+                <select
+                  className={inputClass}
+                  value={audienceQuery.travelAward}
+                  disabled={Boolean(busy)}
+                  onChange={(event) =>
+                    onAudienceQueryChange({
+                      travelAward: event.target
+                        .value as EmailAudienceQuery["travelAward"],
+                    })
+                  }
+                >
+                  {audienceTravelAwardOptions.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="RSVP travel plan">
+                <select
+                  className={inputClass}
+                  value={audienceQuery.rsvpTravelPlan}
+                  disabled={Boolean(busy)}
+                  onChange={(event) =>
+                    onAudienceQueryChange({
+                      rsvpTravelPlan: event.target
+                        .value as EmailAudienceQuery["rsvpTravelPlan"],
+                    })
+                  }
+                >
+                  {audienceRsvpTravelPlanOptions.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              {fullSendUnlocked
+                ? audienceLabel
+                  ? `Loaded: ${audienceLabel}.`
+                  : "Load the group to snapshot its current recipients into the list below."
+                : "Run the required test send before loading a group."}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 flex justify-end">
+            <Button
+              variant="ghost"
+              className={adminSecondaryButtonClass}
+              disabled={recipientInputDisabled || !recipientText.trim()}
+              onClick={onCheckRecipients}
+            >
+              <Users />
+              {busy === "check-recipients" ? "Checking..." : "Check list"}
+            </Button>
+          </div>
+        )}
         <textarea
           className={cn(
             textareaClass,
@@ -1851,7 +2098,9 @@ function SendPanel({
           onChange={(event) => onRecipientTextChange(event.target.value)}
           placeholder={
             fullSendUnlocked
-              ? "email,name,travel_reimbursement\nhacker@umich.edu,Hacker,150.00"
+              ? recipientSource === "audience"
+                ? "Load a group to generate recipients from Supabase."
+                : "email,name,travel_reimbursement\nhacker@umich.edu,Hacker,150.00"
               : "Run the required test send before adding recipients."
           }
         />
@@ -2045,15 +2294,17 @@ function SendProgress({
   const title =
     busy === "check-recipients"
       ? "Checking recipient list"
-      : busy === "send-one"
-        ? "Sending one email"
-        : busy === "test-send"
-          ? "Sending test email"
-          : busy === "start-send"
-            ? "Sending list"
-            : sendStatus?.complete
-              ? "Send complete"
-              : "Send progress";
+      : busy === "load-audience"
+        ? "Loading recipient group"
+        : busy === "send-one"
+          ? "Sending one email"
+          : busy === "test-send"
+            ? "Sending test email"
+            : busy === "start-send"
+              ? "Sending list"
+              : sendStatus?.complete
+                ? "Send complete"
+                : "Send progress";
   const detail = sendStatus
     ? `${sendStatus.sentCount} sent, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
         sendStatus.sendingCount ? `, ${sendStatus.sendingCount} sending` : ""
