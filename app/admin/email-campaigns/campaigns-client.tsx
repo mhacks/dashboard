@@ -46,6 +46,7 @@ import {
   sendDirectTestEmailsAction,
   sendOneDirectEmailAction,
 } from "./actions";
+import { formatTimeOfDay } from "@/lib/format/date";
 
 type PreviewMode = "desktop" | "mobile";
 export type EmailCampaignSurface = "builder" | "styles" | "send";
@@ -3127,12 +3128,7 @@ function freshTestSendProof(proof: TestSendProof | null, proofKey: string) {
   return proof;
 }
 
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
+const formatTime = formatTimeOfDay;
 
 function slugifyFilename(value: string) {
   return (
