@@ -487,6 +487,12 @@ function ReviewProgressCard({ data }: { data: ApplicationAnalyticsData }) {
 
 function ReimbursementSpendCard({ data }: { data: ApplicationAnalyticsData }) {
   const { reimbursements } = data;
+  const actualSpendRate =
+    reimbursements.spentCents === 0
+      ? 0
+      : Math.round(
+          (reimbursements.actualSpentCents / reimbursements.spentCents) * 1000,
+        ) / 10;
   const approvalRate =
     reimbursements.totalRequests === 0
       ? 0
@@ -494,56 +500,60 @@ function ReimbursementSpendCard({ data }: { data: ApplicationAnalyticsData }) {
           (reimbursements.reimbursedUsers / reimbursements.totalRequests) *
             1000,
         ) / 10;
+  const unclaimedCommittedCents =
+    reimbursements.spentCents - reimbursements.actualSpentCents;
+  const reimbursementRequestNote =
+    reimbursements.totalRequests === 0
+      ? "No reimbursement requests yet."
+      : reimbursements.deniedRequests === 0
+        ? `${approvalRate}% of ${reimbursements.totalRequests} reimbursement requests are approved.`
+        : `${reimbursements.deniedRequests} denied ${
+            reimbursements.deniedRequests === 1 ? "award" : "awards"
+          } would have taken the total to ${formatCents(
+            reimbursements.spentCents + reimbursements.deniedCents,
+          )}.`;
 
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Travel Reimbursement Spend</CardTitle>
         <CardDescription>
-          Committed across approved travel awards. One award per hacker, so an
-          approved award is a reimbursed hacker.
+          Actual expected payout from approved awards where an early-round
+          hacker submitted an RSVP and selected reimbursement travel.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-end justify-between gap-3">
           <p className="font-heading text-4xl italic text-moss dark:text-sage">
-            {formatCents(reimbursements.spentCents)}
+            {formatCents(reimbursements.actualSpentCents)}
           </p>
           <p className="pb-1 text-sm text-muted-foreground">
-            to {reimbursements.reimbursedUsers}{" "}
-            {reimbursements.reimbursedUsers === 1 ? "hacker" : "hackers"}
+            to {reimbursements.actualReimbursedUsers} early{" "}
+            {reimbursements.actualReimbursedUsers === 1 ? "RSVP" : "RSVPs"}
           </p>
         </div>
-        <Meter value={approvalRate} className="mt-4 h-2" />
+        <Meter value={actualSpendRate} className="mt-4 h-2" />
         <p className="mt-2 text-xs text-muted-foreground">
-          {reimbursements.totalRequests === 0
-            ? "No reimbursement requests yet."
-            : `${approvalRate}% of ${reimbursements.totalRequests} requests approved.`}
+          {reimbursements.spentCents === 0
+            ? "No approved reimbursement awards yet."
+            : `${actualSpendRate}% of the approved award budget is tied to submitted reimbursement RSVPs.`}
         </p>
         <dl className="mt-4 grid grid-cols-2 gap-4 border-t pt-4 text-sm">
           <div>
-            <dt className="text-xs text-muted-foreground">Average award</dt>
+            <dt className="text-xs text-muted-foreground">Committed</dt>
             <dd className="mt-0.5 font-medium">
-              {reimbursements.averageAwardCents === null
-                ? "N/A"
-                : formatCents(reimbursements.averageAwardCents)}
+              {formatCents(reimbursements.spentCents)}
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Denied</dt>
+            <dt className="text-xs text-muted-foreground">Not claimed</dt>
             <dd className="mt-0.5 font-medium">
-              {formatCents(reimbursements.deniedCents)}
+              {formatCents(unclaimedCommittedCents)}
             </dd>
           </div>
         </dl>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          {reimbursements.deniedRequests === 0
-            ? "No awards have been denied."
-            : `${reimbursements.deniedRequests} denied ${
-                reimbursements.deniedRequests === 1 ? "award" : "awards"
-              } would have taken the total to ${formatCents(
-                reimbursements.spentCents + reimbursements.deniedCents,
-              )}.`}
+          {reimbursementRequestNote}
         </p>
       </CardContent>
     </Card>
@@ -880,9 +890,9 @@ export default function ApplicationAnalyticsDashboard({
             icon: <MapPinnedIcon className="size-5" />,
           },
           {
-            label: "Reimbursed",
-            value: data.reimbursements.reimbursedUsers,
-            hint: `${formatCents(data.reimbursements.spentCents)} committed across approved travel awards.`,
+            label: "Actual reimbursements",
+            value: data.reimbursements.actualReimbursedUsers,
+            hint: `${formatCents(data.reimbursements.actualSpentCents)} expected from early reimbursement RSVPs.`,
             icon: <PlaneIcon className="size-5" />,
           },
           {
