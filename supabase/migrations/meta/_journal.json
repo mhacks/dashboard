@@ -5,29 +5,106 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781462254365,
-      "tag": "20260614183734_init",
+      "when": 1783150244982,
+      "tag": "20260704073044_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1781571944870,
-      "tag": "20260614183801_review_columns",
+      "when": 1783150258956,
+      "tag": "20260704073058_triggers",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1781648587135,
-      "tag": "20260614183802_airport_code",
+      "when": 1784082736207,
+      "tag": "20260715023216_review_portal",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1781747800859,
-      "tag": "20260614183803_applicant_user_fk",
+      "when": 1784082737209,
+      "tag": "20260715023217_is_organizer_realtime_and_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786094586927,
+      "tag": "20260807092306_add_user_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786125250308,
+      "tag": "20260807175410_reimbursements",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786127661447,
+      "tag": "20260807183121_reimbursements_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786127561679,
+      "tag": "20260807183241_blacklist",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786127577968,
+      "tag": "20260807183257_blacklist_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786128366444,
+      "tag": "20260807184606_reimbursement_regions_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786308150117,
+      "tag": "20260809204230_hacker_decisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786309503715,
+      "tag": "20260809210503_reimbursement_status_binary",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786315772348,
+      "tag": "20260809224932_user_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786761461448,
+      "tag": "20260815023741_email_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786763562979,
+      "tag": "20260815031242_rsvps",
       "breakpoints": true
     }
   ]

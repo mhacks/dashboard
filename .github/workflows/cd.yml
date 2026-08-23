@@ -11,9 +11,35 @@ env:
   ECS_CLUSTER: mhacks-ecs
   ECS_SERVICE: mhacks-${{ github.event.repository.name }}
   ECS_TASK_DEFINITION: mhacks-${{ github.event.repository.name }}
+  SUPABASE_PROJECT_REF: wbgdramqyzwrupqrcjmw
 
 jobs:
+  deploy-supabase:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      AWS_SES_SMTP_USER: ${{ secrets.AWS_SES_SMTP_USER }}
+      AWS_SES_SMTP_PASSWORD: ${{ secrets.AWS_SES_SMTP_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm drizzle-kit migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Push Supabase config
+        run: pnpm supabase config push --project-ref $SUPABASE_PROJECT_REF
+
   deploy:
+    needs: deploy-supabase
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
@@ -43,6 +69,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
             NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=${{ secrets.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN }}
+            NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
 
       - name: Push image to ECR
         id: push

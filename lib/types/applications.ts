@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { UserEntry } from "../db/schema/users";
+import type { ApplicationDecision } from "../decisions";
 
 export const baseApplicationSchema = z.object({
   // Personal Information
@@ -41,6 +42,12 @@ export const baseApplicationSchema = z.object({
     .refine(
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 100,
       "Please limit your response to 100 words",
+    )
+    // z.toJSONSchema() drops .refine() constraints entirely — this
+    // .describe() is the only way the question text and word-count rule
+    // survive into the JSON Schema apply_get_schema returns to MCP agents.
+    .describe(
+      'Question: "MHacks is funding you for a year to do anything. What would you do?" Between 10 and 100 words (600 character max).',
     ),
   whyMhacks: z
     .string()
@@ -53,6 +60,9 @@ export const baseApplicationSchema = z.object({
     .refine(
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 200,
       "Please limit your response to 200 words",
+    )
+    .describe(
+      'Question: "Why MHacks?" Between 20 and 200 words (1200 character max).',
     ),
   hillToDieOn: z
     .string()
@@ -65,6 +75,9 @@ export const baseApplicationSchema = z.object({
     .refine(
       (s) => s.trim().split(/\s+/).filter(Boolean).length <= 10,
       "Please limit your response to 10 words",
+    )
+    .describe(
+      "Question: \"What's a hill you're willing to die on?\" Between 3 and 10 words (80 character max).",
     ),
 
   // Logistics
@@ -104,17 +117,27 @@ export const baseApplicationSchema = z.object({
   // MLH & Sponsor Agreements
   mlhCodeOfConduct: z
     .boolean()
-    .refine((val) => val === true, "You must agree to the MLH Code of Conduct"),
+    .refine((val) => val === true, "You must agree to the MLH Code of Conduct")
+    .describe("Must be true — the applicant must explicitly agree."),
   mlhPrivacyPolicy: z
     .boolean()
     .refine(
       (val) => val === true,
       "You must agree to share your information with MLH",
-    ),
+    )
+    .describe("Must be true — the applicant must explicitly agree."),
   mlhEmails: z
     .boolean()
-    .refine((val) => val === true, "You must agree to receive emails from MLH"),
+    .refine((val) => val === true, "You must agree to receive emails from MLH")
+    .describe("Must be true — the applicant must explicitly agree."),
   sponsorEmails: z.boolean().optional(),
+  notAiSlop: z
+    .boolean()
+    .refine(
+      (val) => val === true,
+      "You must confirm your application is not AI slop",
+    )
+    .describe("Must be true — the applicant must explicitly confirm."),
 });
 
 export const hackerApplicationSchema = baseApplicationSchema;
@@ -126,15 +149,6 @@ export type HackerApplicant = HackerApplicationFormData & {
   id: string;
   userId: string;
   status: ApplicationStatus;
-  user: UserEntry;
-};
-
-export const judgeApplicationSchema = baseApplicationSchema;
-export type JudgeApplicationFormData = z.infer<typeof judgeApplicationSchema>;
-
-export type JudgeApplicant = JudgeApplicationFormData & {
-  id: string;
-  userId: string;
-  status: ApplicationStatus;
+  decision: ApplicationDecision;
   user: UserEntry;
 };

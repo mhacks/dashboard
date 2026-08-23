@@ -21,7 +21,7 @@ export default function ApplicationFormSkeleton() {
         </div>
 
         {/* Card skeleton */}
-        <div className="w-full max-w-2xl rounded-3xl overflow-hidden border border-white/30 bg-[#f4f2e8]/[0.88] shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+        <div className="glass-card w-full max-w-2xl rounded-3xl overflow-hidden">
           <div className="px-8 pt-8 pb-6">
             <div className="flex items-start justify-between mb-6">
               <div className="space-y-2">
@@ -33,7 +33,7 @@ export default function ApplicationFormSkeleton() {
             <Skeleton className="h-3 w-full" />
           </div>
 
-          <div className="h-px mx-8 bg-[rgba(58,74,38,0.08)]" />
+          <div className="h-px mx-8 bg-moss/8" />
 
           <div className="px-8 py-7 space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (

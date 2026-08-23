@@ -1,0 +1,148 @@
+import {
+  HackerApplicationFormData,
+  hackerApplicationSchema,
+} from "@/lib/types/applications";
+import { db } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import {
+  hackerApplicants,
+  hackerApplicationDrafts,
+  type HackerApplicantRow,
+} from "@/lib/db/schema/applications";
+import {
+  applicantFullName,
+  findBlacklistMatch,
+} from "@/lib/actions/blacklist.actions";
+import { getPostHogClient } from "@/lib/posthog-server";
+import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
+import { validateResumeInS3 } from "@/lib/resume";
+
+// Core application logic, parameterized by `userId`, shared by both the web
+// form (cookie-authenticated server actions) and the MCP server (OAuth
+// token-authenticated tools). Keeping the Zod validation + Drizzle writes here
+// guarantees both entry points go through the exact same rules — the MCP path
+// can never persist data the form would have rejected.
+
+// The MLH agreement checkboxes are validated in the form but not stored —
+// submitting the application implies acceptance — so drop them before writing.
+export type ApplicationDbValues = Omit<
+  HackerApplicationFormData,
+  "mlhCodeOfConduct" | "mlhPrivacyPolicy" | "mlhEmails" | "notAiSlop"
+>;
+
+export function toDbValues(
+  parsed: HackerApplicationFormData,
+): ApplicationDbValues {
+  const values = { ...parsed };
+  delete (values as Partial<HackerApplicationFormData>).mlhCodeOfConduct;
+  delete (values as Partial<HackerApplicationFormData>).mlhPrivacyPolicy;
+  delete (values as Partial<HackerApplicationFormData>).mlhEmails;
+  delete (values as Partial<HackerApplicationFormData>).notAiSlop;
+  return values;
+}
+
+export async function submitHackerApplicationForUser(
+  userId: string,
+  data: HackerApplicationFormData,
+  source: "web" | "mcp",
+): Promise<{ duplicate: boolean; blocked: boolean }> {
+  const parsed = hackerApplicationSchema.parse(data);
+
+  // Deny-list check first: it is the cheapest gate and runs before any S3 read
+  // or write, so a blocked submission leaves nothing behind. Both entry points
+  // reach this function, so neither can bypass it.
+  const blocked = await findBlacklistMatch(
+    applicantFullName(parsed.firstName, parsed.lastName),
+    parsed.phoneNumber,
+  );
+  if (blocked) {
+    return { duplicate: false, blocked: true };
+  }
+
+  const resumeSizeBytes = await validateResumeInS3(parsed.resume, userId);
+
+  const result = await db
+    .insert(hackerApplicants)
+    .values({ ...toDbValues(parsed), userId })
+    .onConflictDoNothing()
+    .returning({ id: hackerApplicants.id });
+
+  if (result.length > 0) {
+    await db
+      .delete(hackerApplicationDrafts)
+      .where(eq(hackerApplicationDrafts.userId, userId));
+
+    const posthog = getPostHogClient();
+    if (source === "mcp") {
+      posthog.capture({
+        distinctId: userId,
+        event: "resume_uploaded",
+        properties: { file_size_bytes: resumeSizeBytes, source: "mcp" },
+      });
+    }
+    posthog.capture({
+      distinctId: userId,
+      event: "application_submitted",
+      properties: {
+        source,
+        university: parsed.university,
+        degree: parsed.degree,
+        graduation_year: parsed.graduationYear,
+        transportation_type: parsed.transportationType,
+        needs_travel_reimbursement: parsed.needsTravelReimbursement,
+      },
+    });
+    await posthog.flush();
+  }
+
+  return { duplicate: result.length === 0, blocked: false };
+}
+
+export async function saveDraftForUser(
+  userId: string,
+  data: Partial<HackerApplicationFormData>,
+): Promise<void> {
+  if (
+    typeof data.resume === "string" &&
+    !resumeKeyBelongsToUser(data.resume, userId)
+  ) {
+    throw new Error(
+      "Resume must come from your own upload — get a fresh upload URL and try again.",
+    );
+  }
+
+  await db
+    .insert(hackerApplicationDrafts)
+    .values({ userId, data: data as Record<string, unknown> })
+    .onConflictDoUpdate({
+      target: hackerApplicationDrafts.userId,
+      set: {
+        data: data as Record<string, unknown>,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+}
+
+export async function getApplicationStatusForUser(
+  userId: string,
+): Promise<HackerApplicantRow | null> {
+  const rows = await db
+    .select()
+    .from(hackerApplicants)
+    .where(eq(hackerApplicants.userId, userId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getDraftForUser(
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await db
+    .select()
+    .from(hackerApplicationDrafts)
+    .where(eq(hackerApplicationDrafts.userId, userId))
+    .limit(1);
+
+  return (rows[0]?.data as Record<string, unknown>) ?? null;
+}

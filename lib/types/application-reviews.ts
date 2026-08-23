@@ -1,0 +1,294 @@
+import { z } from "zod";
+import type {
+  HackerApplicantRow,
+  HackerApplicationReviewEventRow,
+  HackerApplicationReviewRow,
+  ReviewEventChanges,
+  ReviewEventSnapshot,
+} from "@/lib/db/schema/applications";
+import { DEADLINES } from "@/lib/landing/deadlines";
+
+const draftRatingSchema = z
+  .number()
+  .int("Rating must be a whole number")
+  .min(1, "Rating must be between 1 and 5")
+  .max(5, "Rating must be between 1 and 5")
+  .nullable();
+
+const finalRatingSchema = z
+  .number({ message: "Rating is required" })
+  .int("Rating must be a whole number")
+  .min(1, "Rating must be between 1 and 5")
+  .max(5, "Rating must be between 1 and 5");
+
+export const reviewDraftSchema = z.object({
+  applicationId: z.uuid(),
+  effortRating: draftRatingSchema,
+  builderRating: draftRatingSchema,
+  flaggedForReview: z.boolean(),
+  reviewComments: z.string().max(3000, "Comments are too long").nullable(),
+});
+
+export const reviewSaveOptionsSchema = z.object({
+  expectedUpdatedAt: z.string().nullable(),
+});
+
+export const reviewCompleteSchema = reviewDraftSchema
+  .extend({
+    effortRating: finalRatingSchema,
+    builderRating: finalRatingSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.flaggedForReview && !data.reviewComments?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Please explain why this application is flagged",
+        path: ["reviewComments"],
+      });
+    }
+  });
+
+export const reviewCompleteSaveSchema = reviewCompleteSchema.and(
+  reviewSaveOptionsSchema,
+);
+
+export const reviewEventsInputSchema = z.object({
+  applicationId: z.uuid(),
+});
+
+export const applicationSlugSchema = z
+  .string()
+  .regex(/^app_[a-f0-9]{24}$/, "Invalid application slug");
+
+export const reviewSyncPayloadSchema = z.object({
+  sourceUserId: z.uuid(),
+  applicationId: z.uuid(),
+});
+
+export type ReviewSyncPayload = z.infer<typeof reviewSyncPayloadSchema>;
+
+// The blacklist row is the only record that survives the deletion, so an entry
+// with no explanation is worthless later — the reason is required here, not
+// just disabled-until-filled in the dialog.
+export const blacklistDeleteSchema = z.object({
+  applicationId: z.uuid(),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Please record why this applicant is being removed")
+    .max(500, "Please keep the reason under 500 characters"),
+});
+
+export type BlacklistDeleteInput = z.infer<typeof blacklistDeleteSchema>;
+
+export type BlacklistDeleteResult = {
+  applicationId: string;
+  applicantName: string;
+};
+
+export type ReviewDraftInput = z.infer<typeof reviewDraftSchema>;
+export type ReviewCompleteInput = z.infer<typeof reviewCompleteSchema>;
+export type ReviewCompleteSaveInput = z.infer<typeof reviewCompleteSaveSchema>;
+
+export type ReviewSaveSuccess = {
+  ok: true;
+  review: ReviewRecord;
+  event: ReviewEventRecord | null;
+};
+
+export type ReviewSaveConflict = {
+  ok: false;
+  code: "conflict";
+  review: ReviewRecord | null;
+};
+
+export type ReviewCompleteSaveResult =
+  (ReviewSaveSuccess & { status: "reviewed" | "flagged" }) | ReviewSaveConflict;
+export type ReviewEventsInput = z.infer<typeof reviewEventsInputSchema>;
+
+export type ReviewApplication = HackerApplicantRow & {
+  slug: string;
+  applicantEmail: string | null;
+};
+
+export type ReviewRecord = HackerApplicationReviewRow & {
+  reviewerEmail: string | null;
+};
+
+export type ReviewEventRecord = HackerApplicationReviewEventRow & {
+  reviewerEmail: string | null;
+  changes: ReviewEventChanges;
+  snapshot: ReviewEventSnapshot;
+};
+
+export type ReviewLeaderboardRow = {
+  reviewerUserId: string;
+  reviewerEmail: string;
+  completedApplications: number;
+  reviewedApplications: number;
+  flaggedApplications: number;
+  lastActivityAt: string | null;
+};
+
+export type ReviewAuditEventRecord = ReviewEventRecord & {
+  applicationName: string;
+  applicationStatus: ReviewApplication["status"];
+};
+
+export type ReviewApplicationSummary = {
+  id: string;
+  slug: string;
+  userId: string;
+  status: ReviewApplication["status"];
+  firstName: string;
+  lastName: string;
+  applicantEmail: string | null;
+  university: string;
+  major: string;
+  whyMhacksPreview: string;
+  country: string;
+  // A US state code or the literal "international" — see comingFromOptions.
+  comingFrom: string;
+  needsTravelReimbursement: boolean;
+  // Only asked when reimbursement is needed, so null means "never answered",
+  // which is distinct from an explicit "no".
+  wouldAttendWithoutReimbursement: boolean | null;
+  createdAt: string;
+};
+
+export type ReviewListSummaryItem = {
+  application: ReviewApplicationSummary;
+  review: ReviewRecord | null;
+};
+
+export type ApplicationRound = "early" | "regular";
+
+const earlyApplicationsDeadline = DEADLINES.find(
+  (deadline) => deadline.id === "early-apps-due",
+);
+if (!earlyApplicationsDeadline) {
+  throw new Error(
+    'lib/types/application-reviews.ts: DEADLINES is missing the "early-apps-due" entry required to classify applications into early/regular rounds.',
+  );
+}
+const EARLY_APPLICATIONS_DEADLINE_MS = new Date(
+  earlyApplicationsDeadline.date,
+).getTime();
+
+/** Classifies an application's createdAt against the early-apps-due deadline. */
+export function getApplicationRound(createdAt: string): ApplicationRound {
+  return new Date(createdAt).getTime() < EARLY_APPLICATIONS_DEADLINE_MS
+    ? "early"
+    : "regular";
+}
+
+export type ReviewWorkspaceData = {
+  items: ReviewListSummaryItem[];
+  counts: ReviewCounts;
+};
+
+export type ReviewLeaderboardData = {
+  rows: ReviewLeaderboardRow[];
+  recentEvents: ReviewAuditEventRecord[];
+  totals: {
+    completedApplications: number;
+    draftEvents: number;
+    completionEvents: number;
+    totalEvents: number;
+    activeReviewers: number;
+  };
+};
+
+export type AnalyticsBucket = {
+  label: string;
+  count: number;
+  percentage: number;
+};
+
+export type ScoreAnalytics = {
+  reviewedApplications: number;
+  effortRatings: AnalyticsBucket[];
+  builderRatings: AnalyticsBucket[];
+};
+
+export type BlacklistAnalytics = {
+  // One row per blocked person: the table's partial unique indexes on the
+  // normalized name and phone keep a repeat entry from double-counting.
+  total: number;
+  // Entries are matched on name OR phone and may carry only one of the two, so
+  // these overlap and deliberately do not sum to `total`.
+  withName: number;
+  withPhone: number;
+  withBoth: number;
+};
+
+export type ReimbursementRegionBucket = AnalyticsBucket & {
+  // The tier's primary key. Carried alongside the label because labels are
+  // organizer-editable free text and two tiers may share one, so only the id
+  // is a safe identity for a row.
+  region: number;
+  amountCents: number;
+};
+
+export type ReimbursementAnalytics = {
+  // hacker_reimbursements is unique per user_id, so an award count is also a
+  // user count — "approved" is the reimbursed population.
+  reimbursedUsers: number;
+  // Approved awards whose early-round hackers submitted an RSVP selecting the
+  // reimbursement travel plan. This is the expected actual payout.
+  actualReimbursedUsers: number;
+  spentCents: number;
+  actualSpentCents: number;
+  deniedRequests: number;
+  // What denied awards would have added to `spentCents` had they been approved.
+  deniedCents: number;
+  totalRequests: number;
+  averageAwardCents: number | null;
+  statusBreakdown: AnalyticsBucket[];
+  regionBreakdown: ReimbursementRegionBucket[];
+};
+
+export type ApplicationAnalyticsData = {
+  totals: {
+    applicants: number;
+    pending: number;
+    reviewed: number;
+    flagged: number;
+    averageAge: number | null;
+    youngestAge: number | null;
+    oldestAge: number | null;
+  };
+  statusBreakdown: AnalyticsBucket[];
+  scores: ScoreAnalytics;
+  demographics: {
+    gender: AnalyticsBucket[];
+    ethnicity: AnalyticsBucket[];
+    degree: AnalyticsBucket[];
+    major: AnalyticsBucket[];
+    graduationYear: AnalyticsBucket[];
+    ageBuckets: AnalyticsBucket[];
+  };
+  locations: {
+    countries: AnalyticsBucket[];
+    usStates: AnalyticsBucket[];
+    comingFrom: AnalyticsBucket[];
+  };
+  academics: {
+    universities: AnalyticsBucket[];
+    previousHackathonBuckets: AnalyticsBucket[];
+  };
+  blacklist: BlacklistAnalytics;
+  reimbursements: ReimbursementAnalytics;
+};
+
+export type ReviewListItem = {
+  application: ReviewApplication;
+  review: ReviewRecord | null;
+};
+
+export type ReviewCounts = {
+  total: number;
+  pending: number;
+  reviewed: number;
+  flagged: number;
+};

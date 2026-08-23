@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +12,7 @@ import {
   hackerApplicationSchema,
 } from "@/lib/types/applications";
 
+import { FormStepProgress } from "@/components/forms/form-step-progress";
 import AcademicInformation from "./components/academic-information";
 import PersonalInformation from "./components/personal-information";
 import Essays from "./components/essays";
@@ -20,65 +20,23 @@ import Logistics from "./components/logistics";
 import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
+import { APPLICATION_STEPS } from "@/lib/application-steps";
+import { logout } from "@/lib/actions/auth.server.actions";
 import {
   submitHackerApplication,
   saveDraft,
 } from "@/lib/actions/application-form.server.actions";
-import { createClient } from "@/lib/supabase/client";
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
+import posthog from "posthog-js";
+import { ArrowLeft, Bot } from "lucide-react";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
-const GREEN = "#3A4A26";
 
-const GLASS_CARD =
-  "border border-white/30 bg-[#f4f2e8]/[0.88] shadow-[0_24px_64px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-2xl";
-const GLASS_PILL =
-  "border border-white/20 bg-black/[0.32] shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-xl";
-
-const STEPS: Array<{
-  label: string;
-  fields: (keyof HackerApplicationFormData)[];
-}> = [
-  {
-    label: "Personal",
-    fields: [
-      "firstName",
-      "lastName",
-      "phoneNumber",
-      "age",
-      "gender",
-      "ethnicity",
-    ],
-  },
-  {
-    label: "Academic",
-    fields: [
-      "university",
-      "country",
-      "degree",
-      "graduationYear",
-      "previousHackathons",
-      "major",
-      "resume",
-    ],
-  },
-  {
-    label: "Essays",
-    fields: ["whatWouldYouDo", "whyMhacks", "hillToDieOn"],
-  },
-  {
-    label: "Logistics",
-    fields: ["transportationType", "comingFrom", "shirtSize"],
-  },
-  { label: "Socials", fields: [] },
-  {
-    label: "Agreements",
-    fields: ["mlhCodeOfConduct", "mlhPrivacyPolicy", "mlhEmails"],
-  },
-];
+// Shared with the dashboard, which derives draft progress from the same steps.
+const STEPS = APPLICATION_STEPS;
 
 // Maps every schema field to the section (step label) it belongs to, so a
 // validation error can be reported as the section that needs completing.
@@ -116,73 +74,12 @@ const SECTION_OF_FIELD: Partial<
   mlhPrivacyPolicy: "Agreements",
   mlhEmails: "Agreements",
   sponsorEmails: "Agreements",
+  notAiSlop: "Agreements",
 };
 
 // Max number of section names to spell out in the "please complete" message
 // before collapsing the rest into "and N more".
 const MAX_SECTIONS_SHOWN = 3;
-
-function StepBar({ current }: { current: number }) {
-  return (
-    <div className="w-full flex items-start">
-      {STEPS.map((step, i) => {
-        const isDone = i < current;
-        const isActive = i === current;
-        return (
-          <React.Fragment key={i}>
-            <div className="flex flex-col items-center shrink-0">
-              <motion.div
-                animate={isActive ? { scale: 1.3 } : { scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="rounded-full"
-                style={
-                  isActive
-                    ? {
-                        width: 10,
-                        height: 10,
-                        background: GREEN,
-                        boxShadow: `0 0 0 3px rgba(58,74,38,0.2)`,
-                      }
-                    : isDone
-                      ? { width: 8, height: 8, background: GREEN }
-                      : {
-                          width: 8,
-                          height: 8,
-                          background: "rgba(58,74,38,0.15)",
-                          border: "1.5px solid rgba(58,74,38,0.25)",
-                        }
-                }
-              />
-              <span
-                className="mt-2 text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat text-center w-14"
-                style={{
-                  color: isActive
-                    ? GREEN
-                    : isDone
-                      ? "rgba(58,74,38,0.65)"
-                      : "rgba(58,74,38,0.3)",
-                  fontWeight: isActive ? 700 : isDone ? 600 : 400,
-                }}
-              >
-                {isDone ? "✓ " : ""}
-                {step.label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <motion.div
-                className="flex-1 h-px mx-1 mt-[4px]"
-                animate={{
-                  backgroundColor: isDone ? GREEN : "rgba(58,74,38,0.15)",
-                }}
-                transition={{ duration: 0.4 }}
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
 
 function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
   return {
@@ -219,6 +116,7 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
     mlhPrivacyPolicy: true,
     mlhEmails: true,
     sponsorEmails: row.sponsorEmails ?? false,
+    notAiSlop: true,
   };
 }
 
@@ -238,13 +136,13 @@ export default function ApplyPage({
   resumeUrl: string | null;
 }) {
   const readOnly = existingData !== null;
-  const router = useRouter();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showIncompleteMsg, setShowIncompleteMsg] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -300,6 +198,7 @@ export default function ApplyPage({
           mlhPrivacyPolicy: draft.mlhPrivacyPolicy ?? false,
           mlhEmails: draft.mlhEmails ?? false,
           sponsorEmails: draft.sponsorEmails ?? false,
+          notAiSlop: draft.notAiSlop ?? false,
         },
   });
 
@@ -373,6 +272,10 @@ export default function ApplyPage({
         if (!valid) return;
       }
     }
+    posthog.capture("application_step_completed", {
+      step_index: step,
+      step_label: STEPS[step].label,
+    });
     setDirection(1);
     setStep((s) => s + 1);
   };
@@ -388,20 +291,23 @@ export default function ApplyPage({
     if (savedTimer.current) clearTimeout(savedTimer.current);
     setIsSubmitting(true);
     try {
-      const { duplicate } = await submitHackerApplication(data);
-      if (duplicate) {
+      const { duplicate, blocked } = await submitHackerApplication(data);
+      if (blocked) {
+        setIsBlocked(true);
+      } else if (duplicate) {
         setIsDuplicate(true);
       } else {
         setSubmitSuccess(true);
       }
     } catch (error) {
+      posthog.captureException(error);
       console.error("Submission error:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isDuplicate || submitSuccess) {
+  if (isBlocked || isDuplicate || submitSuccess) {
     return (
       <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
         <Image
@@ -437,34 +343,48 @@ export default function ApplyPage({
           initial={{ opacity: 0, y: 24, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className={`relative z-10 text-center max-w-md w-full rounded-3xl px-10 py-12 ${GLASS_CARD}`}
+          className="glass-card relative z-10 text-center max-w-md w-full rounded-3xl px-10 py-12"
         >
           <div className="flex justify-center">
             <MHacksLogo size={48} variant="green" />
           </div>
-          <h2
-            className="mt-6 font-heading italic text-4xl leading-tight tracking-tight"
-            style={{ color: GREEN }}
-          >
-            {isDuplicate ? "Already Applied!" : "Application Submitted!"}
+          <h2 className="mt-6 font-heading italic text-4xl leading-tight tracking-tight text-moss">
+            {isBlocked
+              ? "Application Not Accepted"
+              : isDuplicate
+                ? "Already Applied!"
+                : "Application Submitted!"}
           </h2>
-          <p
-            className="mt-4 font-red-hat text-[14px] leading-7"
-            style={{ color: "rgba(58,74,38,0.65)" }}
-          >
-            {isDuplicate
-              ? "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
-              : "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."}
+          <p className="mt-4 font-red-hat text-[14px] leading-7 text-moss/65">
+            {isBlocked ? (
+              <>
+                We&apos;re unable to accept an application from you for MHacks
+                2026. If you believe this is a mistake, reach out to{" "}
+                <a
+                  href="mailto:hackathon@mhacks.org"
+                  className="underline underline-offset-2 hover:opacity-80"
+                >
+                  hackathon@mhacks.org
+                </a>
+                .
+              </>
+            ) : isDuplicate ? (
+              "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
+            ) : (
+              "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."
+            )}
           </p>
-          <button
-            onClick={() => {
-              window.location.href = "/apply";
-            }}
-            className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white transition-opacity hover:opacity-80"
-            style={{ background: GREEN }}
-          >
-            View Application
-          </button>
+          {/* A blocked applicant has no application to return to. */}
+          {!isBlocked && (
+            <button
+              onClick={() => {
+                window.location.href = "/apply";
+              }}
+              className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
+            >
+              View Application
+            </button>
+          )}
         </motion.div>
       </div>
     );
@@ -536,25 +456,28 @@ export default function ApplyPage({
           initial={{ opacity: 0, y: -14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: EASE }}
-          className="flex items-center justify-between w-full max-w-2xl mb-8"
+          className="flex items-center justify-between w-full max-w-2xl mb-8 gap-2"
         >
-          <div
-            className={`flex items-center gap-3 rounded-full px-5 py-2.5 ${GLASS_PILL}`}
-          >
+          <div className="flex items-center gap-2">
+            <div className="glass-pill flex items-center gap-3 rounded-full px-3 py-2.5 sm:px-5">
+              <Link
+                href="/"
+                aria-label="Back to home"
+                className="transition-opacity hover:opacity-80"
+              >
+                <MHacksLogo size={20} />
+              </Link>
+              <span className="font-heading italic text-[17px] text-white leading-none">
+                MHacks 2026
+              </span>
+            </div>
             <Link
-              href="/"
-              aria-label="Back to home"
-              className="transition-opacity hover:opacity-80"
+              href="/dashboard"
+              className="glass-pill flex items-center gap-1.5 rounded-full px-3 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 sm:px-4"
             >
-              <MHacksLogo size={20} />
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Dashboard</span>
             </Link>
-            <span className="font-heading italic text-[17px] text-white leading-none">
-              MHacks 2026
-            </span>
-            <span className="text-white/25 mx-0.5">|</span>
-            <span className="font-red-hat text-[12px] text-white/55">
-              Hacker Application
-            </span>
           </div>
           <div className="flex items-center gap-2">
             {!readOnly && saveStatus !== "idle" && (
@@ -574,7 +497,7 @@ export default function ApplyPage({
                     : "Failed to save"}
               </span>
             )}
-            <div className={`rounded-full px-4 py-2 ${GLASS_PILL}`}>
+            <div className="glass-pill rounded-full px-4 py-2">
               <span className="font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55">
                 {step + 1} / {STEPS.length}
               </span>
@@ -584,12 +507,9 @@ export default function ApplyPage({
               disabled={isSigningOut}
               onClick={async () => {
                 setIsSigningOut(true);
-                await createClient()
-                  .auth.signOut()
-                  .catch(() => {});
-                router.push("/");
+                await logout();
               }}
-              className={`rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 disabled:opacity-50 ${GLASS_PILL}`}
+              className="glass-pill rounded-full px-4 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 disabled:opacity-50"
             >
               Sign out
             </button>
@@ -601,40 +521,44 @@ export default function ApplyPage({
           initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, ease: EASE, delay: 0.1 }}
-          className={`w-full max-w-2xl rounded-3xl overflow-hidden ${GLASS_CARD}`}
+          className="glass-card w-full max-w-2xl rounded-3xl overflow-hidden"
         >
           {/* Card header */}
           <div className="px-8 pt-8 pb-6">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <p
-                  className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] mb-1"
-                  style={{ color: "rgba(58,74,38,0.45)" }}
+            <div className="mb-6">
+              <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.3em] mb-1 text-moss/45">
+                Apply
+              </p>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center flex-wrap gap-3">
+                  <h1 className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight text-moss">
+                    {STEPS[step].label}
+                  </h1>
+                  <Image
+                    src="/yellow_flower.png"
+                    alt=""
+                    width={68}
+                    height={68}
+                    className="opacity-30 rotate-[-18deg] pointer-events-none select-none shrink-0"
+                  />
+                </div>
+                <Link
+                  href="/how-to-mcp"
+                  className="flex shrink-0 items-center gap-1.5 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white whitespace-nowrap rounded-full bg-moss px-4 py-2 transition-opacity hover:opacity-80"
                 >
-                  Apply
-                </p>
-                <h1
-                  className="font-heading italic text-4xl sm:text-5xl leading-tight tracking-tight"
-                  style={{ color: GREEN }}
-                >
-                  {STEPS[step].label}
-                </h1>
+                  <Bot className="h-3.5 w-3.5" />
+                  Apply with an agent →
+                </Link>
               </div>
-              <Image
-                src="/yellow_flower.png"
-                alt=""
-                width={68}
-                height={68}
-                className="opacity-30 rotate-[-18deg] pointer-events-none select-none shrink-0 mt-1"
-              />
             </div>
-            <StepBar current={step} />
+            <FormStepProgress
+              current={step}
+              steps={STEPS}
+              label="Application progress"
+            />
           </div>
 
-          <div
-            className="h-px mx-8"
-            style={{ background: "rgba(58,74,38,0.08)" }}
-          />
+          <div className="h-px mx-8 bg-moss/8" />
 
           {/* Step content */}
           <div className="px-8 py-7">
@@ -643,12 +567,7 @@ export default function ApplyPage({
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, ease: EASE }}
-                className="mb-5 rounded-xl px-4 py-3 font-red-hat text-[13px] font-medium"
-                style={{
-                  background: "rgba(58,74,38,0.07)",
-                  color: GREEN,
-                  border: "1px solid rgba(58,74,38,0.13)",
-                }}
+                className="mb-5 rounded-xl px-4 py-3 font-red-hat text-[13px] font-medium bg-moss/7 text-moss border border-moss/13"
               >
                 Your application has been submitted and is under review. No
                 further changes can be made.
@@ -711,19 +630,12 @@ export default function ApplyPage({
               </AnimatePresence>
 
               {/* Navigation */}
-              <div
-                className="flex items-center gap-3 mt-8 pt-6 border-t"
-                style={{ borderColor: "rgba(58,74,38,0.08)" }}
-              >
+              <div className="flex items-center gap-3 mt-8 pt-6 border-t border-moss/8">
                 {step > 0 && (
                   <button
                     type="button"
                     onClick={goBack}
-                    className="font-red-hat rounded-full border px-6 py-2.5 text-[13px] font-medium transition-colors hover:bg-black/5"
-                    style={{
-                      borderColor: "rgba(58,74,38,0.2)",
-                      color: GREEN,
-                    }}
+                    className="font-red-hat rounded-full border border-moss/20 px-6 py-2.5 text-[13px] font-medium text-moss transition-colors hover:bg-black/5"
                   >
                     Back
                   </button>
@@ -733,8 +645,7 @@ export default function ApplyPage({
                   <button
                     type="button"
                     onClick={goNext}
-                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
-                    style={{ background: GREEN }}
+                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
                   >
                     Continue
                   </button>
@@ -745,8 +656,7 @@ export default function ApplyPage({
                       setDirection(-1);
                       setStep(0);
                     }}
-                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
-                    style={{ background: GREEN }}
+                    className="font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
                   >
                     Back to Start
                   </button>
@@ -762,12 +672,11 @@ export default function ApplyPage({
                       }
                       handleSubmit(onSubmit)();
                     }}
-                    className={`font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white transition-opacity ${
+                    className={`font-red-hat rounded-full px-7 py-2.5 text-[13px] font-medium text-white bg-moss transition-opacity ${
                       !isComplete || isSubmitting
                         ? "opacity-50 cursor-not-allowed"
                         : "hover:opacity-80"
                     }`}
-                    style={{ background: GREEN }}
                   >
                     {isSubmitting ? "Submitting…" : "Submit Application"}
                   </button>

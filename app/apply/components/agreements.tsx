@@ -141,6 +141,39 @@ const Agreements = ({
           )}
         </div>
 
+        <div className="space-y-1">
+          <div className="flex items-start gap-3">
+            <Controller
+              name="notAiSlop"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  id="notAiSlop"
+                  className="mt-0.5"
+                />
+              )}
+            />
+            <Label
+              htmlFor="notAiSlop"
+              className="text-sm leading-normal cursor-pointer"
+            >
+              <span>
+                I confirm that my application is not AI slop. I understand that
+                if AI-generated content causes any fields to be filled out
+                incorrectly, my application may be rejected.
+                <span className="text-destructive"> *</span>
+              </span>
+            </Label>
+          </div>
+          {errors.notAiSlop && (
+            <p className="font-red-hat text-[11px] text-destructive pl-6">
+              {errors.notAiSlop.message}
+            </p>
+          )}
+        </div>
+
         <div className="flex items-start gap-3">
           <Controller
             name="sponsorEmails"

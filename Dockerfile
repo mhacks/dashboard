@@ -51,9 +51,13 @@ ENV NODE_ENV=production
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY
+ARG NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
+ARG NEXT_PUBLIC_POSTHOG_HOST
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=$NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
+ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -107,9 +111,11 @@ RUN chown node:node .next
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 
-# If you want to persist the fetch cache generated during the build so that
-# cached responses are available immediately on startup, uncomment this line:
-# COPY --from=builder --chown=node:node /app/.next/cache ./.next/cache
+# Persist the build-time cache so cached fetch responses are available
+# immediately on startup. Note this does NOT pre-warm the image optimizer:
+# /_next/image results are produced on demand, so the first request for each
+# (image, width) still pays the sharp encode on every task.
+COPY --from=builder --chown=node:node /app/.next/cache ./.next/cache
 
 # Switch to non-root user for security best practices
 USER node

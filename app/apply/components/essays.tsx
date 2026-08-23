@@ -73,7 +73,7 @@ const Essays = ({
         </FormField>
 
         <FormField
-          label="MHacks is funding you for a year to do anything. What what you do?"
+          label="MHacks is funding you for a year to do anything. What would you do?"
           required
         >
           <Textarea
