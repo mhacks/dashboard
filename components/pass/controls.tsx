@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { TicketState } from "@/lib/pass/types";
 import { FONTS } from "@/lib/pass/fonts";
@@ -11,6 +11,11 @@ import {
   BOUQUET_FINE_PRINT_PREFIX,
   BOUQUET_GAME_URL,
 } from "@/components/pass/bouquets";
+import {
+  BOUQUET_HANDOFF_STORAGE_KEY,
+  clearBouquetHandoff,
+  readBouquetHandoff,
+} from "@/lib/pass/handoff";
 import {
   EXPERIENCES,
   STUDIES,
@@ -374,18 +379,29 @@ export function BouquetPicker({
   state: TicketState;
   onChange: Patch;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    function apply(dataUrl: string) {
+      onChange({ bouquet: "upload", bouquetUpload: dataUrl });
+      clearBouquetHandoff();
+    }
 
-  function pickFile(file: File | undefined) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange({ bouquet: "upload", bouquetUpload: String(reader.result) });
-    };
-    // A data URL rather than an object URL: it is already inline, so the
-    // uploaded bouquet survives the PNG export without a fetch.
-    reader.readAsDataURL(file);
-  }
+    // Same-tab return from the bouquet game, or reopening the pass later —
+    // pick up whatever is waiting the moment this control mounts.
+    const pending = readBouquetHandoff();
+    if (pending) apply(pending);
+
+    // The bouquet game opens in its own tab so this tab's in-progress pass
+    // survives (see the link below); `storage` fires here the instant that
+    // other tab sends its bouquet over, so the tile updates live without
+    // switching back first.
+    function onStorage(event: StorageEvent) {
+      if (event.key === BOUQUET_HANDOFF_STORAGE_KEY && event.newValue) {
+        apply(event.newValue);
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [onChange]);
 
   return (
     <div>
@@ -445,7 +461,14 @@ export function BouquetPicker({
         <button
           type="button"
           aria-pressed={state.bouquet === "upload"}
-          onClick={() => fileInput.current?.click()}
+          // A same-tab navigation here would throw away every other field on
+          // the pass, since none of it is persisted — see the note on
+          // ExportPanel's "MHacks ticket" link for why the bouquet game opens
+          // in its own tab instead, and the effect above for how its result
+          // finds its way back.
+          onClick={() =>
+            window.open(BOUQUET_GAME_URL, "_blank", "noopener,noreferrer")
+          }
           style={{
             ...cellStyle(state.bouquet === "upload"),
             padding: "10px 6px 8px",
@@ -458,8 +481,9 @@ export function BouquetPicker({
             style={{ width: 34, height: 34 }}
           >
             {state.bouquetUpload ? (
-              // A data URL from the hacker's own file picker, held in memory —
-              // there is nothing for next/image to optimize.
+              // A PNG handed off from the bouquet game — composited entirely
+              // from MHacks' own flower and vase art, never an arbitrary
+              // file — so there is nothing for next/image to optimize.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={state.bouquetUpload}
@@ -493,22 +517,10 @@ export function BouquetPicker({
             }}
           >
             <Mark on={state.bouquet === "upload"} />
-            Upload
+            Design
           </span>
         </button>
       </div>
-
-      <input
-        ref={fileInput}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-        hidden
-        onChange={(e) => {
-          pickFile(e.target.files?.[0]);
-          // Reset so re-picking the same file still fires a change.
-          e.target.value = "";
-        }}
-      />
 
       {/*
         The whole line is gated on the URL, not just the anchor. The standalone

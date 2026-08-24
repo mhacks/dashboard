@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { STICKER_BORDERS, TICKET_URL } from "@/lib/bouquet/catalog";
 import type { PlacedStem } from "@/lib/bouquet/geometry";
 import { canvasToBlob, renderSticker } from "@/lib/bouquet/sticker";
+import { writeBouquetHandoff } from "@/lib/pass/handoff";
 
 type Props = {
   open: boolean;
@@ -30,6 +31,9 @@ export default function ExportPanel({
     null,
   );
   const [busy, setBusy] = useState(false);
+  // Tagged with `key` the same way `preview` is, so editing after sending
+  // clears the confirmation instead of it lying about a stale bouquet.
+  const [sentKey, setSentKey] = useState<string | null>(null);
 
   const build = useCallback(
     (scale: number) =>
@@ -73,6 +77,7 @@ export default function ExportPanel({
   }, [open, key, build]);
 
   const src = open && preview?.key === key ? preview.src : "";
+  const sent = sentKey === key;
 
   async function download() {
     setBusy(true);
@@ -86,6 +91,17 @@ export default function ExportPanel({
       a.download = "bouquet-sticker.png";
       a.click();
       URL.revokeObjectURL(url);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function useOnPass() {
+    setBusy(true);
+    try {
+      const cv = await build(2); // supersampled, same as download
+      writeBouquetHandoff(cv.toDataURL("image/png"));
+      setSentKey(key);
     } finally {
       setBusy(false);
     }
@@ -140,12 +156,37 @@ export default function ExportPanel({
       <div className="ep-actions">
         <button
           className="pill solid"
+          onClick={useOnPass}
+          disabled={!src || busy}
+        >
+          use on pass
+        </button>
+        <button
+          className="pill ghost"
           onClick={download}
           disabled={!src || busy}
         >
           download
         </button>
       </div>
+
+      {/* Only ever true right after `useOnPass` sends this exact bouquet —
+          `sentKey` is cleared implicitly the moment `key` changes underneath
+          it, so there's no separate reset to forget. */}
+      {sent && (
+        <p className="ep-sent">
+          Sent to your pass — switch back to that tab, or{" "}
+          <a
+            className="ep-link"
+            href={TICKET_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            open it here
+          </a>
+          .
+        </p>
+      )}
 
       {/* `keep editing` leaves the arrangement and the undo history untouched,
           so you can adjust one stem and wrap again — unlike `start over`. */}

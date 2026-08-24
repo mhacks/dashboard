@@ -4,7 +4,7 @@ export type FormatId = "portrait" | "square" | "landscape";
 
 export type BackdropId = "sky" | "halftone" | "grove" | "blossom" | "fern";
 
-/** Built-in bouquets, plus 'none' and 'upload' for a hacker's own PNG. */
+/** Built-in bouquets, plus 'none' and 'upload' for one handed off from the bouquet mini-game. */
 export type BouquetId = "none" | "posy" | "sprigs" | "wreath" | "upload";
 
 export type YearId = "freshman" | "sophomore" | "junior" | "senior" | "grad";
@@ -31,7 +31,10 @@ export type TicketState = {
   backdrop: BackdropId;
   font: FontId;
   bouquet: BouquetId;
-  /** Data URL of an uploaded bouquet PNG, when bouquet === 'upload'. */
+  /**
+   * Data URL of the bouquet PNG handed off from /dashboard/bouquet, when
+   * bouquet === 'upload'. Never an arbitrary file — see lib/pass/handoff.ts.
+   */
   bouquetUpload: string | null;
   year: YearId | null;
   /** Up to STUDY_MAX — double majors are common. */

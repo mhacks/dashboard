@@ -970,6 +970,12 @@
   opacity: 0.55;
 }
 
+.bouquet-app .ep-sent {
+  margin: 10px 0 0;
+  font: 600 12.5px/1.4 var(--font);
+  color: color-mix(in srgb, var(--coral) 70%, var(--ink));
+}
+
 .bouquet-app .ep-actions {
   display: flex;
   gap: 8px;
