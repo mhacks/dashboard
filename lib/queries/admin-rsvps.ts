@@ -1,9 +1,13 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 
 import type { ApplicationDecision } from "@/lib/decisions";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
+import {
+  hackerReimbursements,
+  reimbursementRegions,
+} from "@/lib/db/schema/reimbursements";
 import { hackerRsvpDrafts, hackerRsvps } from "@/lib/db/schema/rsvps";
 import { users } from "@/lib/db/schema/users";
 import type { RsvpReceiptDownloadRecord } from "@/lib/rsvp/download";
@@ -13,6 +17,7 @@ import { deriveRsvpStatus } from "@/lib/rsvp/status";
 import { rsvpRowToFormData } from "@/lib/queries/rsvp";
 import { applicationSlugSchema } from "@/lib/types/application-reviews";
 import type {
+  AdminRsvpAward,
   AdminRsvpDashboard,
   AdminRsvpDetail,
   AdminRsvpSummary,
@@ -33,9 +38,12 @@ const selection = {
   accountEmail: users.email,
   draftUserId: hackerRsvpDrafts.userId,
   final: hackerRsvps,
+  awardRegionLabel: reimbursementRegions.label,
+  awardAmountCents: reimbursementRegions.amountCents,
 };
 
-async function selectAdminRsvpRows() {
+function selectAdminRsvps(extraFilter?: SQL) {
+  const eligible = inArray(hackerApplicants.decision, RSVP_ELIGIBLE_DECISIONS);
   return db
     .select(selection)
     .from(hackerApplicants)
@@ -45,13 +53,40 @@ async function selectAdminRsvpRows() {
       eq(hackerRsvpDrafts.userId, hackerApplicants.userId),
     )
     .leftJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id))
-    .where(inArray(hackerApplicants.decision, RSVP_ELIGIBLE_DECISIONS))
-    .orderBy(asc(hackerApplicants.firstName), asc(hackerApplicants.lastName));
+    .leftJoin(
+      hackerReimbursements,
+      and(
+        eq(hackerReimbursements.userId, hackerApplicants.userId),
+        eq(hackerReimbursements.status, "approved"),
+      ),
+    )
+    .leftJoin(
+      reimbursementRegions,
+      eq(reimbursementRegions.region, hackerReimbursements.region),
+    )
+    .where(extraFilter ? and(eligible, extraFilter) : eligible);
+}
+
+async function selectAdminRsvpRows() {
+  return selectAdminRsvps().orderBy(
+    asc(hackerApplicants.firstName),
+    asc(hackerApplicants.lastName),
+  );
 }
 
 type AdminRsvpJoinedRow = Awaited<
   ReturnType<typeof selectAdminRsvpRows>
 >[number];
+
+function rowToAward(row: AdminRsvpJoinedRow): AdminRsvpAward | null {
+  if (row.awardRegionLabel === null || row.awardAmountCents === null) {
+    return null;
+  }
+  return {
+    regionLabel: row.awardRegionLabel,
+    amountCents: row.awardAmountCents,
+  };
+}
 
 function rowToSummary(row: AdminRsvpJoinedRow): AdminRsvpSummary {
   const values = row.final
@@ -70,6 +105,8 @@ function rowToSummary(row: AdminRsvpJoinedRow): AdminRsvpSummary {
     submittedAt: row.final?.submittedAt ?? null,
     travelPlan: values?.travelPlan ?? null,
     tshirtSize: values?.tshirtSize ?? null,
+    award: rowToAward(row),
+    receipt: values?.receipt ?? null,
   };
 }
 
@@ -95,22 +132,9 @@ export async function getAdminRsvpDetail(
   const parsed = applicationSlugSchema.safeParse(slug);
   if (!parsed.success) return null;
 
-  const [row] = await db
-    .select(selection)
-    .from(hackerApplicants)
-    .leftJoin(users, eq(users.id, hackerApplicants.userId))
-    .leftJoin(
-      hackerRsvpDrafts,
-      eq(hackerRsvpDrafts.userId, hackerApplicants.userId),
-    )
-    .leftJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id))
-    .where(
-      and(
-        eq(applicationSlugSql, parsed.data),
-        inArray(hackerApplicants.decision, RSVP_ELIGIBLE_DECISIONS),
-      ),
-    )
-    .limit(1);
+  const [row] = await selectAdminRsvps(
+    eq(applicationSlugSql, parsed.data),
+  ).limit(1);
 
   if (!row) return null;
   return {
@@ -135,6 +159,7 @@ export async function getAdminRsvpExportRows(): Promise<AdminRsvpExportRow[]> {
       accountEmail: summary.accountEmail,
       status: summary.status,
       submittedAt: summary.submittedAt,
+      award: summary.award,
       values,
     };
   });

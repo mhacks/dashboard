@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { APPLICATION_DECISIONS } from "@/lib/decisions";
 
 const maxRecipientTextLength = 300_000;
 const maxHtmlTemplateLength = 500_000;
@@ -140,6 +141,39 @@ export const directBatchSendSchema = z.object({
     .optional(),
 });
 
+export const emailAudienceDecisionGroupSchema = z.enum([
+  "all_applicants",
+  "accepted",
+  "rsvped",
+  "rejected",
+  "early_accepted_or_rsvped",
+  "regular_accepted_or_rsvped",
+  ...APPLICATION_DECISIONS,
+]);
+
+export const emailAudienceTravelAwardSchema = z.enum([
+  "any",
+  "approved",
+  "none",
+]);
+
+export const emailAudienceRsvpTravelPlanSchema = z.enum([
+  "any",
+  "local",
+  "self-funded",
+  "reimbursement",
+]);
+
+export const emailAudienceQuerySchema = z.object({
+  decisionGroup: emailAudienceDecisionGroupSchema.default("all_applicants"),
+  travelAward: emailAudienceTravelAwardSchema.default("any"),
+  rsvpTravelPlan: emailAudienceRsvpTravelPlanSchema.default("any"),
+});
+
+export const emailAudienceResolveSchema = z.object({
+  query: emailAudienceQuerySchema,
+});
+
 export type EmailCampaignContent = z.infer<typeof emailCampaignContentSchema>;
 export type EmailBodySection = z.infer<typeof emailBodySectionSchema>;
 export type EmailThemeTokens = z.infer<typeof emailThemeTokensSchema>;
@@ -149,6 +183,10 @@ export type EmailTemplateUpsertInput = z.infer<
 export type EmailTemplateType = z.infer<typeof emailTemplateTypeSchema>;
 export type DirectEmailTemplateInput = z.infer<
   typeof directEmailTemplateSchema
+>;
+export type EmailAudienceQuery = z.infer<typeof emailAudienceQuerySchema>;
+export type EmailAudienceDecisionGroup = z.infer<
+  typeof emailAudienceDecisionGroupSchema
 >;
 
 export const defaultCampaignContent: EmailCampaignContent = {
