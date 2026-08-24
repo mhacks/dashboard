@@ -5,6 +5,7 @@ import { STICKER_BORDERS, TICKET_URL } from "@/lib/bouquet/catalog";
 import type { PlacedStem } from "@/lib/bouquet/geometry";
 import { canvasToBlob, renderSticker } from "@/lib/bouquet/sticker";
 import { writeBouquetHandoff } from "@/lib/pass/handoff";
+import { useMounted } from "@/hooks/use-mounted";
 
 type Props = {
   open: boolean;
@@ -34,6 +35,22 @@ export default function ExportPanel({
   // Tagged with `key` the same way `preview` is, so editing after sending
   // clears the confirmation instead of it lying about a stale bouquet.
   const [sentKey, setSentKey] = useState<string | null>(null);
+
+  /*
+    True only when this tab was opened, script-wise, from a pass tab that's
+    (as far as we can tell) still around — i.e. `window.open` from the pass
+    picker, not a bare link/bookmark/direct nav. It matters because that pass
+    tab, if open, already applies a sent bouquet the instant it's written
+    (BouquetPicker's `storage` listener) and clears the hand-off behind it.
+    Opening `TICKET_URL` again afterward would land on a *second*, freshly
+    seeded pass with nothing left to pick up and none of the first tab's other
+    edits — reproducing exactly that bug is why this exists instead of always
+    linking out. Gated on `mounted`, not read at module scope: `window` isn't
+    there during SSR, and reading it before hydration would disagree with the
+    server-rendered markup.
+  */
+  const mounted = useMounted();
+  const hasOpener = mounted && !!window.opener && !window.opener.closed;
 
   const build = useCallback(
     (scale: number) =>
@@ -173,20 +190,31 @@ export default function ExportPanel({
       {/* Only ever true right after `useOnPass` sends this exact bouquet —
           `sentKey` is cleared implicitly the moment `key` changes underneath
           it, so there's no separate reset to forget. */}
-      {sent && (
-        <p className="ep-sent">
-          Sent to your pass — switch back to that tab, or{" "}
-          <a
-            className="ep-link"
-            href={TICKET_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            open it here
-          </a>
-          .
-        </p>
-      )}
+      {sent &&
+        (hasOpener ? (
+          // No link or button here on purpose: `window.opener.focus()`
+          // doesn't reliably raise a background *tab* in modern browsers
+          // (unlike an actual popup window), so there's nothing to offer
+          // that would reliably do more than this plain sentence already
+          // says. The pass tab it came from already has the bouquet — it
+          // picked it up live the moment `useOnPass` wrote it.
+          <p className="ep-sent">
+            Sent to your pass — switch back to that tab.
+          </p>
+        ) : (
+          <p className="ep-sent">
+            Sent to your pass —{" "}
+            <a
+              className="ep-link"
+              href={TICKET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              open it here
+            </a>
+            .
+          </p>
+        ))}
 
       {/* `keep editing` leaves the arrangement and the undo history untouched,
           so you can adjust one stem and wrap again — unlike `start over`. */}

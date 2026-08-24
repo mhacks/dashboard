@@ -466,9 +466,13 @@ export function BouquetPicker({
           // ExportPanel's "MHacks ticket" link for why the bouquet game opens
           // in its own tab instead, and the effect above for how its result
           // finds its way back.
-          onClick={() =>
-            window.open(BOUQUET_GAME_URL, "_blank", "noopener,noreferrer")
-          }
+          //
+          // No "noopener"/"noreferrer": both sever `window.opener`, and
+          // ExportPanel's "switch back to that tab" needs it to focus this
+          // exact tab rather than opening yet another one. Safe to skip here
+          // specifically because the opened page is our own /dashboard/bouquet
+          // route, not third-party content.
+          onClick={() => window.open(BOUQUET_GAME_URL, "_blank")}
           style={{
             ...cellStyle(state.bouquet === "upload"),
             padding: "10px 6px 8px",
@@ -531,10 +535,12 @@ export function BouquetPicker({
       {BOUQUET_GAME_URL && (
         <p style={helpStyle}>
           {BOUQUET_FINE_PRINT_PREFIX}
+          {/* No rel="noreferrer": it also severs window.opener, which
+              ExportPanel's "switch back to that tab" relies on. Fine to skip
+              here — the link only ever points at our own bouquet route. */}
           <a
             href={BOUQUET_GAME_URL}
             target="_blank"
-            rel="noreferrer"
             style={{ color: "var(--ui-ink)", textDecoration: "underline" }}
           >
             {BOUQUET_FINE_PRINT_LINK}
