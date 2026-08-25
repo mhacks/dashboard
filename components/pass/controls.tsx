@@ -14,7 +14,9 @@ import {
 import {
   BOUQUET_HANDOFF_STORAGE_KEY,
   clearBouquetHandoff,
+  parseBouquetHandoff,
   readBouquetHandoff,
+  type BouquetHandoff,
 } from "@/lib/pass/handoff";
 import {
   EXPERIENCES,
@@ -382,13 +384,15 @@ export function BouquetPicker({
   onChange: Patch;
 }) {
   useEffect(() => {
-    function apply(dataUrl: string) {
+    function apply({ name, dataUrl }: BouquetHandoff) {
       // Each hand-off is a new design, not a replacement — it joins the list
       // so an earlier one stays reachable, and gets its own id to select by.
+      // The name is only a label: designs are still told apart by id, so two
+      // called the same thing are still two designs.
       const id = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       onChange((prev) => ({
         bouquet: id,
-        bouquetUploads: [...prev.bouquetUploads, { id, dataUrl }],
+        bouquetUploads: [...prev.bouquetUploads, { id, name, dataUrl }],
       }));
       clearBouquetHandoff();
     }
@@ -404,7 +408,8 @@ export function BouquetPicker({
     // switching back first.
     function onStorage(event: StorageEvent) {
       if (event.key === BOUQUET_HANDOFF_STORAGE_KEY && event.newValue) {
-        apply(event.newValue);
+        const handoff = parseBouquetHandoff(event.newValue);
+        if (handoff) apply(handoff);
       }
     }
     window.addEventListener("storage", onStorage);
@@ -478,11 +483,17 @@ export function BouquetPicker({
         */}
         {state.bouquetUploads.map((upload, i) => {
           const selected = state.bouquet === upload.id;
+          // Naming is optional in the game, so an unnamed design keeps the
+          // numbered label it always had.
+          const label =
+            upload.name ||
+            (state.bouquetUploads.length > 1 ? `Design ${i + 1}` : "Design");
           return (
             <button
               key={upload.id}
               type="button"
               aria-pressed={selected}
+              title={label}
               onClick={() =>
                 onChange({ bouquet: selected ? "none" : upload.id })
               }
@@ -513,13 +524,25 @@ export function BouquetPicker({
                 style={{
                   gap: 5,
                   marginTop: 7,
+                  maxWidth: "100%",
                   fontFamily: "var(--mh-ui-mono)",
                   fontSize: 10,
                   color: "var(--ui-ink)",
                 }}
               >
                 <Mark on={selected} />
-                {state.bouquetUploads.length > 1 ? `Design ${i + 1}` : "Design"}
+                {/* A tile is a quarter of the panel, so even a name inside
+                    BOUQUET_NAME_MAX can outrun it — it ellipsises here and
+                    the button's `title` carries the whole thing. */}
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </span>
               </span>
             </button>
           );

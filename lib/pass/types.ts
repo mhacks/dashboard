@@ -14,6 +14,12 @@ export type BouquetId = "none" | "posy" | "sprigs" | "wreath" | (string & {});
 /** One bouquet PNG handed off from the mini-game, with the id that selects it. */
 export type UploadedBouquet = {
   id: string;
+  /**
+   * What its designer called it, capped at BOUQUET_NAME_MAX. Empty when they
+   * skipped the field, which the picker shows as "Design n" — the label every
+   * hand-off had before naming existed.
+   */
+  name: string;
   /** Data URL — see lib/pass/handoff.ts. */
   dataUrl: string;
 };

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { STICKER_BORDERS, TICKET_URL } from "@/lib/bouquet/catalog";
 import type { PlacedStem } from "@/lib/bouquet/geometry";
 import { canvasToBlob, renderSticker } from "@/lib/bouquet/sticker";
-import { writeBouquetHandoff } from "@/lib/pass/handoff";
+import { sanitizeBouquetName, writeBouquetHandoff } from "@/lib/pass/handoff";
+import { BOUQUET_NAME_MAX } from "@/lib/pass/limits";
 import { useMounted } from "@/hooks/use-mounted";
 
 type Props = {
@@ -32,8 +33,13 @@ export default function ExportPanel({
     null,
   );
   const [busy, setBusy] = useState(false);
-  // Tagged with `key` the same way `preview` is, so editing after sending
-  // clears the confirmation instead of it lying about a stale bouquet.
+  /* Raw as typed, capped as typed (the input's own maxLength) — trimming and
+     collapsing happens once, on send, so someone typing "wild " isn't fighting
+     the field for the space they are about to type after. */
+  const [name, setName] = useState("");
+  // Tagged with `sendKey` the same way `preview` is with `key`, so editing —
+  // the arrangement or the name — after sending clears the confirmation
+  // instead of it lying about a stale bouquet.
   const [sentKey, setSentKey] = useState<string | null>(null);
 
   /*
@@ -94,7 +100,14 @@ export default function ExportPanel({
   }, [open, key, build]);
 
   const src = open && preview?.key === key ? preview.src : "";
-  const sent = sentKey === key;
+
+  /* The name rides along with the sticker but doesn't change a pixel of it, so
+     it is deliberately not part of `key`: renaming must not throw away a
+     rendered preview and re-render it. It does change what gets sent, hence
+     its own key for the confirmation line. */
+  const cleanName = sanitizeBouquetName(name);
+  const sendKey = `${cleanName}\u0000${key}`;
+  const sent = sentKey === sendKey;
 
   async function download() {
     setBusy(true);
@@ -105,7 +118,14 @@ export default function ExportPanel({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "bouquet-sticker.png";
+      // A named design downloads under its own name, so a folder of them is
+      // still tellable apart. Anything that isn't safely a filename is dropped
+      // rather than escaped — what's left is only ever a label.
+      const slug = cleanName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      a.download = slug ? `${slug}-bouquet.png` : "bouquet-sticker.png";
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -117,8 +137,8 @@ export default function ExportPanel({
     setBusy(true);
     try {
       const cv = await build(2); // supersampled, same as download
-      writeBouquetHandoff(cv.toDataURL("image/png"));
-      setSentKey(key);
+      writeBouquetHandoff(cv.toDataURL("image/png"), cleanName);
+      setSentKey(sendKey);
     } finally {
       setBusy(false);
     }
@@ -169,6 +189,35 @@ export default function ExportPanel({
       </div>
 
       <p className="ep-meta">die-cut PNG · transparent background</p>
+
+      {/* Optional on purpose: an unnamed design is still a perfectly good
+          sticker, and the picker labels it "Design n" exactly as it did
+          before this field existed. `maxLength` is the cap a hacker actually
+          feels — sanitizeBouquetName on send is the backstop for paste and
+          for whitespace. */}
+      <div className="ep-name">
+        <label className="ep-name-label" htmlFor="ep-name-input">
+          name it
+        </label>
+        <input
+          id="ep-name-input"
+          className="ep-name-input"
+          type="text"
+          value={name}
+          maxLength={BOUQUET_NAME_MAX}
+          placeholder="optional"
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => setName(e.target.value)}
+        />
+        {/* Only once it's within a few characters of the cap: a counter that
+            is always there reads as a demand for a name, which it isn't. */}
+        <span className="ep-name-count" aria-hidden>
+          {name.length > BOUQUET_NAME_MAX - 6
+            ? `${BOUQUET_NAME_MAX - name.length}`
+            : ""}
+        </span>
+      </div>
 
       <div className="ep-actions">
         <button
