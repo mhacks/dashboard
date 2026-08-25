@@ -9,8 +9,8 @@ import { MAX_TEAM_SIZE } from "@/lib/types/teams";
 /**
  * A teaser, not the team UI itself: forming a team is stateful (create,
  * invite, accept) while the letter is a static document meant to be mailed
- * and reread. This band only points to /team, same as the Discord band
- * points out rather than embedding a chat widget.
+ * and reread. This band only points to /dashboard/team, same as the Discord
+ * band points out rather than embedding a chat widget.
  */
 export function TeamSection() {
   return (
@@ -24,7 +24,7 @@ export function TeamSection() {
         you&rsquo;re here.
       </LetterBody>
       <div className="mt-5 flex flex-wrap items-center gap-4">
-        <ButtonLink href="/team" variant="outline" external={false}>
+        <ButtonLink href="/dashboard/team" variant="outline" external={false}>
           Manage your team
         </ButtonLink>
       </div>
