@@ -4,8 +4,19 @@ export type FormatId = "portrait" | "square" | "landscape";
 
 export type BackdropId = "sky" | "halftone" | "grove" | "blossom" | "fern";
 
-/** Built-in bouquets, plus 'none' and 'upload' for one handed off from the bouquet mini-game. */
-export type BouquetId = "none" | "posy" | "sprigs" | "wreath" | "upload";
+/**
+ * Built-in bouquets, 'none', or the id of an entry in `bouquetUploads` —
+ * one handed off from the bouquet mini-game. Widened to `string` so a
+ * hacker can hand off any number of designs, each keeping its own id.
+ */
+export type BouquetId = "none" | "posy" | "sprigs" | "wreath" | (string & {});
+
+/** One bouquet PNG handed off from the mini-game, with the id that selects it. */
+export type UploadedBouquet = {
+  id: string;
+  /** Data URL — see lib/pass/handoff.ts. */
+  dataUrl: string;
+};
 
 export type YearId = "freshman" | "sophomore" | "junior" | "senior" | "grad";
 
@@ -32,10 +43,12 @@ export type TicketState = {
   font: FontId;
   bouquet: BouquetId;
   /**
-   * Data URL of the bouquet PNG handed off from /dashboard/bouquet, when
-   * bouquet === 'upload'. Never an arbitrary file — see lib/pass/handoff.ts.
+   * Every bouquet handed off from /dashboard/bouquet so far, oldest first.
+   * `bouquet` selects one by id; the rest stay here so a hacker can switch
+   * back to an earlier design without redoing it. Never an arbitrary
+   * file — see lib/pass/handoff.ts.
    */
-  bouquetUpload: string | null;
+  bouquetUploads: UploadedBouquet[];
   year: YearId | null;
   /** Up to STUDY_MAX — double majors are common. */
   study: StudyId[];

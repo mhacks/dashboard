@@ -27,7 +27,9 @@ import type { StudyId } from "@/lib/pass/types";
 import { ticketTheme } from "@/lib/pass/themes";
 import { CITY_MAX, NAME_MAX } from "@/components/pass/ticket-parts";
 
-type Patch = (patch: Partial<TicketState>) => void;
+type Patch = (
+  patch: Partial<TicketState> | ((prev: TicketState) => Partial<TicketState>),
+) => void;
 
 /* ——— console primitives ——— */
 
@@ -381,7 +383,13 @@ export function BouquetPicker({
 }) {
   useEffect(() => {
     function apply(dataUrl: string) {
-      onChange({ bouquet: "upload", bouquetUpload: dataUrl });
+      // Each hand-off is a new design, not a replacement — it joins the list
+      // so an earlier one stays reachable, and gets its own id to select by.
+      const id = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      onChange((prev) => ({
+        bouquet: id,
+        bouquetUploads: [...prev.bouquetUploads, { id, dataUrl }],
+      }));
       clearBouquetHandoff();
     }
 
@@ -458,9 +466,67 @@ export function BouquetPicker({
           );
         })}
 
+        {/*
+          Every bouquet handed off from the game gets its own tile, same as a
+          built-in one — picking it again just reselects it. Previously there
+          was one slot that a fresh hand-off silently overwrote, and clicking
+          it while a design already sat there reopened the (blank) game
+          instead of reusing what was already made. Splitting "a design" from
+          "go make a design" fixes both: the tiles below are the reusable
+          list, and the launcher after them is the only thing that opens the
+          game.
+        */}
+        {state.bouquetUploads.map((upload, i) => {
+          const selected = state.bouquet === upload.id;
+          return (
+            <button
+              key={upload.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() =>
+                onChange({ bouquet: selected ? "none" : upload.id })
+              }
+              style={{ ...cellStyle(selected), padding: "10px 6px 8px" }}
+            >
+              <span
+                aria-hidden
+                className="mx-auto block"
+                style={{ width: 34, height: 34 }}
+              >
+                {/* A PNG handed off from the bouquet game — composited
+                    entirely from MHacks' own flower and vase art, never an
+                    arbitrary file — so there is nothing for next/image to
+                    optimize. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={upload.dataUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
+                />
+              </span>
+              <span
+                className="inline-flex items-center"
+                style={{
+                  gap: 5,
+                  marginTop: 7,
+                  fontFamily: "var(--mh-ui-mono)",
+                  fontSize: 10,
+                  color: "var(--ui-ink)",
+                }}
+              >
+                <Mark on={selected} />
+                {state.bouquetUploads.length > 1 ? `Design ${i + 1}` : "Design"}
+              </span>
+            </button>
+          );
+        })}
+
         <button
           type="button"
-          aria-pressed={state.bouquet === "upload"}
           // A same-tab navigation here would throw away every other field on
           // the pass, since none of it is persisted — see the note on
           // ExportPanel's "MHacks ticket" link for why the bouquet game opens
@@ -474,9 +540,9 @@ export function BouquetPicker({
           // route, not third-party content.
           onClick={() => window.open(BOUQUET_GAME_URL, "_blank")}
           style={{
-            ...cellStyle(state.bouquet === "upload"),
+            ...cellStyle(false),
             padding: "10px 6px 8px",
-            borderStyle: state.bouquet === "upload" ? "solid" : "dashed",
+            borderStyle: "dashed",
           }}
         >
           <span
@@ -484,44 +550,30 @@ export function BouquetPicker({
             className="mx-auto block"
             style={{ width: 34, height: 34 }}
           >
-            {state.bouquetUpload ? (
-              // A PNG handed off from the bouquet game — composited entirely
-              // from MHacks' own flower and vase art, never an arbitrary
-              // file — so there is nothing for next/image to optimize.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={state.bouquetUpload}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "contain" }}
-              />
-            ) : (
-              <span
-                className="mh-glyph"
-                style={{
-                  display: "grid",
-                  placeItems: "center",
-                  width: "100%",
-                  height: "100%",
-                  fontSize: 17,
-                  color: "var(--ui-ink-soft)",
-                }}
-              >
-                {"[+]"}
-              </span>
-            )}
+            <span
+              className="mh-glyph"
+              style={{
+                display: "grid",
+                placeItems: "center",
+                width: "100%",
+                height: "100%",
+                fontSize: 17,
+                color: "var(--ui-ink-soft)",
+              }}
+            >
+              {"[+]"}
+            </span>
           </span>
           <span
-            className="inline-flex items-center"
             style={{
-              gap: 5,
+              display: "block",
               marginTop: 7,
               fontFamily: "var(--mh-ui-mono)",
               fontSize: 10,
               color: "var(--ui-ink)",
             }}
           >
-            <Mark on={state.bouquet === "upload"} />
-            Design
+            {state.bouquetUploads.length ? "New design" : "Design"}
           </span>
         </button>
       </div>
