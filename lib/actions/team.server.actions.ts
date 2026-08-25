@@ -29,7 +29,7 @@ export const createTeam = async (name: string): Promise<TeamRow> => {
   const { id: userId } = await requireSessionUser();
   try {
     const team = await createTeamForUser(userId, name);
-    revalidatePath("/team");
+    revalidatePath("/dashboard/team");
     return team;
   } catch (error) {
     throw toActionError(error, "Failed to create team");
@@ -40,7 +40,7 @@ export const inviteToTeam = async (email: string): Promise<{ id: string }> => {
   const { id: userId } = await requireSessionUser();
   try {
     const invitation = await inviteToTeamForUser(userId, email);
-    revalidatePath("/team");
+    revalidatePath("/dashboard/team");
     return { id: invitation.id };
   } catch (error) {
     throw toActionError(error, "Failed to send invitation");
@@ -51,7 +51,7 @@ export const acceptInvitation = async (invitationId: string): Promise<void> => {
   const { id: userId } = await requireSessionUser();
   try {
     await acceptInvitationForUser(userId, invitationId);
-    revalidatePath("/team");
+    revalidatePath("/dashboard/team");
   } catch (error) {
     throw toActionError(error, "Failed to accept invitation");
   }
@@ -63,7 +63,7 @@ export const declineInvitation = async (
   const { id: userId } = await requireSessionUser();
   try {
     await declineInvitationForUser(userId, invitationId);
-    revalidatePath("/team");
+    revalidatePath("/dashboard/team");
   } catch (error) {
     throw toActionError(error, "Failed to decline invitation");
   }
@@ -73,7 +73,7 @@ export const cancelInvitation = async (invitationId: string): Promise<void> => {
   const { id: userId } = await requireSessionUser();
   try {
     await cancelInvitationForUser(userId, invitationId);
-    revalidatePath("/team");
+    revalidatePath("/dashboard/team");
   } catch (error) {
     throw toActionError(error, "Failed to cancel invitation");
   }
@@ -83,7 +83,7 @@ export const leaveTeam = async (): Promise<void> => {
   const { id: userId } = await requireSessionUser();
   try {
     await leaveTeamForUser(userId);
-    revalidatePath("/team");
+    revalidatePath("/dashboard/team");
   } catch (error) {
     throw toActionError(error, "Failed to leave team");
   }
