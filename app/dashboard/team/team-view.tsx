@@ -119,8 +119,12 @@ export function TeamView({
 
   const onInvite = inviteForm.handleSubmit((values) => {
     runAction("invite", async () => {
-      await inviteToTeam(values.email);
-      toast.success("Invitation sent.");
+      const { warning } = await inviteToTeam(values.email);
+      if (warning) {
+        toast.warning(warning);
+      } else {
+        toast.success("Invitation sent.");
+      }
       inviteForm.reset();
     });
   });
