@@ -1,27 +1,21 @@
 "use client";
 
-import Image from "next/image";
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { MHacksLogo } from "@/components/mhacks-logo";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
+import { Caret } from "@/components/console/button";
+import { Panel, PanelHeading } from "@/components/console/panel";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  ConsoleFooterRule,
+  ConsolePage,
+  ConsoleShell,
+  Masthead,
+} from "@/components/console/shell";
+import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import {
   createTeam,
   inviteToTeam,
@@ -39,16 +33,20 @@ import {
   type SentInvitationSummary,
 } from "@/lib/types/teams";
 
-const MOSS = "#3A4A26";
-const MOSS_FADED = "rgba(58,74,38,0.6)";
-const BORDER = "#c8d4a8";
-
 interface TeamViewProps {
   currentUserId: string;
   team: TeamWithMembers | null;
   pendingInvitations: PendingInvitationSummary[];
   sentInvitations: SentInvitationSummary[];
 }
+
+const INPUT_CLASS =
+  "w-full min-w-0 flex-1 rounded-[2px] border border-ui-line-strong bg-ui-paper px-3 py-2.5 font-red-hat-mono text-[13px] text-ui-ink placeholder:text-ui-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-ui-ink disabled:opacity-50";
+
+const ACTION_BUTTON =
+  "shrink-0 cursor-pointer rounded-[2px] border px-3.5 py-2 font-red-hat-mono text-[12px] tracking-[0.02em] whitespace-nowrap transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ink disabled:cursor-not-allowed disabled:opacity-50";
+const ACTION_PRIMARY = `${ACTION_BUTTON} border-ui-ink bg-ui-ink text-ui-surface hover:opacity-90`;
+const ACTION_OUTLINE = `${ACTION_BUTTON} border-ui-line-strong bg-transparent text-ui-ink hover:bg-ui-selected`;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString();
@@ -63,6 +61,18 @@ type CreateTeamFormValues = z.infer<typeof createTeamFormSchema>;
 
 const inviteFormSchema = z.object({ email: inviteEmailSchema });
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
+
+/** The quiet way back to the dashboard, matching ViewApplicationLink's treatment. */
+function BackToDashboardLink() {
+  return (
+    <Link
+      href="/dashboard"
+      className="font-red-hat-mono text-[11.5px] tracking-[0.02em] text-ui-ink-soft underline underline-offset-2 transition-colors hover:text-ui-ink"
+    >
+      Back to dashboard
+    </Link>
+  );
+}
 
 export function TeamView({
   currentUserId,
@@ -137,6 +147,12 @@ export function TeamView({
   }
 
   function onLeave() {
+    const prompt =
+      team && team.members.length <= 1
+        ? "Leave this team? You're the last member, so the team will be deleted."
+        : "Leave this team? You'll need a new invitation to rejoin.";
+    if (!window.confirm(prompt)) return;
+
     runAction("leave", async () => {
       await leaveTeam();
       toast.success("You left the team.");
@@ -144,304 +160,328 @@ export function TeamView({
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden py-12">
-      <Image
-        src="/mhacks_blue_auth_bg.png"
-        alt=""
-        fill
-        className="object-cover object-center"
-        priority
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25"
-      />
-      <Card className="relative z-10 w-full max-w-xl bg-[#faf9f4]/95 border-[#c8d4a8] shadow-[0_24px_64px_-24px_rgba(31,42,22,0.55)] backdrop-blur-sm">
-        <CardHeader className="flex flex-col items-center pb-2">
-          <MHacksLogo size={48} variant="green" />
-          <h1
-            className="mt-2 font-heading italic text-4xl tracking-tight text-center"
-            style={{ color: MOSS }}
+    <div className="font-red-hat">
+      <ConsoleShell fieldSrc="/mhacks_blue_auth_bg.png">
+        <ConsolePage>
+          <Masthead title="Your team" trailing={<SignOutButton />} />
+
+          <Panel
+            eyebrow="YOUR TEAM"
+            status={
+              team
+                ? `${team.members.length}/${MAX_TEAM_SIZE} members`
+                : "No team yet"
+            }
           >
-            {team ? team.team.name : "Your Team"}
-          </h1>
-          <p
-            className="mt-2 font-red-hat text-[13px] text-center"
-            style={{ color: MOSS_FADED }}
-          >
-            {team
-              ? "Invite up to 4 people total to hack together."
-              : "Create a team or accept an invitation to join one."}
-          </p>
-        </CardHeader>
+            {team ? (
+              <PanelHeading
+                lede={
+                  team.members.length >= MAX_TEAM_SIZE
+                    ? "Your team is full."
+                    : `Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
+                }
+              >
+                {team.team.name}
+              </PanelHeading>
+            ) : (
+              <PanelHeading lede="Create a team or accept an invitation to join one.">
+                Find your team
+              </PanelHeading>
+            )}
 
-        <CardContent className="flex flex-col gap-6">
-          {team ? (
-            <>
-              {/* Member list */}
-              <div className="flex flex-col gap-2">
-                {team.members.map((member) => (
-                  <div
-                    key={member.userId}
-                    className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                    style={{ borderColor: BORDER }}
-                  >
-                    <div className="min-w-0">
-                      <p
-                        className="font-red-hat text-[14px] font-medium truncate"
-                        style={{ color: MOSS }}
-                      >
-                        {member.name ?? member.email}
-                        {member.userId === currentUserId ? " (you)" : ""}
-                      </p>
-                      <p
-                        className="font-red-hat text-[12px] truncate"
-                        style={{ color: MOSS_FADED }}
-                      >
-                        {member.email} · joined {formatDate(member.joinedAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {team ? (
+              <>
+                <MemberList
+                  members={team.members}
+                  currentUserId={currentUserId}
+                />
 
-              {/* Invite form / full state */}
-              {team.members.length >= MAX_TEAM_SIZE ? (
-                <p
-                  className="font-red-hat text-[13px] text-center"
-                  style={{ color: MOSS_FADED }}
-                >
-                  Your team is full.
-                </p>
-              ) : (
-                <form
-                  onSubmit={onInvite}
-                  className="flex flex-col gap-2 border-t pt-4"
-                  style={{ borderColor: BORDER }}
-                >
-                  <Label
-                    htmlFor="invite-email"
-                    className="font-red-hat text-[13px]"
-                    style={{ color: MOSS }}
-                  >
-                    Invite by email
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="invite-email"
-                      type="email"
-                      placeholder="teammate@example.com"
-                      disabled={isPending}
-                      className="border-[#c8d4a8]"
-                      {...inviteForm.register("email")}
-                    />
-                    <Button
-                      type="submit"
-                      disabled={isPending}
-                      className="shrink-0 rounded-full font-red-hat text-[13px] cursor-pointer"
-                    >
-                      {pendingKey === "invite" ? "Sending…" : "Invite"}
-                    </Button>
-                  </div>
-                  {inviteForm.formState.errors.email ? (
-                    <p className="font-red-hat text-[12px] text-red-700">
-                      {inviteForm.formState.errors.email.message}
-                    </p>
-                  ) : null}
-                </form>
-              )}
-
-              {/* Sent invitations */}
-              {sentInvitations.length > 0 ? (
-                <div
-                  className="flex flex-col gap-2 border-t pt-4"
-                  style={{ borderColor: BORDER }}
-                >
-                  <p
-                    className="font-red-hat text-[13px] font-medium"
-                    style={{ color: MOSS }}
-                  >
-                    Sent invitations
-                  </p>
-                  {sentInvitations.map((invitation) => (
-                    <div
-                      key={invitation.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                      style={{ borderColor: BORDER }}
-                    >
-                      <div className="min-w-0">
-                        <p
-                          className="font-red-hat text-[14px] font-medium truncate"
-                          style={{ color: MOSS }}
-                        >
-                          {invitation.invitedName ?? invitation.invitedEmail}
-                        </p>
-                        <p
-                          className="font-red-hat text-[12px] truncate capitalize"
-                          style={{ color: MOSS_FADED }}
-                        >
-                          {invitation.status} · sent{" "}
-                          {formatDate(invitation.createdAt)}
-                        </p>
-                      </div>
-                      {invitation.status === "pending" ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={isPending}
-                          onClick={() => onCancel(invitation)}
-                          className="shrink-0 rounded-full font-red-hat text-[13px] cursor-pointer border-[#c8d4a8]"
-                          style={{ color: MOSS }}
-                        >
-                          {pendingKey === `cancel:${invitation.id}`
-                            ? "Cancelling…"
-                            : "Cancel"}
-                        </Button>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              {/* Leave team */}
-              <div className="border-t pt-4" style={{ borderColor: BORDER }}>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isPending}
-                      className="w-full rounded-full font-red-hat text-[13px] cursor-pointer border-[#c8d4a8]"
-                      style={{ color: MOSS }}
-                    >
-                      {pendingKey === "leave" ? "Leaving…" : "Leave team"}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Leave this team?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        You&apos;ll need a new invitation to rejoin. If
-                        you&apos;re the last member, the team will be deleted.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={onLeave}>
-                        Leave team
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Create-team form */}
-              <form onSubmit={onCreateTeam} className="flex flex-col gap-2">
-                <Label
-                  htmlFor="team-name"
-                  className="font-red-hat text-[13px]"
-                  style={{ color: MOSS }}
-                >
-                  Team name
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="team-name"
-                    placeholder="Team Rocket"
-                    disabled={isPending}
-                    className="border-[#c8d4a8]"
-                    {...createForm.register("name")}
+                {team.members.length < MAX_TEAM_SIZE ? (
+                  <InviteForm
+                    form={inviteForm}
+                    onSubmit={onInvite}
+                    isPending={isPending}
+                    isSending={pendingKey === "invite"}
                   />
-                  <Button
-                    type="submit"
-                    disabled={isPending}
-                    className="shrink-0 rounded-full font-red-hat text-[13px] cursor-pointer"
-                  >
-                    {pendingKey === "create" ? "Creating…" : "Create"}
-                  </Button>
-                </div>
-                {createForm.formState.errors.name ? (
-                  <p className="font-red-hat text-[12px] text-red-700">
-                    {createForm.formState.errors.name.message}
-                  </p>
                 ) : null}
-              </form>
 
-              {/* Pending invitations */}
-              {pendingInvitations.length > 0 ? (
-                <div
-                  className="flex flex-col gap-2 border-t pt-4"
-                  style={{ borderColor: BORDER }}
-                >
-                  <p
-                    className="font-red-hat text-[13px] font-medium"
-                    style={{ color: MOSS }}
+                {sentInvitations.length > 0 ? (
+                  <SentInvitationsList
+                    invitations={sentInvitations}
+                    isPending={isPending}
+                    pendingKey={pendingKey}
+                    onCancel={onCancel}
+                  />
+                ) : null}
+
+                <div className="border-t border-ui-line pt-4">
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={onLeave}
+                    className={ACTION_OUTLINE}
                   >
-                    Invitations for you
-                  </p>
-                  {pendingInvitations.map((invitation) => (
-                    <div
-                      key={invitation.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                      style={{ borderColor: BORDER }}
-                    >
-                      <div className="min-w-0">
-                        <p
-                          className="font-red-hat text-[14px] font-medium truncate"
-                          style={{ color: MOSS }}
-                        >
-                          {invitation.teamName}
-                        </p>
-                        <p
-                          className="font-red-hat text-[12px] truncate"
-                          style={{ color: MOSS_FADED }}
-                        >
-                          from {invitation.invitedByName} ·{" "}
-                          {formatDate(invitation.createdAt)}
-                        </p>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={isPending}
-                          onClick={() => onDecline(invitation)}
-                          className="rounded-full font-red-hat text-[13px] cursor-pointer border-[#c8d4a8]"
-                          style={{ color: MOSS }}
-                        >
-                          {pendingKey === `decline:${invitation.id}`
-                            ? "Declining…"
-                            : "Decline"}
-                        </Button>
-                        <Button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => onAccept(invitation)}
-                          className="rounded-full font-red-hat text-[13px] cursor-pointer"
-                        >
-                          {pendingKey === `accept:${invitation.id}`
-                            ? "Joining…"
-                            : "Accept"}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    {pendingKey === "leave" ? "Leaving…" : "Leave team"}
+                  </button>
                 </div>
-              ) : (
-                <p
-                  className="font-red-hat text-[13px] text-center"
-                  style={{ color: MOSS_FADED }}
-                >
-                  You don&apos;t have a team yet. Create one, or wait for an
-                  invite.
-                </p>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              </>
+            ) : (
+              <>
+                <CreateTeamForm
+                  form={createForm}
+                  onSubmit={onCreateTeam}
+                  isPending={isPending}
+                  isCreating={pendingKey === "create"}
+                />
+
+                {pendingInvitations.length > 0 ? (
+                  <PendingInvitationsList
+                    invitations={pendingInvitations}
+                    isPending={isPending}
+                    pendingKey={pendingKey}
+                    onAccept={onAccept}
+                    onDecline={onDecline}
+                  />
+                ) : (
+                  <p className="border-t border-ui-line pt-4 text-sm text-ui-ink-soft">
+                    You don&rsquo;t have a team yet. Create one, or wait for an
+                    invite.
+                  </p>
+                )}
+              </>
+            )}
+          </Panel>
+
+          <BackToDashboardLink />
+
+          <ConsoleFooterRule />
+        </ConsolePage>
+      </ConsoleShell>
+    </div>
+  );
+}
+
+/* ——— member list ————————————————————————————————————————————— */
+
+function MemberList({
+  members,
+  currentUserId,
+}: {
+  members: TeamWithMembers["members"];
+  currentUserId: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {members.map((member) => (
+        <div
+          key={member.userId}
+          className="flex items-center justify-between gap-3 border border-ui-line bg-ui-well px-3 py-2.5"
+        >
+          <div className="min-w-0">
+            <p className="truncate font-red-hat-mono text-[13px] font-medium text-ui-ink">
+              {member.name ?? member.email}
+              {member.userId === currentUserId ? " (you)" : ""}
+            </p>
+            <p className="truncate text-[12px] text-ui-ink-soft">
+              {member.email} · joined {formatDate(member.joinedAt)}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ——— forms —————————————————————————————————————————————————————— */
+
+function CreateTeamForm({
+  form,
+  onSubmit,
+  isPending,
+  isCreating,
+}: {
+  form: UseFormReturn<CreateTeamFormValues>;
+  onSubmit: () => void;
+  isPending: boolean;
+  isCreating: boolean;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <label
+        htmlFor="team-name"
+        className="font-red-hat-mono text-[10.5px] tracking-[0.16em] uppercase text-ui-ink-soft"
+      >
+        Team name
+      </label>
+      <div className="flex flex-wrap gap-2.5">
+        <input
+          id="team-name"
+          placeholder="Team Rocket"
+          disabled={isPending}
+          className={INPUT_CLASS}
+          {...form.register("name")}
+        />
+        <button type="submit" disabled={isPending} className={ACTION_PRIMARY}>
+          <Caret /> {isCreating ? "Creating…" : "Create"}
+        </button>
+      </div>
+      {form.formState.errors.name ? (
+        <p className="font-red-hat-mono text-[11px] text-red-700">
+          {form.formState.errors.name.message}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+function InviteForm({
+  form,
+  onSubmit,
+  isPending,
+  isSending,
+}: {
+  form: UseFormReturn<InviteFormValues>;
+  onSubmit: () => void;
+  isPending: boolean;
+  isSending: boolean;
+}) {
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col gap-2 border-t border-ui-line pt-4"
+    >
+      <label
+        htmlFor="invite-email"
+        className="font-red-hat-mono text-[10.5px] tracking-[0.16em] uppercase text-ui-ink-soft"
+      >
+        Invite by email
+      </label>
+      <div className="flex flex-wrap gap-2.5">
+        <input
+          id="invite-email"
+          type="email"
+          placeholder="teammate@example.com"
+          disabled={isPending}
+          className={INPUT_CLASS}
+          {...form.register("email")}
+        />
+        <button type="submit" disabled={isPending} className={ACTION_PRIMARY}>
+          <Caret /> {isSending ? "Sending…" : "Invite"}
+        </button>
+      </div>
+      {form.formState.errors.email ? (
+        <p className="font-red-hat-mono text-[11px] text-red-700">
+          {form.formState.errors.email.message}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+/* ——— invitations ———————————————————————————————————————————————— */
+
+function SentInvitationsList({
+  invitations,
+  isPending,
+  pendingKey,
+  onCancel,
+}: {
+  invitations: SentInvitationSummary[];
+  isPending: boolean;
+  pendingKey: string | null;
+  onCancel: (invitation: SentInvitationSummary) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-ui-line pt-4">
+      <p className="font-red-hat-mono text-[10.5px] tracking-[0.16em] uppercase text-ui-ink-soft">
+        Sent invitations
+      </p>
+      {invitations.map((invitation) => (
+        <div
+          key={invitation.id}
+          className="flex items-center justify-between gap-3 border border-ui-line bg-ui-well px-3 py-2.5"
+        >
+          <div className="min-w-0">
+            <p className="truncate font-red-hat-mono text-[13px] font-medium text-ui-ink">
+              {invitation.invitedName ?? invitation.invitedEmail}
+            </p>
+            <p className="truncate text-[12px] text-ui-ink-soft capitalize">
+              {invitation.status} · sent {formatDate(invitation.createdAt)}
+            </p>
+          </div>
+          {invitation.status === "pending" ? (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => onCancel(invitation)}
+              className={ACTION_OUTLINE}
+            >
+              {pendingKey === `cancel:${invitation.id}`
+                ? "Cancelling…"
+                : "Cancel"}
+            </button>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PendingInvitationsList({
+  invitations,
+  isPending,
+  pendingKey,
+  onAccept,
+  onDecline,
+}: {
+  invitations: PendingInvitationSummary[];
+  isPending: boolean;
+  pendingKey: string | null;
+  onAccept: (invitation: PendingInvitationSummary) => void;
+  onDecline: (invitation: PendingInvitationSummary) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-ui-line pt-4">
+      <p className="font-red-hat-mono text-[10.5px] tracking-[0.16em] uppercase text-ui-ink-soft">
+        Invitations for you
+      </p>
+      {invitations.map((invitation) => (
+        <div
+          key={invitation.id}
+          className="flex flex-wrap items-center justify-between gap-3 border border-ui-line bg-ui-well px-3 py-2.5"
+        >
+          <div className="min-w-0">
+            <p className="truncate font-red-hat-mono text-[13px] font-medium text-ui-ink">
+              {invitation.teamName}
+            </p>
+            <p className="truncate text-[12px] text-ui-ink-soft">
+              from {invitation.invitedByName} ·{" "}
+              {formatDate(invitation.createdAt)}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => onDecline(invitation)}
+              className={ACTION_OUTLINE}
+            >
+              {pendingKey === `decline:${invitation.id}`
+                ? "Declining…"
+                : "Decline"}
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => onAccept(invitation)}
+              className={ACTION_PRIMARY}
+            >
+              <Caret />{" "}
+              {pendingKey === `accept:${invitation.id}` ? "Joining…" : "Accept"}
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
