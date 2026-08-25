@@ -25,7 +25,10 @@ import { hackerApplicants } from "@/lib/db/schema/applications";
 import { eventCheckins, events, eventScanLog } from "@/lib/db/schema/events";
 import { hackerRsvps } from "@/lib/db/schema/rsvps";
 import { users } from "@/lib/db/schema/users";
-import { RSVP_ELIGIBLE_DECISIONS } from "@/lib/decisions";
+import {
+  RSVP_CONFIRMED_DECISIONS,
+  RSVP_ELIGIBLE_DECISIONS,
+} from "@/lib/decisions";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
 if (!/@(127\.0\.0\.1|localhost):/.test(databaseUrl)) {
@@ -50,21 +53,34 @@ function check(label: string, got: unknown, want: unknown) {
   else failed++;
 }
 
-/** An accepted applicant with an RSVP, creating the RSVP if one is missing. */
+/**
+ * Somebody who has actually RSVPed, creating that state if nobody has.
+ *
+ * Creating it means both halves, exactly as submitting an RSVP does: the row,
+ * and the confirmed decision written alongside it. A fixture that wrote only
+ * the row would be a state the app never produces, and the check-in gate
+ * rightly refuses it.
+ */
 async function eligibleAttendee() {
-  const withRsvp = await db
+  const confirmed = await db
     .select({ userId: users.id })
     .from(hackerApplicants)
     .innerJoin(users, eq(users.id, hackerApplicants.userId))
     .innerJoin(hackerRsvps, eq(hackerRsvps.userId, hackerApplicants.userId))
-    .where(inArray(hackerApplicants.decision, RSVP_ELIGIBLE_DECISIONS))
+    .where(inArray(hackerApplicants.decision, RSVP_CONFIRMED_DECISIONS))
     .limit(1);
-  if (withRsvp[0]) return { userId: withRsvp[0].userId, createdRsvp: false };
+  if (confirmed[0])
+    return {
+      userId: confirmed[0].userId,
+      createdRsvp: false,
+      priorDecision: null,
+    };
 
   const candidates = await db
     .select({
       userId: hackerApplicants.userId,
       applicationId: hackerApplicants.id,
+      decision: hackerApplicants.decision,
     })
     .from(hackerApplicants)
     .leftJoin(hackerRsvps, eq(hackerRsvps.userId, hackerApplicants.userId))
@@ -92,7 +108,22 @@ async function eligibleAttendee() {
     activitiesWaiverResponse: true,
     photoReleaseResponse: true,
   });
-  return { userId: candidate.userId, createdRsvp: true };
+
+  // The other half of an RSVP.
+  await db
+    .update(hackerApplicants)
+    .set({
+      decision: candidate.decision.startsWith("early_")
+        ? "early_rsvped"
+        : "regular_rsvped",
+    })
+    .where(eq(hackerApplicants.userId, candidate.userId));
+
+  return {
+    userId: candidate.userId,
+    createdRsvp: true,
+    priorDecision: candidate.decision,
+  };
 }
 
 const attendee = await eligibleAttendee();
@@ -291,6 +322,12 @@ try {
   await db.delete(events).where(eq(events.id, event.id));
   if (attendee.createdRsvp) {
     await db.delete(hackerRsvps).where(eq(hackerRsvps.userId, attendee.userId));
+    if (attendee.priorDecision) {
+      await db
+        .update(hackerApplicants)
+        .set({ decision: attendee.priorDecision })
+        .where(eq(hackerApplicants.userId, attendee.userId));
+    }
   }
 }
 

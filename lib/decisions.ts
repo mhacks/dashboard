@@ -53,6 +53,20 @@ export const RSVP_ELIGIBLE_DECISIONS = [
   "regular_rsvped",
 ] as const satisfies readonly ApplicationDecision[];
 
+/**
+ * The decisions that mean "this person confirmed they are coming". Narrower
+ * than RSVP_ELIGIBLE_DECISIONS, which also covers people who were accepted and
+ * never replied.
+ *
+ * This is the check-in gate: being offered a spot is not the same as taking
+ * one, and only someone who took it gets a code or gets through a door. The
+ * SQL-friendly counterpart to `hasRsvped` below.
+ */
+export const RSVP_CONFIRMED_DECISIONS = [
+  "early_rsvped",
+  "regular_rsvped",
+] as const satisfies readonly ApplicationDecision[];
+
 export function hasRsvped(decision: ApplicationDecision) {
   return decision.endsWith("_rsvped");
 }

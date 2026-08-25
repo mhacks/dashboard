@@ -21,7 +21,10 @@ import {
   OUTCOME_HEADLINE,
   type CheckInOutcome,
 } from "@/lib/checkin/outcomes";
-import { RSVP_ELIGIBLE_DECISIONS } from "@/lib/decisions";
+import {
+  RSVP_CONFIRMED_DECISIONS,
+  RSVP_ELIGIBLE_DECISIONS,
+} from "@/lib/decisions";
 
 export type ScannedAttendee = {
   userId: string;
@@ -208,16 +211,27 @@ export async function checkInAttendee(
       university: row.university,
     };
 
-    const accepted =
-      row.decision !== null &&
-      (RSVP_ELIGIBLE_DECISIONS as readonly string[]).includes(row.decision);
-
-    if (!accepted) {
+    // Two separate questions, because the volunteer needs to tell them apart:
+    // someone who was never offered a spot is a different conversation from
+    // someone who was offered one and never replied.
+    // A null decision means no application row at all, which is the same
+    // answer as a rejected one: they have no spot here.
+    if (
+      row.decision === null ||
+      !(RSVP_ELIGIBLE_DECISIONS as readonly string[]).includes(row.decision)
+    ) {
       await finish("not-accepted", row.userId);
       return failure("not-accepted", { attendee, event: scannedEvent });
     }
 
-    if (!row.rsvpId) {
+    // An RSVP is the submitted row *and* the confirmed decision written beside
+    // it. Either one missing means they never actually took the spot, and being
+    // accepted alone does not get anyone through a door.
+    const confirmed =
+      row.rsvpId !== null &&
+      (RSVP_CONFIRMED_DECISIONS as readonly string[]).includes(row.decision);
+
+    if (!confirmed) {
       await finish("no-rsvp", row.userId);
       return failure("no-rsvp", { attendee, event: scannedEvent });
     }
@@ -415,7 +429,7 @@ export async function searchAttendees(
     )
     .where(
       and(
-        inArray(hackerApplicants.decision, RSVP_ELIGIBLE_DECISIONS),
+        inArray(hackerApplicants.decision, RSVP_CONFIRMED_DECISIONS),
         or(
           ilike(hackerApplicants.firstName, term),
           ilike(hackerApplicants.lastName, term),
