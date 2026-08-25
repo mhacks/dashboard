@@ -40,6 +40,19 @@ export function decisionRound(
   return decision.startsWith("early_") ? "early" : "regular";
 }
 
+/**
+ * The decisions that mean "this person is coming": accepted, whether or not
+ * they have RSVPed yet. Shared by the admin RSVP tooling and by check-in, so
+ * the set of people who may hold a check-in code can never drift from the set
+ * the RSVP screens consider eligible.
+ */
+export const RSVP_ELIGIBLE_DECISIONS = [
+  "early_accepted",
+  "early_rsvped",
+  "regular_accepted",
+  "regular_rsvped",
+] as const satisfies readonly ApplicationDecision[];
+
 export function hasRsvped(decision: ApplicationDecision) {
   return decision.endsWith("_rsvped");
 }
