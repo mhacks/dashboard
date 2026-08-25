@@ -4,13 +4,16 @@ import type { BouquetId } from "@/lib/pass/types";
 /*
   The bouquet sticker that goes in the slot on the pass.
 
-  Three built in here, plus "upload your own" — which is the hand-off to the
-  bouquet mini-game: a hacker builds a bouquet there, downloads it as a PNG, and
-  drops that PNG into the slot as their own mark on the pass.
+  Three built in here, plus "Design" — the hand-off to the bouquet mini-game:
+  a hacker builds a bouquet there from MHacks' own flower and vase art, then
+  sends it back with "use on pass" (lib/pass/handoff.ts carries the PNG
+  between the two tabs). There is deliberately no way to drop in an arbitrary
+  image of your own — everything that can land on the pass here is composited
+  from the same fixed set of art.
 */
 
-/** The bouquet mini-game. Fill this in and the fine print becomes a real link. */
-export const BOUQUET_GAME_URL = "";
+/** The bouquet mini-game, now ported in-app from becccasun/mhacks-bouquet. */
+export const BOUQUET_GAME_URL = "/dashboard/bouquet";
 
 export const BOUQUET_FINE_PRINT_PREFIX =
   "Create and add your own unique bouquet with ";

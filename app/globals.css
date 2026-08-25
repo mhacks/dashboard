@@ -890,6 +890,13 @@ html.lg-refract .liquid-glass {
 .pass-studio .mh-mark {
   font-family: var(--mh-ui-glyph);
   color: var(--ui-ink-soft);
+  /* The unpicked form has a space in it, so it is the one thing in a tile's
+     label row that can break across lines — which it did next to a long
+     bouquet design name, leaving the "]" stranded on its own line. Neither
+     half of the marker means anything without the other, and at three
+     characters it has nothing worth giving up to a label anyway. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .pass-studio [aria-pressed="true"] .mh-mark {
