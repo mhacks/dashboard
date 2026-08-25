@@ -80,10 +80,17 @@ export async function createTeamForUser(
   });
 }
 
+export type TeamInvitationWithContext = {
+  invitation: TeamInvitationRow;
+  invitedEmail: string;
+  teamName: string;
+  inviterName: string;
+};
+
 export async function inviteToTeam(
   userId: string,
   email: string,
-): Promise<TeamInvitationRow> {
+): Promise<TeamInvitationWithContext> {
   const normalizedEmail = inviteEmailSchema.parse(email);
 
   return db.transaction(async (tx) => {
@@ -96,6 +103,21 @@ export async function inviteToTeam(
       throw new Error("You need to be on a team to invite people.");
     }
     const callerTeamId = membership.teamId;
+
+    const [inviter] = await tx
+      .select({
+        email: users.email,
+        firstName: hackerApplicants.firstName,
+        lastName: hackerApplicants.lastName,
+      })
+      .from(users)
+      .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
+      .where(eq(users.id, userId))
+      .limit(1);
+    const inviterName =
+      displayName(inviter?.firstName ?? null, inviter?.lastName ?? null) ??
+      inviter?.email ??
+      "A teammate";
 
     const [invitedUser] = await tx
       .select({ id: users.id, role: users.role })
@@ -129,7 +151,7 @@ export async function inviteToTeam(
     // invariant (acceptInvitation's lock does that), just stops the team
     // from visibly sending more invites than it has open slots for.
     const [team] = await tx
-      .select({ id: teams.id })
+      .select({ id: teams.id, name: teams.name })
       .from(teams)
       .where(eq(teams.id, callerTeamId))
       .for("update");
@@ -154,7 +176,12 @@ export async function inviteToTeam(
       })
       .returning();
 
-    return invitation;
+    return {
+      invitation,
+      invitedEmail: normalizedEmail,
+      teamName: team.name,
+      inviterName,
+    };
   });
 }
 

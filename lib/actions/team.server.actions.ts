@@ -13,6 +13,7 @@ import {
   getMyPendingInvitations as getMyPendingInvitationsForUser,
   getSentInvitations as getSentInvitationsForUser,
 } from "@/lib/actions/team.actions";
+import { sendTeamInviteEmail } from "@/lib/email/send-invite-email";
 import type { TeamRow } from "@/lib/db/schema/teams";
 import type {
   TeamWithMembers,
@@ -36,15 +37,30 @@ export const createTeam = async (name: string): Promise<TeamRow> => {
   }
 };
 
-export const inviteToTeam = async (email: string): Promise<{ id: string }> => {
+export const inviteToTeam = async (
+  email: string,
+): Promise<{ id: string; warning?: string }> => {
   const { id: userId } = await requireSessionUser();
+  let result;
   try {
-    const invitation = await inviteToTeamForUser(userId, email);
+    result = await inviteToTeamForUser(userId, email);
     revalidatePath("/dashboard/team");
-    return { id: invitation.id };
   } catch (error) {
     throw toActionError(error, "Failed to send invitation");
   }
+
+  const { invitation, invitedEmail, teamName, inviterName } = result;
+  try {
+    await sendTeamInviteEmail({ email: invitedEmail, teamName, inviterName });
+  } catch (error) {
+    console.error("Failed to send team invite email", error);
+    return {
+      id: invitation.id,
+      warning: "Invitation sent, but the email could not be sent.",
+    };
+  }
+
+  return { id: invitation.id };
 };
 
 export const acceptInvitation = async (invitationId: string): Promise<void> => {
