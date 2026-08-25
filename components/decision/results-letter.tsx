@@ -16,6 +16,7 @@ import { DecisionBackdrop } from "@/components/decision/decision-backdrop";
 import { EventDetails } from "@/components/decision/event-details";
 import { renderParagraph } from "@/components/decision/render-paragraph";
 import { RsvpButton } from "@/components/decision/rsvp-button";
+import { TeamSection } from "@/components/decision/team-section";
 import {
   decisionLetter,
   decisionOutcome,
@@ -134,11 +135,15 @@ function AcceptedBody({
       </LetterSection>
 
       <LetterSection>
+        <TeamSection />
+      </LetterSection>
+
+      <LetterSection tone="well">
         <BoardingPassSection />
       </LetterSection>
 
       {discordInviteUrl ? (
-        <LetterSection tone="well">
+        <LetterSection>
           <LetterKicker>Next Step</LetterKicker>
           <LetterHeading>Join the hacker Discord</LetterHeading>
           <LetterBody>
@@ -156,7 +161,7 @@ function AcceptedBody({
       ) : null}
 
       {bouquetGameUrl ? (
-        <LetterSection>
+        <LetterSection tone="well">
           <LetterKicker>Optional &amp; Fun</LetterKicker>
           <LetterHeading>The bouquet game</LetterHeading>
 
@@ -183,7 +188,7 @@ function AcceptedBody({
         </LetterSection>
       ) : null}
 
-      <LetterSection tone="well">
+      <LetterSection>
         {letter.footnote ? (
           <p className="m-0 text-[13px] leading-relaxed text-ui-ink-soft">
             {letter.footnote}
