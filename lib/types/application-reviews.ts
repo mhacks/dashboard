@@ -6,6 +6,7 @@ import type {
   ReviewEventChanges,
   ReviewEventSnapshot,
 } from "@/lib/db/schema/applications";
+import { DEADLINES } from "@/lib/landing/deadlines";
 
 const draftRatingSchema = z
   .number()
@@ -65,6 +66,25 @@ export const reviewSyncPayloadSchema = z.object({
 });
 
 export type ReviewSyncPayload = z.infer<typeof reviewSyncPayloadSchema>;
+
+// The blacklist row is the only record that survives the deletion, so an entry
+// with no explanation is worthless later — the reason is required here, not
+// just disabled-until-filled in the dialog.
+export const blacklistDeleteSchema = z.object({
+  applicationId: z.uuid(),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Please record why this applicant is being removed")
+    .max(500, "Please keep the reason under 500 characters"),
+});
+
+export type BlacklistDeleteInput = z.infer<typeof blacklistDeleteSchema>;
+
+export type BlacklistDeleteResult = {
+  applicationId: string;
+  applicantName: string;
+};
 
 export type ReviewDraftInput = z.infer<typeof reviewDraftSchema>;
 export type ReviewCompleteInput = z.infer<typeof reviewCompleteSchema>;
@@ -126,6 +146,13 @@ export type ReviewApplicationSummary = {
   university: string;
   major: string;
   whyMhacksPreview: string;
+  country: string;
+  // A US state code or the literal "international" — see comingFromOptions.
+  comingFrom: string;
+  needsTravelReimbursement: boolean;
+  // Only asked when reimbursement is needed, so null means "never answered",
+  // which is distinct from an explicit "no".
+  wouldAttendWithoutReimbursement: boolean | null;
   createdAt: string;
 };
 
@@ -133,6 +160,27 @@ export type ReviewListSummaryItem = {
   application: ReviewApplicationSummary;
   review: ReviewRecord | null;
 };
+
+export type ApplicationRound = "early" | "regular";
+
+const earlyApplicationsDeadline = DEADLINES.find(
+  (deadline) => deadline.id === "early-apps-due",
+);
+if (!earlyApplicationsDeadline) {
+  throw new Error(
+    'lib/types/application-reviews.ts: DEADLINES is missing the "early-apps-due" entry required to classify applications into early/regular rounds.',
+  );
+}
+const EARLY_APPLICATIONS_DEADLINE_MS = new Date(
+  earlyApplicationsDeadline.date,
+).getTime();
+
+/** Classifies an application's createdAt against the early-apps-due deadline. */
+export function getApplicationRound(createdAt: string): ApplicationRound {
+  return new Date(createdAt).getTime() < EARLY_APPLICATIONS_DEADLINE_MS
+    ? "early"
+    : "regular";
+}
 
 export type ReviewWorkspaceData = {
   items: ReviewListSummaryItem[];
@@ -161,6 +209,43 @@ export type ScoreAnalytics = {
   reviewedApplications: number;
   effortRatings: AnalyticsBucket[];
   builderRatings: AnalyticsBucket[];
+};
+
+export type BlacklistAnalytics = {
+  // One row per blocked person: the table's partial unique indexes on the
+  // normalized name and phone keep a repeat entry from double-counting.
+  total: number;
+  // Entries are matched on name OR phone and may carry only one of the two, so
+  // these overlap and deliberately do not sum to `total`.
+  withName: number;
+  withPhone: number;
+  withBoth: number;
+};
+
+export type ReimbursementRegionBucket = AnalyticsBucket & {
+  // The tier's primary key. Carried alongside the label because labels are
+  // organizer-editable free text and two tiers may share one, so only the id
+  // is a safe identity for a row.
+  region: number;
+  amountCents: number;
+};
+
+export type ReimbursementAnalytics = {
+  // hacker_reimbursements is unique per user_id, so an award count is also a
+  // user count — "approved" is the reimbursed population.
+  reimbursedUsers: number;
+  // Approved awards whose early-round hackers submitted an RSVP selecting the
+  // reimbursement travel plan. This is the expected actual payout.
+  actualReimbursedUsers: number;
+  spentCents: number;
+  actualSpentCents: number;
+  deniedRequests: number;
+  // What denied awards would have added to `spentCents` had they been approved.
+  deniedCents: number;
+  totalRequests: number;
+  averageAwardCents: number | null;
+  statusBreakdown: AnalyticsBucket[];
+  regionBreakdown: ReimbursementRegionBucket[];
 };
 
 export type ApplicationAnalyticsData = {
@@ -192,6 +277,8 @@ export type ApplicationAnalyticsData = {
     universities: AnalyticsBucket[];
     previousHackathonBuckets: AnalyticsBucket[];
   };
+  blacklist: BlacklistAnalytics;
+  reimbursements: ReimbursementAnalytics;
 };
 
 export type ReviewListItem = {

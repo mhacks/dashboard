@@ -6,17 +6,24 @@ import { cn } from "@/lib/utils";
 
 function SummaryBarSkeleton({ items = 4 }: { items?: number }) {
   return (
-    <section className="overflow-hidden rounded-lg border bg-card md:flex md:divide-x md:divide-border/60">
-      {Array.from({ length: items }).map((_, index) => (
-        <div key={index} className="flex min-w-0 flex-1 gap-3 px-4 py-4">
-          <Skeleton className="size-5 shrink-0 rounded-sm" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-7 w-12" />
-            <Skeleton className="h-3 w-full max-w-40" />
+    // Mirrors the wrapping layout of SummaryBar so the tiles don't reflow when
+    // the real data lands.
+    <section className="overflow-hidden rounded-lg border bg-card">
+      <div className="-mb-px -mr-px flex flex-wrap">
+        {Array.from({ length: items }).map((_, index) => (
+          <div
+            key={index}
+            className="flex min-w-0 flex-1 basis-[15rem] gap-3 border-b border-r border-border/60 px-4 py-4"
+          >
+            <Skeleton className="size-5 shrink-0 rounded-sm" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-7 w-12" />
+              <Skeleton className="h-3 w-full max-w-40" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </section>
   );
 }
@@ -503,7 +510,7 @@ function AnalyticsStatCardSkeleton() {
 function AnalyticsTabsSkeleton() {
   return (
     <div className="flex w-full flex-wrap gap-4 border-b border-border/60 pb-2">
-      {Array.from({ length: 5 }).map((_, index) => (
+      {Array.from({ length: 6 }).map((_, index) => (
         <Skeleton
           key={index}
           className={cn("h-8 rounded-md", index === 0 ? "w-20" : "w-24")}
@@ -531,6 +538,11 @@ function AnalyticsOverviewSkeleton() {
         <AnalyticsStatCardSkeleton />
         <AnalyticsBarCardSkeleton />
       </section>
+
+      <section className="grid gap-5 xl:grid-cols-2">
+        <AnalyticsStatCardSkeleton />
+        <AnalyticsStatCardSkeleton />
+      </section>
     </div>
   );
 }
@@ -540,7 +552,7 @@ export function AnalyticsPageSkeleton() {
     <AdminPageShell>
       <AdminPageHeaderSkeleton variant="page" withDescription />
 
-      <SummaryBarSkeleton />
+      <SummaryBarSkeleton items={6} />
 
       <div>
         <AnalyticsTabsSkeleton />

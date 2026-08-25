@@ -1,6 +1,11 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as applicationsSchema from "./schema/applications";
+import * as blacklistSchema from "./schema/blacklist";
+import * as emailSchema from "./schema/email";
+import * as reimbursementsSchema from "./schema/reimbursements";
+import * as rsvpsSchema from "./schema/rsvps";
+import * as userInvitationsSchema from "./schema/user-invitations";
 import * as usersSchema from "./schema/users";
 import * as teamsSchema from "./schema/teams";
 
@@ -10,5 +15,14 @@ const client = postgres(process.env.DATABASE_URL ?? "", { prepare: false });
 
 export const db = drizzle({
   client,
-  schema: { ...applicationsSchema, ...usersSchema, ...teamsSchema },
+  schema: {
+    ...applicationsSchema,
+    ...blacklistSchema,
+    ...emailSchema,
+    ...reimbursementsSchema,
+    ...rsvpsSchema,
+    ...userInvitationsSchema,
+    ...usersSchema,
+    ...teamsSchema,
+  },
 });

@@ -1,18 +1,21 @@
 import {
   BarChart3Icon,
+  CalendarCheck2Icon,
   ClipboardCheckIcon,
+  MailIcon,
   TrophyIcon,
+  UsersRoundIcon,
   type LucideIcon,
 } from "lucide-react";
 
-type AdminLink = {
+export type AdminLink = {
   href: string;
   title: string;
   description: string;
   icon: LucideIcon;
 };
 
-type AdminArea = {
+export type AdminArea = {
   title: string;
   description: string;
   icon: LucideIcon;
@@ -42,6 +45,46 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Analytics",
         description: "Demographics, locations, and score trends.",
         icon: BarChart3Icon,
+      },
+    ],
+  },
+  {
+    title: "Communications",
+    description: "Create and send organizer-managed email updates.",
+    icon: MailIcon,
+    links: [
+      {
+        href: "/admin/email-campaigns",
+        title: "Email Campaigns",
+        description:
+          "Build templates, preview merge fields, and send CSV lists.",
+        icon: MailIcon,
+      },
+    ],
+  },
+  {
+    title: "RSVPs",
+    description: "Track attendance confirmations and event logistics.",
+    icon: CalendarCheck2Icon,
+    links: [
+      {
+        href: "/admin/rsvps",
+        title: "Responses",
+        description: "Review RSVP progress, logistics, receipts, and exports.",
+        icon: CalendarCheck2Icon,
+      },
+    ],
+  },
+  {
+    title: "Team",
+    description: "Invite users and manage portal access.",
+    icon: UsersRoundIcon,
+    links: [
+      {
+        href: "/admin/team",
+        title: "User invites",
+        description: "Send email invitations and assign portal roles.",
+        icon: UsersRoundIcon,
       },
     ],
   },

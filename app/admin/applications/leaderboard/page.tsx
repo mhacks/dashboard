@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
-import { Meter } from "../components/meter";
+import { Meter } from "@/components/ui/meter";
 import { SummaryBar } from "../components/summary-bar";
 import { AuditActivityFeed } from "./audit-activity-feed";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
@@ -12,6 +12,7 @@ import {
   hackerApplicationSchema,
 } from "@/lib/types/applications";
 
+import { FormStepProgress } from "@/components/forms/form-step-progress";
 import AcademicInformation from "./components/academic-information";
 import PersonalInformation from "./components/personal-information";
 import Essays from "./components/essays";
@@ -19,6 +20,7 @@ import Logistics from "./components/logistics";
 import Socials from "./components/socials";
 import Communications from "./components/communications";
 import Agreements from "./components/agreements";
+import { APPLICATION_STEPS } from "@/lib/application-steps";
 import { logout } from "@/lib/actions/auth.server.actions";
 import {
   submitHackerApplication,
@@ -27,59 +29,14 @@ import {
 import { HackerApplicantRow } from "@/lib/db/schema/applications";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import posthog from "posthog-js";
-import { Bot } from "lucide-react";
+import { ArrowLeft, Bot } from "lucide-react";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
-const MOSS = "var(--color-moss)";
-const MOSS_15 = "color-mix(in srgb, var(--color-moss) 15%, transparent)";
-const MOSS_20 = "color-mix(in srgb, var(--color-moss) 20%, transparent)";
-const MOSS_25 = "color-mix(in srgb, var(--color-moss) 25%, transparent)";
-const MOSS_30 = "color-mix(in srgb, var(--color-moss) 30%, transparent)";
-const MOSS_65 = "color-mix(in srgb, var(--color-moss) 65%, transparent)";
 
-const STEPS: Array<{
-  label: string;
-  fields: (keyof HackerApplicationFormData)[];
-}> = [
-  {
-    label: "Personal",
-    fields: [
-      "firstName",
-      "lastName",
-      "phoneNumber",
-      "age",
-      "gender",
-      "ethnicity",
-    ],
-  },
-  {
-    label: "Academic",
-    fields: [
-      "university",
-      "country",
-      "degree",
-      "graduationYear",
-      "previousHackathons",
-      "major",
-      "resume",
-    ],
-  },
-  {
-    label: "Essays",
-    fields: ["whatWouldYouDo", "whyMhacks", "hillToDieOn"],
-  },
-  {
-    label: "Logistics",
-    fields: ["transportationType", "comingFrom", "shirtSize"],
-  },
-  { label: "Socials", fields: [] },
-  {
-    label: "Agreements",
-    fields: ["mlhCodeOfConduct", "mlhPrivacyPolicy", "mlhEmails", "notAiSlop"],
-  },
-];
+// Shared with the dashboard, which derives draft progress from the same steps.
+const STEPS = APPLICATION_STEPS;
 
 // Maps every schema field to the section (step label) it belongs to, so a
 // validation error can be reported as the section that needs completing.
@@ -123,64 +80,6 @@ const SECTION_OF_FIELD: Partial<
 // Max number of section names to spell out in the "please complete" message
 // before collapsing the rest into "and N more".
 const MAX_SECTIONS_SHOWN = 3;
-
-function StepBar({ current }: { current: number }) {
-  return (
-    <div className="w-full flex items-start">
-      {STEPS.map((step, i) => {
-        const isDone = i < current;
-        const isActive = i === current;
-        return (
-          <React.Fragment key={i}>
-            <div className="flex flex-col items-center shrink-0">
-              <motion.div
-                animate={isActive ? { scale: 1.3 } : { scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="rounded-full"
-                style={
-                  isActive
-                    ? {
-                        width: 10,
-                        height: 10,
-                        background: MOSS,
-                        boxShadow: `0 0 0 3px ${MOSS_20}`,
-                      }
-                    : isDone
-                      ? { width: 8, height: 8, background: MOSS }
-                      : {
-                          width: 8,
-                          height: 8,
-                          background: MOSS_15,
-                          border: `1.5px solid ${MOSS_25}`,
-                        }
-                }
-              />
-              <span
-                className="mt-2 text-[10px] tracking-wide transition-all duration-300 leading-tight font-red-hat text-center w-14"
-                style={{
-                  color: isActive ? MOSS : isDone ? MOSS_65 : MOSS_30,
-                  fontWeight: isActive ? 700 : isDone ? 600 : 400,
-                }}
-              >
-                {isDone ? "✓ " : ""}
-                {step.label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <motion.div
-                className="flex-1 h-px mx-1 mt-[4px]"
-                animate={{
-                  backgroundColor: isDone ? MOSS : MOSS_15,
-                }}
-                transition={{ duration: 0.4 }}
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
 
 function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
   return {
@@ -243,6 +142,7 @@ export default function ApplyPage({
   const [showIncompleteMsg, setShowIncompleteMsg] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -391,8 +291,10 @@ export default function ApplyPage({
     if (savedTimer.current) clearTimeout(savedTimer.current);
     setIsSubmitting(true);
     try {
-      const { duplicate } = await submitHackerApplication(data);
-      if (duplicate) {
+      const { duplicate, blocked } = await submitHackerApplication(data);
+      if (blocked) {
+        setIsBlocked(true);
+      } else if (duplicate) {
         setIsDuplicate(true);
       } else {
         setSubmitSuccess(true);
@@ -405,7 +307,7 @@ export default function ApplyPage({
     }
   };
 
-  if (isDuplicate || submitSuccess) {
+  if (isBlocked || isDuplicate || submitSuccess) {
     return (
       <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
         <Image
@@ -447,21 +349,42 @@ export default function ApplyPage({
             <MHacksLogo size={48} variant="green" />
           </div>
           <h2 className="mt-6 font-heading italic text-4xl leading-tight tracking-tight text-moss">
-            {isDuplicate ? "Already Applied!" : "Application Submitted!"}
+            {isBlocked
+              ? "Application Not Accepted"
+              : isDuplicate
+                ? "Already Applied!"
+                : "Application Submitted!"}
           </h2>
           <p className="mt-4 font-red-hat text-[14px] leading-7 text-moss/65">
-            {isDuplicate
-              ? "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
-              : "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."}
+            {isBlocked ? (
+              <>
+                We&apos;re unable to accept an application from you for MHacks
+                2026. If you believe this is a mistake, reach out to{" "}
+                <a
+                  href="mailto:hackathon@mhacks.org"
+                  className="underline underline-offset-2 hover:opacity-80"
+                >
+                  hackathon@mhacks.org
+                </a>
+                .
+              </>
+            ) : isDuplicate ? (
+              "You've already submitted a hacker application for MHacks 2026. We'll be in touch soon with a decision."
+            ) : (
+              "Thank you for applying to MHacks 2026. We'll review your application and be in touch soon."
+            )}
           </p>
-          <button
-            onClick={() => {
-              window.location.href = "/apply";
-            }}
-            className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
-          >
-            View Application
-          </button>
+          {/* A blocked applicant has no application to return to. */}
+          {!isBlocked && (
+            <button
+              onClick={() => {
+                window.location.href = "/apply";
+              }}
+              className="mt-8 font-red-hat rounded-full px-8 py-3 text-[14px] font-medium text-white bg-moss transition-opacity hover:opacity-80"
+            >
+              View Application
+            </button>
+          )}
         </motion.div>
       </div>
     );
@@ -533,23 +456,28 @@ export default function ApplyPage({
           initial={{ opacity: 0, y: -14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: EASE }}
-          className="flex items-center justify-between w-full max-w-2xl mb-8"
+          className="flex items-center justify-between w-full max-w-2xl mb-8 gap-2"
         >
-          <div className="glass-pill flex items-center gap-3 rounded-full px-5 py-2.5">
+          <div className="flex items-center gap-2">
+            <div className="glass-pill flex items-center gap-3 rounded-full px-3 py-2.5 sm:px-5">
+              <Link
+                href="/"
+                aria-label="Back to home"
+                className="transition-opacity hover:opacity-80"
+              >
+                <MHacksLogo size={20} />
+              </Link>
+              <span className="font-heading italic text-[17px] text-white leading-none">
+                MHacks 2026
+              </span>
+            </div>
             <Link
-              href="/"
-              aria-label="Back to home"
-              className="transition-opacity hover:opacity-80"
+              href="/dashboard"
+              className="glass-pill flex items-center gap-1.5 rounded-full px-3 py-2 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white/55 transition-colors hover:text-white/80 sm:px-4"
             >
-              <MHacksLogo size={20} />
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Dashboard</span>
             </Link>
-            <span className="font-heading italic text-[17px] text-white leading-none">
-              MHacks 2026
-            </span>
-            <span className="text-white/25 mx-0.5">|</span>
-            <span className="font-red-hat text-[12px] text-white/55">
-              Hacker Application
-            </span>
           </div>
           <div className="flex items-center gap-2">
             {!readOnly && saveStatus !== "idle" && (
@@ -623,7 +551,11 @@ export default function ApplyPage({
                 </Link>
               </div>
             </div>
-            <StepBar current={step} />
+            <FormStepProgress
+              current={step}
+              steps={STEPS}
+              label="Application progress"
+            />
           </div>
 
           <div className="h-px mx-8 bg-moss/8" />

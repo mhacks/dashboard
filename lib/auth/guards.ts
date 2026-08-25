@@ -16,7 +16,9 @@ export async function requireOrganizer(): Promise<UserEntry> {
 
 export async function requireOrganizerPage(): Promise<UserEntry> {
   const user = await requireSessionUser();
-  if (user.role !== "organizer") redirect("/apply");
+  // Back to the dashboard, which is where every role belongs — it just won't
+  // show them the admin tiles.
+  if (user.role !== "organizer") redirect("/dashboard");
   return user;
 }
 
