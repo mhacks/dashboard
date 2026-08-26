@@ -8,13 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Event } from "@/lib/db/queries/reservation";
+import type { ParticipantEvent } from "@/lib/reservation/types";
 
 export function EventPicker({
   events,
   selectedEventId,
 }: {
-  events: Event[];
+  events: ParticipantEvent[];
   selectedEventId: string;
 }) {
   const router = useRouter();

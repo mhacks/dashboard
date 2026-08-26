@@ -1,6 +1,7 @@
 import {
   BarChart3Icon,
   CalendarCheck2Icon,
+  CalendarRangeIcon,
   ClipboardCheckIcon,
   MailIcon,
   TrophyIcon,
@@ -63,10 +64,17 @@ export const ADMIN_AREAS: AdminArea[] = [
     ],
   },
   {
-    title: "RSVPs",
+    title: "Event logistics",
     description: "Track attendance confirmations and event logistics.",
-    icon: CalendarCheck2Icon,
+    icon: CalendarRangeIcon,
     links: [
+      {
+        href: "/admin/reservations",
+        title: "Reservations",
+        description:
+          "Create events, manage tables, and coordinate assignments.",
+        icon: CalendarRangeIcon,
+      },
       {
         href: "/admin/rsvps",
         title: "Responses",

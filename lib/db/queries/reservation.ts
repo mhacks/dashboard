@@ -1,64 +1,69 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
+import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { events, tables, teams } from "@/lib/db/schema/reservation";
-import { users, type UserRole } from "@/lib/db/schema/users";
+import {
+  events,
+  tables,
+  teams,
+  type Event as ReservationEventRow,
+} from "@/lib/db/schema/reservation";
+import { users } from "@/lib/db/schema/users";
+import { getReservationAvailability } from "@/lib/reservation/domain";
+import type {
+  ParticipantEvent,
+  ParticipantReservationUser,
+  TableWithTeam,
+} from "@/lib/reservation/types";
 
-export type Event = typeof events.$inferSelect;
-export type Team = typeof teams.$inferSelect;
+export function toParticipantEvent(
+  event: ReservationEventRow,
+): ParticipantEvent {
+  if (event.status !== "open" && event.status !== "closed") {
+    throw new Error("Participant events must be open or closed.");
+  }
 
-export type TableWithTeam = {
-  id: string;
-  number: number;
-  reservedByTeamId: string | null;
-  reservedByTeamName: string | null;
-};
+  return {
+    id: event.id,
+    name: event.name,
+    description: event.description,
+    startsAt: event.startsAt,
+    location: event.location,
+    status: event.status,
+    reservationsOpenAt: event.reservationsOpenAt,
+    reservationsCloseAt: event.reservationsCloseAt,
+    availability: getReservationAvailability(event),
+  };
+}
 
-export type SignedInUser = {
-  id: string;
-  name: string;
-  teamId: string | null;
-  teamName: string | null;
-  role: UserRole;
-};
-
-const TEMP_SIGNED_IN_USER = {
-  id: "00000000-0000-4000-8000-000000000001",
-  name: "Test User",
-} as const;
-
-export function getEvents(): Promise<Event[]> {
-  return db
+export async function getParticipantEvents(): Promise<ParticipantEvent[]> {
+  const rows = await db
     .select()
     .from(events)
+    .where(inArray(events.status, ["open", "closed"]))
     .orderBy(asc(events.startsAt), asc(events.name));
+
+  return rows.map(toParticipantEvent);
 }
 
-export function getTeams(): Promise<Team[]> {
-  return db.select().from(teams).orderBy(asc(teams.name));
-}
+export async function getParticipantReservationUser(): Promise<ParticipantReservationUser | null> {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) return null;
 
-export async function getSignedInUser(): Promise<SignedInUser | null> {
-  const rows = await db
+  const [row] = await db
     .select({
+      id: users.id,
+      email: users.email,
       teamId: users.teamId,
       teamName: teams.name,
       role: users.role,
     })
     .from(users)
     .leftJoin(teams, eq(users.teamId, teams.id))
-    .where(eq(users.id, TEMP_SIGNED_IN_USER.id))
+    .where(eq(users.id, sessionUser.id))
     .limit(1);
 
-  const row = rows[0];
   if (!row) return null;
-
-  return {
-    id: TEMP_SIGNED_IN_USER.id,
-    name: TEMP_SIGNED_IN_USER.name,
-    teamId: row.teamId,
-    teamName: row.teamName,
-    role: row.role,
-  };
+  return row;
 }
 
 export function getTablesForEvent(eventId: string): Promise<TableWithTeam[]> {

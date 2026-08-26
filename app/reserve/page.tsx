@@ -1,11 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
-  getEvents,
-  getSignedInUser,
+  getParticipantEvents,
+  getParticipantReservationUser,
   getTablesForEvent,
-  getTeams,
 } from "@/lib/db/queries/reservation";
+import { hasAcceptedReservationAccess } from "@/lib/reservation/access";
 import { ReservationBoard } from "@/components/reservation/reservation-board";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +16,16 @@ export default async function ReservePage({
 }: {
   searchParams: Promise<{ event?: string }>;
 }) {
-  const [events, user, teams, { event: eventParam }] = await Promise.all([
-    getEvents(),
-    getSignedInUser(),
-    getTeams(),
+  const user = await getParticipantReservationUser();
+  if (user?.role === "organizer") {
+    redirect("/admin/reservations");
+  }
+  if (!user || !(await hasAcceptedReservationAccess(user.id))) {
+    redirect("/dashboard");
+  }
+
+  const [events, { event: eventParam }] = await Promise.all([
+    getParticipantEvents(),
     searchParams,
   ]);
 
@@ -72,18 +79,13 @@ export default async function ReservePage({
               No events yet
             </p>
             <p className="mt-2 text-sm text-zinc-400">
-              Seed some events with{" "}
-              <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[12px]">
-                pnpm db:seed
-              </code>{" "}
-              to start reserving tables.
+              There are no participant-visible reservation events right now.
             </p>
           </div>
         ) : (
           <ReservationBoard
             events={events}
             user={user}
-            teams={teams}
             tables={tables}
             selectedEventId={selectedEvent!.id}
           />

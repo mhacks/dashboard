@@ -7,7 +7,6 @@ import {
   Red_Hat_Display,
   Red_Hat_Mono,
 } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthStateSync } from "@/components/auth-state-sync";

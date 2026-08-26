@@ -1,2 +1,7 @@
-ALTER TABLE "hacker_applicants" ADD CONSTRAINT "hacker_applicants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "judge_applicants" ADD CONSTRAINT "judge_applicants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+-- Compatibility no-op: this historical version previously added applicant
+-- foreign keys before the applicant and users tables existed in migration
+-- order. The authoritative 20260704073044_init.sql migration creates the
+-- current hacker_applicants foreign key with the same name and behavior.
+-- judge_applicants is not part of the authoritative or current Drizzle schema.
+-- Keep this version as an applied no-op so existing migration histories remain
+-- stable while clean databases can advance to the authoritative init.
