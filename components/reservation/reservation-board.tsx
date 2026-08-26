@@ -131,6 +131,7 @@ export function ReservationBoard({
         router.refresh();
       } else {
         toast.error(result.error);
+        router.refresh();
       }
     });
   }
