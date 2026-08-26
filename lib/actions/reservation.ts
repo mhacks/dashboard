@@ -7,8 +7,7 @@ import { tables } from "@/lib/db/schema/reservation";
 import { getSignedInUser } from "@/lib/db/queries/reservation";
 
 export type ActionResult =
-  | { ok: true; message?: string }
-  | { ok: false; error: string };
+  { ok: true; message?: string } | { ok: false; error: string };
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -26,8 +25,8 @@ async function requireTeamId(): Promise<
   if (!user) {
     return { ok: false, error: "Signed-in user not found. Run pnpm db:seed." };
   }
-  if (user.isAdmin) {
-    return { ok: false, error: "Admins cannot reserve tables." };
+  if (user.role === "organizer") {
+    return { ok: false, error: "Organizers cannot reserve tables." };
   }
   if (!user.teamId) {
     return { ok: false, error: "You're not on a team yet." };
@@ -42,8 +41,8 @@ async function requireAdmin(): Promise<
   if (!user) {
     return { ok: false, error: "Signed-in user not found. Run pnpm db:seed." };
   }
-  if (!user.isAdmin) {
-    return { ok: false, error: "Admin access required." };
+  if (user.role !== "organizer") {
+    return { ok: false, error: "Organizer access required." };
   }
   return { ok: true };
 }

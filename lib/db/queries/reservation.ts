@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { events, tables, teams } from "@/lib/db/schema/reservation";
-import { users } from "@/lib/db/schema/users";
+import { users, type UserRole } from "@/lib/db/schema/users";
 
 export type Event = typeof events.$inferSelect;
 export type Team = typeof teams.$inferSelect;
@@ -18,7 +18,7 @@ export type SignedInUser = {
   name: string;
   teamId: string | null;
   teamName: string | null;
-  isAdmin: boolean;
+  role: UserRole;
 };
 
 const TEMP_SIGNED_IN_USER = {
@@ -42,7 +42,7 @@ export async function getSignedInUser(): Promise<SignedInUser | null> {
     .select({
       teamId: users.teamId,
       teamName: teams.name,
-      isAdmin: users.isAdmin,
+      role: users.role,
     })
     .from(users)
     .leftJoin(teams, eq(users.teamId, teams.id))
@@ -57,7 +57,7 @@ export async function getSignedInUser(): Promise<SignedInUser | null> {
     name: TEMP_SIGNED_IN_USER.name,
     teamId: row.teamId,
     teamName: row.teamName,
-    isAdmin: row.isAdmin,
+    role: row.role,
   };
 }
 

@@ -63,13 +63,13 @@ export function ReservationBoard({
     useState<TableWithTeam | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const isAdmin = user?.isAdmin ?? false;
-  const teamId = isAdmin ? null : (user?.teamId ?? null);
+  const isOrganizer = user?.role === "organizer";
+  const teamId = isOrganizer ? null : (user?.teamId ?? null);
   const myTable =
     tables.find((t) => teamId && t.reservedByTeamId === teamId) ?? null;
   const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
   const hasReservation = myTable !== null;
-  const canReserve = !isAdmin && Boolean(teamId) && !hasReservation;
+  const canReserve = !isOrganizer && Boolean(teamId) && !hasReservation;
 
   const total = tables.length;
   const reservedCount = tables.filter((t) => t.reservedByTeamId).length;
@@ -81,7 +81,7 @@ export function ReservationBoard({
     : null;
 
   function handleSelectTable(table: TableWithTeam) {
-    if (isAdmin) {
+    if (isOrganizer) {
       if (!adminTeamId) {
         toast.error("Select a team first.");
         return;
@@ -165,7 +165,7 @@ export function ReservationBoard({
               </div>
             </div>
             <CardDescription>
-              {isAdmin
+              {isOrganizer
                 ? "Select a team, then click a table to move or swap them."
                 : hasReservation
                   ? "Your table is locked in for this event."
@@ -176,10 +176,10 @@ export function ReservationBoard({
             <JudgingMap
               tables={tables}
               selectedTableId={selectedTableId}
-              teamId={isAdmin ? adminTeamId || null : teamId}
+              teamId={isOrganizer ? adminTeamId || null : teamId}
               onSelect={handleSelectTable}
-              disabled={isPending || (isAdmin ? !adminTeamId : !canReserve)}
-              adminMode={isAdmin && Boolean(adminTeamId)}
+              disabled={isPending || (isOrganizer ? !adminTeamId : !canReserve)}
+              adminMode={isOrganizer && Boolean(adminTeamId)}
             />
           </CardContent>
         </Card>
@@ -189,14 +189,16 @@ export function ReservationBoard({
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CardTitle>
-                  {isAdmin ? "Manage tables" : "Reserve your spot"}
+                  {isOrganizer ? "Manage tables" : "Reserve your spot"}
                 </CardTitle>
-                {isAdmin ? <Badge variant="secondary">Admin</Badge> : null}
+                {isOrganizer ? (
+                  <Badge variant="secondary">Organizer</Badge>
+                ) : null}
               </div>
               {user ? (
                 <CardDescription>
                   {user.name}
-                  {!isAdmin && user.teamName ? (
+                  {!isOrganizer && user.teamName ? (
                     <>
                       {" "}
                       · Team{" "}
@@ -229,7 +231,7 @@ export function ReservationBoard({
                   </code>
                   .
                 </div>
-              ) : isAdmin ? (
+              ) : isOrganizer ? (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-zinc-500">

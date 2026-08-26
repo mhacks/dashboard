@@ -5,7 +5,6 @@ import {
   unique,
   uuid,
   text,
-  boolean,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole } from "drizzle-orm/supabase";
