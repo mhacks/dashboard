@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { hackerApplicants } from "@/lib/db/schema/applications";
+import { decisionOutcome } from "@/lib/decisions";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
@@ -120,8 +121,13 @@ export async function inviteToTeam(
       "A teammate";
 
     const [invitedUser] = await tx
-      .select({ id: users.id, role: users.role })
+      .select({
+        id: users.id,
+        role: users.role,
+        decision: hackerApplicants.decision,
+      })
       .from(users)
+      .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
       .where(sql`lower(${users.email}) = ${normalizedEmail}`)
       .limit(1);
     if (!invitedUser) {
@@ -132,6 +138,12 @@ export async function inviteToTeam(
     }
     if (invitedUser.role !== "hacker") {
       throw new Error("That account can't join a team.");
+    }
+    if (
+      !invitedUser.decision ||
+      decisionOutcome(invitedUser.decision) !== "accepted"
+    ) {
+      throw new Error("They haven't been accepted to MHacks yet.");
     }
 
     const [invitedMembership] = await tx
