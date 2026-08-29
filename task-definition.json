@@ -18,14 +18,6 @@
       "volumesFrom": [],
       "secrets": [
         {
-          "name": "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
-        },
-        {
-          "name": "NEXT_PUBLIC_SUPABASE_URL",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_SUPABASE_URL"
-        },
-        {
           "name": "RESUMES_BUCKET",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/RESUMES_BUCKET"
         },
@@ -64,18 +56,6 @@
         {
           "name": "LOGIN_TURNSTILE_SECRET_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/LOGIN_TURNSTILE_SECRET_KEY"
-        },
-        {
-          "name": "NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY"
-        },
-        {
-          "name": "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"
-        },
-        {
-          "name": "NEXT_PUBLIC_POSTHOG_HOST",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_POSTHOG_HOST"
         }
       ],
       "logConfiguration": {
