@@ -43,9 +43,18 @@ export function PassStudio({
 }) {
   const [state, setState] = useState<TicketState>(initial);
 
-  const patch = useCallback((next: Partial<TicketState>) => {
-    setState((prev) => ({ ...prev, ...next }));
-  }, []);
+  const patch = useCallback(
+    (
+      next:
+        Partial<TicketState> | ((prev: TicketState) => Partial<TicketState>),
+    ) => {
+      setState((prev) => ({
+        ...prev,
+        ...(typeof next === "function" ? next(prev) : next),
+      }));
+    },
+    [],
+  );
 
   return (
     // minmax(0, …) rather than bare fr: the preview holds a fixed-size frame,
@@ -321,7 +330,9 @@ function Controls({
 }: {
   state: TicketState;
   firstName: string;
-  onChange: (patch: Partial<TicketState>) => void;
+  onChange: (
+    patch: Partial<TicketState> | ((prev: TicketState) => Partial<TicketState>),
+  ) => void;
 }) {
   // Every section flies in from the right edge the first time the designer
   // opens. Attached here rather than per-section so the stagger is one call.

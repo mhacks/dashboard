@@ -134,11 +134,7 @@ export const directBatchSendSchema = z.object({
   recipients: z.string().max(maxRecipientTextLength).default(""),
   testSendToken: z.string().uuid().optional(),
   cursor: z.number().int().min(0).default(0),
-  resolveStaleBatch: z
-    .object({
-      cursor: z.number().int().min(0),
-    })
-    .optional(),
+  resolveInterrupted: z.boolean().optional(),
 });
 
 export const emailAudienceDecisionGroupSchema = z.enum([

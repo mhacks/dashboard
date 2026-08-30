@@ -29,9 +29,9 @@ ALTER POLICY "blacklist_organizer_select" ON "blacklist" TO authenticated USING 
 ALTER POLICY "blacklist_organizer_insert" ON "blacklist" TO authenticated WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
 ALTER POLICY "blacklist_organizer_update" ON "blacklist" TO authenticated USING ((select public.is_organizer())) WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
 ALTER POLICY "blacklist_organizer_delete" ON "blacklist" TO authenticated USING ((select public.is_organizer()));--> statement-breakpoint
-ALTER POLICY "email_send_batches_organizer_select" ON "email_send_batches" TO authenticated USING ((select public.is_organizer()));--> statement-breakpoint
-ALTER POLICY "email_send_batches_organizer_insert" ON "email_send_batches" TO authenticated WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
-ALTER POLICY "email_send_batches_organizer_update" ON "email_send_batches" TO authenticated USING ((select public.is_organizer())) WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
+ALTER POLICY "email_send_deliveries_organizer_select" ON "email_send_deliveries" TO authenticated USING ((select public.is_organizer()));--> statement-breakpoint
+ALTER POLICY "email_send_deliveries_organizer_insert" ON "email_send_deliveries" TO authenticated WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
+ALTER POLICY "email_send_deliveries_organizer_update" ON "email_send_deliveries" TO authenticated USING ((select public.is_organizer())) WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
 ALTER POLICY "email_send_runs_organizer_select" ON "email_send_runs" TO authenticated USING ((select public.is_organizer()));--> statement-breakpoint
 ALTER POLICY "email_send_runs_organizer_insert" ON "email_send_runs" TO authenticated WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
 ALTER POLICY "email_send_runs_organizer_update" ON "email_send_runs" TO authenticated USING ((select public.is_organizer())) WITH CHECK ((select public.is_organizer()));--> statement-breakpoint

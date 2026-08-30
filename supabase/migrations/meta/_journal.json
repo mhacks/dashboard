@@ -47,22 +47,22 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1786127661447,
-      "tag": "20260807183121_reimbursements_triggers",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
       "when": 1786127561679,
       "tag": "20260807183241_blacklist",
       "breakpoints": true
     },
     {
-      "idx": 8,
+      "idx": 7,
       "version": "7",
       "when": 1786127577968,
       "tag": "20260807183257_blacklist_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786127661447,
+      "tag": "20260807183121_reimbursements_triggers",
       "breakpoints": true
     },
     {
@@ -110,26 +110,33 @@
     {
       "idx": 15,
       "version": "7",
+      "when": 1787499602464,
+      "tag": "20260823154002_prune_completed_email_deliveries",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
       "when": 1787674242921,
       "tag": "20260825161042_events",
       "breakpoints": true
     },
     {
-      "idx": 16,
+      "idx": 17,
       "version": "7",
       "when": 1787674242922,
       "tag": "20260825161100_events_triggers",
       "breakpoints": true
     },
     {
-      "idx": 17,
+      "idx": 18,
       "version": "7",
       "when": 1788120275670,
       "tag": "20260830200435_check_in_rsvp_guard",
       "breakpoints": true
     },
     {
-      "idx": 18,
+      "idx": 19,
       "version": "7",
       "when": 1788120851943,
       "tag": "20260830201411_rls_definer_helpers",
