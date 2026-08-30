@@ -165,6 +165,12 @@ export function CheckInScanner({
     // The camera keeps streaming while a verdict is up — only decoding stops.
     // Restarting a stream costs the better part of a second on iOS.
     paused: phase.kind !== "ready",
+    // iOS suspends the AudioContext along with the camera when the page is
+    // backgrounded, and the hook brings the camera back on its own without
+    // going through `start` below. Without this the scanner looks fine on
+    // return and scans in silence — which at a loud door is most of the signal
+    // a volunteer gets.
+    onAutoRestart: unlockFeedbackAudio,
   });
 
   const start = useCallback(() => {

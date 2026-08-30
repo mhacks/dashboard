@@ -37,10 +37,18 @@ export function useQrScanner({
   videoRef,
   onCode,
   paused,
+  onAutoRestart,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   onCode: (text: string) => void;
   paused: boolean;
+  /**
+   * Fired just before the camera is brought back after the page was
+   * backgrounded. That restart happens in here rather than through whatever
+   * the caller does to start a scan by hand, so anything that path sets up
+   * alongside the camera needs re-doing here too.
+   */
+  onAutoRestart?: () => void;
 }) {
   const [state, setState] = useState<ScannerState>({ kind: "idle" });
   const [torchOn, setTorchOn] = useState(false);
@@ -61,12 +69,16 @@ export function useQrScanner({
   // changes — a new loop per render would multiply the frame callbacks.
   const pausedRef = useRef(paused);
   const onCodeRef = useRef(onCode);
+  const onAutoRestartRef = useRef(onAutoRestart);
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
   useEffect(() => {
     onCodeRef.current = onCode;
   }, [onCode]);
+  useEffect(() => {
+    onAutoRestartRef.current = onAutoRestart;
+  }, [onAutoRestart]);
 
   const cancelFrame = useCallback(() => {
     const video = videoRef.current;
@@ -305,6 +317,7 @@ export function useQrScanner({
         }
       } else if (wasRunningRef.current) {
         wasRunningRef.current = false;
+        onAutoRestartRef.current?.();
         void start();
       }
     };
