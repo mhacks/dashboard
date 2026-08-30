@@ -127,6 +127,13 @@
       "when": 1788120275670,
       "tag": "20260830200435_check_in_rsvp_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788120851943,
+      "tag": "20260830201411_rls_definer_helpers",
+      "breakpoints": true
     }
   ]
 }
