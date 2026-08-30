@@ -54,6 +54,8 @@ export function useQrScanner({
   const runningRef = useRef(false);
   /** Whether the camera was live when the page was last backgrounded. */
   const wasRunningRef = useRef(false);
+  /** Cancels the waits inside the current `start`, so it can unwind. */
+  const startAbortRef = useRef<AbortController | null>(null);
 
   // Read inside the decode loop, which must not be re-created when either
   // changes — a new loop per render would multiply the frame callbacks.
@@ -78,8 +80,36 @@ export function useQrScanner({
     }
   }, [videoRef]);
 
+  /**
+   * Hands back a stream that was acquired but will not be used. Every exit from
+   * `start` past getUserMedia goes through here: leave one running and iOS keeps
+   * the camera indicator lit with nothing reading the frames, and the next
+   * attempt acquires a second stream alongside the first.
+   *
+   * Narrower than `stop` on purpose — the failure path wants to report why it
+   * failed, and `stop` would overwrite that with `idle`.
+   */
+  const release = useCallback(
+    (stream: MediaStream) => {
+      for (const track of stream.getTracks()) track.stop();
+
+      if (streamRef.current === stream) streamRef.current = null;
+
+      const video = videoRef.current;
+      // Same reason as in `stop`: on iOS the indicator stays on until the
+      // element itself lets go, not merely when the tracks end.
+      if (video?.srcObject === stream) video.srcObject = null;
+    },
+    [videoRef],
+  );
+
   const stop = useCallback(() => {
     runningRef.current = false;
+    // A `start` parked on one of its awaits would otherwise sit there holding
+    // the camera. Cutting the wait lets it resume, see the cleared flag, and
+    // release. runningRef is cleared first so it always resumes to a stop.
+    startAbortRef.current?.abort();
+    startAbortRef.current = null;
     cancelFrame();
 
     const stream = streamRef.current;
@@ -123,8 +153,17 @@ export function useQrScanner({
     runningRef.current = true;
     setState({ kind: "starting" });
 
+    // Not aborted by a later `start` — only by `stop`, which clears runningRef
+    // first. A start resumed any other way would race the one that woke it.
+    const attempt = new AbortController();
+    startAbortRef.current = attempt;
+
+    // Declared out here so the catch below can release a stream that was
+    // acquired and then thrown past.
+    let stream: MediaStream | null = null;
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           // `ideal`, never `exact`: exact throws OverconstrainedError on a
@@ -138,7 +177,7 @@ export function useQrScanner({
 
       // Unmounted, or stopped, while the permission prompt was open.
       if (!runningRef.current) {
-        stream.getTracks().forEach((track) => track.stop());
+        release(stream);
         return;
       }
 
@@ -150,7 +189,7 @@ export function useQrScanner({
 
       const video = videoRef.current;
       if (!video) {
-        stream.getTracks().forEach((t) => t.stop());
+        release(stream);
         runningRef.current = false;
         return;
       }
@@ -158,22 +197,48 @@ export function useQrScanner({
       video.srcObject = stream;
       // videoWidth stays 0 until metadata lands, and decoding a 0x0 frame
       // throws rather than returning nothing.
+      //
+      // Nothing guarantees the event ever arrives — a camera that never
+      // produces a frame leaves this pending, and an await that never settles
+      // strands the rest of this function, camera included. So the wait ends on
+      // whichever comes first, and the listener goes with it either way.
       if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
         await new Promise<void>((resolve) => {
+          if (attempt.signal.aborted) {
+            resolve();
+            return;
+          }
           video.addEventListener("loadedmetadata", () => resolve(), {
+            once: true,
+            signal: attempt.signal,
+          });
+          attempt.signal.addEventListener("abort", () => resolve(), {
             once: true,
           });
         });
+      }
+
+      // Stopped while waiting: give the camera back rather than spending a
+      // decoder load and a play() on a stream nobody is going to read.
+      if (!runningRef.current) {
+        release(stream);
+        return;
       }
       // Rejects on some Safari builds even with autoplay+muted+playsInline.
       await video.play().catch(() => {});
 
       decoderRef.current ??= await createDecoder();
 
-      if (!runningRef.current) return;
+      if (!runningRef.current) {
+        release(stream);
+        return;
+      }
       setState({ kind: "scanning" });
       scheduleFrame();
     } catch (error) {
+      // Null only when getUserMedia itself rejected, which leaves nothing to
+      // give back. Anything past that point owns a live camera.
+      if (stream) release(stream);
       runningRef.current = false;
       setState({ kind: "failed", reason: cameraFailureFrom(error) });
     }
@@ -216,7 +281,7 @@ export function useQrScanner({
         scheduleFrame();
       }
     }
-  }, [videoRef]);
+  }, [release, videoRef]);
 
   const toggleTorch = useCallback(() => {
     const [track] = streamRef.current?.getVideoTracks() ?? [];
