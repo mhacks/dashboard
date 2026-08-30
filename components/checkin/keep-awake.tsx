@@ -21,7 +21,19 @@ export function KeepAwake() {
     const acquire = async () => {
       if (cancelled || document.visibilityState !== "visible") return;
       try {
-        sentinel = await navigator.wakeLock.request("screen");
+        const granted = await navigator.wakeLock.request("screen");
+
+        // Unmounted while the request was in flight. The cleanup below has
+        // already run and found nothing to release, so this lock is ours to
+        // hand back — leaving it held would keep the screen lit on whatever
+        // page was navigated to, and a client-side navigation never hides the
+        // page to end it.
+        if (cancelled) {
+          void granted.release().catch(() => {});
+          return;
+        }
+
+        sentinel = granted;
       } catch {
         // Denied, or the page lost visibility mid-request. Nothing to do —
         // the screen simply dims on its usual timer.
