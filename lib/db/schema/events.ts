@@ -138,10 +138,17 @@ export const eventCheckins = pgTable(
       to: authenticatedRole,
       using: sql`${table.userId} = ${authUid} OR ${isEventStaff}`,
     }),
+    // Everything the check-in path enforces in TypeScript, restated as the
+    // last word. The app inserts as the owner role and never touches this, but
+    // a volunteer's JWT can reach PostgREST directly, and "is staff" alone let
+    // one write a check-in for anybody — someone who never RSVPed, or a row
+    // signed with a colleague's name.
     pgPolicy("event_checkins_insert_staff", {
       for: "insert",
       to: authenticatedRole,
-      withCheck: isEventStaff,
+      withCheck: sql`${isEventStaff}
+  and ${table.checkedInBy} = ${authUid}
+  and public.has_confirmed_rsvp(${table.userId})`,
     }),
     // Reverting a mis-scan is an organizer's call, not a volunteer's. No update
     // policy at all: a check-in is created or removed, never edited.

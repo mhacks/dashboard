@@ -61,6 +61,10 @@ export const RSVP_ELIGIBLE_DECISIONS = [
  * This is the check-in gate: being offered a spot is not the same as taking
  * one, and only someone who took it gets a code or gets through a door. The
  * SQL-friendly counterpart to `hasRsvped` below.
+ *
+ * Mirrored in public.has_confirmed_rsvp(), the function behind the
+ * event_checkins insert policy, in custom migration
+ * 20260830200435_check_in_rsvp_guard.sql. Change one, change the other.
  */
 export const RSVP_CONFIRMED_DECISIONS = [
   "early_rsvped",
