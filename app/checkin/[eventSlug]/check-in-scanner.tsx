@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { z } from "zod";
 
 import { ManualEntry } from "@/components/checkin/manual-entry";
 import {
@@ -18,7 +17,6 @@ import {
   countsAsCheckIn,
   OUTCOME_HEADLINE,
   OUTCOME_SEVERITY,
-  type CheckInOutcome,
 } from "@/lib/checkin/outcomes";
 
 type Phase =
@@ -47,8 +45,6 @@ const DISMISS_MS: Record<"go" | "warn" | "stop", number> = {
 const SAME_CODE_COOLDOWN_MS = 4000;
 const SLOW_NETWORK_MS = 3000;
 const HISTORY_LIMIT = 20;
-
-const uuidSchema = z.uuid();
 
 export function CheckInScanner({
   slug,
@@ -137,26 +133,14 @@ export function CheckInScanner({
 
       lastCodeRef.current = { text, at: now };
 
-      // Anything that isn't one of our UUIDs is rejected here, with no
-      // roundtrip — someone scanning an MLH poster gets an instant red.
-      if (!uuidSchema.safeParse(text).success) {
-        const scanId = crypto.randomUUID();
-        record(
-          {
-            ok: false,
-            outcome: "unknown-code" as Exclude<CheckInOutcome, "checked-in">,
-            message: OUTCOME_HEADLINE["unknown-code"],
-            attendee: null,
-            event: { id: "", name: eventName },
-          },
-          scanId,
-        );
-        return;
-      }
-
+      // Even a code that is obviously not one of ours goes to the server. It
+      // answers unknown-code exactly as this used to answer locally, and the
+      // trip buys the thing a local verdict cannot: a row in the scan log
+      // holding the text that was actually waved at the door, which is the
+      // whole reason event_scan_log.raw_code exists.
       void submit(text, "scan", crypto.randomUUID());
     },
-    [eventName, record, submit],
+    [submit],
   );
 
   const scanner = useQrScanner({
