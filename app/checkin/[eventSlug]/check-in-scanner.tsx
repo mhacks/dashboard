@@ -22,8 +22,10 @@ import {
 } from "@/lib/checkin/outcomes";
 
 type Phase =
-  | { kind: "idle" }
-  | { kind: "scanning" }
+  // Nothing over the viewfinder. Whether that means a live scan or a camera
+  // that was never started is the hook's business, not this state's — keeping
+  // a second copy of it here only lets the two drift apart.
+  | { kind: "ready" }
   | { kind: "submitting"; since: number }
   | { kind: "result"; result: CheckInResult }
   | {
@@ -58,7 +60,7 @@ export function CheckInScanner({
   initialCheckedInCount: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [phase, setPhase] = useState<Phase>({ kind: "ready" });
   const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
   const [checkedInCount, setCheckedInCount] = useState(initialCheckedInCount);
   const [isOffline, setIsOffline] = useState(false);
@@ -162,7 +164,7 @@ export function CheckInScanner({
     onCode: handleCode,
     // The camera keeps streaming while a verdict is up — only decoding stops.
     // Restarting a stream costs the better part of a second on iOS.
-    paused: phase.kind !== "scanning",
+    paused: phase.kind !== "ready",
   });
 
   const start = useCallback(() => {
@@ -170,17 +172,13 @@ export function CheckInScanner({
     // only allow from inside a real user interaction.
     unlockFeedbackAudio();
     void scanner.start();
-    setPhase({ kind: "scanning" });
+    setPhase({ kind: "ready" });
   }, [scanner]);
 
   const dismiss = useCallback(() => {
     lastCodeRef.current = null;
-    setPhase(
-      scanner.state.kind === "scanning"
-        ? { kind: "scanning" }
-        : { kind: "idle" },
-    );
-  }, [scanner.state.kind]);
+    setPhase({ kind: "ready" });
+  }, []);
 
   // Auto re-arm. A volunteer with forty people in line will not tap "next".
   useEffect(() => {
