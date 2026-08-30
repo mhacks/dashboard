@@ -135,11 +135,13 @@ function endsBeforeStart(startsAt: string | null, endsAt: string | null) {
  * Appends `-2`, `-3`, … until the slug is free. Bounded rather than looping
  * forever — twenty events sharing one name is a naming problem, not something
  * to keep silently working around.
+ *
+ * Creating only. An organizer creating two events called "Dinner" wants the
+ * second one to land somewhere, but one *editing* an event has typed a specific
+ * URL and is about to hand it to volunteers, so quietly storing a different one
+ * would be the wrong kind of helpful — see `slugTakenBy` below.
  */
-async function uniqueSlug(
-  base: string,
-  excludeId?: string,
-): Promise<string | null> {
+async function uniqueSlug(base: string): Promise<string | null> {
   for (let attempt = 1; attempt <= 20; attempt++) {
     const candidate = attempt === 1 ? base : `${base}-${attempt}`;
     const clash = await db
@@ -148,9 +150,36 @@ async function uniqueSlug(
       .where(eq(events.slug, candidate))
       .limit(1);
 
-    if (!clash[0] || clash[0].id === excludeId) return candidate;
+    if (!clash[0]) return candidate;
   }
   return null;
+}
+
+const SLUG_TAKEN = "That slug is taken. Pick a different one.";
+
+/**
+ * A unique violation on events_slug_unique. Both writes below check first, but
+ * a check is a read: two organizers saving the same slug in the same moment
+ * both pass it, and the constraint is what actually decides. Reported the same
+ * way as a check that failed, because to the loser it is the same thing.
+ *
+ * drizzle wraps the driver error, so the code can be on either.
+ */
+function isSlugCollision(error: unknown) {
+  const wrapped = error as { code?: string; cause?: { code?: string } };
+  return (wrapped.code ?? wrapped.cause?.code) === "23505";
+}
+
+/** The event already holding this slug, if it is not the one being edited. */
+async function slugTakenBy(slug: string, excludeId?: string) {
+  const rows = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(eq(events.slug, slug))
+    .limit(1);
+
+  const holder = rows[0];
+  return holder && holder.id !== excludeId ? holder : null;
 }
 
 export async function createEventAction(
@@ -172,7 +201,11 @@ export async function createEventAction(
     return { ok: false, message: "The end time is before the start time." };
   }
 
-  const base = slug || slugifyEventName(name);
+  // A slug that was typed is a URL the organizer has in mind, and the only
+  // honest answers are "saved" or "taken". Suffixing is for the one we derived
+  // from the name, where they never named a URL to begin with.
+  const typed = slug.length > 0;
+  const base = typed ? slug : slugifyEventName(name);
   if (!base) {
     return {
       ok: false,
@@ -180,23 +213,35 @@ export async function createEventAction(
     };
   }
 
-  const resolved = await uniqueSlug(base);
-  if (!resolved) {
-    return {
-      ok: false,
-      message: "Too many events share that name. Pick a different slug.",
-    };
+  let resolved: string;
+  if (typed) {
+    if (await slugTakenBy(base)) return { ok: false, message: SLUG_TAKEN };
+    resolved = base;
+  } else {
+    const derived = await uniqueSlug(base);
+    if (!derived) {
+      return {
+        ok: false,
+        message: "Too many events share that name. Pick a different slug.",
+      };
+    }
+    resolved = derived;
   }
 
-  await db.insert(events).values({
-    slug: resolved,
-    name,
-    description,
-    location,
-    startsAt,
-    endsAt,
-    createdBy: organizer.id,
-  });
+  try {
+    await db.insert(events).values({
+      slug: resolved,
+      name,
+      description,
+      location,
+      startsAt,
+      endsAt,
+      createdBy: organizer.id,
+    });
+  } catch (error) {
+    if (isSlugCollision(error)) return { ok: false, message: SLUG_TAKEN };
+    throw error;
+  }
 
   revalidatePath("/admin/events");
   revalidatePath("/checkin");
@@ -232,20 +277,24 @@ export async function updateEventAction(
   const event = existing[0];
   if (!event) return { ok: false, message: "That event no longer exists." };
 
-  const resolved = await uniqueSlug(slug, event.id);
-  if (!resolved) {
-    return { ok: false, message: "That slug is taken. Pick a different one." };
+  if (await slugTakenBy(slug, event.id)) {
+    return { ok: false, message: SLUG_TAKEN };
   }
 
-  await db
-    .update(events)
-    .set({ slug: resolved, name, description, location, startsAt, endsAt })
-    .where(eq(events.id, event.id));
+  try {
+    await db
+      .update(events)
+      .set({ slug, name, description, location, startsAt, endsAt })
+      .where(eq(events.id, event.id));
+  } catch (error) {
+    if (isSlugCollision(error)) return { ok: false, message: SLUG_TAKEN };
+    throw error;
+  }
 
   revalidatePath("/admin/events");
-  revalidatePath(`/admin/events/${resolved}`);
+  revalidatePath(`/admin/events/${slug}`);
   revalidatePath("/checkin");
-  return { ok: true, slug: resolved };
+  return { ok: true, slug };
 }
 
 const setActiveSchema = z.strictObject({
