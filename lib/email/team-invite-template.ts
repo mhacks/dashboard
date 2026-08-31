@@ -1,3 +1,5 @@
+import { TEAM_NAME_MAX_LENGTH } from "@/lib/types/teams";
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -16,14 +18,19 @@ export function buildTeamInviteEmail({
   inviterName: string;
   teamUrl: string;
 }) {
-  const safeTeamName = escapeHtml(teamName);
+  // teamName is already capped at creation (teamNameSchema), but this is the
+  // point where it actually goes out in an email, so it gets its own bound
+  // rather than trusting that upstream check to hold forever.
+  const boundedTeamName = teamName.slice(0, TEAM_NAME_MAX_LENGTH);
+
+  const safeTeamName = escapeHtml(boundedTeamName);
   const safeInviterName = escapeHtml(inviterName);
   const safeTeamUrl = escapeHtml(teamUrl);
 
   const subject = `${inviterName} invited you to join their MHacks team`;
 
   const text = [
-    `${inviterName} invited you to join their team, "${teamName}", on MHacks.`,
+    `${inviterName} invited you to join their team, "${boundedTeamName}", on MHacks.`,
     "",
     "View and respond to the invitation:",
     teamUrl,
