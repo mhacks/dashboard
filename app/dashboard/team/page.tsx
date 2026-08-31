@@ -11,8 +11,9 @@ import { TeamSkeleton } from "./team-skeleton";
 // Not wrapped in a swallow-and-degrade try/catch the way apply/page.tsx
 // handles its existing-application check — silently falling back to "no
 // team" on a fetch error here would let a user attempt to create a second
-// team while one already exists, so a failure here throws to Next.js's
-// default error handling instead.
+// team while one already exists, so a failure here is left to throw. It's
+// still caught gracefully, just one level up: error.tsx renders it in-shell
+// with a retry instead of Next's default error page.
 async function TeamData() {
   const { id: userId } = await requireHackerPage();
 

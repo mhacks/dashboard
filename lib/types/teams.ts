@@ -3,11 +3,16 @@ import type { TeamRow, TeamInvitationStatus } from "@/lib/db/schema/teams";
 
 export const MAX_TEAM_SIZE = 4;
 
+export const TEAM_NAME_MAX_LENGTH = 60;
+
 export const teamNameSchema = z
   .string()
   .trim()
   .min(1, "Team name is required")
-  .max(60, "Team name must be 60 characters or fewer");
+  .max(
+    TEAM_NAME_MAX_LENGTH,
+    `Team name must be ${TEAM_NAME_MAX_LENGTH} characters or fewer`,
+  );
 
 export const inviteEmailSchema = z
   .string()
