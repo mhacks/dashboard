@@ -3,7 +3,7 @@ import type { TeamRow, TeamInvitationStatus } from "@/lib/db/schema/teams";
 
 export const MAX_TEAM_SIZE = 4;
 
-export const TEAM_NAME_MAX_LENGTH = 60;
+export const TEAM_NAME_MAX_LENGTH = 30;
 
 export const teamNameSchema = z
   .string()
