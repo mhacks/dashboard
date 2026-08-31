@@ -18,10 +18,7 @@ export function TeamSection() {
       <LetterKicker>Next Step</LetterKicker>
       <LetterHeading>Find your team</LetterHeading>
       <LetterBody>
-        Hacking with friends? Create a team or accept an invite to link up
-        before the weekend starts. Teams can have up to {MAX_TEAM_SIZE} hackers,
-        and you can always hack solo if you&rsquo;d rather decide once
-        you&rsquo;re here.
+        {`Hacking with friends? Create a team or accept an invite to link up before the weekend starts. Teams can have up to ${MAX_TEAM_SIZE} hackers, and you can always hack solo if you’d rather decide once you’re here.`}
       </LetterBody>
       <div className="mt-5 flex flex-wrap items-center gap-4">
         <ButtonLink href="/dashboard/team" variant="outline" external={false}>
