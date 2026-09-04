@@ -1,0 +1,3 @@
+ALTER POLICY "hacker_rsvp_exceptions_organizer_select" ON "hacker_rsvp_exceptions" TO authenticated USING ((select public.is_organizer()));--> statement-breakpoint
+ALTER POLICY "hacker_rsvp_exceptions_organizer_insert" ON "hacker_rsvp_exceptions" TO authenticated WITH CHECK ((select public.is_organizer()));--> statement-breakpoint
+ALTER POLICY "hacker_rsvp_exceptions_organizer_update" ON "hacker_rsvp_exceptions" TO authenticated USING ((select public.is_organizer())) WITH CHECK ((select public.is_organizer()));

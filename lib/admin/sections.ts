@@ -1,9 +1,11 @@
 import {
   BarChart3Icon,
   CalendarCheck2Icon,
+  CalendarPlusIcon,
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
+  QrCodeIcon,
   TrophyIcon,
   UsersRoundIcon,
   type LucideIcon,
@@ -79,6 +81,27 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Backdoor",
         description: "Grant custom late RSVP windows for accepted applicants.",
         icon: KeyRoundIcon,
+      },
+    ],
+  },
+  {
+    title: "Check-in",
+    description: "Run events and scan attendees in at the door.",
+    icon: QrCodeIcon,
+    links: [
+      {
+        href: "/admin/events",
+        title: "Events",
+        description: "Create events, open and close scanners, export rosters.",
+        icon: CalendarPlusIcon,
+      },
+      {
+        // The one link here that isn't under /admin — volunteers use it too,
+        // so it can't live behind the organizer gate.
+        href: "/checkin",
+        title: "Scanner",
+        description: "Scan attendee codes for whichever event is running.",
+        icon: QrCodeIcon,
       },
     ],
   },

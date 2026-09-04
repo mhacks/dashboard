@@ -15,3 +15,7 @@ export const hackerReimbursementsSetUpdatedAtTriggerName =
 // Referenced by blacklist.updated_at trigger in custom migration
 // 20260807183257_blacklist_triggers.sql.
 export const blacklistSetUpdatedAtTriggerName = "blacklist_set_updated_at";
+
+// Referenced by events.updated_at trigger in custom migration
+// 20260825000000_events_triggers.sql.
+export const eventsSetUpdatedAtTriggerName = "events_set_updated_at";
