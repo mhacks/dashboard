@@ -1,0 +1,260 @@
+import { TEAM_NAME_MAX_LENGTH } from "@/lib/types/teams";
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+export function buildTeamInviteEmail({
+  teamName,
+  inviterName,
+  teamUrl,
+}: {
+  teamName: string;
+  inviterName: string;
+  teamUrl: string;
+}) {
+  // teamName is already capped at creation (teamNameSchema), but this is the
+  // point where it actually goes out in an email, so it gets its own bound
+  // rather than trusting that upstream check to hold forever.
+  const boundedTeamName = teamName.slice(0, TEAM_NAME_MAX_LENGTH);
+
+  const safeTeamName = escapeHtml(boundedTeamName);
+  const safeInviterName = escapeHtml(inviterName);
+  const safeTeamUrl = escapeHtml(teamUrl);
+
+  const subject = `${inviterName} invited you to join their MHacks team`;
+
+  const text = [
+    `${inviterName} invited you to join their team, "${boundedTeamName}", on MHacks.`,
+    "",
+    "View and respond to the invitation:",
+    teamUrl,
+    "",
+    "Questions? Contact hackathon@mhacks.org.",
+    "",
+    "— The MHacks Team",
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MHacks | Team Invite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body,
+      table,
+      td,
+      a {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      table,
+      td {
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      img {
+        -ms-interpolation-mode: bicubic;
+        border: 0;
+        height: auto;
+        line-height: 100%;
+        outline: none;
+        text-decoration: none;
+      }
+      table {
+        border-collapse: collapse !important;
+      }
+      body {
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #f6f1de;
+      font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      style="background-color: #f6f1de; padding: 40px 0; width: 100%"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            style="
+              background: #ffffff;
+              border-radius: 16px;
+              overflow: hidden;
+              max-width: 600px;
+            "
+          >
+            <tr>
+              <td align="center" style="padding: 40px 40px 20px">
+                <img
+                  src="https://www.mhacks.org/mhacks_logo_green_bg.svg"
+                  alt="MHacks"
+                  width="120"
+                  style="
+                    display: block;
+                    border: 0;
+                    width: 120px;
+                    max-width: 120px;
+                  "
+                />
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                style="
+                  padding: 0 40px 32px;
+                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
+                "
+              >
+                <p
+                  style="
+                    margin: 0;
+                    color: #69a13b;
+                    font-size: 18px;
+                    font-weight: 800;
+                    letter-spacing: 1px;
+                    text-transform: uppercase;
+                  "
+                >
+                  Team Invite
+                </p>
+
+                <h1
+                  style="
+                    margin: 16px 0 24px;
+                    color: #040404;
+                    font-size: 32px;
+                    font-weight: 900;
+                    line-height: 1.2;
+                  "
+                >
+                  Join "${safeTeamName}"
+                </h1>
+
+                <p
+                  style="
+                    margin: 0 0 32px;
+                    color: #505050;
+                    font-size: 16px;
+                    line-height: 1.6;
+                  "
+                >
+                  <strong style="color: #040404">${safeInviterName}</strong>
+                  invited you to join their team on MHacks. Sign in to view
+                  and respond to the invitation.
+                </p>
+
+                <p style="margin: 0 0 24px; text-align: center">
+                  <a
+                    href="${safeTeamUrl}"
+                    style="
+                      display: inline-block;
+                      background: #3a4a26;
+                      color: #ffffff;
+                      font-size: 16px;
+                      font-weight: 700;
+                      line-height: 1;
+                      text-decoration: none;
+                      border-radius: 999px;
+                      padding: 14px 28px;
+                    "
+                  >
+                    View invitation
+                  </a>
+                </p>
+
+                <p
+                  style="
+                    margin: 0;
+                    color: #707070;
+                    font-size: 13px;
+                    line-height: 1.5;
+                  "
+                >
+                  Or copy this link into your browser:<br />
+                  <a
+                    href="${safeTeamUrl}"
+                    style="color: #4285f4; text-decoration: underline; word-break: break-all"
+                  >
+                    ${safeTeamUrl}
+                  </a>
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                style="
+                  padding: 0 40px 40px;
+                  font-family: &quot;Red Hat Display&quot;, Arial, sans-serif;
+                "
+              >
+                <p
+                  style="
+                    margin: 0 0 16px;
+                    color: #505050;
+                    font-size: 16px;
+                    line-height: 1.6;
+                  "
+                >
+                  Questions? Reach out to us anytime at
+                  <a
+                    href="mailto:hackathon@mhacks.org"
+                    style="color: #4285f4; text-decoration: underline"
+                  >
+                    hackathon@mhacks.org
+                  </a>.
+                </p>
+
+                <p
+                  style="
+                    margin: 0;
+                    color: #505050;
+                    font-size: 16px;
+                    font-weight: 700;
+                  "
+                >
+                  &mdash; The MHacks Team
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, text, html };
+}

@@ -7,6 +7,7 @@ import * as reimbursementsSchema from "./schema/reimbursements";
 import * as rsvpsSchema from "./schema/rsvps";
 import * as userInvitationsSchema from "./schema/user-invitations";
 import * as usersSchema from "./schema/users";
+import * as teamsSchema from "./schema/teams";
 
 // Disable prefetch — prepared statements are not supported in Supabase's
 // "Transaction" pool mode (the pooled connection string on port 6543).
@@ -22,5 +23,6 @@ export const db = drizzle({
     ...rsvpsSchema,
     ...userInvitationsSchema,
     ...usersSchema,
+    ...teamsSchema,
   },
 });
