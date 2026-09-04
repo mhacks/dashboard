@@ -3,7 +3,7 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
-  RESUMES_BUCKET,
+  UPLOADS_BUCKET,
   s3,
   resumeKeyBelongsToUser,
   MAX_RESUME_SIZE_BYTES,
@@ -45,7 +45,7 @@ export async function getResumeUploadUrl(
   const key = resumeKeyForUser(userId);
 
   const command = new PutObjectCommand({
-    Bucket: RESUMES_BUCKET,
+    Bucket: UPLOADS_BUCKET,
     Key: key,
     ContentType: "application/pdf",
     ContentLength: fileSizeBytes,
@@ -88,7 +88,7 @@ export async function uploadResume(
 
   await s3.send(
     new PutObjectCommand({
-      Bucket: RESUMES_BUCKET,
+      Bucket: UPLOADS_BUCKET,
       Key: key,
       Body: buffer,
       ContentType: "application/pdf",
@@ -133,7 +133,7 @@ export async function getResumeDownloadUrl(
   }
 
   const command = new GetObjectCommand({
-    Bucket: RESUMES_BUCKET,
+    Bucket: UPLOADS_BUCKET,
     Key: key,
     ResponseContentDisposition:
       disposition === "attachment"

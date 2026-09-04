@@ -1,6 +1,10 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-export const RESUMES_BUCKET = process.env.RESUMES_BUCKET!;
+// Backs resumes and RSVP receipts alike — the env var keeps its original
+// RESUMES_ name (renaming it would break the deployed task definition and
+// scripts/gen-env-local.sh), but the export says what the bucket is actually
+// for.
+export const UPLOADS_BUCKET = process.env.RESUMES_BUCKET!;
 
 // Shared by every path that accepts a resume upload (currently just
 // /api/upload-resume, which buffers the whole file into the container's own
@@ -55,4 +59,26 @@ export function resumeKeyBelongsToUser(key: string, userId: string): boolean {
   if (!key.startsWith(prefix)) return false;
   const next = key[prefix.length];
   return next === "/" || next === ".";
+}
+
+// A missing object surfaces under two different error names depending on the
+// command and whether we're talking to real S3 or the Supabase Storage
+// endpoint used locally, so both callers have to check for both.
+export function isS3NotFound(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error.name === "NoSuchKey" || error.name === "NotFound")
+  );
+}
+
+// Both upload validators read only the first few bytes of an object to sniff
+// its magic number, so the object's real size arrives in the Content-Range
+// response header (`bytes 0-3/12345`) rather than Content-Length.
+export function parseTotalBytesFromContentRange(
+  contentRange: string | undefined,
+): number | undefined {
+  const match = contentRange?.match(/\/(\d+)$/u);
+  return match ? Number(match[1]) : undefined;
 }
