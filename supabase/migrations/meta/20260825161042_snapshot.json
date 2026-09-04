@@ -1,5 +1,5 @@
 {
-  "id": "81787765-b737-4392-989d-3d5342b086a5",
+  "id": "37d41180-b7b9-49f1-bc0e-02108537bd67",
   "prevId": "77b9c5dc-8e8c-4f37-aee1-42b199559f46",
   "version": "7",
   "dialect": "postgresql",
@@ -263,7 +263,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
         },
         "hacker_applicants_update_organizer": {
           "name": "hacker_applicants_update_organizer",
@@ -272,8 +272,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -495,7 +495,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "hacker_application_review_events_organizer_insert": {
           "name": "hacker_application_review_events_organizer_insert",
@@ -504,7 +504,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -626,7 +626,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "hacker_application_reviews_organizer_insert": {
           "name": "hacker_application_reviews_organizer_insert",
@@ -635,7 +635,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "hacker_application_reviews_organizer_update": {
           "name": "hacker_application_reviews_organizer_update",
@@ -644,8 +644,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -780,7 +780,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "blacklist_organizer_insert": {
           "name": "blacklist_organizer_insert",
@@ -789,7 +789,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "blacklist_organizer_update": {
           "name": "blacklist_organizer_update",
@@ -798,8 +798,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         },
         "blacklist_organizer_delete": {
           "name": "blacklist_organizer_delete",
@@ -808,7 +808,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {
@@ -1009,7 +1009,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_send_runs_organizer_insert": {
           "name": "email_send_runs_organizer_insert",
@@ -1018,7 +1018,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_send_runs_organizer_update": {
           "name": "email_send_runs_organizer_update",
@@ -1027,8 +1027,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1192,7 +1192,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_templates_organizer_insert": {
           "name": "email_templates_organizer_insert",
@@ -1201,7 +1201,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_templates_organizer_update": {
           "name": "email_templates_organizer_update",
@@ -1210,8 +1210,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         },
         "email_templates_organizer_delete": {
           "name": "email_templates_organizer_delete",
@@ -1220,7 +1220,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1282,7 +1282,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_theme_settings_organizer_insert": {
           "name": "email_theme_settings_organizer_insert",
@@ -1291,7 +1291,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_theme_settings_organizer_update": {
           "name": "email_theme_settings_organizer_update",
@@ -1300,8 +1300,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1435,7 +1435,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"event_checkins\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role in ('organizer', 'volunteer')\n)"
+          "using": "\"event_checkins\".\"user_id\" = (select auth.uid()) OR (select public.is_event_staff())"
         },
         "event_checkins_insert_staff": {
           "name": "event_checkins_insert_staff",
@@ -1444,7 +1444,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role in ('organizer', 'volunteer')\n)"
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
         },
         "event_checkins_delete_organizer": {
           "name": "event_checkins_delete_organizer",
@@ -1453,7 +1453,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1581,10 +1581,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "event_scan_log_client_scan_id_unique": {
-          "name": "event_scan_log_client_scan_id_unique",
+        "event_scan_log_event_client_scan_unique": {
+          "name": "event_scan_log_event_client_scan_unique",
           "nullsNotDistinct": false,
           "columns": [
+            "event_id",
             "client_scan_id"
           ]
         }
@@ -1597,7 +1598,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role in ('organizer', 'volunteer')\n)"
+          "using": "(select public.is_event_staff())"
         },
         "event_scan_log_insert_staff": {
           "name": "event_scan_log_insert_staff",
@@ -1606,7 +1607,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role in ('organizer', 'volunteer')\n)"
+          "withCheck": "(select public.is_event_staff()) and \"event_scan_log\".\"scanned_by\" = (select auth.uid())"
         }
       },
       "checkConstraints": {},
@@ -1721,7 +1722,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role in ('organizer', 'volunteer')\n)"
+          "using": "(select public.is_event_staff())"
         },
         "events_insert_organizer": {
           "name": "events_insert_organizer",
@@ -1730,7 +1731,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "events_update_organizer": {
           "name": "events_update_organizer",
@@ -1739,8 +1740,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         },
         "events_delete_organizer": {
           "name": "events_delete_organizer",
@@ -1749,7 +1750,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1879,7 +1880,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"hacker_reimbursements\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"hacker_reimbursements\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
         },
         "hacker_reimbursements_organizer_insert": {
           "name": "hacker_reimbursements_organizer_insert",
@@ -1888,7 +1889,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "hacker_reimbursements_organizer_update": {
           "name": "hacker_reimbursements_organizer_update",
@@ -1897,8 +1898,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         },
         "hacker_reimbursements_organizer_delete": {
           "name": "hacker_reimbursements_organizer_delete",
@@ -1907,7 +1908,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -2199,7 +2200,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"hacker_rsvps\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"hacker_rsvps\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
         }
       },
       "checkConstraints": {
@@ -2292,7 +2293,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "user_invitations_organizer_insert": {
           "name": "user_invitations_organizer_insert",
@@ -2301,7 +2302,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "user_invitations_organizer_update": {
           "name": "user_invitations_organizer_update",
@@ -2310,8 +2311,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -2362,7 +2363,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"users\".\"id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"users\".\"id\" = (select auth.uid()) OR (select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -2488,7 +2489,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_send_deliveries_organizer_insert": {
           "name": "email_send_deliveries_organizer_insert",
@@ -2497,7 +2498,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_send_deliveries_organizer_update": {
           "name": "email_send_deliveries_organizer_update",
@@ -2506,8 +2507,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},

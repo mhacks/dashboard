@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
@@ -5,7 +6,11 @@ import { users, type UserEntry } from "@/lib/db/schema/users";
 
 // Returns the public.users row for the authenticated user, or null if
 // unauthenticated or the row cannot be found.
-export async function getSessionUser(): Promise<UserEntry | null> {
+//
+// Deduplicated per request: a page that runs two guarded queries (the scanner
+// reads its event, then its count) would otherwise pay a Supabase Auth round
+// trip and a users read for each one.
+export const getSessionUser = cache(async (): Promise<UserEntry | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -36,4 +41,4 @@ export async function getSessionUser(): Promise<UserEntry | null> {
     .returning();
 
   return created ?? null;
-}
+});

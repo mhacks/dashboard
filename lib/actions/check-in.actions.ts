@@ -132,7 +132,10 @@ export async function checkInAttendee(
     const scannedEvent: ScannedEvent = { id: event.id, name: event.name };
 
     // Claim the attempt. An empty return means this exact clientScanId was
-    // already processed, so replay that outcome rather than acting twice.
+    // already processed for this event, so replay that outcome rather than
+    // acting twice. Scoped to the event on both halves: a client id means
+    // "this attempt at this door" and nothing wider, so matching it across
+    // events would replay a verdict reached somewhere else entirely.
     const claimed = await tx
       .insert(eventScanLog)
       .values({
@@ -142,7 +145,9 @@ export async function checkInAttendee(
         clientScanId,
         rawCode: code.slice(0, MAX_RAW_CODE_LENGTH),
       })
-      .onConflictDoNothing({ target: eventScanLog.clientScanId })
+      .onConflictDoNothing({
+        target: [eventScanLog.eventId, eventScanLog.clientScanId],
+      })
       .returning({ id: eventScanLog.id });
 
     const logId = claimed[0]?.id ?? null;
@@ -304,7 +309,12 @@ async function replayScan(
       hackerApplicants,
       eq(hackerApplicants.userId, eventScanLog.userId),
     )
-    .where(eq(eventScanLog.clientScanId, clientScanId))
+    .where(
+      and(
+        eq(eventScanLog.eventId, event.id),
+        eq(eventScanLog.clientScanId, clientScanId),
+      ),
+    )
     .limit(1);
 
   const row = rows[0];

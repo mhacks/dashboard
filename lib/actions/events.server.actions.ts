@@ -121,11 +121,6 @@ const createEventSchema = eventFieldsSchema.extend({
   slug: z.union([eventSlugSchema, z.literal("")]),
 });
 
-const updateEventSchema = eventFieldsSchema.extend({
-  slug: eventSlugSchema,
-  currentSlug: eventSlugSchema,
-});
-
 function endsBeforeStart(startsAt: string | null, endsAt: string | null) {
   if (!startsAt || !endsAt) return false;
   return Date.parse(endsAt) < Date.parse(startsAt);
@@ -136,10 +131,9 @@ function endsBeforeStart(startsAt: string | null, endsAt: string | null) {
  * forever — twenty events sharing one name is a naming problem, not something
  * to keep silently working around.
  *
- * Creating only. An organizer creating two events called "Dinner" wants the
- * second one to land somewhere, but one *editing* an event has typed a specific
- * URL and is about to hand it to volunteers, so quietly storing a different one
- * would be the wrong kind of helpful — see `slugTakenBy` below.
+ * Only ever applied to a slug derived from the name. A slug the organizer typed
+ * is a URL they have in mind, and the only honest answers there are "saved" or
+ * "taken" — see `slugTakenBy` below.
  */
 async function uniqueSlug(base: string): Promise<string | null> {
   for (let attempt = 1; attempt <= 20; attempt++) {
@@ -158,10 +152,10 @@ async function uniqueSlug(base: string): Promise<string | null> {
 const SLUG_TAKEN = "That slug is taken. Pick a different one.";
 
 /**
- * A unique violation on events_slug_unique. Both writes below check first, but
- * a check is a read: two organizers saving the same slug in the same moment
- * both pass it, and the constraint is what actually decides. Reported the same
- * way as a check that failed, because to the loser it is the same thing.
+ * A unique violation on events_slug_unique. The write below checks first, but a
+ * check is a read: two organizers saving the same slug in the same moment both
+ * pass it, and the constraint is what actually decides. Reported the same way
+ * as a check that failed, because to the loser it is the same thing.
  *
  * drizzle wraps the driver error, so the code can be on either.
  */
@@ -170,16 +164,15 @@ function isSlugCollision(error: unknown) {
   return (wrapped.code ?? wrapped.cause?.code) === "23505";
 }
 
-/** The event already holding this slug, if it is not the one being edited. */
-async function slugTakenBy(slug: string, excludeId?: string) {
+/** The event already holding this slug, if any. */
+async function slugTakenBy(slug: string) {
   const rows = await db
     .select({ id: events.id })
     .from(events)
     .where(eq(events.slug, slug))
     .limit(1);
 
-  const holder = rows[0];
-  return holder && holder.id !== excludeId ? holder : null;
+  return rows[0] ?? null;
 }
 
 export async function createEventAction(
@@ -248,55 +241,6 @@ export async function createEventAction(
   return { ok: true, slug: resolved };
 }
 
-export async function updateEventAction(
-  input: unknown,
-): Promise<EventActionResult> {
-  await requireOrganizer();
-
-  const parsed = updateEventSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      message: parsed.error.issues[0]?.message ?? "Check the event details.",
-    };
-  }
-
-  const { currentSlug, slug, name, description, location, startsAt, endsAt } =
-    parsed.data;
-
-  if (endsBeforeStart(startsAt, endsAt)) {
-    return { ok: false, message: "The end time is before the start time." };
-  }
-
-  const existing = await db
-    .select({ id: events.id })
-    .from(events)
-    .where(eq(events.slug, currentSlug))
-    .limit(1);
-
-  const event = existing[0];
-  if (!event) return { ok: false, message: "That event no longer exists." };
-
-  if (await slugTakenBy(slug, event.id)) {
-    return { ok: false, message: SLUG_TAKEN };
-  }
-
-  try {
-    await db
-      .update(events)
-      .set({ slug, name, description, location, startsAt, endsAt })
-      .where(eq(events.id, event.id));
-  } catch (error) {
-    if (isSlugCollision(error)) return { ok: false, message: SLUG_TAKEN };
-    throw error;
-  }
-
-  revalidatePath("/admin/events");
-  revalidatePath(`/admin/events/${slug}`);
-  revalidatePath("/checkin");
-  return { ok: true, slug };
-}
-
 const setActiveSchema = z.strictObject({
   slug: eventSlugSchema,
   isActive: z.boolean(),
@@ -323,45 +267,6 @@ export async function setEventActiveAction(
   revalidatePath("/admin/events");
   revalidatePath("/checkin");
   return { ok: true, slug: updated[0].slug };
-}
-
-const deleteEventSchema = z.strictObject({
-  slug: eventSlugSchema,
-  confirmationName: z.string().trim().min(1),
-});
-
-/**
- * Deleting an event takes its check-ins and its scan log with it, so the name
- * has to be typed to confirm — the same bar as deleting an RSVP.
- */
-export async function deleteEventAction(
-  input: unknown,
-): Promise<EventActionResult> {
-  await requireOrganizer();
-
-  const parsed = deleteEventSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, message: "Enter the event name to confirm." };
-  }
-
-  const rows = await db
-    .select({ id: events.id, name: events.name })
-    .from(events)
-    .where(eq(events.slug, parsed.data.slug))
-    .limit(1);
-
-  const event = rows[0];
-  if (!event) return { ok: false, message: "That event no longer exists." };
-
-  if (event.name.trim() !== parsed.data.confirmationName) {
-    return { ok: false, message: "The name doesn't match." };
-  }
-
-  await db.delete(events).where(eq(events.id, event.id));
-
-  revalidatePath("/admin/events");
-  revalidatePath("/checkin");
-  return { ok: true, slug: parsed.data.slug };
 }
 
 const revokeCheckinSchema = z.strictObject({

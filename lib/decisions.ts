@@ -62,14 +62,14 @@ export const RSVP_ELIGIBLE_DECISIONS = [
  * one, and only someone who took it gets a code or gets through a door. The
  * SQL-friendly counterpart to `hasRsvped` below.
  *
- * Mirrored in public.has_confirmed_rsvp(), the function behind the
- * event_checkins insert policy, in custom migration
- * 20260830200435_check_in_rsvp_guard.sql. Change one, change the other.
+ * Derived from `hasRsvped` rather than listed out, because it is also spelled
+ * in SQL — public.has_confirmed_rsvp(), the function behind the event_checkins
+ * insert policy. That one matches on the `_rsvped` suffix for the same reason,
+ * so a round added to APPLICATION_DECISIONS reaches both at once instead of
+ * relying on someone remembering to edit a list in two languages.
  */
-export const RSVP_CONFIRMED_DECISIONS = [
-  "early_rsvped",
-  "regular_rsvped",
-] as const satisfies readonly ApplicationDecision[];
+export const RSVP_CONFIRMED_DECISIONS: readonly ApplicationDecision[] =
+  APPLICATION_DECISIONS.filter(hasRsvped);
 
 export function hasRsvped(decision: ApplicationDecision) {
   return decision.endsWith("_rsvped");
