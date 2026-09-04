@@ -6,6 +6,7 @@ import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { revokeGrant } from "@/lib/actions/oauth-grants.server.actions";
+import { formatMediumDate } from "@/lib/format/date";
 
 // Matches Supabase's `OAuthGrant` shape
 // (packages/core/auth-js/src/lib/types.ts) structurally, without importing
@@ -78,7 +79,7 @@ export function ConnectionsList({ grants }: { grants: Grant[] }) {
                     style={{ color: "rgba(58,74,38,0.6)" }}
                   >
                     {grant.scopes.join(", ")} · since{" "}
-                    {new Date(grant.granted_at).toLocaleDateString()}
+                    {formatMediumDate(grant.granted_at)}
                   </p>
                 </div>
                 <Button

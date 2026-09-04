@@ -57,6 +57,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatMediumDate } from "@/lib/format/date";
 
 type InviteConfirmation =
   | {
@@ -91,14 +92,7 @@ type TeamManagementProps = {
   initialInvites: UserInviteListResult;
 };
 
-function formatInviteDate(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value);
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+const formatInviteDate = formatMediumDate;
 
 function inviteStatusBadgeClass(status: ReturnType<typeof inviteStatus>) {
   switch (status) {

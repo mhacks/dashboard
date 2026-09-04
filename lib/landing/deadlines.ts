@@ -1,3 +1,5 @@
+import { formatEventDate } from "@/lib/format/date";
+
 /**
  * Application timeline — single source of truth for the hero countdown.
  *
@@ -59,11 +61,7 @@ export const DEADLINES: Deadline[] = [
 export function formatDeadlineDate(id: string): string {
   const deadline = DEADLINES.find((d) => d.id === id);
   if (!deadline) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(deadline.date));
+  return formatEventDate(deadline.date);
 }
 
 /** Next deadline still in the future, or null once the season is over. */
