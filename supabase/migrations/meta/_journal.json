@@ -47,22 +47,22 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1786127561679,
-      "tag": "20260807183241_blacklist",
+      "when": 1786127661447,
+      "tag": "20260807183121_reimbursements_triggers",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1786127577968,
-      "tag": "20260807183257_blacklist_triggers",
+      "when": 1786127561679,
+      "tag": "20260807183241_blacklist",
       "breakpoints": true
     },
     {
       "idx": 8,
       "version": "7",
-      "when": 1786127661447,
-      "tag": "20260807183121_reimbursements_triggers",
+      "when": 1786127577968,
+      "tag": "20260807183257_blacklist_triggers",
       "breakpoints": true
     },
     {
@@ -140,6 +140,20 @@
       "version": "7",
       "when": 1788120851943,
       "tag": "20260830201411_rls_definer_helpers",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788204254490,
+      "tag": "20260831192414_rsvp_exceptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788482656709,
+      "tag": "20260904004416_rsvp_exceptions_definer_policies",
       "breakpoints": true
     }
   ]
