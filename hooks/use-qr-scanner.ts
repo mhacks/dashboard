@@ -26,6 +26,9 @@ export type TorchControl = {
 /** Roughly 9fps when requestVideoFrameCallback isn't available. */
 const FALLBACK_INTERVAL_MS = 110;
 
+/** How long a torch-off write gets before the track is stopped regardless. */
+const TORCH_OFF_TIMEOUT_MS = 250;
+
 /**
  * Owns the camera stream and the decode loop.
  *
@@ -129,11 +132,22 @@ export function useQrScanner({
 
     for (const track of stream?.getTracks() ?? []) {
       // Turn the torch off before releasing, or some Android devices leave the
-      // LED lit until the next camera use.
+      // LED lit until the next camera use — which is exactly what happens if
+      // the write and the stop go out together, because ending the track
+      // cancels the constraint still in flight on it. So the stop waits for
+      // the write to land. Only briefly, though: a promise that never settles
+      // would strand the camera itself, and a live camera nobody is reading is
+      // the worse of the two failures.
       if (track.getSettings?.().torch) {
-        void track
-          .applyConstraints({ advanced: [{ torch: false }] })
-          .catch(() => {});
+        void Promise.race([
+          track.applyConstraints({ advanced: [{ torch: false }] }),
+          new Promise<void>((resolve) =>
+            setTimeout(resolve, TORCH_OFF_TIMEOUT_MS),
+          ),
+        ])
+          .catch(() => {})
+          .finally(() => track.stop());
+        continue;
       }
       track.stop();
     }
@@ -200,11 +214,14 @@ export function useQrScanner({
       setTorchAvailable(Boolean(capabilities && "torch" in capabilities));
 
       const video = videoRef.current;
-      if (!video) {
-        release(stream);
-        runningRef.current = false;
-        return;
-      }
+      // Thrown rather than returned quietly. The other early exits here are all
+      // guarded on a cleared runningRef, which means `stop` ran and already put
+      // the state back to idle; this one can be reached with the scanner still
+      // nominally running, and `starting` renders a spinner with no button —
+      // so a silent return leaves the screen stuck on "Starting camera…" with
+      // no way back. Failing instead takes the unwind below, which hands the
+      // camera back and puts a Retry in front of the volunteer.
+      if (!video) throw new Error("video element gone after getUserMedia");
 
       video.srcObject = stream;
       // videoWidth stays 0 until metadata lands, and decoding a 0x0 frame

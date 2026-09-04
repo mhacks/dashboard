@@ -7,6 +7,7 @@ import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { personNameSql } from "@/lib/db/person-name";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import {
   eventCheckins,
@@ -25,6 +26,7 @@ import {
   RSVP_CONFIRMED_DECISIONS,
   RSVP_ELIGIBLE_DECISIONS,
 } from "@/lib/decisions";
+import { eventSlugSchema } from "@/lib/types/events";
 
 export type ScannedAttendee = {
   userId: string;
@@ -60,7 +62,7 @@ export type CheckInResult =
     };
 
 const checkInSchema = z.strictObject({
-  slug: z.string().trim().min(1).max(64),
+  slug: eventSlugSchema,
   /** Raw scanner text. Validated as a UUID below rather than here, so a
    *  non-UUID scan is recorded as unknown_code instead of a parse failure. */
   code: z.string().trim().min(1).max(512),
@@ -70,16 +72,6 @@ const checkInSchema = z.strictObject({
 
 /** The scan log holds arbitrary text a camera read; keep it bounded. */
 const MAX_RAW_CODE_LENGTH = 128;
-
-const attendeeNameSql = sql<string>`coalesce(
-  nullif(trim(${hackerApplicants.firstName} || ' ' || ${hackerApplicants.lastName}), ''),
-  ${users.email}
-)`;
-
-const staffLabelSql = sql<string>`coalesce(
-  nullif(trim(${hackerApplicants.firstName} || ' ' || ${hackerApplicants.lastName}), ''),
-  ${users.email}
-)`;
 
 function failure(
   outcome: Exclude<CheckInOutcome, "checked-in">,
@@ -187,7 +179,7 @@ export async function checkInAttendee(
       .select({
         userId: users.id,
         email: users.email,
-        name: attendeeNameSql,
+        name: personNameSql,
         university: hackerApplicants.university,
         decision: hackerApplicants.decision,
         rsvpId: hackerRsvps.id,
@@ -257,7 +249,7 @@ export async function checkInAttendee(
       const existing = await tx
         .select({
           checkedInAt: eventCheckins.checkedInAt,
-          checkedInByName: staffLabelSql,
+          checkedInByName: personNameSql,
         })
         .from(eventCheckins)
         .leftJoin(users, eq(users.id, eventCheckins.checkedInBy))
@@ -303,7 +295,7 @@ async function replayScan(
       outcome: eventScanLog.outcome,
       userId: eventScanLog.userId,
       email: users.email,
-      name: attendeeNameSql,
+      name: personNameSql,
       university: hackerApplicants.university,
     })
     .from(eventScanLog)
@@ -378,7 +370,7 @@ export type AttendeeMatch = {
 };
 
 const searchSchema = z.strictObject({
-  slug: z.string().trim().min(1).max(64),
+  slug: eventSlugSchema,
   query: z.string().trim().min(2).max(120),
 });
 
@@ -412,7 +404,7 @@ export async function searchAttendees(
   return db
     .select({
       userId: users.id,
-      name: attendeeNameSql,
+      name: personNameSql,
       email: users.email,
       university: hackerApplicants.university,
       checkedIn: sql<boolean>`${eventCheckins.id} is not null`,

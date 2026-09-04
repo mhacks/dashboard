@@ -165,6 +165,9 @@ export function CheckInScanner({
     setPhase({ kind: "ready" });
   }, [scanner]);
 
+  // Tapping through a verdict is also a request for the next scan now, and
+  // that may well be the same badge again — a volunteer re-presenting one they
+  // waved too fast. So an explicit dismissal drops the cooldown with it.
   const dismiss = useCallback(() => {
     lastCodeRef.current = null;
     setPhase({ kind: "ready" });
@@ -174,9 +177,20 @@ export function CheckInScanner({
   useEffect(() => {
     if (phase.kind !== "result") return;
     const severity = OUTCOME_SEVERITY[phase.result.outcome];
-    const timer = setTimeout(dismiss, DISMISS_MS[severity]);
+    // Deliberately not `dismiss`: the badge that earned this verdict is
+    // usually still in frame, and forgetting it here would resubmit it and
+    // flash a spurious "already checked in" over the next person in line.
+    // Restamping rather than keeping the decode's own timestamp because by
+    // now the round trip and the verdict have eaten most of the cooldown —
+    // all of it on a red, which is held exactly as long. The window that
+    // matters is the one after decoding resumes.
+    const timer = setTimeout(() => {
+      const last = lastCodeRef.current;
+      if (last) lastCodeRef.current = { ...last, at: Date.now() };
+      setPhase({ kind: "ready" });
+    }, DISMISS_MS[severity]);
     return () => clearTimeout(timer);
-  }, [phase, dismiss]);
+  }, [phase]);
 
   // Swap the spinner's copy rather than racing a timeout against the action —
   // a Server Action can't be aborted, so racing would show a failure for a
@@ -264,7 +278,13 @@ export function CheckInScanner({
 
       <ManualEntry
         slug={slug}
-        disabled={phase.kind === "submitting"}
+        // A pending network error is an unfinished scan, not a dead end. Retry
+        // above resends its scan id, so the server replays whatever it did
+        // record rather than acting twice — and a request that failed on the
+        // way back may well have committed. A pick here would replace that
+        // phase and take the id with it, silently turning a maybe-recorded
+        // check-in into nobody's problem. Retry or Skip decides it first.
+        disabled={phase.kind === "submitting" || phase.kind === "network-error"}
         onPick={(userId) => void submit(userId, "manual", crypto.randomUUID())}
       />
     </div>

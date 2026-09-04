@@ -2,20 +2,10 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { requireEventStaff, requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { personNameSql } from "@/lib/db/person-name";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { eventCheckins, events } from "@/lib/db/schema/events";
 import { users } from "@/lib/db/schema/users";
-
-/**
- * Full name of the applicant behind a check-in. Falls back to the account email
- * so a roster row survives its application row being deleted — the check-in
- * happened, and an audit view that silently drops it is worse than one showing
- * an email.
- */
-const attendeeNameSql = sql<string>`coalesce(
-  nullif(trim(${hackerApplicants.firstName} || ' ' || ${hackerApplicants.lastName}), ''),
-  ${users.email}
-)`;
 
 const checkinCountSql = sql<number>`(
   select count(*)::int
@@ -172,18 +162,11 @@ export async function getEventRoster(
 
   // The staffer who scanned is a user too, so they need their own subquery —
   // joining `users` twice directly would collide with the attendee's row.
-  //
-  // public.users has no name column, so the label falls back through the
-  // staffer's own application (organizers who applied have one) to their email,
-  // which every account has.
   const staff = db.$with("staff").as(
     db
       .select({
         id: users.id,
-        label: sql<string>`coalesce(
-          nullif(trim(${hackerApplicants.firstName} || ' ' || ${hackerApplicants.lastName}), ''),
-          ${users.email}
-        )`.as("label"),
+        label: personNameSql.as("label"),
       })
       .from(users)
       .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id)),
@@ -193,7 +176,7 @@ export async function getEventRoster(
     .with(staff)
     .select({
       userId: eventCheckins.userId,
-      name: attendeeNameSql,
+      name: personNameSql,
       email: users.email,
       university: hackerApplicants.university,
       checkedInAt: eventCheckins.checkedInAt,
