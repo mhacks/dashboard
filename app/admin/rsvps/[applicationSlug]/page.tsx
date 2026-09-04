@@ -13,6 +13,7 @@ import {
   getAdminRsvpReceiptDownloadUrl,
 } from "@/lib/actions/admin-rsvps.server.actions";
 import { formatCents } from "@/lib/currency";
+import { DeleteRsvpCard } from "./delete-rsvp-card";
 
 export const dynamic = "force-dynamic";
 
@@ -71,10 +72,18 @@ export default async function AdminRsvpDetailPage({
       </Card>
 
       {detail.values ? (
-        <RsvpSummary
-          values={detail.values}
-          receiptHref={receiptHref ?? undefined}
-        />
+        <>
+          <RsvpSummary
+            values={detail.values}
+            receiptHref={receiptHref ?? undefined}
+          />
+          <DeleteRsvpCard
+            applicationSlug={applicationSlug}
+            applicationName={detail.summary.applicationName}
+            accountEmail={detail.summary.accountEmail}
+            submittedAt={detail.summary.submittedAt}
+          />
+        </>
       ) : (
         <Card>
           <CardContent className="py-10 text-center">

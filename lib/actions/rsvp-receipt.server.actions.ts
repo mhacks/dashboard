@@ -15,8 +15,10 @@ import {
   reimbursementRegions,
 } from "@/lib/db/schema/reimbursements";
 import { hackerRsvpDrafts, hackerRsvps } from "@/lib/db/schema/rsvps";
-import { assertAcceptedRsvpDecision } from "@/lib/rsvp/access";
-import { RSVP_DEADLINE_MS, assertRsvpOpen } from "@/lib/rsvp/deadline";
+import {
+  assertAcceptedRsvpDecision,
+  assertRsvpOpenForUser,
+} from "@/lib/rsvp/access";
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
   RSVP_RECEIPT_CONTENT_TYPE,
@@ -57,7 +59,7 @@ function draftData(data: unknown): Record<string, unknown> {
 async function assertCanUploadReceipt(
   userId: string,
 ): Promise<Record<string, unknown>> {
-  assertRsvpOpen();
+  await assertRsvpOpenForUser(userId);
   const [row] = await db
     .select({
       applicationId: hackerApplicants.id,
@@ -119,7 +121,7 @@ export async function requestRsvpReceiptUpload(input: unknown): Promise<{
   uploadUrl: string;
 }> {
   const user = await requireSessionUser();
-  assertRsvpOpen();
+  const access = await assertRsvpOpenForUser(user.id);
   const parsed = receiptUploadRequestSchema.parse(input);
   try {
     await receiptUploadLimiter.consume(user.id);
@@ -138,7 +140,10 @@ export async function requestRsvpReceiptUpload(input: unknown): Promise<{
   });
   const secondsUntilDeadline = Math.max(
     1,
-    Math.floor((RSVP_DEADLINE_MS - Date.now()) / 1_000),
+    Math.floor(
+      ((access.closesAt ? Date.parse(access.closesAt) : 0) - Date.now()) /
+        1_000,
+    ),
   );
   const uploadUrl = await getSignedUrl(s3, command, {
     expiresIn: Math.min(300, secondsUntilDeadline),
@@ -153,7 +158,7 @@ export async function confirmRsvpReceiptUpload(input: unknown): Promise<{
   receipt: RsvpReceiptMetadata;
 }> {
   const user = await requireSessionUser();
-  assertRsvpOpen();
+  await assertRsvpOpenForUser(user.id);
   const parsed = receiptConfirmationSchema.parse(input);
 
   const key = receiptKeyForUser(user.id);
@@ -202,7 +207,7 @@ export async function getRsvpReceiptPreviewUrl(): Promise<{
   previewUrl: string | null;
 }> {
   const user = await requireSessionUser();
-  assertRsvpOpen();
+  await assertRsvpOpenForUser(user.id);
   const [draft] = await db
     .select({
       data: hackerRsvpDrafts.data,

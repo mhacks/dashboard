@@ -9,16 +9,24 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { authenticatedRole } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";
 import { users } from "./users";
 import type {
   EmailCampaignContent,
+  DirectEmailTemplateInput,
   EmailTemplateType,
   EmailThemeTokens,
 } from "@/lib/email/types";
+
+export interface EmailSendFailure {
+  email: string;
+  error: string | null;
+}
 
 export const emailTemplateType = pgEnum("email_template_type", [
   "structured",
@@ -138,7 +146,26 @@ export const emailSendRuns = pgTable(
     templateFingerprint: text("template_fingerprint").notNull(),
     recipientListHash: text("recipient_list_hash").notNull(),
     totalRecipients: integer("total_recipients").notNull(),
+    templateSnapshot: jsonb(
+      "template_snapshot",
+    ).$type<DirectEmailTemplateInput | null>(),
     status: text().default("sending").notNull(),
+    sentCount: integer("sent_count").default(0).notNull(),
+    failedCount: integer("failed_count").default(0).notNull(),
+    nextCursor: integer("next_cursor").default(0).notNull(),
+    recentFailures: jsonb("recent_failures")
+      .$type<EmailSendFailure[]>()
+      .default([])
+      .notNull(),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    recoveryExpiresAt: timestamp("recovery_expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
     createdAt: timestamp("created_at", {
       withTimezone: true,
       mode: "string",
@@ -166,6 +193,9 @@ export const emailSendRuns = pgTable(
       table.organizerId,
       table.createdAt,
     ),
+    uniqueIndex("email_send_runs_active_fingerprint_unique")
+      .on(table.organizerId, table.templateFingerprint, table.recipientListHash)
+      .where(sql`${table.status} = 'sending'`),
     pgPolicy("email_send_runs_organizer_select", {
       for: "select",
       to: authenticatedRole,
@@ -185,59 +215,55 @@ export const emailSendRuns = pgTable(
   ],
 ).enableRLS();
 
-export const emailSendBatches = pgTable(
-  "email_send_batches",
+export const emailSendDeliveries = pgTable(
+  "email_send_deliveries",
   {
     id: uuid().defaultRandom().primaryKey().notNull(),
     runId: uuid("run_id").notNull(),
-    cursor: integer().notNull(),
-    endCursor: integer("end_cursor").notNull(),
-    status: text().default("sending").notNull(),
-    sentCount: integer("sent_count").default(0).notNull(),
-    failedCount: integer("failed_count").default(0).notNull(),
-    recentFailures: jsonb("recent_failures")
-      .$type<Array<{ email: string; error: string | null }>>()
-      .default([])
+    recipientIndex: integer("recipient_index").notNull(),
+    email: text().notNull(),
+    mergeData: jsonb("merge_data")
+      .$type<Record<string, string>>()
+      .default({})
       .notNull(),
+    status: text().default("pending").notNull(),
+    startedAt: timestamp("started_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
     createdAt: timestamp("created_at", {
       withTimezone: true,
       mode: "string",
     })
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at", {
-      withTimezone: true,
-      mode: "string",
-    })
-      .defaultNow()
-      .notNull(),
-    completedAt: timestamp("completed_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
   },
   (table) => [
     foreignKey({
       columns: [table.runId],
       foreignColumns: [emailSendRuns.id],
-      name: "email_send_batches_run_id_fkey",
+      name: "email_send_deliveries_run_id_fkey",
     }).onDelete("cascade"),
-    unique("email_send_batches_run_cursor_unique").on(
+    unique("email_send_deliveries_run_recipient_unique").on(
       table.runId,
-      table.cursor,
+      table.recipientIndex,
     ),
-    index("email_send_batches_run_status_idx").on(table.runId, table.status),
-    pgPolicy("email_send_batches_organizer_select", {
+    index("email_send_deliveries_run_status_idx").on(
+      table.runId,
+      table.status,
+      table.recipientIndex,
+    ),
+    pgPolicy("email_send_deliveries_organizer_select", {
       for: "select",
       to: authenticatedRole,
       using: isOrganizer,
     }),
-    pgPolicy("email_send_batches_organizer_insert", {
+    pgPolicy("email_send_deliveries_organizer_insert", {
       for: "insert",
       to: authenticatedRole,
       withCheck: isOrganizer,
     }),
-    pgPolicy("email_send_batches_organizer_update", {
+    pgPolicy("email_send_deliveries_organizer_update", {
       for: "update",
       to: authenticatedRole,
       using: isOrganizer,
@@ -250,4 +276,4 @@ export type EmailTemplateRow = typeof emailTemplates.$inferSelect;
 export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
 export type EmailThemeSettingRow = typeof emailThemeSettings.$inferSelect;
 export type EmailSendRunRow = typeof emailSendRuns.$inferSelect;
-export type EmailSendBatchRow = typeof emailSendBatches.$inferSelect;
+export type EmailSendDeliveryRow = typeof emailSendDeliveries.$inferSelect;
