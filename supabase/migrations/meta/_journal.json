@@ -113,6 +113,13 @@
       "when": 1787499602464,
       "tag": "20260823154002_prune_completed_email_deliveries",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788204254490,
+      "tag": "20260831192414_rsvp_exceptions",
+      "breakpoints": true
     }
   ]
 }
