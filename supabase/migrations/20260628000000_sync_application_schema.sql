@@ -1,0 +1,9 @@
+-- Compatibility no-op: this historical synchronization ran before its source
+-- tables existed in migration order and targeted an older application model.
+-- The authoritative 20260704073044_init.sql migration creates users with the
+-- user_role enum, hacker_applicants with the final essay column names (including
+-- anything_else), and hacker_application_drafts with its current auth.users
+-- foreign key. judge_applicants is not part of the authoritative or current
+-- Drizzle schema. Keep this version as an applied no-op so existing migration
+-- histories remain stable while clean databases advance to the authoritative
+-- init without replaying superseded transformations.
