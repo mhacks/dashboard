@@ -42,7 +42,7 @@ CREATE OR REPLACE FUNCTION "public"."has_confirmed_rsvp"("hacker_id" uuid) RETUR
     FROM public.hacker_rsvps r
     JOIN public.hacker_applicants a ON a.user_id = r.user_id
     WHERE r.user_id = hacker_id
-      AND a.decision::text LIKE '%\_rsvped'
+      AND a.decision IN ('early_rsvped', 'regular_rsvped')
   );
 $$;
 --> statement-breakpoint
@@ -75,7 +75,7 @@ CREATE TABLE "event_scan_log" (
 	"client_scan_id" uuid,
 	"raw_code" text,
 	"scanned_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "event_scan_log_event_client_scan_unique" UNIQUE("event_id","client_scan_id")
+	CONSTRAINT "event_scan_log_client_scan_id_unique" UNIQUE("client_scan_id")
 );
 --> statement-breakpoint
 ALTER TABLE "event_scan_log" ENABLE ROW LEVEL SECURITY;
@@ -115,25 +115,9 @@ CREATE INDEX "event_checkins_event_time_idx" ON "event_checkins" USING btree ("e
 --> statement-breakpoint
 CREATE INDEX "event_scan_log_event_time_idx" ON "event_scan_log" USING btree ("event_id","scanned_at");
 --> statement-breakpoint
--- Closing an event is the switch that stops a door, so it has to bind the
--- direct-to-PostgREST path too, not just the server action.
-CREATE OR REPLACE FUNCTION "public"."is_event_open"("event" uuid) RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET search_path = public
-    AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.events e WHERE e.id = event AND e.is_active
-  );
-$$;
---> statement-breakpoint
-REVOKE ALL ON FUNCTION "public"."is_event_open"(uuid) FROM PUBLIC;
---> statement-breakpoint
-GRANT EXECUTE ON FUNCTION "public"."is_event_open"(uuid) TO "authenticated";
---> statement-breakpoint
 CREATE POLICY "event_checkins_insert_staff" ON "event_checkins" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((select public.is_event_staff())
   and "event_checkins"."checked_in_by" = (select auth.uid())
-  and public.has_confirmed_rsvp("event_checkins"."user_id")
-  and public.is_event_open("event_checkins"."event_id"));
+  and public.has_confirmed_rsvp("event_checkins"."user_id"));
 --> statement-breakpoint
 CREATE POLICY "event_checkins_select_own_or_staff" ON "event_checkins" AS PERMISSIVE FOR SELECT TO "authenticated" USING ("event_checkins"."user_id" = (select auth.uid()) OR (select public.is_event_staff()));
 --> statement-breakpoint
@@ -141,7 +125,7 @@ CREATE POLICY "event_checkins_delete_organizer" ON "event_checkins" AS PERMISSIV
 --> statement-breakpoint
 CREATE POLICY "event_scan_log_select_staff" ON "event_scan_log" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((select public.is_event_staff()));
 --> statement-breakpoint
-CREATE POLICY "event_scan_log_insert_staff" ON "event_scan_log" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((select public.is_event_staff()) and "event_scan_log"."scanned_by" = (select auth.uid()));
+CREATE POLICY "event_scan_log_insert_staff" ON "event_scan_log" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((select public.is_event_staff()));
 --> statement-breakpoint
 CREATE POLICY "events_select_staff" ON "events" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((select public.is_event_staff()));
 --> statement-breakpoint

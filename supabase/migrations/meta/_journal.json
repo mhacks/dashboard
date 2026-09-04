@@ -134,6 +134,13 @@
       "when": 1788482656709,
       "tag": "20260904004416_rsvp_exceptions_definer_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788497511690,
+      "tag": "20260904045151_check_in_guards",
+      "breakpoints": true
     }
   ]
 }
