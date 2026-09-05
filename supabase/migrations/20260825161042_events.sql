@@ -1,3 +1,16 @@
+-- Re-runnable on purpose. This migration was silently skipped in production:
+-- drizzle's migrator applies a file only when its journal `when` is greater
+-- than the newest `when` already recorded, and #130 merged ahead of #127 with
+-- a newer timestamp, so this file's older one never cleared the bar. Its
+-- `when` in meta/_journal.json has been moved to just under the check-in
+-- guards migration, which is the first thing that needs these tables.
+--
+-- That means databases which DID apply it will now see it a second time, so
+-- every statement below is written to be a no-op when the object is already
+-- there. The statements that replace a definition (policies, the trigger,
+-- CREATE OR REPLACE functions) are re-stated rather than skipped, and the
+-- guards migration re-tightens the two policies it owns straight after.
+
 -- Three SECURITY DEFINER helpers, and the definer part is the point.
 --
 -- `is_event_staff` is the companion to public.is_organizer(), which
@@ -50,11 +63,17 @@ REVOKE ALL ON FUNCTION "public"."has_confirmed_rsvp"(uuid) FROM PUBLIC;
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION "public"."has_confirmed_rsvp"(uuid) TO "authenticated";
 --> statement-breakpoint
-CREATE TYPE "public"."checkin_method" AS ENUM('scan', 'manual');
+DO $$ BEGIN
+  CREATE TYPE "public"."checkin_method" AS ENUM('scan', 'manual');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-CREATE TYPE "public"."event_scan_outcome" AS ENUM('checked_in', 'already_checked_in', 'unknown_code', 'not_accepted', 'no_rsvp', 'event_closed', 'reverted');
+DO $$ BEGIN
+  CREATE TYPE "public"."event_scan_outcome" AS ENUM('checked_in', 'already_checked_in', 'unknown_code', 'not_accepted', 'no_rsvp', 'event_closed', 'reverted');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-CREATE TABLE "event_checkins" (
+CREATE TABLE IF NOT EXISTS "event_checkins" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"event_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -66,7 +85,7 @@ CREATE TABLE "event_checkins" (
 --> statement-breakpoint
 ALTER TABLE "event_checkins" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
-CREATE TABLE "event_scan_log" (
+CREATE TABLE IF NOT EXISTS "event_scan_log" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"event_id" uuid NOT NULL,
 	"user_id" uuid,
@@ -80,7 +99,7 @@ CREATE TABLE "event_scan_log" (
 --> statement-breakpoint
 ALTER TABLE "event_scan_log" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
-CREATE TABLE "events" (
+CREATE TABLE IF NOT EXISTS "events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
@@ -97,44 +116,75 @@ CREATE TABLE "events" (
 --> statement-breakpoint
 ALTER TABLE "events" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
-ALTER TABLE "event_checkins" ADD CONSTRAINT "event_checkins_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "event_checkins" ADD CONSTRAINT "event_checkins_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-ALTER TABLE "event_checkins" ADD CONSTRAINT "event_checkins_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "event_checkins" ADD CONSTRAINT "event_checkins_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-ALTER TABLE "event_checkins" ADD CONSTRAINT "event_checkins_checked_in_by_fkey" FOREIGN KEY ("checked_in_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "event_checkins" ADD CONSTRAINT "event_checkins_checked_in_by_fkey" FOREIGN KEY ("checked_in_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-ALTER TABLE "event_scan_log" ADD CONSTRAINT "event_scan_log_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "event_scan_log" ADD CONSTRAINT "event_scan_log_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-ALTER TABLE "event_scan_log" ADD CONSTRAINT "event_scan_log_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "event_scan_log" ADD CONSTRAINT "event_scan_log_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-ALTER TABLE "event_scan_log" ADD CONSTRAINT "event_scan_log_scanned_by_fkey" FOREIGN KEY ("scanned_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "event_scan_log" ADD CONSTRAINT "event_scan_log_scanned_by_fkey" FOREIGN KEY ("scanned_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-ALTER TABLE "events" ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "events" ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-CREATE INDEX "event_checkins_event_time_idx" ON "event_checkins" USING btree ("event_id","checked_in_at");
+CREATE INDEX IF NOT EXISTS "event_checkins_event_time_idx" ON "event_checkins" USING btree ("event_id","checked_in_at");
 --> statement-breakpoint
-CREATE INDEX "event_scan_log_event_time_idx" ON "event_scan_log" USING btree ("event_id","scanned_at");
+CREATE INDEX IF NOT EXISTS "event_scan_log_event_time_idx" ON "event_scan_log" USING btree ("event_id","scanned_at");
 --> statement-breakpoint
+DROP POLICY IF EXISTS "event_checkins_insert_staff" ON "event_checkins";
 CREATE POLICY "event_checkins_insert_staff" ON "event_checkins" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((select public.is_event_staff())
   and "event_checkins"."checked_in_by" = (select auth.uid())
   and public.has_confirmed_rsvp("event_checkins"."user_id"));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "event_checkins_select_own_or_staff" ON "event_checkins";
 CREATE POLICY "event_checkins_select_own_or_staff" ON "event_checkins" AS PERMISSIVE FOR SELECT TO "authenticated" USING ("event_checkins"."user_id" = (select auth.uid()) OR (select public.is_event_staff()));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "event_checkins_delete_organizer" ON "event_checkins";
 CREATE POLICY "event_checkins_delete_organizer" ON "event_checkins" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((select public.is_organizer()));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "event_scan_log_select_staff" ON "event_scan_log";
 CREATE POLICY "event_scan_log_select_staff" ON "event_scan_log" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((select public.is_event_staff()));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "event_scan_log_insert_staff" ON "event_scan_log";
 CREATE POLICY "event_scan_log_insert_staff" ON "event_scan_log" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((select public.is_event_staff()));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "events_select_staff" ON "events";
 CREATE POLICY "events_select_staff" ON "events" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((select public.is_event_staff()));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "events_insert_organizer" ON "events";
 CREATE POLICY "events_insert_organizer" ON "events" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((select public.is_organizer()));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "events_update_organizer" ON "events";
 CREATE POLICY "events_update_organizer" ON "events" AS PERMISSIVE FOR UPDATE TO "authenticated" USING ((select public.is_organizer())) WITH CHECK ((select public.is_organizer()));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "events_delete_organizer" ON "events";
 CREATE POLICY "events_delete_organizer" ON "events" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((select public.is_organizer()));
 --> statement-breakpoint
+DROP TRIGGER IF EXISTS "events_set_updated_at" ON "public"."events";
 CREATE TRIGGER "events_set_updated_at" BEFORE UPDATE ON "public"."events" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 --> statement-breakpoint
 ALTER POLICY "hacker_applicants_select_own_or_organizer" ON "hacker_applicants" TO authenticated USING ("hacker_applicants"."user_id" = (select auth.uid()) OR (select public.is_organizer()));
