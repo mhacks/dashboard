@@ -1,6 +1,6 @@
 {
-  "id": "37d41180-b7b9-49f1-bc0e-02108537bd67",
-  "prevId": "77b9c5dc-8e8c-4f37-aee1-42b199559f46",
+  "id": "75a6d756-230e-47c0-ad4b-6ad4550f4b53",
+  "prevId": "ecda95c8-594c-4274-9786-271933b8dbb2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -819,6 +819,151 @@
       },
       "isRLSEnabled": true
     },
+    "public.email_send_deliveries": {
+      "name": "email_send_deliveries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recipient_index": {
+          "name": "recipient_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "merge_data": {
+          "name": "merge_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "email_send_deliveries_run_status_idx": {
+          "name": "email_send_deliveries_run_status_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recipient_index",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "email_send_deliveries_run_id_fkey": {
+          "name": "email_send_deliveries_run_id_fkey",
+          "tableFrom": "email_send_deliveries",
+          "tableTo": "email_send_runs",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "email_send_deliveries_run_recipient_unique": {
+          "name": "email_send_deliveries_run_recipient_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "run_id",
+            "recipient_index"
+          ]
+        }
+      },
+      "policies": {
+        "email_send_deliveries_organizer_select": {
+          "name": "email_send_deliveries_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        },
+        "email_send_deliveries_organizer_insert": {
+          "name": "email_send_deliveries_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(select public.is_organizer())"
+        },
+        "email_send_deliveries_organizer_update": {
+          "name": "email_send_deliveries_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
     "public.email_send_runs": {
       "name": "email_send_runs",
       "schema": "",
@@ -1444,7 +1589,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")"
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
         },
         "event_checkins_delete_organizer": {
           "name": "event_checkins_delete_organizer",
@@ -1581,10 +1726,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "event_scan_log_client_scan_id_unique": {
-          "name": "event_scan_log_client_scan_id_unique",
+        "event_scan_log_event_client_scan_unique": {
+          "name": "event_scan_log_event_client_scan_unique",
           "nullsNotDistinct": false,
           "columns": [
+            "event_id",
             "client_scan_id"
           ]
         }
@@ -1606,7 +1752,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff())"
+          "withCheck": "(select public.is_event_staff()) and \"event_scan_log\".\"scanned_by\" = (select auth.uid())"
         }
       },
       "checkConstraints": {},
@@ -2017,6 +2163,150 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.hacker_rsvp_exceptions": {
+      "name": "hacker_rsvp_exceptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hacker_rsvp_exceptions_expires_at_idx": {
+          "name": "hacker_rsvp_exceptions_expires_at_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "hacker_rsvp_exceptions_user_id_users_id_fk": {
+          "name": "hacker_rsvp_exceptions_user_id_users_id_fk",
+          "tableFrom": "hacker_rsvp_exceptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "hacker_rsvp_exceptions_created_by_user_id_users_id_fk": {
+          "name": "hacker_rsvp_exceptions_created_by_user_id_users_id_fk",
+          "tableFrom": "hacker_rsvp_exceptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "hacker_rsvp_exceptions_user_id_unique": {
+          "name": "hacker_rsvp_exceptions_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {
+        "hacker_rsvp_exceptions_organizer_select": {
+          "name": "hacker_rsvp_exceptions_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        },
+        "hacker_rsvp_exceptions_organizer_insert": {
+          "name": "hacker_rsvp_exceptions_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(select public.is_organizer())"
+        },
+        "hacker_rsvp_exceptions_organizer_update": {
+          "name": "hacker_rsvp_exceptions_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
     "public.hacker_rsvps": {
       "name": "hacker_rsvps",
       "schema": "",
@@ -2363,151 +2653,6 @@
             "authenticated"
           ],
           "using": "\"users\".\"id\" = (select auth.uid()) OR (select public.is_organizer())"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.email_send_deliveries": {
-      "name": "email_send_deliveries",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "run_id": {
-          "name": "run_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "recipient_index": {
-          "name": "recipient_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "merge_data": {
-          "name": "merge_data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "email_send_deliveries_run_status_idx": {
-          "name": "email_send_deliveries_run_status_idx",
-          "columns": [
-            {
-              "expression": "run_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "recipient_index",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "email_send_deliveries_run_id_fkey": {
-          "name": "email_send_deliveries_run_id_fkey",
-          "tableFrom": "email_send_deliveries",
-          "tableTo": "email_send_runs",
-          "columnsFrom": [
-            "run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "email_send_deliveries_run_recipient_unique": {
-          "name": "email_send_deliveries_run_recipient_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "run_id",
-            "recipient_index"
-          ]
-        }
-      },
-      "policies": {
-        "email_send_deliveries_organizer_select": {
-          "name": "email_send_deliveries_organizer_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "(select public.is_organizer())"
-        },
-        "email_send_deliveries_organizer_insert": {
-          "name": "email_send_deliveries_organizer_insert",
-          "as": "PERMISSIVE",
-          "for": "INSERT",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "(select public.is_organizer())"
-        },
-        "email_send_deliveries_organizer_update": {
-          "name": "email_send_deliveries_organizer_update",
-          "as": "PERMISSIVE",
-          "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "(select public.is_organizer())",
-          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},

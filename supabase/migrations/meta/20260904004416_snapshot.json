@@ -1589,7 +1589,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")"
         },
         "event_checkins_delete_organizer": {
           "name": "event_checkins_delete_organizer",
@@ -1726,11 +1726,10 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "event_scan_log_event_client_scan_unique": {
-          "name": "event_scan_log_event_client_scan_unique",
+        "event_scan_log_client_scan_id_unique": {
+          "name": "event_scan_log_client_scan_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "event_id",
             "client_scan_id"
           ]
         }
@@ -1752,7 +1751,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff()) and \"event_scan_log\".\"scanned_by\" = (select auth.uid())"
+          "withCheck": "(select public.is_event_staff())"
         }
       },
       "checkConstraints": {},
