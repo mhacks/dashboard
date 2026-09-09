@@ -28,6 +28,7 @@ import { getResumeUploadUrl } from "@/lib/actions/resume.server.actions";
 import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { getApplicationRound } from "@/lib/types/application-reviews";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -143,12 +144,31 @@ async function checkRateLimit(
   }
 }
 
+const CURRENT_APPLICATION_ROUND = getApplicationRound(new Date().toISOString());
+const regularApplicationSchema = baseApplicationSchema.omit({
+  needsTravelReimbursement: true,
+  wouldAttendWithoutReimbursement: true,
+});
+const currentApplicationSchema =
+  CURRENT_APPLICATION_ROUND === "regular"
+    ? regularApplicationSchema
+    : hackerApplicationSchema;
+
+function withoutTravelReimbursementFields(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const visibleData = { ...data };
+  delete visibleData.needsTravelReimbursement;
+  delete visibleData.wouldAttendWithoutReimbursement;
+  return visibleData;
+}
+
 // Computed once at module load rather than per-call — z.toJSONSchema() isn't
 // free, and apply_get_schema has no per-user rate limit (it returns the same
 // output to everyone, so there's no identity to key one on). Caching it
 // means repeated calls just return an already-built object instead of
 // redoing the work every time.
-const APPLICATION_JSON_SCHEMA = z.toJSONSchema(hackerApplicationSchema);
+const APPLICATION_JSON_SCHEMA = z.toJSONSchema(currentApplicationSchema);
 
 // Fields the schema requires to be `true`. baseApplicationSchema's own
 // .refine(v => v === true) on these would already reject `false` via the
@@ -169,7 +189,7 @@ const CONSENT_FIELDS = [
 ] as const;
 
 const SUBMIT_INPUT_SHAPE = {
-  ...baseApplicationSchema.shape,
+  ...currentApplicationSchema.shape,
   mlhCodeOfConduct: z.boolean(),
   mlhPrivacyPolicy: z.boolean(),
   mlhEmails: z.boolean(),
@@ -206,7 +226,7 @@ const DRAFT_LENIENT_OVERRIDES: Partial<
 };
 
 const draftInputShape = Object.fromEntries(
-  Object.entries(baseApplicationSchema.shape).map(([key, fieldSchema]) => [
+  Object.entries(currentApplicationSchema.shape).map(([key, fieldSchema]) => [
     key,
     (
       DRAFT_LENIENT_OVERRIDES[key as keyof HackerApplicationFormData] ??
@@ -296,7 +316,11 @@ const baseHandler = createMcpHandler(
           );
         }
         await assertSessionActive(extra as ToolExtra);
-        const draft = await getDraftForUser(userId);
+        const storedDraft = await getDraftForUser(userId);
+        const draft =
+          storedDraft && CURRENT_APPLICATION_ROUND === "regular"
+            ? withoutTravelReimbursementFields(storedDraft)
+            : storedDraft;
         // The web form silently creates an empty-`{}` draft row for every
         // visitor (autosave-on-mount) — that's a row existing, not the user
         // having answered anything. Treat an empty object the same as no
@@ -330,9 +354,13 @@ const baseHandler = createMcpHandler(
         await assertSessionActive(extra as ToolExtra);
         const existingDraft = await getDraftForUser(userId);
         const merged: Record<string, unknown> = { ...existingDraft, ...input };
+        const draft =
+          CURRENT_APPLICATION_ROUND === "regular"
+            ? withoutTravelReimbursementFields(merged)
+            : merged;
         await saveDraftForUser(
           userId,
-          merged as Partial<HackerApplicationFormData>,
+          draft as Partial<HackerApplicationFormData>,
         );
         return jsonText({ saved: true });
       },
@@ -343,7 +371,7 @@ const baseHandler = createMcpHandler(
       {
         title: "Submit hacker application",
         description:
-          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) and notAiSlop (the user's confirmation that this application is not AI slop) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be the storage key returned by apply_get_resume_upload_url.",
+          "Submits a complete MHacks hacker application for the authenticated user — in two steps. Checks apply_status first — if the user already has an application on file, this returns { duplicate: true } immediately without attempting to submit; call apply_status yourself beforehand so you don't collect answers for nothing. Requires every field in this tool's schema, including the MLH agreement booleans (mlhCodeOfConduct, mlhPrivacyPolicy, mlhEmails) and notAiSlop (the user's confirmation that this application is not AI slop) — you MUST get the user's explicit confirmation of these before calling; passing false for any of them is rejected. Regular-round applications do not collect travel reimbursement answers. Step 1: call with `confirm` omitted (or false) — this validates everything and returns { confirmed: false, application } WITHOUT submitting. You MUST show every field in `application` to the user verbatim and get their explicit yes. Step 2: call again with the same fields plus confirm: true to actually submit. This is irreversible: there is no tool to update or withdraw a submitted application, so never skip straight to confirm: true without having shown the step-1 preview to the user first. The `resume` field must be the storage key returned by apply_get_resume_upload_url.",
         inputSchema: SUBMIT_INPUT_SHAPE,
       },
       async (input, extra) => {
@@ -395,9 +423,17 @@ const baseHandler = createMcpHandler(
           });
         }
         try {
+          const submission =
+            CURRENT_APPLICATION_ROUND === "regular"
+              ? {
+                  ...input,
+                  needsTravelReimbursement: false,
+                  wouldAttendWithoutReimbursement: undefined,
+                }
+              : input;
           const { duplicate, blocked } = await submitHackerApplicationForUser(
             userId,
-            input,
+            submission as HackerApplicationFormData,
             "mcp",
           );
           if (blocked) {
@@ -451,10 +487,14 @@ const baseHandler = createMcpHandler(
         await assertSessionActive(extra as ToolExtra);
         const row = await getApplicationStatusForUser(userId);
         if (!row) return jsonText({ hasApplication: false });
+        const application =
+          getApplicationRound(row.createdAt) === "regular"
+            ? withoutTravelReimbursementFields(row)
+            : row;
         return jsonText({
           hasApplication: true,
           status: row.status,
-          application: row,
+          application,
         });
       },
     );
