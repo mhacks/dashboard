@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
+import { listUnsubscribedContacts } from "@/lib/aws/ses";
 import { db } from "@/lib/db";
 import {
   emailSendDeliveries,
@@ -35,6 +36,15 @@ import {
 } from "@/lib/email/types";
 
 const successfulTestProofWindowMs = 30 * 60 * 1000;
+const unsubscribedSkipReason =
+  "Skipped: recipient unsubscribed from optional MHacks email.";
+const unsubscribedRecipientReason =
+  "This recipient unsubscribed from optional MHacks email, so it was not sent. Send it as a required operational email if they need it.";
+// No address here: actions.ts redacts the server-managed test list out of
+// anything returned to the browser, so the message has to be actionable
+// without naming who.
+const unsubscribedTestRecipientReason =
+  "A required test recipient has unsubscribed from optional MHacks email, so this test could not prove delivery. Resubscribe them to the SES event-updates topic, or send this campaign as a required operational email.";
 const activeSendRecoveryWindowMs = 7 * 24 * 60 * 60 * 1000;
 const compactRunRetentionMs = 30 * 24 * 60 * 60 * 1000;
 const expiredTestProofRetentionMs = 60 * 60 * 1000;
@@ -60,6 +70,23 @@ export async function sendOneDirectEmail(input: unknown) {
   const email = body.email.trim().toLowerCase();
   const mergeData = buildMergeData(email, body.mergeData);
   const campaign = campaignLikeFromDirectTemplate(body.template);
+  // Reporting "sent" here would be a lie: SES accepts the call and bounces it
+  // afterwards, so the organizer would believe a one-off went out when it never
+  // arrived. Naming the address is safe because they just typed it.
+  const unsubscribed =
+    body.deliveryType === "subscription"
+      ? await listUnsubscribedContacts()
+      : new Set<string>();
+
+  if (unsubscribed.has(email)) {
+    return {
+      email,
+      status: "failed",
+      messageId: null,
+      error: unsubscribedRecipientReason,
+    } satisfies SendResult;
+  }
+
   const result = await sendSnapshotToEmail(
     campaign,
     email,
@@ -87,18 +114,35 @@ export async function sendDirectTestEmails(input: unknown) {
         : null,
   };
   const results: SendResult[] = [];
+  // An opted-out test recipient would have their copy accepted by SES and then
+  // bounced asynchronously, so the test would report success while nobody read
+  // the email — and that success is what unlocks the full-list send. Fail the
+  // test instead: no token is issued unless every recipient can actually
+  // receive it.
+  const unsubscribed =
+    body.deliveryType === "subscription"
+      ? await listUnsubscribedContacts()
+      : new Set<string>();
 
   for (const recipient of recipients) {
+    const email = recipient.email.trim().toLowerCase();
     results.push(
-      await sendSnapshotToEmail(
-        campaignLike,
-        recipient.email,
-        buildMergeData(recipient.email, {
-          ...body.mergeData,
-          ...recipient.mergeData,
-        }),
-        body.deliveryType,
-      ),
+      unsubscribed.has(email)
+        ? {
+            email,
+            status: "failed",
+            messageId: null,
+            error: unsubscribedTestRecipientReason,
+          }
+        : await sendSnapshotToEmail(
+            campaignLike,
+            recipient.email,
+            buildMergeData(recipient.email, {
+              ...body.mergeData,
+              ...recipient.mergeData,
+            }),
+            body.deliveryType,
+          ),
     );
   }
 
@@ -183,6 +227,10 @@ export async function sendDirectBatch(input: unknown) {
   const campaign = campaignLikeFromDirectTemplate(
     run.templateSnapshot ?? body.template,
   );
+  const unsubscribed =
+    body.deliveryType === "subscription"
+      ? await listUnsubscribedContacts()
+      : new Set<string>();
   const lease = await claimSendLease({
     runId: run.id,
     cursor: body.cursor,
@@ -205,19 +253,33 @@ export async function sendDirectBatch(input: unknown) {
       continue;
     }
 
-    const result = await sendSnapshotToEmail(
-      campaign,
-      delivery.email,
-      delivery.mergeData,
-      body.deliveryType,
-    );
+    // Recorded as failed rather than sent: the message genuinely was not
+    // delivered, and counting it as sent would overstate the campaign.
+    const skipped = unsubscribed.has(delivery.email);
+    const result: SendResult = skipped
+      ? {
+          email: delivery.email,
+          status: "failed",
+          messageId: null,
+          error: unsubscribedSkipReason,
+        }
+      : await sendSnapshotToEmail(
+          campaign,
+          delivery.email,
+          delivery.mergeData,
+          body.deliveryType,
+        );
     await recordDeliveryResult({
       runId: run.id,
       leaseToken: lease.leaseToken,
       recipientIndex: delivery.recipientIndex,
       result,
     });
-    await sleep(limits.sendDelayMs);
+
+    // Only a real SES call needs the send-rate pause.
+    if (!skipped) {
+      await sleep(limits.sendDelayMs);
+    }
   }
 
   await releaseSendLease({
