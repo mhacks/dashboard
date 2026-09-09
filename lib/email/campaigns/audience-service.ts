@@ -1,4 +1,14 @@
-import { and, asc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
+} from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { formatCents } from "@/lib/currency";
 import { db } from "@/lib/db";
@@ -42,7 +52,10 @@ const audienceCsvColumns = [
   "rsvp_submitted_at",
 ] as const;
 
-type SubmittedApplicationGroup = Exclude<EmailAudienceDecisionGroup, "draft">;
+type SubmittedApplicationGroup = Exclude<
+  EmailAudienceDecisionGroup,
+  "draft" | "umich"
+>;
 
 const decisionGroups: Record<SubmittedApplicationGroup, ApplicationDecision[]> =
   {
@@ -94,6 +107,10 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
     return loadDraftAudienceRows();
   }
 
+  if (query.decisionGroup === "umich") {
+    return loadUmichAudienceRows();
+  }
+
   const decisions = decisionGroups[query.decisionGroup];
   const conditions = [
     inArray(hackerApplicants.decision, decisions),
@@ -143,6 +160,30 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
     .leftJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id))
     .where(and(...conditions))
     .orderBy(asc(hackerApplicants.createdAt));
+}
+
+async function loadUmichAudienceRows() {
+  const rows = await db
+    .select({
+      email: users.email,
+      role: users.role,
+    })
+    .from(users)
+    .where(ilike(users.email, "%@umich.edu"))
+    .orderBy(asc(users.email));
+
+  return rows.map((row) => ({
+    email: row.email,
+    role: row.role,
+    firstName: "",
+    lastName: "",
+    decision: "",
+    reimbursementStatus: null,
+    reimbursementCents: null,
+    rsvpId: null,
+    rsvpTravelPlan: null,
+    rsvpSubmittedAt: null,
+  }));
 }
 
 async function loadDraftAudienceRows() {
@@ -263,6 +304,10 @@ function describeAudienceQuery(query: EmailAudienceQuery) {
 function decisionGroupLabel(group: EmailAudienceDecisionGroup) {
   if (group === "draft") {
     return "draft application (not submitted)";
+  }
+
+  if (group === "umich") {
+    return "users with an @umich.edu email";
   }
 
   return group.replaceAll("_", " ");
