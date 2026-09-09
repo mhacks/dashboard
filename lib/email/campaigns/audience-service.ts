@@ -2,7 +2,10 @@ import { and, asc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { formatCents } from "@/lib/currency";
 import { db } from "@/lib/db";
-import { hackerApplicants } from "@/lib/db/schema/applications";
+import {
+  hackerApplicants,
+  hackerApplicationDrafts,
+} from "@/lib/db/schema/applications";
 import {
   hackerReimbursements,
   reimbursementRegions,
@@ -23,6 +26,7 @@ import {
   APPLICATION_DECISIONS,
   type ApplicationDecision,
 } from "@/lib/decisions";
+import { isDraftStarted } from "@/lib/application-steps";
 
 const audienceCsvColumns = [
   "email",
@@ -38,29 +42,29 @@ const audienceCsvColumns = [
   "rsvp_submitted_at",
 ] as const;
 
-const decisionGroups: Record<
-  EmailAudienceDecisionGroup,
-  ApplicationDecision[]
-> = {
-  all_applicants: [...APPLICATION_DECISIONS],
-  accepted: [
-    "early_accepted",
-    "early_rsvped",
-    "regular_accepted",
-    "regular_rsvped",
-  ],
-  rsvped: ["early_rsvped", "regular_rsvped"],
-  rejected: ["early_rejected", "regular_rejected"],
-  early_accepted_or_rsvped: ["early_accepted", "early_rsvped"],
-  regular_accepted_or_rsvped: ["regular_accepted", "regular_rsvped"],
-  applied: ["applied"],
-  early_accepted: ["early_accepted"],
-  early_rsvped: ["early_rsvped"],
-  early_rejected: ["early_rejected"],
-  regular_accepted: ["regular_accepted"],
-  regular_rsvped: ["regular_rsvped"],
-  regular_rejected: ["regular_rejected"],
-};
+type SubmittedApplicationGroup = Exclude<EmailAudienceDecisionGroup, "draft">;
+
+const decisionGroups: Record<SubmittedApplicationGroup, ApplicationDecision[]> =
+  {
+    all_applicants: [...APPLICATION_DECISIONS],
+    accepted: [
+      "early_accepted",
+      "early_rsvped",
+      "regular_accepted",
+      "regular_rsvped",
+    ],
+    rsvped: ["early_rsvped", "regular_rsvped"],
+    rejected: ["early_rejected", "regular_rejected"],
+    early_accepted_or_rsvped: ["early_accepted", "early_rsvped"],
+    regular_accepted_or_rsvped: ["regular_accepted", "regular_rsvped"],
+    applied: ["applied"],
+    early_accepted: ["early_accepted"],
+    early_rsvped: ["early_rsvped"],
+    early_rejected: ["early_rejected"],
+    regular_accepted: ["regular_accepted"],
+    regular_rsvped: ["regular_rsvped"],
+    regular_rejected: ["regular_rejected"],
+  };
 
 export async function resolveEmailAudience(input: unknown) {
   await requireOrganizer();
@@ -86,6 +90,10 @@ export async function resolveEmailAudience(input: unknown) {
 }
 
 async function loadAudienceRows(query: EmailAudienceQuery) {
+  if (query.decisionGroup === "draft") {
+    return loadDraftAudienceRows();
+  }
+
   const decisions = decisionGroups[query.decisionGroup];
   const conditions = [
     inArray(hackerApplicants.decision, decisions),
@@ -135,6 +143,50 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
     .leftJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id))
     .where(and(...conditions))
     .orderBy(asc(hackerApplicants.createdAt));
+}
+
+async function loadDraftAudienceRows() {
+  const rows = await db
+    .select({
+      email: users.email,
+      role: users.role,
+      data: hackerApplicationDrafts.data,
+    })
+    .from(hackerApplicationDrafts)
+    .innerJoin(users, eq(users.id, hackerApplicationDrafts.userId))
+    .leftJoin(
+      hackerApplicants,
+      eq(hackerApplicants.userId, hackerApplicationDrafts.userId),
+    )
+    .where(isNull(hackerApplicants.id))
+    .orderBy(asc(hackerApplicationDrafts.updatedAt));
+
+  return rows.flatMap((row) => {
+    const data = row.data as Record<string, unknown>;
+    if (!isDraftStarted(data)) {
+      return [];
+    }
+
+    return [
+      {
+        email: row.email,
+        role: row.role,
+        firstName: draftString(data, "firstName"),
+        lastName: draftString(data, "lastName"),
+        decision: "",
+        reimbursementStatus: null,
+        reimbursementCents: null,
+        rsvpId: null,
+        rsvpTravelPlan: null,
+        rsvpSubmittedAt: null,
+      },
+    ];
+  });
+}
+
+function draftString(data: Record<string, unknown>, key: string) {
+  const value = data[key];
+  return typeof value === "string" ? value : "";
 }
 
 function audienceRowsToCsv(rows: Awaited<ReturnType<typeof loadAudienceRows>>) {
@@ -209,5 +261,9 @@ function describeAudienceQuery(query: EmailAudienceQuery) {
 }
 
 function decisionGroupLabel(group: EmailAudienceDecisionGroup) {
+  if (group === "draft") {
+    return "draft application (not submitted)";
+  }
+
   return group.replaceAll("_", " ");
 }
