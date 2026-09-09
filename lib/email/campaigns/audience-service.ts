@@ -42,10 +42,7 @@ const audienceCsvColumns = [
   "rsvp_submitted_at",
 ] as const;
 
-type SubmittedApplicationGroup = Exclude<
-  EmailAudienceDecisionGroup,
-  "draft_not_submitted"
->;
+type SubmittedApplicationGroup = Exclude<EmailAudienceDecisionGroup, "draft">;
 
 const decisionGroups: Record<SubmittedApplicationGroup, ApplicationDecision[]> =
   {
@@ -93,7 +90,7 @@ export async function resolveEmailAudience(input: unknown) {
 }
 
 async function loadAudienceRows(query: EmailAudienceQuery) {
-  if (query.decisionGroup === "draft_not_submitted") {
+  if (query.decisionGroup === "draft") {
     return loadDraftAudienceRows();
   }
 
@@ -264,7 +261,7 @@ function describeAudienceQuery(query: EmailAudienceQuery) {
 }
 
 function decisionGroupLabel(group: EmailAudienceDecisionGroup) {
-  if (group === "draft_not_submitted") {
+  if (group === "draft") {
     return "draft application (not submitted)";
   }
 

@@ -141,7 +141,7 @@ const defaultAudienceQuery: EmailAudienceQuery = {
 };
 const audienceDecisionOptions = [
   ["all_applicants", "All applicants"],
-  ["draft_not_submitted", "Draft application (not submitted)"],
+  ["draft", "Draft application (not submitted)"],
   ["accepted", "All accepted"],
   ["rsvped", "All RSVPed"],
   ["rejected", "All rejected"],
@@ -2144,7 +2144,7 @@ function SendPanel({
                       .value as EmailAudienceQuery["decisionGroup"];
 
                     onAudienceQueryChange(
-                      decisionGroup === "draft_not_submitted"
+                      decisionGroup === "draft"
                         ? {
                             decisionGroup,
                             travelAward: "any",
@@ -2166,8 +2166,7 @@ function SendPanel({
                   className={inputClass}
                   value={audienceQuery.travelAward}
                   disabled={
-                    Boolean(busy) ||
-                    audienceQuery.decisionGroup === "draft_not_submitted"
+                    Boolean(busy) || audienceQuery.decisionGroup === "draft"
                   }
                   onChange={(event) =>
                     onAudienceQueryChange({
@@ -2188,8 +2187,7 @@ function SendPanel({
                   className={inputClass}
                   value={audienceQuery.rsvpTravelPlan}
                   disabled={
-                    Boolean(busy) ||
-                    audienceQuery.decisionGroup === "draft_not_submitted"
+                    Boolean(busy) || audienceQuery.decisionGroup === "draft"
                   }
                   onChange={(event) =>
                     onAudienceQueryChange({
