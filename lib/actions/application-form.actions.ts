@@ -16,6 +16,7 @@ import {
 import { getPostHogClient } from "@/lib/posthog-server";
 import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
 import { validateResumeInS3 } from "@/lib/resume";
+import { getApplicationRound } from "@/lib/types/application-reviews";
 
 // Core application logic, parameterized by `userId`, shared by both the web
 // form (cookie-authenticated server actions) and the MCP server (OAuth
@@ -46,7 +47,15 @@ export async function submitHackerApplicationForUser(
   data: HackerApplicationFormData,
   source: "web" | "mcp",
 ): Promise<{ duplicate: boolean; blocked: boolean }> {
-  const parsed = hackerApplicationSchema.parse(data);
+  const validated = hackerApplicationSchema.parse(data);
+  const parsed =
+    getApplicationRound(new Date().toISOString()) === "regular"
+      ? {
+          ...validated,
+          needsTravelReimbursement: false,
+          wouldAttendWithoutReimbursement: undefined,
+        }
+      : validated;
 
   // Deny-list check first: it is the cheapest gate and runs before any S3 read
   // or write, so a blocked submission leaves nothing behind. Both entry points
