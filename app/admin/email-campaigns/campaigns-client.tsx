@@ -141,6 +141,7 @@ const defaultAudienceQuery: EmailAudienceQuery = {
 };
 const audienceDecisionOptions = [
   ["all_applicants", "All applicants"],
+  ["draft_not_submitted", "Draft application (not submitted)"],
   ["accepted", "All accepted"],
   ["rsvped", "All RSVPed"],
   ["rejected", "All rejected"],
@@ -2138,12 +2139,20 @@ function SendPanel({
                   className={inputClass}
                   value={audienceQuery.decisionGroup}
                   disabled={Boolean(busy)}
-                  onChange={(event) =>
-                    onAudienceQueryChange({
-                      decisionGroup: event.target
-                        .value as EmailAudienceQuery["decisionGroup"],
-                    })
-                  }
+                  onChange={(event) => {
+                    const decisionGroup = event.target
+                      .value as EmailAudienceQuery["decisionGroup"];
+
+                    onAudienceQueryChange(
+                      decisionGroup === "draft_not_submitted"
+                        ? {
+                            decisionGroup,
+                            travelAward: "any",
+                            rsvpTravelPlan: "any",
+                          }
+                        : { decisionGroup },
+                    );
+                  }}
                 >
                   {audienceDecisionOptions.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -2156,7 +2165,10 @@ function SendPanel({
                 <select
                   className={inputClass}
                   value={audienceQuery.travelAward}
-                  disabled={Boolean(busy)}
+                  disabled={
+                    Boolean(busy) ||
+                    audienceQuery.decisionGroup === "draft_not_submitted"
+                  }
                   onChange={(event) =>
                     onAudienceQueryChange({
                       travelAward: event.target
@@ -2175,7 +2187,10 @@ function SendPanel({
                 <select
                   className={inputClass}
                   value={audienceQuery.rsvpTravelPlan}
-                  disabled={Boolean(busy)}
+                  disabled={
+                    Boolean(busy) ||
+                    audienceQuery.decisionGroup === "draft_not_submitted"
+                  }
                   onChange={(event) =>
                     onAudienceQueryChange({
                       rsvpTravelPlan: event.target
