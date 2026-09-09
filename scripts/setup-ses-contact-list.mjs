@@ -27,29 +27,13 @@ const credentials =
 const client = new SESv2Client({ region, credentials });
 
 async function setupContactList() {
+  // Only the lookup may answer "the list does not exist"; a NotFoundException
+  // from the update below means something else, so it must not fall through to
+  // creating the list.
+  let existing;
   try {
-    const existing = await client.send(
+    existing = await client.send(
       new GetContactListCommand({ ContactListName: contactListName }),
-    );
-    const topics = existing.Topics ?? [];
-
-    if (topics.some((existingTopic) => existingTopic.TopicName === topicName)) {
-      console.log(
-        `SES contact list ${contactListName} already has topic ${topicName} in ${region}.`,
-      );
-      process.exit(0);
-    }
-
-    await client.send(
-      new UpdateContactListCommand({
-        ContactListName: contactListName,
-        Description:
-          existing.Description ?? "MHacks email subscription preferences.",
-        Topics: [...topics, topic],
-      }),
-    );
-    console.log(
-      `Added topic ${topicName} to SES contact list ${contactListName} in ${region}.`,
     );
   } catch (error) {
     if (error?.name !== "NotFoundException") {
@@ -66,7 +50,29 @@ async function setupContactList() {
     console.log(
       `Created SES contact list ${contactListName} with topic ${topicName} in ${region}.`,
     );
+    return;
   }
+
+  const topics = existing.Topics ?? [];
+
+  if (topics.some((existingTopic) => existingTopic.TopicName === topicName)) {
+    console.log(
+      `SES contact list ${contactListName} already has topic ${topicName} in ${region}.`,
+    );
+    return;
+  }
+
+  await client.send(
+    new UpdateContactListCommand({
+      ContactListName: contactListName,
+      Description:
+        existing.Description ?? "MHacks email subscription preferences.",
+      Topics: [...topics, topic],
+    }),
+  );
+  console.log(
+    `Added topic ${topicName} to SES contact list ${contactListName} in ${region}.`,
+  );
 }
 
 try {

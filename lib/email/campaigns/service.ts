@@ -60,7 +60,7 @@ export async function sendSnapshotToEmail(
   },
   email: string,
   mergeData: EmailRecipientMergeData,
-  deliveryType: EmailDeliveryType = "subscription",
+  deliveryType: EmailDeliveryType = "transactional",
 ): Promise<SendResult> {
   try {
     const rendered = await renderSnapshot(

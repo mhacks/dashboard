@@ -205,9 +205,11 @@ export default function EmailCampaignsClient({
     useState<EmailAudienceQuery>(defaultAudienceQuery);
   const [audienceLabel, setAudienceLabel] = useState("");
   const [sendOneEmail, setSendOneEmail] = useState("");
-  const [deliveryType, setDeliveryType] = useState<EmailDeliveryType>(() =>
-    loadStoredDeliveryType(),
-  );
+  // Seeded on mount rather than from localStorage here: this component is
+  // server-rendered, and reading storage in the initializer makes the first
+  // client render disagree with the SSR markup.
+  const [deliveryType, setDeliveryType] =
+    useState<EmailDeliveryType>("subscription");
   const testEmails = serverManagedTestListLabel;
   const [sendNotice, setSendNotice] = useState("");
   const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(() =>
@@ -1092,6 +1094,8 @@ export default function EmailCampaignsClient({
       if (localTheme) {
         setTheme(localTheme);
       }
+
+      setDeliveryType(loadStoredDeliveryType());
     }, 0);
 
     return () => window.clearTimeout(timer);

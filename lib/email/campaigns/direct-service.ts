@@ -1106,17 +1106,22 @@ function fingerprintDirectTemplate(
   template: DirectEmailTemplateInput,
   deliveryType: EmailDeliveryType,
 ) {
+  // "subscription" is the default type, so it stays out of the hashed payload:
+  // that keeps the fingerprint byte-identical to the pre-delivery-type shape
+  // and lets send runs started before this feature still resume.
+  const deliveryTypeKey =
+    deliveryType === "subscription" ? {} : { deliveryType };
   const payload =
     template.type === "structured"
       ? {
           snapshot: snapshotFromDirectTemplate(template),
           theme: template.theme ?? defaultEmailTheme,
-          deliveryType,
+          ...deliveryTypeKey,
         }
       : {
           snapshot: snapshotFromDirectTemplate(template),
           theme: null,
-          deliveryType,
+          ...deliveryTypeKey,
         };
 
   return createHash("sha256").update(stableStringify(payload)).digest("hex");
