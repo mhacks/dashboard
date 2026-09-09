@@ -1,11 +1,16 @@
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import type SESTransport from "nodemailer/lib/ses-transport";
+import type { EmailDeliveryType } from "@/lib/email/types";
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "hackathon@mhacks.org";
 const FROM_NAME = process.env.EMAIL_FROM_NAME ?? "MHacks Team";
 const SES_REGION = process.env.SES_REGION ?? "us-east-2";
 const SMTP_TIMEOUT_MS = 15_000;
+const SES_CONTACT_LIST = process.env.SES_CONTACT_LIST ?? "mhacks";
+const SES_CONTACT_TOPIC = process.env.SES_CONTACT_TOPIC ?? "event-updates";
+const SES_UNSUBSCRIBE_URL = "{{amazonSESUnsubscribeUrl}}";
+const LOCAL_UNSUBSCRIBE_URL = "https://example.invalid/unsubscribe";
 
 let transporter: Transporter | undefined;
 
@@ -16,7 +21,14 @@ export type SendEmailInput = {
   html: string;
   fromEmail?: string;
   fromName?: string;
+  deliveryType?: EmailDeliveryType;
 };
+
+export function managedUnsubscribeUrl() {
+  return process.env.NODE_ENV === "development"
+    ? LOCAL_UNSUBSCRIBE_URL
+    : SES_UNSUBSCRIBE_URL;
+}
 
 function getTransporter(): Transporter {
   if (transporter) return transporter;
@@ -105,15 +117,32 @@ export async function sendEmail({
   html,
   fromEmail = FROM_EMAIL,
   fromName = FROM_NAME,
+  deliveryType = "transactional",
 }: SendEmailInput) {
   try {
-    const info = await getTransporter().sendMail({
+    const isSubscription = deliveryType === "subscription";
+    const mailOptions: SESTransport.MailOptions = {
       from: `${fromName} <${fromEmail}>`,
       to,
       subject,
       text,
       html,
-    });
+      headers: isSubscription
+        ? {
+            "List-ID": `MHacks event updates <${SES_CONTACT_TOPIC}.mhacks.org>`,
+          }
+        : undefined,
+      ses:
+        isSubscription && process.env.NODE_ENV !== "development"
+          ? {
+              ListManagementOptions: {
+                ContactListName: SES_CONTACT_LIST,
+                TopicName: SES_CONTACT_TOPIC,
+              },
+            }
+          : undefined,
+    };
+    const info = await getTransporter().sendMail(mailOptions);
 
     return typeof info.messageId === "string" ? info.messageId : null;
   } catch (error) {

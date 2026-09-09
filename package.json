@@ -21,7 +21,8 @@
     "db:reset": "supabase db reset",
     "db:push": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit push",
     "db:generate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit generate",
-    "db:migrate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit migrate"
+    "db:migrate": "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres drizzle-kit migrate",
+    "email:setup": "node scripts/setup-ses-contact-list.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1092.0",

@@ -31,6 +31,7 @@ import {
   directSendOneSchema,
   directTestSendSchema,
   type DirectEmailTemplateInput,
+  type EmailDeliveryType,
 } from "@/lib/email/types";
 
 const successfulTestProofWindowMs = 30 * 60 * 1000;
@@ -59,7 +60,12 @@ export async function sendOneDirectEmail(input: unknown) {
   const email = body.email.trim().toLowerCase();
   const mergeData = buildMergeData(email, body.mergeData);
   const campaign = campaignLikeFromDirectTemplate(body.template);
-  const result = await sendSnapshotToEmail(campaign, email, mergeData);
+  const result = await sendSnapshotToEmail(
+    campaign,
+    email,
+    mergeData,
+    body.deliveryType,
+  );
 
   return result;
 }
@@ -68,7 +74,10 @@ export async function sendDirectTestEmails(input: unknown) {
   const organizer = await requireOrganizer();
   await pruneExpiredSendData();
   const body = directTestSendSchema.parse(input);
-  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const templateFingerprint = fingerprintDirectTemplate(
+    body.template,
+    body.deliveryType,
+  );
   const recipients = requiredEmailCampaignTestRecipients;
   const campaignLike = {
     templateSnapshot: snapshotFromDirectTemplate(body.template),
@@ -88,6 +97,7 @@ export async function sendDirectTestEmails(input: unknown) {
           ...body.mergeData,
           ...recipient.mergeData,
         }),
+        body.deliveryType,
       ),
     );
   }
@@ -121,7 +131,10 @@ export async function sendDirectBatch(input: unknown) {
   const body = directBatchSendSchema.parse(input);
   const parsed = parseRecipientText(body.recipients);
   const limits = getCampaignLimits();
-  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const templateFingerprint = fingerprintDirectTemplate(
+    body.template,
+    body.deliveryType,
+  );
   const recipientListHash = fingerprintRecipients(parsed.recipients);
 
   enforceRecipientLimit(parsed.emails.length);
@@ -152,6 +165,7 @@ export async function sendDirectBatch(input: unknown) {
     templateFingerprint,
     recipientListHash,
     recipients,
+    deliveryType: body.deliveryType,
     testSendToken: body.testSendToken,
   });
 
@@ -195,6 +209,7 @@ export async function sendDirectBatch(input: unknown) {
       campaign,
       delivery.email,
       delivery.mergeData,
+      body.deliveryType,
     );
     await recordDeliveryResult({
       runId: run.id,
@@ -217,7 +232,7 @@ export async function findActiveDirectSend(input: unknown) {
   const organizer = await requireOrganizer();
   await pruneExpiredSendData();
   const body = directBatchSendSchema
-    .pick({ template: true, recipients: true })
+    .pick({ template: true, deliveryType: true, recipients: true })
     .parse(input);
   const parsed = parseRecipientText(body.recipients);
 
@@ -225,7 +240,10 @@ export async function findActiveDirectSend(input: unknown) {
     return null;
   }
 
-  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const templateFingerprint = fingerprintDirectTemplate(
+    body.template,
+    body.deliveryType,
+  );
   const recipientListHash = fingerprintRecipients(parsed.recipients);
   const [run] = await db
     .select()
@@ -261,6 +279,7 @@ async function resolveOrCreateSendRun({
   templateFingerprint,
   recipientListHash,
   recipients,
+  deliveryType,
   testSendToken,
 }: {
   requestedRunId: string;
@@ -269,6 +288,7 @@ async function resolveOrCreateSendRun({
   templateFingerprint: string;
   recipientListHash: string;
   recipients: Array<{ email: string; mergeData: Record<string, string> }>;
+  deliveryType: EmailDeliveryType;
   testSendToken: string | undefined;
 }) {
   return db.transaction(async (tx) => {
@@ -339,6 +359,7 @@ async function resolveOrCreateSendRun({
     await assertSuccessfulTestSend({
       organizer,
       template,
+      deliveryType,
       testSendToken,
       tx,
     });
@@ -981,11 +1002,13 @@ async function pruneExpiredSendData() {
 async function findSuccessfulTestSend({
   organizer,
   template,
+  deliveryType,
   testSendToken,
   tx = db,
 }: {
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
+  deliveryType: EmailDeliveryType;
   testSendToken: string | undefined;
   tx?: Pick<typeof db, "select">;
 }): Promise<ApprovedTestSend | null> {
@@ -993,7 +1016,7 @@ async function findSuccessfulTestSend({
     return null;
   }
 
-  const expectedFingerprint = fingerprintDirectTemplate(template);
+  const expectedFingerprint = fingerprintDirectTemplate(template, deliveryType);
   const now = Date.now();
   const [proof] = await tx
     .select()
@@ -1028,17 +1051,20 @@ async function findSuccessfulTestSend({
 async function assertSuccessfulTestSend({
   organizer,
   template,
+  deliveryType,
   testSendToken,
   tx = db,
 }: {
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
+  deliveryType: EmailDeliveryType;
   testSendToken: string | undefined;
   tx?: Pick<typeof db, "select">;
 }): Promise<ApprovedTestSend> {
   const matchingProof = await findSuccessfulTestSend({
     organizer,
     template,
+    deliveryType,
     testSendToken,
     tx,
   });
@@ -1076,16 +1102,21 @@ async function recordSuccessfulTestSend({
   });
 }
 
-function fingerprintDirectTemplate(template: DirectEmailTemplateInput) {
+function fingerprintDirectTemplate(
+  template: DirectEmailTemplateInput,
+  deliveryType: EmailDeliveryType,
+) {
   const payload =
     template.type === "structured"
       ? {
           snapshot: snapshotFromDirectTemplate(template),
           theme: template.theme ?? defaultEmailTheme,
+          deliveryType,
         }
       : {
           snapshot: snapshotFromDirectTemplate(template),
           theme: null,
+          deliveryType,
         };
 
   return createHash("sha256").update(stableStringify(payload)).digest("hex");

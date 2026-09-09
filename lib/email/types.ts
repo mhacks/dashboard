@@ -62,6 +62,10 @@ export const emailThemeTokensSchema = z.object({
 });
 
 export const emailTemplateTypeSchema = z.enum(["structured", "html"]);
+export const emailDeliveryTypeSchema = z.enum([
+  "subscription",
+  "transactional",
+]);
 
 export const emailTemplateUpsertSchema = z.object({
   name: z.string().min(1).max(120),
@@ -80,6 +84,7 @@ const mergeDataSchema = z.record(z.string(), z.string()).optional();
 export const emailRenderPreviewSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("structured"),
+    deliveryType: emailDeliveryTypeSchema.default("subscription"),
     templateId: z.string().default("mhacks-announcement"),
     subject: z.string().min(1),
     previewText: z.string().default(""),
@@ -89,6 +94,7 @@ export const emailRenderPreviewSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("html"),
+    deliveryType: emailDeliveryTypeSchema.default("subscription"),
     subject: z.string().min(1),
     previewText: z.string().default(""),
     html: z.string().min(1).max(maxHtmlTemplateLength),
@@ -119,18 +125,21 @@ export const directRecipientParseSchema = z.object({
 
 export const directSendOneSchema = z.object({
   template: directEmailTemplateSchema,
+  deliveryType: emailDeliveryTypeSchema.default("subscription"),
   email: z.string().email(),
   mergeData: z.record(z.string(), z.string()).optional(),
 });
 
 export const directTestSendSchema = z.object({
   template: directEmailTemplateSchema,
+  deliveryType: emailDeliveryTypeSchema.default("subscription"),
   mergeData: z.record(z.string(), z.string()).optional(),
 });
 
 export const directBatchSendSchema = z.object({
   runId: z.string().uuid(),
   template: directEmailTemplateSchema,
+  deliveryType: emailDeliveryTypeSchema.default("subscription"),
   recipients: z.string().max(maxRecipientTextLength).default(""),
   testSendToken: z.string().uuid().optional(),
   cursor: z.number().int().min(0).default(0),
@@ -177,6 +186,7 @@ export type EmailTemplateUpsertInput = z.infer<
   typeof emailTemplateUpsertSchema
 >;
 export type EmailTemplateType = z.infer<typeof emailTemplateTypeSchema>;
+export type EmailDeliveryType = z.infer<typeof emailDeliveryTypeSchema>;
 export type DirectEmailTemplateInput = z.infer<
   typeof directEmailTemplateSchema
 >;

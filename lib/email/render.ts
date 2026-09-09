@@ -15,6 +15,7 @@ export interface RenderCampaignEmailInput {
   content: unknown;
   theme?: unknown;
   mergeData?: Record<string, string>;
+  unsubscribeUrl?: string;
 }
 
 export interface RenderedCampaignEmail {
@@ -30,6 +31,7 @@ export async function renderCampaignEmail({
   content,
   theme,
   mergeData = {},
+  unsubscribeUrl,
 }: RenderCampaignEmailInput): Promise<RenderedCampaignEmail> {
   const template = getEmailTemplate(templateId);
 
@@ -51,13 +53,13 @@ export async function renderCampaignEmail({
     theme: parsedTheme,
   });
 
-  const html = await render(element, { pretty: true });
-  const text = await render(element, { plainText: true });
+  const renderedHtml = await render(element, { pretty: true });
+  const renderedText = await render(element, { plainText: true });
 
   return {
     subject: mergedSubject,
-    html,
-    text,
+    html: appendUnsubscribeFooter(renderedHtml, unsubscribeUrl),
+    text: appendUnsubscribeText(renderedText, unsubscribeUrl),
   };
 }
 
@@ -78,6 +80,10 @@ export async function renderEmailPreview(input: unknown) {
       previewText: parsed.previewText,
       html: parsed.html,
       mergeData,
+      unsubscribeUrl:
+        parsed.deliveryType === "subscription"
+          ? previewUnsubscribeUrl
+          : undefined,
     });
   }
 
@@ -88,6 +94,10 @@ export async function renderEmailPreview(input: unknown) {
     content: parsed.content,
     theme: parsed.theme,
     mergeData,
+    unsubscribeUrl:
+      parsed.deliveryType === "subscription"
+        ? previewUnsubscribeUrl
+        : undefined,
   });
 }
 
@@ -96,11 +106,13 @@ export function renderHtmlEmail({
   previewText,
   html,
   mergeData = {},
+  unsubscribeUrl,
 }: {
   subject: string;
   previewText: string;
   html: string;
   mergeData?: Record<string, string>;
+  unsubscribeUrl?: string;
 }): RenderedCampaignEmail {
   const mergedSubject = mergeText(subject, mergeData);
   const mergedPreviewText = mergeText(previewText, mergeData);
@@ -119,9 +131,31 @@ export function renderHtmlEmail({
 
   return {
     subject: mergedSubject,
-    html: withPreview,
-    text: toPlainText(withPreview),
+    html: appendUnsubscribeFooter(withPreview, unsubscribeUrl),
+    text: appendUnsubscribeText(toPlainText(withPreview), unsubscribeUrl),
   };
+}
+
+const previewUnsubscribeUrl = "https://example.invalid/unsubscribe";
+
+function appendUnsubscribeFooter(html: string, unsubscribeUrl?: string) {
+  if (!unsubscribeUrl) {
+    return html;
+  }
+
+  const footer = `<div style="margin:24px auto 0;max-width:600px;padding:0 24px 24px;text-align:center"><a href="${escapeHtml(
+    unsubscribeUrl,
+  )}" style="color:#505050;font-size:12px;line-height:18px;text-decoration:underline">Unsubscribe from optional MHacks emails</a></div>`;
+
+  return /<\/body>/i.test(html)
+    ? html.replace(/<\/body>/i, `${footer}</body>`)
+    : `${html}${footer}`;
+}
+
+function appendUnsubscribeText(text: string, unsubscribeUrl?: string) {
+  return unsubscribeUrl
+    ? `${text.trimEnd()}\n\nUnsubscribe from optional MHacks emails: ${unsubscribeUrl}\n`
+    : text;
 }
 
 function mergeContent(

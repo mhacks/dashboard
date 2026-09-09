@@ -1,9 +1,10 @@
-import { sendEmail } from "@/lib/aws/ses";
+import { managedUnsubscribeUrl, sendEmail } from "@/lib/aws/ses";
 import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type {
   DirectEmailTemplateInput,
   EmailCampaignContent,
+  EmailDeliveryType,
   EmailTemplateType,
   EmailThemeTokens,
 } from "@/lib/email/types";
@@ -59,18 +60,21 @@ export async function sendSnapshotToEmail(
   },
   email: string,
   mergeData: EmailRecipientMergeData,
+  deliveryType: EmailDeliveryType = "subscription",
 ): Promise<SendResult> {
   try {
     const rendered = await renderSnapshot(
       campaign.templateSnapshot,
       campaign.themeSnapshot ?? defaultEmailTheme,
       mergeData,
+      deliveryType === "subscription" ? managedUnsubscribeUrl() : undefined,
     );
     const messageId = await sendEmail({
       to: email,
       subject: rendered.subject,
       html: rendered.html,
       text: rendered.text,
+      deliveryType,
     });
 
     return { email, status: "sent", messageId, error: null };
@@ -96,6 +100,7 @@ async function renderSnapshot(
   snapshot: EmailTemplateSnapshot,
   theme: EmailThemeTokens,
   mergeData: EmailRecipientMergeData,
+  unsubscribeUrl?: string,
 ) {
   if (snapshot.type === "html") {
     return renderHtmlEmail({
@@ -103,6 +108,7 @@ async function renderSnapshot(
       previewText: snapshot.previewText,
       html: snapshot.html ?? "",
       mergeData,
+      unsubscribeUrl,
     });
   }
 
@@ -113,5 +119,6 @@ async function renderSnapshot(
     content: snapshot.content,
     theme,
     mergeData,
+    unsubscribeUrl,
   });
 }
