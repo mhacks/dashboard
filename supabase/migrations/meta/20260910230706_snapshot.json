@@ -1,5 +1,5 @@
 {
-  "id": "e28db1c2-8ce4-4b32-907f-25cef4653ea5",
+  "id": "c5561032-cf36-4d70-8b3d-d1d4c89a2c27",
   "prevId": "75a6d756-230e-47c0-ad4b-6ad4550f4b53",
   "version": "7",
   "dialect": "postgresql",
@@ -2578,6 +2578,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "team_invitations_pending_team_invitee_uidx": {
+          "name": "team_invitations_pending_team_invitee_uidx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invited_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"team_invitations\".\"status\" = 'pending'",
           "concurrently": false,
           "method": "btree",
           "with": {}

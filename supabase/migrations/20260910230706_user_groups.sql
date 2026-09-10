@@ -33,6 +33,7 @@ ALTER TABLE "team_members" ADD CONSTRAINT "team_members_team_id_teams_id_fk" FOR
 ALTER TABLE "teams" ADD CONSTRAINT "teams_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "team_invitations_invited_user_id_idx" ON "team_invitations" USING btree ("invited_user_id");--> statement-breakpoint
 CREATE INDEX "team_invitations_team_id_idx" ON "team_invitations" USING btree ("team_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "team_invitations_pending_team_invitee_uidx" ON "team_invitations" USING btree ("team_id","invited_user_id") WHERE "team_invitations"."status" = 'pending';--> statement-breakpoint
 CREATE INDEX "team_members_team_id_idx" ON "team_members" USING btree ("team_id");--> statement-breakpoint
 CREATE POLICY "team_invitations_select_own_or_team_or_organizer" ON "team_invitations" AS PERMISSIVE FOR SELECT TO "authenticated" USING ("team_invitations"."invited_user_id" = (select auth.uid())
         OR "team_invitations"."team_id" in (
