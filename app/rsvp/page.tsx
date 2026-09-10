@@ -8,6 +8,7 @@ import { getAttendeeRsvpState } from "@/lib/queries/rsvp";
 import { RsvpPageShell } from "./rsvp-page-shell";
 import RsvpForm from "./rsvp-form";
 import { RsvpSummary } from "./rsvp-summary";
+import { formatMediumDateTime } from "@/lib/format/date";
 
 export const dynamic = "force-dynamic";
 
@@ -75,10 +76,9 @@ export default async function RsvpPage() {
         <StateCard
           icon={<CheckCircle2Icon />}
           title="RSVP Submitted!"
-          description={`Your spot is confirmed. This response was submitted ${new Intl.DateTimeFormat(
-            "en-US",
-            { dateStyle: "medium", timeStyle: "short" },
-          ).format(new Date(state.submittedAt))} and can no longer be changed.`}
+          description={`Your spot is confirmed. This response was submitted ${formatMediumDateTime(
+            state.submittedAt,
+          )} and can no longer be changed.`}
         >
           <RsvpSummary
             values={state.values}

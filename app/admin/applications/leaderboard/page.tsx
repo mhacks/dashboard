@@ -21,15 +21,11 @@ import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { Meter } from "@/components/ui/meter";
 import { SummaryBar } from "../components/summary-bar";
 import { AuditActivityFeed } from "./audit-activity-feed";
+import { formatShortDateTime } from "@/lib/format/date";
 
 function formatDate(value: string | null) {
   if (!value) return "No activity yet";
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatShortDateTime(value);
 }
 
 function rankIcon(index: number) {

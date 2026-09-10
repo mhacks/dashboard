@@ -16,6 +16,11 @@ import {
   applicationStatusLabel,
   formatReviewEventValue,
 } from "./display-formatters";
+import {
+  formatShortDate,
+  formatShortDateTime,
+  formatTimeOfDay,
+} from "@/lib/format/date";
 
 type TimelineEvent = ReviewEventRecord | ReviewAuditEventRecord;
 
@@ -37,25 +42,13 @@ function formatEventTimestamp(
   compact?: false,
 ): { date: string; time: string };
 function formatEventTimestamp(value: string, compact = false) {
-  const date = new Date(value);
   if (compact) {
-    return date.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    return formatShortDateTime(value);
   }
 
   return {
-    date: date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    }),
-    time: date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
+    date: formatShortDate(value),
+    time: formatTimeOfDay(value),
   };
 }
 

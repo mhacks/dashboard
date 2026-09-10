@@ -36,6 +36,7 @@ import { PersonalStep } from "./components/personal-step";
 import { TravelTaxStep } from "./components/travel-tax-step";
 import { WaiversStep } from "./components/waivers-step";
 import { useRsvpAutosave } from "./use-rsvp-autosave";
+import { formatMediumDateTime } from "@/lib/format/date";
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
 
@@ -351,11 +352,7 @@ export default function RsvpForm({
               Your spot is confirmed. Your response is now read-only.
             </p>
             <p className="mt-1 font-red-hat text-xs text-moss/45">
-              Submitted{" "}
-              {new Intl.DateTimeFormat("en-US", {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }).format(new Date(submitted.submittedAt))}
+              Submitted {formatMediumDateTime(submitted.submittedAt)}
             </p>
           </div>
           <RsvpSummary

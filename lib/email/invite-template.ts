@@ -1,3 +1,4 @@
+import { formatLongDateTimeWithZone } from "@/lib/format/date";
 import { userRoleLabel } from "@/lib/display/user-roles";
 import type { InvitableUserRole } from "@/lib/types/user-invitations";
 
@@ -11,15 +12,7 @@ function escapeHtml(value: string) {
 }
 
 export function formatInviteExpiration(expiresAt: Date) {
-  return expiresAt.toLocaleString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  });
+  return formatLongDateTimeWithZone(expiresAt);
 }
 
 const ROLE_INVITE_CONTENT: Record<

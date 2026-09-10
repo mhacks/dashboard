@@ -104,6 +104,11 @@ import {
   formatReviewDisplayValue,
 } from "./display-formatters";
 import { ReviewEventTimeline } from "./review-event-timeline";
+import {
+  formatMediumDate,
+  formatMediumDateTime,
+  formatShortDate,
+} from "@/lib/format/date";
 
 type Organizer = { id: string; email: string };
 
@@ -1486,13 +1491,7 @@ export default function ApplicationReviewWorkspace({
                       {applicantName(item)}
                     </p>
                     <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {new Date(item.application.createdAt).toLocaleDateString(
-                        undefined,
-                        {
-                          month: "short",
-                          day: "numeric",
-                        },
-                      )}
+                      {formatShortDate(item.application.createdAt)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
@@ -1590,9 +1589,7 @@ export default function ApplicationReviewWorkspace({
                   {selectedDetail.application.applicantEmail ??
                     "No applicant email"}{" "}
                   · submitted{" "}
-                  {new Date(
-                    selectedDetail.application.createdAt,
-                  ).toLocaleDateString()}
+                  {formatMediumDate(selectedDetail.application.createdAt)}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <QuickLink
@@ -2207,9 +2204,8 @@ function ScorecardForm({
               )}
             >
               <CheckCircle2Icon className="size-4 text-green-600 dark:text-green-300" />
-              Reviewed{" "}
-              {new Date(selectedDetail.review.reviewedAt).toLocaleString()} by{" "}
-              {selectedDetail.review.reviewerEmail ?? "organizer"}
+              Reviewed {formatMediumDateTime(selectedDetail.review.reviewedAt)}{" "}
+              by {selectedDetail.review.reviewerEmail ?? "organizer"}
             </div>
           )}
         </div>
