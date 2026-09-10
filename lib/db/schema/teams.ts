@@ -7,6 +7,7 @@ import {
   timestamp,
   foreignKey,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole } from "drizzle-orm/supabase";
@@ -120,6 +121,9 @@ export const teamInvitations = pgTable(
     index("team_invitations_invited_user_id_idx").on(table.invitedUserId),
     // supports getSentInvitations (team's outbox)
     index("team_invitations_team_id_idx").on(table.teamId),
+    uniqueIndex("team_invitations_pending_team_invitee_uidx")
+      .on(table.teamId, table.invitedUserId)
+      .where(sql`${table.status} = 'pending'`),
     pgPolicy("team_invitations_select_own_or_team_or_organizer", {
       for: "select",
       to: authenticatedRole,

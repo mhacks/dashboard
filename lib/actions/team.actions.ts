@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import type { ApplicationDecision } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import {
   teams,
@@ -27,6 +28,12 @@ import {
 // not RLS-checked per request.
 
 const ALREADY_ON_A_TEAM = "You're already on a team — leave it first.";
+const ACCEPTED_REQUIRED =
+  "An accepted MHacks application is required to manage teams.";
+const PENDING_INVITE_EXISTS =
+  "They already have a pending invitation from your team.";
+
+type TeamQueryClient = Pick<typeof db, "select">;
 
 function isUniqueViolation(err: unknown): boolean {
   return (
@@ -35,6 +42,35 @@ function isUniqueViolation(err: unknown): boolean {
     "code" in err &&
     (err as { code?: unknown }).code === "23505"
   );
+}
+
+function assertAcceptedHacker(
+  role: string | null | undefined,
+  decision: ApplicationDecision | null | undefined,
+): void {
+  if (role !== "hacker") {
+    throw new Error("Only hackers can manage teams.");
+  }
+  if (!decision || decisionOutcome(decision) !== "accepted") {
+    throw new Error(ACCEPTED_REQUIRED);
+  }
+}
+
+async function loadAcceptedHacker(
+  client: TeamQueryClient,
+  userId: string,
+): Promise<void> {
+  const [row] = await client
+    .select({
+      role: users.role,
+      decision: hackerApplicants.decision,
+    })
+    .from(users)
+    .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  assertAcceptedHacker(row?.role, row?.decision);
 }
 
 function displayName(
@@ -54,6 +90,8 @@ export async function createTeamForUser(
   const parsedName = teamNameSchema.parse(name);
 
   return db.transaction(async (tx) => {
+    await loadAcceptedHacker(tx, userId);
+
     const [existingMembership] = await tx
       .select({ userId: teamMembers.userId })
       .from(teamMembers)
@@ -108,6 +146,8 @@ export async function inviteToTeam(
     const [inviter] = await tx
       .select({
         email: users.email,
+        role: users.role,
+        decision: hackerApplicants.decision,
         firstName: hackerApplicants.firstName,
         lastName: hackerApplicants.lastName,
       })
@@ -115,6 +155,7 @@ export async function inviteToTeam(
       .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
       .where(eq(users.id, userId))
       .limit(1);
+    assertAcceptedHacker(inviter?.role, inviter?.decision);
     const inviterName =
       displayName(inviter?.firstName ?? null, inviter?.lastName ?? null) ??
       inviter?.email ??
@@ -179,14 +220,37 @@ export async function inviteToTeam(
       throw new Error("Your team is full.");
     }
 
-    const [invitation] = await tx
-      .insert(teamInvitations)
-      .values({
-        teamId: callerTeamId,
-        invitedUserId: invitedUser.id,
-        invitedByUserId: userId,
-      })
-      .returning();
+    const [existingPendingInvite] = await tx
+      .select({ id: teamInvitations.id })
+      .from(teamInvitations)
+      .where(
+        and(
+          eq(teamInvitations.teamId, callerTeamId),
+          eq(teamInvitations.invitedUserId, invitedUser.id),
+          eq(teamInvitations.status, "pending"),
+        ),
+      )
+      .limit(1);
+    if (existingPendingInvite) {
+      throw new Error(PENDING_INVITE_EXISTS);
+    }
+
+    let invitation: TeamInvitationRow;
+    try {
+      [invitation] = await tx
+        .insert(teamInvitations)
+        .values({
+          teamId: callerTeamId,
+          invitedUserId: invitedUser.id,
+          invitedByUserId: userId,
+        })
+        .returning();
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new Error(PENDING_INVITE_EXISTS);
+      }
+      throw err;
+    }
 
     return {
       invitation,
@@ -216,6 +280,7 @@ export async function acceptInvitation(
     if (invitation.invitedUserId !== userId) {
       throw new Error("This invitation isn't addressed to you.");
     }
+    await loadAcceptedHacker(tx, userId);
 
     const [existingMembership] = await tx
       .select({ userId: teamMembers.userId })
@@ -315,6 +380,7 @@ export async function cancelInvitation(
   if (!membership) {
     throw new Error("You're not on a team.");
   }
+  await loadAcceptedHacker(db, userId);
 
   const now = new Date().toISOString();
   const result = await db

@@ -9,6 +9,14 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
+function sanitizeEmailDisplayText(value: string, maxLength?: number) {
+  const cleaned = value
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return maxLength !== undefined ? cleaned.slice(0, maxLength) : cleaned;
+}
+
 export function buildTeamInviteEmail({
   teamName,
   inviterName,
@@ -22,15 +30,16 @@ export function buildTeamInviteEmail({
   // point where it actually goes out in an email, so it gets its own bound
   // rather than trusting that upstream check to hold forever.
   const boundedTeamName = teamName.slice(0, TEAM_NAME_MAX_LENGTH);
+  const safeInviterDisplayName = sanitizeEmailDisplayText(inviterName, 120);
 
   const safeTeamName = escapeHtml(boundedTeamName);
-  const safeInviterName = escapeHtml(inviterName);
+  const safeInviterName = escapeHtml(safeInviterDisplayName);
   const safeTeamUrl = escapeHtml(teamUrl);
 
-  const subject = `${inviterName} invited you to join their MHacks team`;
+  const subject = `${safeInviterDisplayName} invited you to join their MHacks team`;
 
   const text = [
-    `${inviterName} invited you to join their team, "${boundedTeamName}", on MHacks.`,
+    `${safeInviterDisplayName} invited you to join their team, "${boundedTeamName}", on MHacks.`,
     "",
     "View and respond to the invitation:",
     teamUrl,
