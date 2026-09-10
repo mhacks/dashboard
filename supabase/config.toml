@@ -35,10 +35,12 @@ enable_confirmations = true
 max_frequency = "30s"
 
 # Local Mailpit — required so auth.rate_limit.email_sent applies in dev.
+# Auth runs in Docker; reach Mailpit via the inbucket service on its internal
+# SMTP port (1025). 54325 is only the host-mapped port for app-level SMTP.
 [auth.email.smtp]
 enabled = true
-host = "127.0.0.1"
-port = 54325
+host = "inbucket"
+port = 1025
 user = "postmaster@local.dev"
 pass = "password"
 admin_email = "hackathon@mhacks.org"
