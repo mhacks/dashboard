@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { TriangleAlertIcon } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -16,6 +17,16 @@ import {
   Masthead,
 } from "@/components/console/shell";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   createTeam,
   inviteToTeam,
@@ -86,6 +97,7 @@ export function TeamView({
   // every other button on the page — mirrors connections-list.tsx's
   // revokingId pattern, generalized to more than one action kind.
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   const createForm = useForm<CreateTeamFormValues>({
     resolver: zodResolver(createTeamFormSchema),
@@ -150,13 +162,13 @@ export function TeamView({
     });
   }
 
-  function onLeave() {
-    const prompt =
-      team && team.members.length <= 1
-        ? "Leave this team? You're the last member, so the team will be deleted."
-        : "Leave this team? You'll need a new invitation to rejoin.";
-    if (!window.confirm(prompt)) return;
+  const leavePrompt =
+    team && team.members.length <= 1
+      ? "You're the last member, so leaving will delete this team."
+      : "You'll need a new invitation to rejoin.";
 
+  function confirmLeave() {
+    setLeaveDialogOpen(false);
     runAction("leave", async () => {
       await leaveTeam();
       toast.success("You left the team.");
@@ -222,7 +234,7 @@ export function TeamView({
                   <button
                     type="button"
                     disabled={isPending}
-                    onClick={onLeave}
+                    onClick={() => setLeaveDialogOpen(true)}
                     className={ACTION_OUTLINE}
                   >
                     {pendingKey === "leave" ? "Leaving…" : "Leave team"}
@@ -261,6 +273,38 @@ export function TeamView({
           <ConsoleFooterRule />
         </ConsolePage>
       </ConsoleShell>
+
+      <AlertDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <AlertDialogContent className="rounded-[2px] border-ui-line bg-ui-paper text-ui-ink ring-ui-line">
+          <AlertDialogHeader>
+            <AlertDialogMedia className="rounded-[2px] bg-ui-well text-ui-ink">
+              <TriangleAlertIcon />
+            </AlertDialogMedia>
+            <AlertDialogTitle className="font-red-hat-mono text-lg font-bold tracking-[-0.01em]">
+              Leave this team?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-ui-ink-soft">
+              {leavePrompt}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="rounded-b-[2px] border-ui-line bg-ui-well">
+            <AlertDialogCancel
+              disabled={isPending}
+              className={`${ACTION_OUTLINE} h-auto shadow-none hover:bg-ui-selected`}
+            >
+              Stay
+            </AlertDialogCancel>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={confirmLeave}
+              className={ACTION_PRIMARY}
+            >
+              {pendingKey === "leave" ? "Leaving…" : "Leave team"}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
