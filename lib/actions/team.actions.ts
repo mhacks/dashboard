@@ -201,8 +201,8 @@ export async function inviteToTeam(
     }
 
     // Lock the team row before counting — not protecting the hard 4-member
-    // invariant (acceptInvitation's lock does that), just stops the team
-    // from visibly sending more invites than it has open slots for.
+    // invariant (acceptInvitation's lock does that), but members plus pending
+    // invites must stay within MAX_TEAM_SIZE so open slots can't be spammed.
     const [team] = await tx
       .select({ id: teams.id, name: teams.name })
       .from(teams)
@@ -216,8 +216,17 @@ export async function inviteToTeam(
       .select({ userId: teamMembers.userId })
       .from(teamMembers)
       .where(eq(teamMembers.teamId, callerTeamId));
-    if (currentMembers.length >= MAX_TEAM_SIZE) {
-      throw new Error("Your team is full.");
+    const pendingInvites = await tx
+      .select({ id: teamInvitations.id })
+      .from(teamInvitations)
+      .where(
+        and(
+          eq(teamInvitations.teamId, callerTeamId),
+          eq(teamInvitations.status, "pending"),
+        ),
+      );
+    if (currentMembers.length + pendingInvites.length >= MAX_TEAM_SIZE) {
+      throw new Error("Your team has no open invite slots.");
     }
 
     const [existingPendingInvite] = await tx
