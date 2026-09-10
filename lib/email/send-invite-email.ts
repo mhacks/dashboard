@@ -67,7 +67,7 @@ export async function sendTeamInviteEmail({
 }) {
   const origin = await getRequestOrigin();
   const teamUrl = `${origin}/dashboard/team`;
-  const { subject, text, html } = buildTeamInviteEmail({
+  const { subject, text, html } = await buildTeamInviteEmail({
     teamName,
     inviterName,
     teamUrl,
