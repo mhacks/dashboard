@@ -334,6 +334,11 @@ function CreateTeamForm({
           {form.formState.errors.name.message}
         </p>
       ) : null}
+      <p className="text-[12px] leading-[1.5] text-ui-ink-soft">
+        Team names are visible to MHacks staff. Inappropriate names may result
+        in your entire team&rsquo;s acceptances being revoked. We actively
+        review team names.
+      </p>
     </form>
   );
 }
