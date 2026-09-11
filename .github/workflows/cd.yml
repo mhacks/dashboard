@@ -58,6 +58,21 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Prepare build env
+        id: build-env
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY }}
+          NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ secrets.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+        run: |
+          {
+            echo "env_b64<<EOF"
+            env | grep '^NEXT_PUBLIC_' | base64 -w0
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build image
         id: build
         uses: redhat-actions/buildah-build@v2
@@ -65,12 +80,7 @@ jobs:
           image: ${{ env.CONTAINER_NAME }}
           tags: latest ${{ github.sha }}
           containerfiles: ./Dockerfile
-          build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-            NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY }}
-            NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=${{ secrets.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN }}
-            NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+          build-args: BUILD_ENV_B64=${{ steps.build-env.outputs.env_b64 }}
 
       - name: Push image to ECR
         id: push
