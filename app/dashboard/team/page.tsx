@@ -11,6 +11,7 @@ import {
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
+import { TEAM_PAGE_ENABLED } from "@/lib/features";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
 
@@ -21,6 +22,8 @@ import { TeamSkeleton } from "./team-skeleton";
 // still caught gracefully, just one level up: error.tsx renders it in-shell
 // with a retry instead of Next's default error page.
 async function TeamData() {
+  if (!TEAM_PAGE_ENABLED) redirect("/dashboard");
+
   const { id: userId } = await requireHackerPage();
 
   // Same gate as /dashboard/pass and team mutations: accepted hackers only.

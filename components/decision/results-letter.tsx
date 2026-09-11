@@ -24,6 +24,7 @@ import {
   RSVP_DEADLINE,
   type ApplicationDecision,
 } from "@/lib/decisions";
+import { TEAM_PAGE_ENABLED } from "@/lib/features";
 
 /**
  * The decision letter, as a page.
@@ -134,9 +135,11 @@ function AcceptedBody({
         <EventDetails />
       </LetterSection>
 
-      <LetterSection>
-        <TeamSection />
-      </LetterSection>
+      {TEAM_PAGE_ENABLED ? (
+        <LetterSection>
+          <TeamSection />
+        </LetterSection>
+      ) : null}
 
       <LetterSection tone="well">
         <BoardingPassSection />
