@@ -1,16 +1,15 @@
 import { cache } from "react";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { EmailCampaignError } from "@/lib/email/campaigns/config";
+import { hackerEmailTarget } from "@/lib/broadcast/targets/email-hacker";
 import type {
   BroadcastTarget,
   BroadcastTargetSummary,
 } from "@/lib/broadcast/types";
 
-const targets = new Map<string, BroadcastTarget>();
-
-export function registerBroadcastTarget(target: BroadcastTarget) {
-  targets.set(target.id, target);
-}
+const targets = new Map<string, BroadcastTarget>([
+  [hackerEmailTarget.id, hackerEmailTarget],
+]);
 
 export function getBroadcastTarget(id: string): BroadcastTarget {
   const target = targets.get(id);

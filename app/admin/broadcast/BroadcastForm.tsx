@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   BROADCAST_BODY_LIMIT,
   BROADCAST_SUBJECT_LIMIT,
+  broadcastErrorMessage,
 } from "@/lib/broadcast/config";
 import {
   BROADCAST_PAUSED_NOTICE,
@@ -32,7 +33,6 @@ import type {
 } from "@/lib/broadcast/types";
 import { SendHorizontalIcon } from "lucide-react";
 import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
-import { broadcastErrorMessage } from "./broadcast-utils";
 import { runBroadcastLoop } from "./run-broadcast-loop";
 
 type BroadcastDraft = {

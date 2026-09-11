@@ -44,6 +44,7 @@ export async function listBroadcastLogsAction(
   pageIndex: number,
   pageSize: number,
   filter: BroadcastLogsFilter = {},
+  options?: { includeCount?: boolean },
 ) {
-  return listBroadcastLogs(pageIndex, pageSize, filter);
+  return listBroadcastLogs(pageIndex, pageSize, filter, options);
 }

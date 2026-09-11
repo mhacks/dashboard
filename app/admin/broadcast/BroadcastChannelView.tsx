@@ -1,5 +1,3 @@
-import { notFound } from "next/navigation";
-import { broadcastChannelLabel } from "@/lib/broadcast/channels";
 import { buildBroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import { BROADCAST_LOGS_PAGE_SIZE } from "@/lib/broadcast/log-types";
 import { listBroadcastLogs } from "@/lib/queries/broadcast-logs";
@@ -24,10 +22,6 @@ export async function BroadcastChannelView({
     ? targets.find((target) => target.id === channelTargetId)
     : null;
 
-  if (channelTargetId && !channelTarget) {
-    notFound();
-  }
-
   const { items: logs, totalCount } = await listBroadcastLogs(
     0,
     BROADCAST_LOGS_PAGE_SIZE,
@@ -41,9 +35,6 @@ export async function BroadcastChannelView({
     : channelTarget
       ? `No broadcasts to ${channelTarget.label} yet. Send the first message below.`
       : "No broadcasts yet. Send the first message below.";
-  const searchChannelLabel = channelTarget
-    ? broadcastChannelLabel(channelTarget.label)
-    : "Global";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
@@ -54,7 +45,7 @@ export async function BroadcastChannelView({
 
       <BroadcastLogsSearch
         initialQuery={searchQuery}
-        channelLabel={searchChannelLabel}
+        channelLabel={channelTarget?.label ?? "Global"}
       />
 
       <BroadcastMessageFeedPanel

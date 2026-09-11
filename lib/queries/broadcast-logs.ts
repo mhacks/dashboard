@@ -13,10 +13,12 @@ export async function listBroadcastLogs(
   pageIndex = 0,
   pageSize = BROADCAST_LOGS_PAGE_SIZE,
   filter: BroadcastLogsFilter = {},
+  options: { includeCount?: boolean } = {},
 ) {
   await requireOrganizer();
   const safePageIndex = Math.max(0, pageIndex);
   const safePageSize = Math.min(Math.max(pageSize, 1), 50);
+  const includeCount = options.includeCount ?? true;
   const conditions: SQL[] = [];
 
   if (filter.target) {
@@ -39,35 +41,44 @@ export async function listBroadcastLogs(
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const [rows, countRows] = await Promise.all([
-    db
-      .select({
-        id: broadcastLogs.id,
-        target: broadcastLogs.target,
-        subject: broadcastLogs.subject,
-        body: broadcastLogs.body,
-        sentAt: broadcastLogs.sentAt,
-        status: broadcastLogs.status,
-        failedCount: broadcastLogs.retryFailedCount,
-        operatorEmail: users.email,
-      })
-      .from(broadcastLogs)
-      .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
-      .where(whereClause)
-      .orderBy(desc(broadcastLogs.sentAt))
-      .limit(safePageSize)
-      .offset(safePageIndex * safePageSize),
-    db
+  const rows = await db
+    .select({
+      id: broadcastLogs.id,
+      target: broadcastLogs.target,
+      subject: broadcastLogs.subject,
+      body: broadcastLogs.body,
+      sentAt: broadcastLogs.sentAt,
+      status: broadcastLogs.status,
+      failedCount: broadcastLogs.retryFailedCount,
+      operatorEmail: users.email,
+    })
+    .from(broadcastLogs)
+    .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
+    .where(whereClause)
+    .orderBy(desc(broadcastLogs.sentAt))
+    .limit(safePageSize)
+    .offset(safePageIndex * safePageSize);
+
+  let totalCount = 0;
+
+  if (includeCount) {
+    const countQuery = db
       .select({
         totalCount: sql<number>`count(*)::int`,
       })
-      .from(broadcastLogs)
-      .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
-      .where(whereClause),
-  ]);
+      .from(broadcastLogs);
+
+    const countRows = trimmedSearch
+      ? await countQuery
+          .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
+          .where(whereClause)
+      : await countQuery.where(whereClause);
+
+    totalCount = countRows[0]?.totalCount ?? 0;
+  }
 
   return {
     items: rows satisfies BroadcastLogListItem[],
-    totalCount: countRows[0]?.totalCount ?? 0,
+    totalCount,
   };
 }

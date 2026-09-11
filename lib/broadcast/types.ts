@@ -10,7 +10,6 @@ export type BroadcastRenderedMessage = {
 };
 
 export type BroadcastDeliveryResult = {
-  recipient: string;
   status: "sent" | "failed";
   error: string | null;
 };
@@ -40,7 +39,6 @@ export type BroadcastTargetSummary = {
 export interface BroadcastTarget {
   id: string;
   label: string;
-  description: string;
   countRecipients(): Promise<number>;
   resolveRecipients(): Promise<string[]>;
   renderMessage(message: BroadcastMessage): BroadcastRenderedMessage;

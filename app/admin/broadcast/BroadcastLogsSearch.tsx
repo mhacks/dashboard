@@ -1,11 +1,9 @@
 "use client";
 
-import { Loader2, SearchIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { buildBroadcastLogsQuery } from "@/lib/broadcast/log-filter";
+import { RecipientSearchField } from "./RecipientSearchField";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -23,30 +21,26 @@ export function BroadcastLogsSearch({
   const [query, setQuery] = useState(initialQuery);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const queryRef = useRef(initialQuery);
-  const committedQueryRef = useRef(initialQuery);
   const pendingSearchRef = useRef<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const isFocusedRef = useRef(false);
 
   const isLoading = isDebouncing || isSearching;
+  const committedQuery = initialQuery.trim();
 
   useEffect(() => {
-    committedQueryRef.current = initialQuery;
-
     if (
       pendingSearchRef.current !== null &&
-      initialQuery.trim() === pendingSearchRef.current
+      committedQuery === pendingSearchRef.current
     ) {
       pendingSearchRef.current = null;
       setIsSearching(false);
     }
 
     if (!isFocusedRef.current) {
-      queryRef.current = initialQuery;
       setQuery(initialQuery);
     }
-  }, [initialQuery]);
+  }, [committedQuery, initialQuery]);
 
   useEffect(() => {
     return () => {
@@ -59,7 +53,7 @@ export function BroadcastLogsSearch({
   function navigateToQuery(nextQuery: string) {
     const trimmed = nextQuery.trim();
 
-    if (trimmed === committedQueryRef.current.trim()) {
+    if (trimmed === committedQuery) {
       pendingSearchRef.current = null;
       setIsSearching(false);
       return;
@@ -67,7 +61,7 @@ export function BroadcastLogsSearch({
 
     pendingSearchRef.current = trimmed;
     setIsSearching(true);
-    router.push(`${pathname}${buildBroadcastLogsQuery(trimmed || undefined)}`);
+    router.push(`${pathname}${buildBroadcastLogsQuery(trimmed)}`);
   }
 
   function scheduleNavigation(nextQuery: string) {
@@ -75,8 +69,7 @@ export function BroadcastLogsSearch({
       window.clearTimeout(debounceRef.current);
     }
 
-    const trimmed = nextQuery.trim();
-    if (trimmed === committedQueryRef.current.trim()) {
+    if (nextQuery.trim() === committedQuery) {
       setIsDebouncing(false);
       return;
     }
@@ -96,13 +89,7 @@ export function BroadcastLogsSearch({
       setIsDebouncing(false);
     }
 
-    navigateToQuery(queryRef.current);
-  }
-
-  function handleChange(value: string) {
-    queryRef.current = value;
-    setQuery(value);
-    scheduleNavigation(value);
+    navigateToQuery(query);
   }
 
   const scopeLabel = `#${channelLabel}`;
@@ -114,33 +101,25 @@ export function BroadcastLogsSearch({
         <span className="font-medium text-foreground">{scopeLabel}</span>
       </p>
 
-      <div className="relative w-full">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(event) => handleChange(event.target.value)}
-          onFocus={() => {
-            isFocusedRef.current = true;
-          }}
-          onBlur={() => {
-            isFocusedRef.current = false;
-            flushNavigation();
-          }}
-          placeholder={`Search subject, body, or sender in ${scopeLabel}`}
-          aria-label={`Search broadcasts in ${scopeLabel}`}
-          aria-busy={isLoading}
-          className={cn(
-            "h-8 w-full pl-9 text-sm",
-            isLoading ? "pr-9" : undefined,
-          )}
-        />
-        {isLoading ? (
-          <Loader2
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
-          />
-        ) : null}
-      </div>
+      <RecipientSearchField
+        value={query}
+        onChange={(value) => {
+          setQuery(value);
+          scheduleNavigation(value);
+        }}
+        onFocus={() => {
+          isFocusedRef.current = true;
+        }}
+        onBlur={() => {
+          isFocusedRef.current = false;
+          flushNavigation();
+        }}
+        placeholder={`Search subject, body, or sender in ${scopeLabel}`}
+        aria-label={`Search broadcasts in ${scopeLabel}`}
+        isLoading={isLoading}
+        className="w-full"
+        inputClassName="pl-9 text-sm"
+      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
+import { broadcastErrorMessage } from "@/lib/broadcast/config";
 import {
   BROADCAST_PAUSED_NOTICE,
   broadcastProgressPercent,
@@ -48,24 +49,23 @@ import {
   retryFailedBroadcastAction,
   updateBroadcastOmittedAction,
 } from "./actions";
-import { broadcastErrorMessage } from "./broadcast-utils";
 import { RecipientSearchField } from "./RecipientSearchField";
 import { runBroadcastLoop } from "./run-broadcast-loop";
 import { useRecipientSelection } from "./use-recipient-selection";
 
 type DeliveryTab = "failed" | "omitted" | "delivered";
 
+function matchesSearch(value: string, query: string) {
+  return query === "" || value.toLowerCase().includes(query);
+}
+
 function CopyRecipientButton({ recipient }: { recipient: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copyRecipient() {
-    try {
-      await navigator.clipboard.writeText(recipient);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
+    await navigator.clipboard.writeText(recipient);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   return (
@@ -193,25 +193,27 @@ function ErrorFilterMenu({
         <PopoverHeader className="flex-row items-center justify-between gap-2 border-b px-3 py-2 text-xs">
           <PopoverTitle>Filter by error</PopoverTitle>
           <div className="flex items-center gap-2 text-[11px]">
-            <button
+            <Button
               type="button"
-              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              variant="ghost"
+              size="xs"
               disabled={allSelected}
               onClick={onSelectAll}
             >
               Select all
-            </button>
+            </Button>
             <span className="text-muted-foreground" aria-hidden="true">
               ·
             </span>
-            <button
+            <Button
               type="button"
-              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              variant="ghost"
+              size="xs"
               disabled={selectedErrors.size === 0}
               onClick={onClear}
             >
               Clear
-            </button>
+            </Button>
           </div>
         </PopoverHeader>
         <div className="max-h-64 overflow-y-auto overscroll-y-contain">
@@ -263,9 +265,9 @@ function FailureListPanel({
   failures: BroadcastFailure[];
   mode: "retry" | "omitted";
   interactive: boolean;
-  selectedRecipients?: Set<string>;
-  onToggleRecipient?: (recipient: string, selected: boolean) => void;
-  onSetSelection?: (recipients: string[]) => void;
+  selectedRecipients: Set<string>;
+  onToggleRecipient: (recipient: string, selected: boolean) => void;
+  onSetSelection: (recipients: string[]) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const errorFilters = useRecipientSelection();
@@ -298,8 +300,8 @@ function FailureListPanel({
       }
 
       return (
-        failure.recipient.toLowerCase().includes(query) ||
-        failure.error.toLowerCase().includes(query)
+        matchesSearch(failure.recipient, query) ||
+        matchesSearch(failure.error, query)
       );
     });
   }, [errorFilters.selected, failures, searchQuery]);
@@ -307,22 +309,18 @@ function FailureListPanel({
   const visibleRecipients = filteredFailures.map(
     (failure) => failure.recipient,
   );
-  const usingSubset = (selectedRecipients?.size ?? 0) > 0;
+  const usingSubset = selectedRecipients.size > 0;
   const selectedVisibleCount = visibleRecipients.filter((recipient) =>
-    selectedRecipients?.has(recipient),
+    selectedRecipients.has(recipient),
   ).length;
   const selectedCount = failures.filter((failure) =>
-    selectedRecipients?.has(failure.recipient),
+    selectedRecipients.has(failure.recipient),
   ).length;
   const allVisibleSelected =
     visibleRecipients.length > 0 &&
-    visibleRecipients.every((recipient) => selectedRecipients?.has(recipient));
+    visibleRecipients.every((recipient) => selectedRecipients.has(recipient));
 
   function selectVisible() {
-    if (!selectedRecipients || !onSetSelection) {
-      return;
-    }
-
     const next = new Set(selectedRecipients);
     for (const recipient of visibleRecipients) {
       next.add(recipient);
@@ -331,10 +329,6 @@ function FailureListPanel({
   }
 
   function deselectVisible() {
-    if (!selectedRecipients || !onSetSelection) {
-      return;
-    }
-
     const visibleSet = new Set(visibleRecipients);
     onSetSelection(
       Array.from(selectedRecipients).filter(
@@ -426,29 +420,31 @@ function FailureListPanel({
             )}
           </p>
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
-            <button
+            <Button
               type="button"
-              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              variant="ghost"
+              size="xs"
               disabled={allVisibleSelected || visibleRecipients.length === 0}
               onClick={selectVisible}
             >
               {searchQuery || errorFilters.selected.size > 0
                 ? "Select visible"
                 : "Select all"}
-            </button>
+            </Button>
             <span className="text-muted-foreground" aria-hidden="true">
               ·
             </span>
-            <button
+            <Button
               type="button"
-              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              variant="ghost"
+              size="xs"
               disabled={selectedVisibleCount === 0}
               onClick={deselectVisible}
             >
               {searchQuery || errorFilters.selected.size > 0
                 ? "Deselect visible"
                 : "Deselect all"}
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
@@ -464,11 +460,11 @@ function FailureListPanel({
               <FailureDeliveryRow
                 key={failure.recipient}
                 failure={failure}
-                selected={selectedRecipients?.has(failure.recipient)}
+                selected={selectedRecipients.has(failure.recipient)}
                 usingSubset={usingSubset}
                 interactive={interactive}
                 onToggleSelected={(checked) =>
-                  onToggleRecipient?.(failure.recipient, checked)
+                  onToggleRecipient(failure.recipient, checked)
                 }
                 checkboxLabel={
                   mode === "retry"
@@ -493,9 +489,7 @@ function DeliveredPanel({ recipients }: { recipients: string[] }) {
       return recipients;
     }
 
-    return recipients.filter((recipient) =>
-      recipient.toLowerCase().includes(query),
-    );
+    return recipients.filter((recipient) => matchesSearch(recipient, query));
   }, [recipients, searchQuery]);
 
   if (recipients.length === 0) {
@@ -566,7 +560,7 @@ export function BroadcastDeliveryDetails({
     details?.status === "complete" && details.failedCount > 0;
   const retryFailures = details?.retryFailures ?? [];
   const omittedFailures = details?.omittedFailures ?? [];
-  const readOnlyFailures = details?.failures ?? [];
+  const omittedRecipients = omittedFailures.map((failure) => failure.recipient);
   const failedCount = retryFailures.length;
   const selectedCount = retrySelection.selected.size;
   const selectedOmittedCount = omittedSelection.selected.size;
@@ -614,25 +608,21 @@ export function BroadcastDeliveryDetails({
   }
 
   function omitRecipients(recipients: string[]) {
-    if (recipients.length === 0 || !details) {
+    if (recipients.length === 0) {
       return;
     }
 
-    const nextOmitted = new Set(details.omittedTo);
-    for (const recipient of recipients) {
-      nextOmitted.add(recipient);
-    }
-    persistOmitted(Array.from(nextOmitted));
+    persistOmitted([...new Set([...omittedRecipients, ...recipients])]);
   }
 
   function includeRecipients(recipients: string[]) {
-    if (recipients.length === 0 || !details) {
+    if (recipients.length === 0) {
       return;
     }
 
     const removeSet = new Set(recipients);
     persistOmitted(
-      details.omittedTo.filter((recipient) => !removeSet.has(recipient)),
+      omittedRecipients.filter((recipient) => !removeSet.has(recipient)),
     );
   }
 
@@ -777,7 +767,6 @@ export function BroadcastDeliveryDetails({
       >
         {children}
       </button>
-
       <AlertDialog open={open} onOpenChange={handleOpenChange}>
         <AlertDialogContent className="!flex h-[85vh] max-h-[92vh] w-[min(96rem,calc(100vw-2rem))] !max-w-none flex-col gap-0 overflow-hidden p-0">
           <AlertDialogTitle className="sr-only">
@@ -837,8 +826,7 @@ export function BroadcastDeliveryDetails({
                 >
                   <TabsList className="w-full shrink-0">
                     <TabsTrigger value="failed" className="flex-1">
-                      Failed (
-                      {canSelectForRetry ? failedCount : details.failedCount})
+                      Failed ({failedCount})
                     </TabsTrigger>
                     <TabsTrigger value="omitted" className="flex-1">
                       Omitted ({omittedCount})
@@ -853,9 +841,7 @@ export function BroadcastDeliveryDetails({
                     className="mt-0 flex min-h-0 flex-1 flex-col"
                   >
                     <FailureListPanel
-                      failures={
-                        canSelectForRetry ? retryFailures : readOnlyFailures
-                      }
+                      failures={retryFailures}
                       mode="retry"
                       interactive={
                         canSelectForRetry && !isRetrying && !isSavingOmitted
@@ -864,14 +850,6 @@ export function BroadcastDeliveryDetails({
                       onToggleRecipient={retrySelection.toggle}
                       onSetSelection={retrySelection.setRecipients}
                     />
-
-                    {details.status === "sending" &&
-                    details.failedCount > details.failures.length ? (
-                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">
-                        Showing the most recent failure details while delivery
-                        is in progress.
-                      </p>
-                    ) : null}
                   </TabsContent>
 
                   <TabsContent

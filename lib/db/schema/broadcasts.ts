@@ -99,6 +99,4 @@ export const broadcastDeliveries = pgTable(
 ).enableRLS();
 
 export type BroadcastLogRow = typeof broadcastLogs.$inferSelect;
-export type NewBroadcastLog = typeof broadcastLogs.$inferInsert;
 export type BroadcastDeliveryRow = typeof broadcastDeliveries.$inferSelect;
-export type NewBroadcastDelivery = typeof broadcastDeliveries.$inferInsert;

@@ -111,6 +111,7 @@ export function BroadcastMessageFeedPanel({
           pageIndex,
           BROADCAST_LOGS_PAGE_SIZE,
           buildBroadcastLogsFilter(channelTargetId, searchQuery),
+          { includeCount: false },
         );
 
         const batch = [...result.items].reverse();

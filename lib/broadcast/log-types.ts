@@ -20,8 +20,6 @@ export type BroadcastDeliveryDetails = {
   failedCount: number;
   pendingCount: number;
   deliveredTo: string[];
-  omittedTo: string[];
-  failures: BroadcastFailure[];
   retryFailures: BroadcastFailure[];
   omittedFailures: BroadcastFailure[];
 };

@@ -1,5 +1,6 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { sendEmail } from "@/lib/aws/ses";
+import { broadcastErrorMessage } from "@/lib/broadcast/config";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { escapeHtml, renderHtmlEmail } from "@/lib/email/render";
@@ -10,10 +11,14 @@ import type {
   BroadcastTarget,
 } from "@/lib/broadcast/types";
 
+const hackerRecipientFilter = and(
+  eq(users.role, "hacker"),
+  sql`length(btrim(${users.email})) > 0`,
+);
+
 export const hackerEmailTarget: BroadcastTarget = {
   id: "email:hacker",
   label: "Hacker Emails",
-  description: "Send an email to every user with the hacker role.",
   countRecipients,
   resolveRecipients,
   renderMessage,
@@ -24,7 +29,7 @@ async function countRecipients() {
   const [{ value }] = await db
     .select({ value: count() })
     .from(users)
-    .where(eq(users.role, "hacker"));
+    .where(hackerRecipientFilter);
 
   return value;
 }
@@ -33,11 +38,9 @@ async function resolveRecipients() {
   const emailRows = await db
     .select({ email: users.email })
     .from(users)
-    .where(eq(users.role, "hacker"));
+    .where(hackerRecipientFilter);
 
-  return emailRows
-    .map((row) => row.email.trim().toLowerCase())
-    .filter((email) => email.length > 0);
+  return emailRows.map((row) => row.email.trim().toLowerCase());
 }
 
 function renderMessage(message: BroadcastMessage): BroadcastRenderedMessage {
@@ -70,15 +73,13 @@ async function deliver(
     });
 
     return {
-      recipient,
       status: "sent",
       error: null,
     };
   } catch (error) {
     return {
-      recipient,
       status: "failed",
-      error: error instanceof Error ? error.message : "Unknown email error",
+      error: broadcastErrorMessage(error, "Unknown email error"),
     };
   }
 }

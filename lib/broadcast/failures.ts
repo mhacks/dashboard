@@ -1,28 +1,18 @@
 import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
 import { broadcastDeliveryProgress } from "@/lib/broadcast/progress";
 import type { BroadcastFailure } from "@/lib/broadcast/types";
+import type { BroadcastDeliveryRow } from "@/lib/db/schema/broadcasts";
 
-export type BroadcastDeliveryRecord = {
-  recipient: string;
-  status: string;
-  error: string | null;
-  omitted: boolean;
-};
-
-function toFailure(delivery: BroadcastDeliveryRecord): BroadcastFailure {
-  return {
-    recipient: delivery.recipient,
-    error: delivery.error ?? "Delivery failed",
-  };
-}
+export type BroadcastDeliveryRecord = Pick<
+  BroadcastDeliveryRow,
+  "recipient" | "status" | "error" | "omitted"
+>;
 
 export function categorizeBroadcastDeliveries(
   logStatus: string,
   deliveries: BroadcastDeliveryRecord[],
 ) {
   const deliveredTo: string[] = [];
-  const omittedTo: string[] = [];
-  const recordedFailures: BroadcastFailure[] = [];
   const retryFailures: BroadcastFailure[] = [];
   const omittedFailures: BroadcastFailure[] = [];
 
@@ -36,24 +26,19 @@ export function categorizeBroadcastDeliveries(
       continue;
     }
 
-    const failure = toFailure(delivery);
-    recordedFailures.push(failure);
+    const failure = {
+      recipient: delivery.recipient,
+      error: delivery.error ?? "Delivery failed",
+    };
 
     if (delivery.omitted) {
-      omittedTo.push(delivery.recipient);
       omittedFailures.push(failure);
     } else {
       retryFailures.push(failure);
     }
   }
 
-  return {
-    deliveredTo,
-    omittedTo,
-    failures: recordedFailures,
-    retryFailures,
-    omittedFailures,
-  };
+  return { deliveredTo, retryFailures, omittedFailures };
 }
 
 export function buildBroadcastDeliveryDetails(
@@ -67,7 +52,7 @@ export function buildBroadcastDeliveryDetails(
 ): BroadcastDeliveryDetails {
   const { totalRecipients, sentCount, failedCount, pendingCount } =
     broadcastDeliveryProgress(log);
-  const { deliveredTo, omittedTo, failures, retryFailures, omittedFailures } =
+  const { deliveredTo, retryFailures, omittedFailures } =
     categorizeBroadcastDeliveries(log.status, deliveries);
 
   return {
@@ -77,8 +62,6 @@ export function buildBroadcastDeliveryDetails(
     failedCount,
     pendingCount,
     deliveredTo,
-    omittedTo,
-    failures,
     retryFailures,
     omittedFailures,
   };

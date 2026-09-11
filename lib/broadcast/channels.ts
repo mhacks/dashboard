@@ -14,16 +14,8 @@ export function channelSlugToTargetId(channelSlug: string) {
   )}`;
 }
 
-export function broadcastChannelLabel(label: string) {
-  return label.replace(/\s*\([^)]*\)\s*$/, "").trim();
-}
-
 export function sumBroadcastRecipientCounts(
   targets: { recipientCount: number }[],
 ) {
   return targets.reduce((sum, target) => sum + target.recipientCount, 0);
-}
-
-export function getBroadcastChannelPath(targetId: string) {
-  return `/admin/broadcast/${targetToChannelSlug(targetId)}`;
 }

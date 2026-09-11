@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HashIcon } from "lucide-react";
-import {
-  broadcastChannelLabel,
-  getBroadcastChannelPath,
-} from "@/lib/broadcast/channels";
+import { targetToChannelSlug } from "@/lib/broadcast/channels";
 import type { BroadcastTargetSummary } from "@/lib/broadcast/types";
 import { cn } from "@/lib/utils";
 
@@ -15,8 +12,8 @@ function channelNavItems(targets: BroadcastTargetSummary[]) {
     { id: null, href: "/admin/broadcast", label: "Global", count: null },
     ...targets.map((target) => ({
       id: target.id,
-      href: getBroadcastChannelPath(target.id),
-      label: broadcastChannelLabel(target.label),
+      href: `/admin/broadcast/${targetToChannelSlug(target.id)}`,
+      label: target.label,
       count: target.recipientCount,
     })),
   ];
