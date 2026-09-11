@@ -11,34 +11,33 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   ArrowUpRight,
-  Award,
   BookOpen,
+  CalendarPlus,
   CalendarDays,
   ChevronRight,
-  Coins,
   ExternalLink,
   House,
-  Lock,
   MapPin,
   Megaphone,
   Search,
+  Share2,
   Trophy,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
 } from "@/components/ui/drawer";
 import {
   DAY_PICKER_GLASS_CLASS,
@@ -47,13 +46,27 @@ import {
   LIQUID_GLASS_PILL_CLASS,
 } from "@/lib/glass";
 import { useScrollDirection } from "@/lib/landing/useScrollDirection";
+import type {
+  GuideLink,
+  LiveAnnouncement,
+  LiveEvent,
+  LiveSiteSettings,
+  Prize,
+} from "@/lib/live/types";
 import { cn } from "@/lib/utils";
-import type { LiveEvent } from "./schedule";
-
-const EVENT_TIME_ZONE = "America/Detroit";
 
 type LiveEventsProps = {
+  announcements: readonly LiveAnnouncement[];
   events: readonly LiveEvent[];
+  guideLinks: readonly GuideLink[];
+  prizes: readonly Prize[];
+  settings: LiveSiteSettings;
+};
+
+type ComingSoonContent = {
+  eyebrow: string;
+  title: string;
+  description: string;
 };
 
 function useCurrentTime(intervalMs: number, enabled = true) {
@@ -75,32 +88,20 @@ function useCurrentTime(intervalMs: number, enabled = true) {
   return now;
 }
 
-const dayLabelFormatter = new Intl.DateTimeFormat("en-US", {
-  weekday: "long",
-  month: "long",
-  day: "numeric",
-  timeZone: EVENT_TIME_ZONE,
-});
+function timeFormatter(timezone: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
+}
 
-const timeFormatter = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: EVENT_TIME_ZONE,
-});
-
-const dateRangeFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  month: "short",
-  timeZone: EVENT_TIME_ZONE,
-  year: "numeric",
-});
-
-function dayKey(isoDate: string) {
+function dayKey(isoDate: string, timezone: string) {
   const date = new Date(isoDate);
   const parts = new Intl.DateTimeFormat("en-US", {
     day: "2-digit",
     month: "2-digit",
-    timeZone: EVENT_TIME_ZONE,
+    timeZone: timezone,
     year: "numeric",
   }).formatToParts(date);
 
@@ -110,18 +111,24 @@ function dayKey(isoDate: string) {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-function formatEventTime(event: LiveEvent) {
-  const start = timeFormatter.format(new Date(event.startsAt));
+function formatEventTime(event: LiveEvent, timezone: string) {
+  const formatter = timeFormatter(timezone);
+  const start = formatter.format(new Date(event.startsAt));
   if (!event.endsAt) return start;
-  return `${start} – ${timeFormatter.format(new Date(event.endsAt))}`;
+  return `${start} – ${formatter.format(new Date(event.endsAt))}`;
 }
 
-function formatScheduleRange(events: readonly LiveEvent[]) {
+function formatScheduleRange(events: readonly LiveEvent[], timezone: string) {
   const first = events[0];
   const last = events.at(-1);
   if (!first || !last) return null;
 
-  return dateRangeFormatter
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: timezone,
+    year: "numeric",
+  })
     .formatRange(new Date(first.startsAt), new Date(last.startsAt))
     .replace(/\s*–\s*/u, " – ");
 }
@@ -137,11 +144,18 @@ function getEventStatus(event: LiveEvent, now: number | null) {
   return "Past" as const;
 }
 
-function groupEvents(events: readonly LiveEvent[]) {
+function groupEvents(events: readonly LiveEvent[], timezone: string) {
+  const dayLabelFormatter = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: timezone,
+  });
+
   return events.reduce<
     Array<{ key: string; label: string; events: LiveEvent[] }>
   >((days, event) => {
-    const key = dayKey(event.startsAt);
+    const key = dayKey(event.startsAt, timezone);
     const existing = days.find((day) => day.key === key);
 
     if (existing) {
@@ -183,439 +197,7 @@ function StatusLabel({
   return null;
 }
 
-type PredictionStatus = "open" | "locked" | "resolved";
-type PredictionOutcome = { id: string; label: string; pool: number };
-type Prediction = {
-  id: string;
-  category: string;
-  question: string;
-  status: PredictionStatus;
-  closesAt: string;
-  outcomes: PredictionOutcome[];
-  winningOutcomeId?: string;
-};
-
-const STARTING_BALANCE = 500;
-const BET_PRESETS = [10, 50, 100, 250] as const;
-
-const placeholderPredictions: Prediction[] = [
-  {
-    id: "pred-submissions",
-    category: "Hackathon",
-    question: "How many teams will submit before the deadline?",
-    status: "open",
-    closesAt: "2026-10-04T12:30:00-04:00",
-    outcomes: [
-      { id: "a", label: "Under 200", pool: 3_400 },
-      { id: "b", label: "200 – 300", pool: 8_720 },
-      { id: "c", label: "300 – 400", pool: 4_150 },
-      { id: "d", label: "Over 400", pool: 1_200 },
-    ],
-  },
-];
-
-type UserBet = { outcomeId: string; amount: number };
-
-function formatClosesIn(iso: string, now: number) {
-  const diff = new Date(iso).getTime() - now;
-  if (diff <= 0) return "Closed";
-  const mins = Math.round(diff / 60_000);
-  if (mins < 60) return `Closes in ${mins}m`;
-  const hours = Math.round(diff / 3_600_000);
-  if (hours < 24) return `Closes in ${hours}h`;
-  const days = Math.round(diff / 86_400_000);
-  return `Closes in ${days}d`;
-}
-
-function LivePredictions({ items }: { items: Prediction[] }) {
-  const [balance, setBalance] = useState(STARTING_BALANCE);
-  const [bets, setBets] = useState<Record<string, UserBet>>({});
-  const [pools, setPools] = useState<Record<string, Record<string, number>>>(
-    () =>
-      Object.fromEntries(
-        items.map((p) => [
-          p.id,
-          Object.fromEntries(p.outcomes.map((o) => [o.id, o.pool])),
-        ]),
-      ),
-  );
-  const [selection, setSelection] = useState<Record<string, string>>({});
-  const [amounts, setAmounts] = useState<Record<string, number>>({});
-  const now = useCurrentTime(30_000);
-
-  if (items.length === 0) return null;
-
-  const active = items[0]!;
-  const activePool = pools[active.id]!;
-  const total = Object.values(activePool).reduce((a, b) => a + b, 0);
-  const myBet = bets[active.id];
-  const selected = selection[active.id] ?? null;
-  const bet = amounts[active.id] ?? 50;
-
-  const oddsFor = (outcomeId: string) => {
-    const pool = activePool[outcomeId] ?? 0;
-    if (pool === 0) return total > 0 ? total : 1;
-    return total / pool;
-  };
-
-  const clampBet = (n: number) => Math.max(1, Math.min(balance, Math.round(n)));
-
-  const handleSelect = (outcomeId: string) => {
-    if (active.status !== "open" || myBet) return;
-    setSelection((s) => ({ ...s, [active.id]: outcomeId }));
-  };
-
-  const handleBetAmount = (n: number) => {
-    setAmounts((a) => ({ ...a, [active.id]: clampBet(n) }));
-  };
-
-  const handlePlaceBet = () => {
-    if (active.status !== "open" || myBet || !selected) return;
-    const amt = clampBet(bet);
-    if (amt > balance) return;
-    setBets((b) => ({
-      ...b,
-      [active.id]: { outcomeId: selected, amount: amt },
-    }));
-    setBalance((b) => b - amt);
-    setPools((p) => ({
-      ...p,
-      [active.id]: {
-        ...p[active.id]!,
-        [selected]: (p[active.id]![selected] ?? 0) + amt,
-      },
-    }));
-  };
-
-  return (
-    <section aria-label="Live predictions" className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-red-hat text-sm font-semibold uppercase tracking-[0.18em] text-olive">
-          Live Predictions
-        </h2>
-
-        <div
-          className={cn(
-            LIQUID_GLASS_PILL_CLASS,
-            "font-red-hat inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-olive",
-          )}
-        >
-          <Coins className="size-3.5" />
-          <span className="tabular-nums">{balance.toLocaleString()}</span>
-          <span className="text-olive">coins</span>
-        </div>
-      </div>
-
-      <motion.article
-        key={active.id}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        className={cn(LIQUID_GLASS_CARD_CLASS, "rounded-lg p-5 sm:p-6")}
-      >
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-red-hat rounded-full bg-olive/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-olive">
-              {active.category}
-            </span>
-            {active.status === "open" ? (
-              <span className="font-red-hat rounded-full bg-sage/40 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-olive">
-                Betting open
-              </span>
-            ) : active.status === "locked" ? (
-              <span className="font-red-hat inline-flex items-center gap-1 rounded-full bg-olive/12 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-olive">
-                <Lock className="size-3" />
-                Locked
-              </span>
-            ) : (
-              <span className="font-red-hat inline-flex items-center gap-1 rounded-full bg-sage/45 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-olive">
-                <Trophy className="size-3" />
-                Resolved
-              </span>
-            )}
-            <span className="font-red-hat text-[11px] font-medium text-ink/80 tabular-nums">
-              {total.toLocaleString()} coins in pool
-            </span>
-          </div>
-          <span className="font-red-hat text-[11px] font-semibold uppercase tracking-wider text-ink/75">
-            {active.status === "open" && now
-              ? formatClosesIn(active.closesAt, now)
-              : active.status === "locked"
-                ? "Awaiting result"
-                : "Payout complete"}
-          </span>
-        </div>
-
-        <h3 className="font-red-hat text-lg font-semibold leading-snug text-ink sm:text-xl">
-          {active.question}
-        </h3>
-
-        <div className="mt-4 space-y-2">
-          {active.outcomes.map((outcome) => {
-            const pool = activePool[outcome.id] ?? 0;
-            const pct = total > 0 ? (pool / total) * 100 : 0;
-            const odds = oddsFor(outcome.id);
-            const isSelected = selected === outcome.id;
-            const isMyBet = myBet?.outcomeId === outcome.id;
-            const isWinner =
-              active.status === "resolved" &&
-              active.winningOutcomeId === outcome.id;
-            const isLoser =
-              active.status === "resolved" &&
-              active.winningOutcomeId !== outcome.id;
-            const canClick = active.status === "open" && !myBet;
-
-            return (
-              <button
-                key={outcome.id}
-                type="button"
-                onClick={() => handleSelect(outcome.id)}
-                disabled={!canClick}
-                className={cn(
-                  "group relative w-full overflow-hidden rounded-md border border-olive/12 bg-white/45 px-4 py-3 text-left transition-all duration-200",
-                  canClick &&
-                    "cursor-pointer hover:-translate-y-0.5 hover:border-olive/30 hover:bg-white/70",
-                  isSelected && "border-olive/50 bg-white/75",
-                  isMyBet && "border-olive/55",
-                  isWinner && "border-olive/45",
-                  isLoser && "opacity-55",
-                )}
-              >
-                <motion.span
-                  aria-hidden
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.55, ease: "easeOut" }}
-                  className={cn(
-                    "absolute inset-y-0 left-0",
-                    isWinner
-                      ? "bg-sage/45"
-                      : isMyBet
-                        ? "bg-olive/22"
-                        : "bg-sage/28",
-                  )}
-                />
-                <div className="relative flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    {isWinner ? (
-                      <Trophy className="size-4 shrink-0 text-olive" />
-                    ) : null}
-                    <span
-                      className={cn(
-                        "font-red-hat text-sm font-medium text-ink sm:text-base",
-                        isMyBet && "text-olive",
-                      )}
-                    >
-                      {outcome.label}
-                    </span>
-                    {isMyBet ? (
-                      <span className="font-red-hat rounded-full bg-olive/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-olive">
-                        Your bet
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="font-red-hat text-[11px] font-semibold uppercase tracking-wider text-ink/75 tabular-nums">
-                      {odds.toFixed(2)}×
-                    </span>
-                    <span className="font-red-hat text-sm tabular-nums text-ink/75 sm:text-base">
-                      {pct.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {active.status === "open" && !myBet ? (
-          <div className="mt-4 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {BET_PRESETS.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => handleBetAmount(n)}
-                  disabled={n > balance}
-                  className={cn(
-                    "font-red-hat rounded-full border border-olive/15 bg-white/40 px-3 py-1 text-xs font-semibold text-olive transition-colors hover:border-olive/35 hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/40",
-                    bet === n && "border-olive/45 bg-olive/12 text-olive",
-                  )}
-                >
-                  {n}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => handleBetAmount(balance)}
-                className="font-red-hat rounded-full border border-olive/15 bg-white/40 px-3 py-1 text-xs font-semibold text-olive transition-colors hover:border-olive/35 hover:bg-white/70"
-              >
-                All in
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex flex-1 items-center gap-1 rounded-full border border-olive/15 bg-white/50 px-1">
-                <button
-                  type="button"
-                  onClick={() => handleBetAmount(bet - 10)}
-                  className="font-red-hat rounded-full px-3 py-1.5 text-lg text-olive"
-                  aria-label="Decrease bet"
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  aria-label="Bet amount"
-                  min={1}
-                  max={balance}
-                  value={bet}
-                  onChange={(e) => handleBetAmount(Number(e.target.value) || 1)}
-                  className="font-red-hat w-full bg-transparent text-center text-sm font-semibold text-ink tabular-nums outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleBetAmount(bet + 10)}
-                  className="font-red-hat rounded-full px-3 py-1.5 text-lg text-olive"
-                  aria-label="Increase bet"
-                >
-                  +
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={handlePlaceBet}
-                disabled={!selected || bet < 1 || bet > balance}
-                className="font-red-hat inline-flex items-center gap-1.5 rounded-full bg-olive px-4 py-2 text-sm font-semibold text-cream shadow-[0_6px_16px_-4px_rgba(31,42,22,0.35)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
-              >
-                <Coins className="size-4" />
-                Place bet
-              </button>
-            </div>
-
-            <p className="font-red-hat text-[11px] font-medium uppercase tracking-wider text-ink/75">
-              {selected
-                ? `Potential payout: ${Math.round(bet * oddsFor(selected)).toLocaleString()} coins`
-                : "Pick an outcome above to place a bet"}
-            </p>
-          </div>
-        ) : null}
-
-        {myBet && active.status === "open" ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-olive/15 bg-white/50 px-4 py-3">
-            <p className="font-red-hat text-xs text-ink/75">
-              <span className="font-semibold text-olive">
-                {myBet.amount} coins
-              </span>{" "}
-              on{" "}
-              <span className="font-semibold text-ink">
-                {active.outcomes.find((o) => o.id === myBet.outcomeId)?.label}
-              </span>
-            </p>
-            <span className="font-red-hat text-sm tabular-nums text-olive">
-              +
-              {Math.round(
-                myBet.amount * oddsFor(myBet.outcomeId),
-              ).toLocaleString()}{" "}
-              if wins
-            </span>
-          </div>
-        ) : null}
-
-        {active.status === "locked" ? (
-          <div className="mt-4 rounded-2xl border border-olive/15 bg-white/40 px-4 py-3">
-            <p className="font-red-hat text-xs text-ink/75">
-              Bets are locked. MHacks will resolve this poll once the outcome is
-              official.
-            </p>
-          </div>
-        ) : null}
-
-        {active.status === "resolved" && myBet ? (
-          <div
-            className={cn(
-              "mt-4 rounded-2xl border px-4 py-3",
-              myBet.outcomeId === active.winningOutcomeId
-                ? "border-olive/25 bg-sage/25"
-                : "border-olive/15 bg-white/40",
-            )}
-          >
-            {myBet.outcomeId === active.winningOutcomeId ? (
-              <p className="font-red-hat text-xs text-olive">
-                You won{" "}
-                <span className="font-semibold">
-                  {Math.round(
-                    myBet.amount * oddsFor(myBet.outcomeId),
-                  ).toLocaleString()}{" "}
-                  coins
-                </span>
-                . Nice call.
-              </p>
-            ) : (
-              <p className="font-red-hat text-xs text-ink/75">
-                You lost {myBet.amount} coins on this one. Better luck next
-                round.
-              </p>
-            )}
-          </div>
-        ) : null}
-      </motion.article>
-    </section>
-  );
-}
-
-type Announcement = {
-  id: string;
-  title: string;
-  body: string;
-  postedAt?: string;
-  tag?: string;
-};
-
-const placeholderAnnouncements: Announcement[] = [
-  {
-    id: "sample-announcement",
-    tag: "Sample",
-    title: "Sample announcement",
-    body: "Important event updates, schedule changes, and attendee reminders will appear here during the hackathon.",
-  },
-];
-
-const CURRENCY_EARNERS = [
-  {
-    label: "Workshop streak",
-    reward: "40-120",
-    detail:
-      "Teams earn a multiplier when multiple teammates check into back-to-back sessions.",
-  },
-  {
-    label: "Mini competitions",
-    reward: "25-150",
-    detail:
-      "Side quests like scavenger hunts, blackjack, and sponsor challenges break attendance ties.",
-  },
-  {
-    label: "Project milestones",
-    reward: "50-250",
-    detail:
-      "Track wins, demo readiness, and sponsor engagement can feed the team balance.",
-  },
-] as const;
-
-const CURRENCY_REWARDS = [
-  { item: "Matcha", price: 80 },
-  { item: "Late-night ramen", price: 120 },
-  { item: "Bucket hat", price: 300 },
-  { item: "Bonus raffle entry", price: 450 },
-] as const;
-
-const LEADERBOARD_PREVIEW = [
-  { team: "North Quad Night Shift", coins: 1240, delta: "+220" },
-  { team: "The Arboretum", coins: 1110, delta: "+180" },
-  { team: "Maize Market Makers", coins: 980, delta: "+340" },
-] as const;
-
-function QuickLinks() {
+function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
   return (
     <nav aria-label="Quick links" className="flex flex-wrap gap-2">
       <Link
@@ -626,130 +208,27 @@ function QuickLinks() {
         <span>MHacks home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </Link>
-      <Link
-        href="#"
-        aria-disabled="true"
-        onClick={(event) => event.preventDefault()}
-        className="liquid-glass-card font-red-hat inline-flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink/65 sm:text-base"
-      >
-        <ExternalLink className="size-4 text-olive/65" />
-        <span>Devpost</span>
-        <span className="text-xs font-medium uppercase text-ink/45">
-          Coming soon
+      {devpostUrl ? (
+        <a
+          href={devpostUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base"
+        >
+          <ExternalLink className="size-4 text-olive" />
+          <span>Devpost</span>
+          <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+        </a>
+      ) : (
+        <span className="liquid-glass-card font-red-hat inline-flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink/65 sm:text-base">
+          <ExternalLink className="size-4 text-olive/65" />
+          <span>Devpost</span>
+          <span className="text-xs font-medium uppercase text-ink/45">
+            Coming soon
+          </span>
         </span>
-      </Link>
+      )}
     </nav>
-  );
-}
-
-function CurrencySystem() {
-  return (
-    <section aria-label="Currency system" className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="font-red-hat inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-olive">
-            <Coins className="size-4" />
-            Currency
-          </h2>
-          <p className="font-red-hat mt-1 text-base leading-6 text-ink/75">
-            Earn at events, spend on small rewards, or save as a team for the
-            currency track.
-          </p>
-        </div>
-        <div
-          className={cn(
-            LIQUID_GLASS_PILL_CLASS,
-            "font-red-hat inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider text-olive",
-          )}
-        >
-          Concept preview
-        </div>
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
-        <div
-          className={cn(LIQUID_GLASS_PANEL_CLASS, "self-start rounded-md p-5")}
-        >
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="font-red-hat text-lg font-bold text-ink">
-              Ways to earn
-            </h3>
-            <span className="font-red-hat rounded-full bg-sage/30 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-olive">
-              Team weighted
-            </span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {CURRENCY_EARNERS.map((item) => (
-              <article
-                key={item.label}
-                className="rounded-md border border-olive/10 bg-white/45 p-4"
-              >
-                <div className="font-red-hat text-2xl text-olive tabular-nums">
-                  {item.reward}
-                </div>
-                <h4 className="font-red-hat mt-2 text-sm font-semibold text-ink">
-                  {item.label}
-                </h4>
-                <p className="font-red-hat mt-1 text-xs leading-5 text-ink/75">
-                  {item.detail}
-                </p>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <div className={cn(LIQUID_GLASS_CARD_CLASS, "rounded-md p-5")}>
-            <h3 className="font-red-hat mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.16em] text-olive">
-              <Award className="size-4" />
-              Spend menu
-            </h3>
-            <div className="space-y-2">
-              {CURRENCY_REWARDS.map((reward) => (
-                <div
-                  key={reward.item}
-                  className="flex items-center justify-between gap-3 rounded-md bg-white/45 px-3 py-2"
-                >
-                  <span className="font-red-hat text-sm font-medium text-ink">
-                    {reward.item}
-                  </span>
-                  <span className="font-red-hat text-sm text-olive tabular-nums">
-                    {reward.price}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className={cn(LIQUID_GLASS_CARD_CLASS, "rounded-md p-5")}>
-            <h3 className="font-red-hat mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.16em] text-olive">
-              <Trophy className="size-4" />
-              Leaderboard
-            </h3>
-            <div className="space-y-2">
-              {LEADERBOARD_PREVIEW.map((team, index) => (
-                <div
-                  key={team.team}
-                  className="flex items-center justify-between gap-3 rounded-md bg-white/45 px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <div className="font-red-hat truncate text-sm font-medium text-ink">
-                      {index + 1}. {team.team}
-                    </div>
-                    <div className="font-red-hat text-[11px] text-ink/70">
-                      {team.delta} today
-                    </div>
-                  </div>
-                  <span className="font-red-hat text-sm text-olive tabular-nums">
-                    {team.coins.toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -768,7 +247,7 @@ function formatPostedAt(iso: string, now: number) {
   return relativeTimeFormatter.format(days, "day");
 }
 
-function Announcements({ items }: { items: Announcement[] }) {
+function Announcements({ items }: { items: readonly LiveAnnouncement[] }) {
   const now = useCurrentTime(60_000);
 
   if (items.length === 0) return null;
@@ -788,13 +267,18 @@ function Announcements({ items }: { items: Announcement[] }) {
             className="liquid-glass-card flex w-full flex-col gap-2 rounded-md p-4"
           >
             <div className="flex items-center justify-between gap-2">
-              {item.tag ? (
-                <span className="font-red-hat rounded-full bg-sage/30 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-olive">
-                  {item.tag}
-                </span>
-              ) : (
-                <span />
-              )}
+              <span
+                className={cn(
+                  "font-red-hat rounded-md px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider",
+                  item.tone === "urgent"
+                    ? "bg-destructive/10 text-destructive"
+                    : item.tone === "important"
+                      ? "bg-amber-200/55 text-amber-950"
+                      : "bg-sage/30 text-olive",
+                )}
+              >
+                {item.tone}
+              </span>
               {item.postedAt && now ? (
                 <span className="font-red-hat text-[11px] text-ink/70">
                   {formatPostedAt(item.postedAt, now)}
@@ -814,7 +298,162 @@ function Announcements({ items }: { items: Announcement[] }) {
   );
 }
 
-type LiveView = "timeline" | "predictions" | "guide" | "prizes";
+function ComingSoonState({
+  content,
+  icon: Icon,
+}: {
+  content: ComingSoonContent;
+  icon: LucideIcon;
+}) {
+  return (
+    <section
+      className={cn(
+        LIQUID_GLASS_PANEL_CLASS,
+        "flex min-h-72 flex-col items-center justify-center rounded-md px-6 py-14 text-center",
+      )}
+      aria-labelledby={`${content.eyebrow.toLowerCase().replaceAll(" ", "-")}-coming-soon`}
+    >
+      <div className="flex size-12 items-center justify-center rounded-md border border-olive/15 bg-white/55 text-olive">
+        <Icon className="size-5" />
+      </div>
+      <p className="font-red-hat mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-olive">
+        {content.eyebrow}
+      </p>
+      <h2
+        id={`${content.eyebrow.toLowerCase().replaceAll(" ", "-")}-coming-soon`}
+        className="font-red-hat mt-2 text-2xl font-bold text-ink sm:text-3xl"
+      >
+        {content.title}
+      </h2>
+      <p className="font-red-hat mt-3 max-w-xl text-sm leading-6 text-ink/75 sm:text-base">
+        {content.description}
+      </p>
+    </section>
+  );
+}
+
+function GuidePanel({
+  emptyState,
+  links,
+}: {
+  emptyState: ComingSoonContent;
+  links: readonly GuideLink[];
+}) {
+  if (links.length === 0) {
+    return <ComingSoonState content={emptyState} icon={BookOpen} />;
+  }
+
+  return (
+    <section aria-labelledby="guide-heading" className="space-y-4">
+      <h2
+        id="guide-heading"
+        className="font-red-hat text-3xl font-bold text-ink sm:text-4xl"
+      >
+        Hacker guide
+      </h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {links.map((link) => (
+          <a
+            key={link.id}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              LIQUID_GLASS_CARD_CLASS,
+              "group rounded-md p-5 transition-transform hover:-translate-y-0.5",
+            )}
+          >
+            <span className="font-red-hat mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-olive/75">
+              {link.category}
+            </span>
+            <span className="flex items-center justify-between gap-3">
+              <span className="font-red-hat text-lg font-semibold text-ink">
+                {link.title}
+              </span>
+              <ExternalLink className="size-4 shrink-0 text-olive" />
+            </span>
+            <span className="font-red-hat mt-2 block text-sm leading-6 text-ink/75">
+              {link.description}
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PrizesPanel({
+  emptyState,
+  prizes,
+}: {
+  emptyState: ComingSoonContent;
+  prizes: readonly Prize[];
+}) {
+  if (prizes.length === 0) {
+    return <ComingSoonState content={emptyState} icon={Trophy} />;
+  }
+
+  return (
+    <section aria-labelledby="prizes-heading" className="space-y-4">
+      <h2
+        id="prizes-heading"
+        className="font-red-hat text-3xl font-bold text-ink sm:text-4xl"
+      >
+        Prizes
+      </h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {prizes.map((prize) => (
+          <article
+            key={prize.id}
+            className={cn(LIQUID_GLASS_CARD_CLASS, "rounded-md p-5")}
+          >
+            {prize.sponsor ? (
+              <p className="font-red-hat text-xs font-semibold uppercase tracking-[0.16em] text-olive">
+                {prize.sponsor}
+              </p>
+            ) : null}
+            <h3 className="font-red-hat mt-1 text-lg font-semibold text-ink">
+              {prize.title}
+            </h3>
+            {prize.value ? (
+              <p className="font-red-hat mt-1 text-sm font-semibold text-olive">
+                {prize.value}
+              </p>
+            ) : null}
+            <p className="font-red-hat mt-2 text-sm leading-6 text-ink/75">
+              {prize.description}
+            </p>
+            {prize.eligibility ? (
+              <p className="font-red-hat mt-3 text-xs leading-5 text-ink/70">
+                <span className="font-semibold text-ink">Eligibility:</span>{" "}
+                {prize.eligibility}
+              </p>
+            ) : null}
+            {prize.judgingCriteria ? (
+              <p className="font-red-hat mt-2 text-xs leading-5 text-ink/70">
+                <span className="font-semibold text-ink">Judging:</span>{" "}
+                {prize.judgingCriteria}
+              </p>
+            ) : null}
+            {prize.href ? (
+              <a
+                href={prize.href}
+                target="_blank"
+                rel="noreferrer"
+                className="font-red-hat mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-olive hover:text-moss"
+              >
+                View details
+                <ExternalLink className="size-3.5" />
+              </a>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type LiveView = "timeline" | "guide" | "prizes";
 
 function LiveViewTabs({
   active,
@@ -832,7 +471,6 @@ function LiveViewTabs({
   const containerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<LiveView, HTMLButtonElement | null>>({
     timeline: null,
-    predictions: null,
     guide: null,
     prizes: null,
   });
@@ -842,12 +480,6 @@ function LiveViewTabs({
       label: "Timeline",
       shortLabel: "Timeline",
       icon: CalendarDays,
-    },
-    {
-      id: "predictions" as const,
-      label: "Predictions",
-      shortLabel: "Predict",
-      icon: Coins,
     },
     {
       id: "guide" as const,
@@ -882,7 +514,7 @@ function LiveViewTabs({
       }
       aria-hidden={!interactive}
       className={cn(
-        "flex gap-5 overflow-x-auto [scrollbar-width:none] sm:gap-10 [&::-webkit-scrollbar]:hidden",
+        "flex gap-3 overflow-x-auto [scrollbar-width:none] sm:gap-10 [&::-webkit-scrollbar]:hidden",
         variant === "inline"
           ? "-mx-5 border-b border-olive/15 px-5 sm:mx-0 sm:px-0"
           : "gap-2 px-1 sm:justify-center sm:gap-10 sm:px-2",
@@ -908,13 +540,13 @@ function LiveViewTabs({
             className={cn(
               "font-red-hat relative inline-flex shrink-0 items-center gap-2 px-1 text-sm font-semibold whitespace-nowrap uppercase tracking-[0.14em] transition-colors",
               variant === "inline"
-                ? "h-12 sm:h-14 sm:text-base"
+                ? "h-12 text-[11px] tracking-[0.08em] sm:h-14 sm:text-base sm:tracking-[0.14em]"
                 : "h-11 gap-1.5 text-[11px] tracking-[0.08em] sm:h-12 sm:gap-2 sm:text-sm sm:tracking-[0.14em]",
               isActive ? "text-olive" : "text-ink/70 hover:text-ink",
             )}
             role="tab"
           >
-            <Icon className="size-4" />
+            <Icon className="size-3.5 sm:size-4" />
             {variant === "floating" ? (
               <>
                 <span className="sm:hidden">{shortLabel}</span>
@@ -1187,63 +819,158 @@ function DayPicker({
   );
 }
 
-function EventCard({ event, now }: { event: LiveEvent; now: number | null }) {
+function toCalendarTimestamp(iso: string) {
+  return new Date(iso)
+    .toISOString()
+    .replaceAll("-", "")
+    .replaceAll(":", "")
+    .replace(/\.\d{3}Z$/u, "Z");
+}
+
+function getCalendarUrl(event: LiveEvent) {
+  const start = new Date(event.startsAt);
+  const fallbackEnd = new Date(start.getTime() + 60 * 60 * 1_000);
+  const end = event.endsAt ? new Date(event.endsAt) : fallbackEnd;
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.name,
+    dates: `${toCalendarTimestamp(start.toISOString())}/${toCalendarTimestamp(end.toISOString())}`,
+    details: event.description,
+    location: event.location,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function getLocationUrl(event: LiveEvent) {
+  if (event.mapUrl) return event.mapUrl;
+  if (event.location.toLowerCase() === "devpost") return null;
+
+  const query = encodeURIComponent(`${event.location}, Ann Arbor, MI`);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
+function EventCard({
+  event,
+  now,
+  onSelect,
+  timezone,
+}: {
+  event: LiveEvent;
+  now: number | null;
+  onSelect: (event: LiveEvent) => void;
+  timezone: string;
+}) {
   const status = getEventStatus(event, now);
+  const formatter = timeFormatter(timezone);
 
   return (
-    <Drawer>
-      <DrawerTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "liquid-glass-card group relative w-full cursor-pointer overflow-hidden rounded-md text-left hover:-translate-y-0.5 sm:grid sm:grid-cols-[11rem_1fr_auto] sm:items-center sm:gap-6",
-            status === "Past" && "opacity-55",
-          )}
-        >
-          <div className="relative z-10 flex items-baseline gap-2 p-5 sm:flex-col sm:items-start sm:gap-1 sm:p-6 sm:pr-0">
-            <p className="font-red-hat text-2xl leading-none text-olive sm:text-3xl">
-              {timeFormatter.format(new Date(event.startsAt))}
-            </p>
-            {event.endsAt ? (
-              <p className="font-red-hat text-xs text-ink/70">
-                until {timeFormatter.format(new Date(event.endsAt))}
-              </p>
-            ) : null}
-          </div>
+    <button
+      id={`event-${event.slug}`}
+      type="button"
+      onClick={() => onSelect(event)}
+      className={cn(
+        "liquid-glass-card group relative w-full scroll-mt-28 cursor-pointer overflow-hidden rounded-md text-left hover:-translate-y-0.5 sm:grid sm:grid-cols-[11rem_1fr_auto] sm:items-center sm:gap-6",
+        status === "Past" && "opacity-55",
+      )}
+    >
+      <div className="relative z-10 flex items-baseline gap-2 p-5 sm:flex-col sm:items-start sm:gap-1 sm:p-6 sm:pr-0">
+        <p className="font-red-hat text-2xl leading-none text-olive sm:text-3xl">
+          {formatter.format(new Date(event.startsAt))}
+        </p>
+        {event.endsAt ? (
+          <p className="font-red-hat text-xs text-ink/70">
+            until {formatter.format(new Date(event.endsAt))}
+          </p>
+        ) : null}
+      </div>
 
-          <div className="relative z-10 min-w-0 px-5 pb-5 sm:px-0 sm:py-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-red-hat break-words text-lg font-semibold text-ink sm:text-xl">
-                {event.name}
-              </h3>
-              <StatusLabel status={status} />
-            </div>
+      <div className="relative z-10 min-w-0 px-5 pb-5 sm:px-0 sm:py-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-red-hat break-words text-lg font-semibold text-ink sm:text-xl">
+            {event.name}
+          </h3>
+          <StatusLabel status={status} />
+        </div>
 
-            <div className="font-red-hat mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink/75">
-              <span className="rounded-full bg-sage/30 px-2.5 py-0.5 text-[12px] font-medium text-olive">
-                {event.eventType}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="size-3.5 opacity-60" />
-                {event.location}
-              </span>
-            </div>
-          </div>
+        <div className="font-red-hat mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink/75">
+          <span className="rounded-full bg-sage/30 px-2.5 py-0.5 text-[12px] font-medium text-olive">
+            {event.eventType}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <MapPin className="size-3.5 opacity-60" />
+            {event.location}
+          </span>
+        </div>
+      </div>
 
-          <div className="relative z-10 hidden pr-6 sm:block">
-            <span className="font-red-hat inline-flex h-10 w-10 items-center justify-center rounded-full border border-olive/15 bg-white/40 text-olive transition-all duration-300 group-hover:border-olive/30 group-hover:bg-white/70">
-              <ChevronRight className="size-4" />
-            </span>
-          </div>
-        </button>
-      </DrawerTrigger>
+      <div className="relative z-10 hidden pr-6 sm:block">
+        <span className="font-red-hat inline-flex h-10 w-10 items-center justify-center rounded-md border border-olive/15 bg-white/40 text-olive transition-all duration-300 group-hover:border-olive/30 group-hover:bg-white/70">
+          <ChevronRight className="size-4" />
+        </span>
+      </div>
+    </button>
+  );
+}
 
+function EventDetailsDrawer({
+  event,
+  now,
+  onOpenChange,
+  open,
+  timezone,
+}: {
+  event: LiveEvent | null;
+  now: number | null;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  timezone: string;
+}) {
+  if (!event) return null;
+
+  const status = getEventStatus(event, now);
+  const locationUrl = getLocationUrl(event);
+
+  const shareEvent = async () => {
+    const url = new URL(window.location.href);
+    url.hash = `event-${event.slug}`;
+    const shareData = {
+      title: `${event.name} | MHacks Live`,
+      text: `${event.name} at ${formatEventTime(event, timezone)}`,
+      url: url.toString(),
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareData.url);
+      toast.success("Event link copied");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error("Could not share this event");
+    }
+  };
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent
         className={cn(
           LIQUID_GLASS_PANEL_CLASS,
-          "rounded-t-3xl border-olive/10 text-ink",
+          "!fixed overflow-y-auto rounded-t-2xl border-olive/10 text-ink",
         )}
       >
+        <Button
+          aria-label="Close event details"
+          className="absolute top-4 right-4 z-10 rounded-md text-ink/65 hover:bg-sage/30 hover:text-ink"
+          onClick={() => onOpenChange(false)}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <X />
+        </Button>
         <div className="mx-auto w-full max-w-2xl">
           <DrawerHeader className="text-left">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1256,19 +983,24 @@ function EventCard({ event, now }: { event: LiveEvent; now: number | null }) {
               {event.name}
             </DrawerTitle>
             <DrawerDescription className="font-red-hat text-sm text-ink/75">
-              {formatEventTime(event)} · {event.location}
+              {formatEventTime(event, timezone)} · {event.location}
             </DrawerDescription>
           </DrawerHeader>
 
           <div className="font-red-hat space-y-4 px-4 pb-2 text-sm text-ink/75">
-            <p className="leading-6">{event.description}</p>
-            <div className="grid gap-px overflow-hidden rounded-2xl border border-olive/10 bg-olive/5 sm:grid-cols-2">
+            {event.summary ? (
+              <p className="text-base font-medium leading-6 text-ink">
+                {event.summary}
+              </p>
+            ) : null}
+            <p className="whitespace-pre-line leading-6">{event.description}</p>
+            <div className="grid gap-px overflow-hidden rounded-md border border-olive/10 bg-olive/5 sm:grid-cols-2">
               <div className="bg-white/50 p-4">
                 <div className="text-[11px] font-medium uppercase tracking-wider text-ink/70">
                   Time
                 </div>
                 <div className="font-red-hat mt-1 font-medium text-ink">
-                  {formatEventTime(event)}
+                  {formatEventTime(event, timezone)}
                 </div>
               </div>
               <div className="bg-white/50 p-4">
@@ -1278,28 +1010,133 @@ function EventCard({ event, now }: { event: LiveEvent; now: number | null }) {
                 <div className="font-red-hat mt-1 font-medium text-ink">
                   {event.location}
                 </div>
+                {event.locationDetails ? (
+                  <div className="mt-1 text-xs leading-5 text-ink/65">
+                    {event.locationDetails}
+                  </div>
+                ) : null}
               </div>
+              {event.hostName ? (
+                <div className="bg-white/50 p-4">
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-ink/70">
+                    Host
+                  </div>
+                  <div className="font-red-hat mt-1 font-medium text-ink">
+                    {event.hostName}
+                  </div>
+                </div>
+              ) : null}
+              {event.audience || event.capacity ? (
+                <div className="bg-white/50 p-4">
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-ink/70">
+                    Attendees
+                  </div>
+                  <div className="font-red-hat mt-1 font-medium text-ink">
+                    {[
+                      event.audience,
+                      event.capacity ? `${event.capacity} spots` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </div>
+              ) : null}
             </div>
+
+            <section
+              aria-labelledby="event-actions-heading"
+              className="rounded-md border border-olive/12 bg-white/45 p-4"
+            >
+              <h3
+                id="event-actions-heading"
+                className="text-xs font-semibold uppercase tracking-[0.16em] text-olive"
+              >
+                Event actions
+              </h3>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-auto justify-between rounded-md border-olive/20 bg-white/55 px-3 py-2.5 text-olive hover:bg-white/85"
+                >
+                  <a
+                    href={getCalendarUrl(event)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <CalendarPlus className="size-4" />
+                      Add to calendar
+                    </span>
+                    <ExternalLink className="size-3.5 opacity-60" />
+                  </a>
+                </Button>
+
+                {locationUrl ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-auto justify-between rounded-md border-olive/20 bg-white/55 px-3 py-2.5 text-olive hover:bg-white/85"
+                  >
+                    <a href={locationUrl} target="_blank" rel="noreferrer">
+                      <span className="inline-flex items-center gap-2">
+                        <MapPin className="size-4" />
+                        Open location
+                      </span>
+                      <ExternalLink className="size-3.5 opacity-60" />
+                    </a>
+                  </Button>
+                ) : null}
+
+                {event.resources.map((resource) =>
+                  resource.href ? (
+                    <Button
+                      key={`${resource.kind}-${resource.label}`}
+                      asChild
+                      variant="outline"
+                      className="h-auto justify-between rounded-md border-olive/20 bg-white/55 px-3 py-2.5 text-olive hover:bg-white/85"
+                    >
+                      <a href={resource.href} target="_blank" rel="noreferrer">
+                        <span>{resource.label}</span>
+                        <ExternalLink className="size-3.5 opacity-60" />
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      key={`${resource.kind}-${resource.label}`}
+                      type="button"
+                      variant="outline"
+                      disabled
+                      className="h-auto justify-between rounded-md border-olive/15 bg-white/35 px-3 py-2.5 text-ink/55"
+                    >
+                      <span>{resource.label}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider">
+                        Coming soon
+                      </span>
+                    </Button>
+                  ),
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={shareEvent}
+                  className="h-auto justify-start rounded-md border-olive/20 bg-white/55 px-3 py-2.5 text-olive hover:bg-white/85"
+                >
+                  <Share2 className="size-4" />
+                  Share event
+                </Button>
+              </div>
+            </section>
           </div>
 
           <DrawerFooter className="sm:flex-row sm:justify-end">
-            {event.mapUrl ? (
-              <Button
-                asChild
-                variant="outline"
-                className="rounded-full border-olive/20 bg-white/50 text-olive hover:bg-white/80"
-              >
-                <a href={event.mapUrl} target="_blank" rel="noreferrer">
-                  Open map
-                  <ExternalLink className="size-4" />
-                </a>
-              </Button>
-            ) : null}
-            <DrawerClose asChild>
-              <Button className="rounded-full bg-olive text-cream hover:bg-moss">
-                Close
-              </Button>
-            </DrawerClose>
+            <Button
+              className="rounded-md bg-olive text-cream hover:bg-moss"
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
           </DrawerFooter>
         </div>
       </DrawerContent>
@@ -1307,11 +1144,19 @@ function EventCard({ event, now }: { event: LiveEvent; now: number | null }) {
   );
 }
 
-export function LiveEvents({ events }: LiveEventsProps) {
+export function LiveEvents({
+  announcements,
+  events,
+  guideLinks,
+  prizes,
+  settings,
+}: LiveEventsProps) {
   const [activeView, setActiveView] = useState<LiveView>("timeline");
   const [activeCategory, setActiveCategory] = useState("All");
   const [showPast, setShowPast] = useState(false);
   const [query, setQuery] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [eventDrawerOpen, setEventDrawerOpen] = useState(false);
   const [tabsPassed, setTabsPassed] = useState(false);
   const tabsAnchorRef = useRef<HTMLDivElement>(null);
   const scrollNavVisible = useScrollDirection({ threshold: 6, minScroll: 80 });
@@ -1363,16 +1208,75 @@ export function LiveEvents({ events }: LiveEventsProps) {
     });
   }, [events, matchesCategory, normalizedQuery, searchActive]);
 
-  const days = useMemo(() => groupEvents(visibleEvents), [visibleEvents]);
-  const allDays = useMemo(() => groupEvents(events), [events]);
+  const days = useMemo(
+    () => groupEvents(visibleEvents, settings.timezone),
+    [settings.timezone, visibleEvents],
+  );
+  const allDays = useMemo(
+    () => groupEvents(events, settings.timezone),
+    [events, settings.timezone],
+  );
+  const eventsById = useMemo(
+    () => new Map(events.map((event) => [event.id, event])),
+    [events],
+  );
+  const eventsBySlug = useMemo(
+    () => new Map(events.map((event) => [event.slug, event])),
+    [events],
+  );
 
   const [activeDay, setActiveDay] = useState(days[0]?.key ?? "");
+
+  useEffect(() => {
+    const syncEventFromHash = () => {
+      const hash = decodeURIComponent(window.location.hash.slice(1));
+      if (!hash.startsWith("event-")) {
+        setEventDrawerOpen(false);
+        return;
+      }
+
+      const event = eventsBySlug.get(hash.slice("event-".length));
+      if (!event) return;
+
+      setActiveView("timeline");
+      setActiveDay(dayKey(event.startsAt, settings.timezone));
+      setShowPast(true);
+      setSelectedEventId(event.id);
+      setEventDrawerOpen(true);
+    };
+
+    syncEventFromHash();
+    window.addEventListener("hashchange", syncEventFromHash);
+    return () => window.removeEventListener("hashchange", syncEventFromHash);
+  }, [eventsBySlug, settings.timezone]);
+
+  const openEvent = useCallback((event: LiveEvent) => {
+    setSelectedEventId(event.id);
+    setEventDrawerOpen(true);
+    const url = new URL(window.location.href);
+    url.hash = `event-${event.slug}`;
+    window.history.replaceState(null, "", url);
+  }, []);
+
+  const handleEventDrawerOpenChange = useCallback((open: boolean) => {
+    setEventDrawerOpen(open);
+    if (open) return;
+
+    const url = new URL(window.location.href);
+    if (url.hash.startsWith("#event-")) {
+      url.hash = "";
+      window.history.replaceState(null, "", url);
+    }
+  }, []);
 
   const currentDay = days.find((day) => day.key === activeDay) ?? days[0];
   const currentDayEvents = currentDay?.events.filter(matchesCategory) ?? [];
   const pastCount = events.length - visibleEvents.length;
-  const scheduleRange = formatScheduleRange(events);
+  const scheduleRange = formatScheduleRange(events, settings.timezone);
   const showFloatingNav = tabsPassed && scrollNavVisible;
+  const selectedEvent = selectedEventId
+    ? (eventsById.get(selectedEventId) ?? null)
+    : null;
 
   return (
     <main className="font-red-hat relative min-h-screen bg-paper text-ink">
@@ -1402,13 +1306,13 @@ export function LiveEvents({ events }: LiveEventsProps) {
                 "liquid-glass-surface-strong font-red-hat inline-flex items-center rounded-full border-olive/15 bg-paper/90 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
               )}
             >
-              MHacks Live
+              {settings.eventName}
             </span>
             <h1 className="font-red-hat mt-5 text-5xl font-black uppercase leading-[0.95] tracking-tight text-cream drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-7xl">
-              Timeline
+              {settings.heroTitle}
             </h1>
             <p className="font-red-hat mt-3 max-w-xl text-lg font-medium leading-7 text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] sm:text-xl">
-              Events, workshops, food, and deadlines for the weekend.
+              {settings.heroDescription}
             </p>
           </div>
 
@@ -1431,7 +1335,7 @@ export function LiveEvents({ events }: LiveEventsProps) {
 
       <section className="relative mx-auto -mt-10 max-w-5xl px-5 pb-20 sm:px-8">
         <div className="space-y-6 sm:space-y-8">
-          <QuickLinks />
+          <QuickLinks devpostUrl={settings.devpostUrl} />
           <div ref={tabsAnchorRef}>
             <LiveViewTabs
               active={activeView}
@@ -1460,7 +1364,8 @@ export function LiveEvents({ events }: LiveEventsProps) {
                       Schedule
                     </h2>
                     <p className="font-red-hat text-xs text-ink/70">
-                      Times shown in Eastern Time. Schedule subject to change.
+                      Times shown in {settings.timezone}. Schedule subject to
+                      change.
                     </p>
                   </div>
                   <p className="font-red-hat text-base text-ink/70 sm:text-lg">
@@ -1511,7 +1416,13 @@ export function LiveEvents({ events }: LiveEventsProps) {
                         className="space-y-3"
                       >
                         {searchResults.map((event) => (
-                          <EventCard key={event.id} event={event} now={now} />
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            now={now}
+                            onSelect={openEvent}
+                            timezone={settings.timezone}
+                          />
                         ))}
                       </motion.div>
                     ) : (
@@ -1552,7 +1463,13 @@ export function LiveEvents({ events }: LiveEventsProps) {
                         className="space-y-3"
                       >
                         {currentDayEvents.map((event) => (
-                          <EventCard key={event.id} event={event} now={now} />
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            now={now}
+                            onSelect={openEvent}
+                            timezone={settings.timezone}
+                          />
                         ))}
                       </motion.div>
                     ) : (
@@ -1588,20 +1505,7 @@ export function LiveEvents({ events }: LiveEventsProps) {
                 )}
               </section>
 
-              <Announcements items={placeholderAnnouncements} />
-            </motion.div>
-          ) : activeView === "predictions" ? (
-            <motion.div
-              id="predictions-panel"
-              role="tabpanel"
-              aria-labelledby="predictions-tab"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="space-y-9 sm:space-y-11"
-            >
-              <LivePredictions items={placeholderPredictions} />
-              <CurrencySystem />
+              <Announcements items={announcements} />
             </motion.div>
           ) : activeView === "guide" ? (
             <motion.div
@@ -1611,7 +1515,16 @@ export function LiveEvents({ events }: LiveEventsProps) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
-            />
+            >
+              <GuidePanel
+                emptyState={{
+                  eyebrow: "Hacker guide",
+                  title: settings.guideEmptyTitle,
+                  description: settings.guideEmptyDescription,
+                }}
+                links={guideLinks}
+              />
+            </motion.div>
           ) : (
             <motion.div
               id="prizes-panel"
@@ -1620,10 +1533,27 @@ export function LiveEvents({ events }: LiveEventsProps) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
-            />
+            >
+              <PrizesPanel
+                emptyState={{
+                  eyebrow: "Prizes",
+                  title: settings.prizesEmptyTitle,
+                  description: settings.prizesEmptyDescription,
+                }}
+                prizes={prizes}
+              />
+            </motion.div>
           )}
         </div>
       </section>
+
+      <EventDetailsDrawer
+        event={selectedEvent}
+        now={now}
+        open={eventDrawerOpen}
+        onOpenChange={handleEventDrawerOpenChange}
+        timezone={settings.timezone}
+      />
     </main>
   );
 }

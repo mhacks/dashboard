@@ -4,6 +4,7 @@ import * as applicationsSchema from "./schema/applications";
 import * as blacklistSchema from "./schema/blacklist";
 import * as emailSchema from "./schema/email";
 import * as eventsSchema from "./schema/events";
+import * as liveSchema from "./schema/live";
 import * as reimbursementsSchema from "./schema/reimbursements";
 import * as rsvpsSchema from "./schema/rsvps";
 import * as userInvitationsSchema from "./schema/user-invitations";
@@ -20,6 +21,7 @@ export const db = drizzle({
     ...blacklistSchema,
     ...emailSchema,
     ...eventsSchema,
+    ...liveSchema,
     ...reimbursementsSchema,
     ...rsvpsSchema,
     ...userInvitationsSchema,

@@ -5,6 +5,7 @@ import {
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
+  RadioTowerIcon,
   QrCodeIcon,
   TrophyIcon,
   UsersRoundIcon,
@@ -94,6 +95,12 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Events",
         description: "Create events, open and close scanners, export rosters.",
         icon: CalendarPlusIcon,
+      },
+      {
+        href: "/admin/live",
+        title: "Live site",
+        description: "Publish the schedule, announcements, guide, and prizes.",
+        icon: RadioTowerIcon,
       },
       {
         // The one link here that isn't under /admin — volunteers use it too,

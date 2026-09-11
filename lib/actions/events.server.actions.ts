@@ -237,6 +237,7 @@ export async function createEventAction(
   }
 
   revalidatePath("/admin/events");
+  revalidatePath("/admin/live");
   revalidatePath("/checkin");
   return { ok: true, slug: resolved };
 }

@@ -11,7 +11,7 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-import { authUid, authenticatedRole } from "drizzle-orm/supabase";
+import { anonRole, authUid, authenticatedRole } from "drizzle-orm/supabase";
 
 import { isEventStaff, isOrganizer } from "./rls";
 import { users } from "./users";
@@ -65,6 +65,15 @@ export const events = pgTable(
       for: "select",
       to: authenticatedRole,
       using: isEventStaff,
+    }),
+    pgPolicy("events_select_published_live", {
+      for: "select",
+      to: [anonRole, authenticatedRole],
+      using: sql`exists (
+        select 1 from public.live_event_details
+        where live_event_details.event_id = ${table.id}
+          and live_event_details.status = 'published'
+      )`,
     }),
     pgPolicy("events_insert_organizer", {
       for: "insert",
