@@ -28,6 +28,10 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
+function broadcastProgressKey(status: BroadcastSendStatus) {
+  return `${status.nextCursor}:${status.sentCount}:${status.failedCount}`;
+}
+
 export default function BroadcastForm({
   targets,
 }: {
@@ -60,6 +64,8 @@ export default function BroadcastForm({
     setStatus(currentStatus);
 
     for (let batch = 0; batch < 10_000; batch += 1) {
+      const progressBefore = broadcastProgressKey(currentStatus);
+
       currentStatus = await sendBroadcastBatchAction({
         broadcastId: currentStatus.broadcastId,
         cursor: currentStatus.nextCursor,
@@ -70,6 +76,13 @@ export default function BroadcastForm({
       );
 
       if (currentStatus.complete) {
+        break;
+      }
+
+      if (broadcastProgressKey(currentStatus) === progressBefore) {
+        setNotice(
+          "Broadcast paused while another send is in progress or the lease is active. Reload this page to resume from the last checkpoint.",
+        );
         break;
       }
     }
