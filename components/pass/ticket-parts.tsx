@@ -57,7 +57,8 @@ export function useTicketData(state: TicketState) {
     bars: barcodeFor(seed),
     stickers: placedStickers(state),
     bouquetArt: bouquetDef(state.bouquet)?.art ?? null,
-    bouquetUpload: state.bouquet === "upload" ? state.bouquetUpload : null,
+    bouquetUpload:
+      state.bouquetUploads.find((u) => u.id === state.bouquet)?.dataUrl ?? null,
     mark: ticketTheme(state.backdrop).mark,
   };
 }

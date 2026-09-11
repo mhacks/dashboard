@@ -1,11 +1,11 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
-import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
+import { isS3NotFound, s3, UPLOADS_BUCKET } from "@/lib/aws/s3";
 import {
   contentDispositionForReceipt,
   type RsvpReceiptContentType,
 } from "@/lib/rsvp/receipt";
-import { isS3NotFound, validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
+import { validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
 
 export type RsvpReceiptDownloadRecord = {
   key: string;
@@ -30,7 +30,7 @@ export async function createRsvpReceiptDownloadResponse(
   try {
     object = await s3.send(
       new GetObjectCommand({
-        Bucket: RESUMES_BUCKET,
+        Bucket: UPLOADS_BUCKET,
         Key: record.key,
       }),
     );

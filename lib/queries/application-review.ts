@@ -13,6 +13,7 @@ import {
   hackerReimbursements,
   reimbursementRegions,
 } from "@/lib/db/schema/reimbursements";
+import { hackerRsvps } from "@/lib/db/schema/rsvps";
 import { users } from "@/lib/db/schema/users";
 import {
   type AnalyticsBucket,
@@ -500,21 +501,31 @@ async function getBlacklistAnalytics(): Promise<BlacklistAnalytics> {
  */
 async function getReimbursementAnalytics(): Promise<ReimbursementAnalytics> {
   const awardAmount = reimbursementRegions.amountCents;
+  const actualSpendFilter = sql`${hackerReimbursements.status} = 'approved'
+    and ${hackerApplicants.decision} = 'early_rsvped'
+    and ${hackerRsvps.travelPlan} = 'reimbursement'`;
 
   const [totals] = await db
     .select({
       totalRequests: sql<number>`count(*)::int`,
       reimbursedUsers: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'approved')::int`,
+      actualReimbursedUsers: sql<number>`count(*) filter (where ${actualSpendFilter})::int`,
       deniedRequests: sql<number>`count(*) filter (where ${hackerReimbursements.status} = 'denied')::int`,
       // coalesce because SUM over zero rows is NULL, not 0.
       spentCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${hackerReimbursements.status} = 'approved'), 0)::int`,
+      actualSpentCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${actualSpendFilter}), 0)::int`,
       deniedCents: sql<number>`coalesce(sum(${awardAmount}) filter (where ${hackerReimbursements.status} = 'denied'), 0)::int`,
     })
     .from(hackerReimbursements)
     .innerJoin(
       reimbursementRegions,
       eq(hackerReimbursements.region, reimbursementRegions.region),
-    );
+    )
+    .leftJoin(
+      hackerApplicants,
+      eq(hackerApplicants.userId, hackerReimbursements.userId),
+    )
+    .leftJoin(hackerRsvps, eq(hackerRsvps.applicationId, hackerApplicants.id));
 
   const regionRows = await db
     .select({
@@ -538,7 +549,9 @@ async function getReimbursementAnalytics(): Promise<ReimbursementAnalytics> {
 
   return {
     reimbursedUsers,
+    actualReimbursedUsers: totals?.actualReimbursedUsers ?? 0,
     spentCents,
+    actualSpentCents: totals?.actualSpentCents ?? 0,
     deniedRequests: totals?.deniedRequests ?? 0,
     deniedCents: totals?.deniedCents ?? 0,
     totalRequests,

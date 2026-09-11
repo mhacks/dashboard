@@ -9,12 +9,7 @@ export class EmailCampaignError extends Error {
 
 const hardMaxRecipients = 2000;
 const hardMaxBatchSize = 25;
-const staleSendingLeaseMs = 30 * 60 * 1000;
-
-export const emailCampaignSender = {
-  fromName: "MHacks Team",
-  fromEmail: "hackathon@mhacks.org",
-} as const;
+const staleSendingLeaseMs = 5 * 60 * 1000;
 
 export const emailCampaignLimits = {
   maxRecipients: hardMaxRecipients,
