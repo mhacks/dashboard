@@ -9,6 +9,7 @@ import { AdminPageShell } from "../components/admin-page-shell";
 import BroadcastForm from "./BroadcastForm";
 import { BroadcastLogsPagination } from "./BroadcastLogsPagination";
 import { BroadcastMessageFeed } from "./BroadcastMessageFeed";
+import { BroadcastMessageScroll } from "./BroadcastMessageScroll";
 
 export default async function BroadcastPage({
   searchParams,
@@ -29,24 +30,28 @@ export default async function BroadcastPage({
 
   return (
     <AdminPageShell width="wide">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 lg:max-w-4xl">
+      <div className="mx-auto flex h-[calc(100dvh-2.5rem)] w-full max-w-3xl flex-col gap-3 lg:max-w-4xl">
         <AdminPageHeader
           title="Broadcast"
           description={`One-way announcements to ${totalRecipients} recipients across ${targets.length} target${targets.length === 1 ? "" : "s"}. Use sparingly.`}
         />
 
-        <section className="flex flex-col gap-4">
-          <BroadcastMessageFeed logs={logs} targetLabels={targetLabels} />
-          {totalCount > BROADCAST_LOGS_PAGE_SIZE ? (
-            <BroadcastLogsPagination
-              pageIndex={pageIndex}
-              totalCount={totalCount}
-              pageSize={BROADCAST_LOGS_PAGE_SIZE}
-            />
-          ) : null}
-        </section>
+        <BroadcastMessageScroll
+          scrollKey={`${pageIndex}:${logs[logs.length - 1]?.id ?? "empty"}`}
+        >
+          <div className="flex flex-col gap-2 px-1 pb-2">
+            {totalCount > BROADCAST_LOGS_PAGE_SIZE ? (
+              <BroadcastLogsPagination
+                pageIndex={pageIndex}
+                totalCount={totalCount}
+                pageSize={BROADCAST_LOGS_PAGE_SIZE}
+              />
+            ) : null}
+            <BroadcastMessageFeed logs={logs} targetLabels={targetLabels} />
+          </div>
+        </BroadcastMessageScroll>
 
-        <div className="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-4 backdrop-blur supports-backdrop-filter:bg-background/80 md:-mx-6 md:px-6">
+        <div className="shrink-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/80 md:-mx-6 md:px-6">
           <BroadcastForm targets={targets} />
         </div>
       </div>
