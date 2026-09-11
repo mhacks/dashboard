@@ -27,6 +27,7 @@ export const broadcastLogs = pgTable(
     deliveredTo: jsonb("delivered_to").$type<string[]>().notNull().default([]),
     failedCount: integer("failed_count").notNull().default(0),
     nextCursor: integer("next_cursor").notNull().default(0),
+    processingRecipient: text("processing_recipient"),
     recentFailures: jsonb("recent_failures")
       .$type<BroadcastFailure[]>()
       .notNull()

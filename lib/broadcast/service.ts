@@ -216,17 +216,6 @@ async function claimNextBroadcastRecipient(
 
     const recipients = broadcast.recipients ?? [];
 
-    if (broadcast.nextCursor >= recipients.length) {
-      if (broadcast.status !== "complete") {
-        await tx
-          .update(broadcastLogs)
-          .set({ status: "complete" })
-          .where(eq(broadcastLogs.id, broadcastId));
-      }
-
-      return { kind: "complete" };
-    }
-
     if (
       expectedCursor !== undefined &&
       broadcast.nextCursor !== expectedCursor
@@ -234,16 +223,20 @@ async function claimNextBroadcastRecipient(
       return { kind: "misaligned" };
     }
 
+    if (broadcast.processingRecipient) {
+      return { kind: "claimed", recipient: broadcast.processingRecipient };
+    }
+
+    if (broadcast.nextCursor >= recipients.length) {
+      await finalizeBroadcastIfComplete(tx, broadcast);
+      return { kind: "complete" };
+    }
+
     const recipient = recipients[broadcast.nextCursor];
-    const nextCursor = broadcast.nextCursor + 1;
-    const complete = nextCursor >= recipients.length;
 
     await tx
       .update(broadcastLogs)
-      .set({
-        nextCursor,
-        status: complete ? "complete" : "sending",
-      })
+      .set({ processingRecipient: recipient })
       .where(eq(broadcastLogs.id, broadcastId));
 
     return { kind: "claimed", recipient };
@@ -263,14 +256,24 @@ async function recordBroadcastDelivery(
       .limit(1)
       .for("update");
 
-    if (!broadcast) {
+    if (!broadcast || broadcast.processingRecipient !== recipient) {
       return;
     }
+
+    const recipients = broadcast.recipients ?? [];
+    const nextCursor = broadcast.nextCursor + 1;
+    const complete = nextCursor >= recipients.length;
+    const baseUpdate = {
+      nextCursor,
+      processingRecipient: null,
+      status: complete ? "complete" : "sending",
+    };
 
     if (result.status === "sent") {
       await tx
         .update(broadcastLogs)
         .set({
+          ...baseUpdate,
           deliveredTo: [...(broadcast.deliveredTo ?? []), recipient],
         })
         .where(eq(broadcastLogs.id, broadcastId));
@@ -288,11 +291,34 @@ async function recordBroadcastDelivery(
     await tx
       .update(broadcastLogs)
       .set({
+        ...baseUpdate,
         failedCount: broadcast.failedCount + 1,
         recentFailures: recentFailures.slice(-10),
       })
       .where(eq(broadcastLogs.id, broadcastId));
   });
+}
+
+async function finalizeBroadcastIfComplete(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  broadcast: BroadcastLogRow,
+) {
+  const recipients = broadcast.recipients ?? [];
+  const accounted =
+    (broadcast.deliveredTo?.length ?? 0) + broadcast.failedCount;
+
+  if (
+    broadcast.status === "complete" ||
+    broadcast.nextCursor < recipients.length ||
+    accounted < recipients.length
+  ) {
+    return;
+  }
+
+  await tx
+    .update(broadcastLogs)
+    .set({ status: "complete", processingRecipient: null })
+    .where(eq(broadcastLogs.id, broadcast.id));
 }
 
 function buildBroadcastStatus(broadcast: BroadcastLogRow): BroadcastSendStatus {
