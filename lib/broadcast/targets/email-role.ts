@@ -1,4 +1,4 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, countDistinct, eq, sql } from "drizzle-orm";
 import {
   deliverBroadcastEmail,
   renderBroadcastEmail,
@@ -56,7 +56,7 @@ function createHackerEmailTarget(): BroadcastTarget {
     countRecipients: async () => {
       const [{ value }] = await db
         .select({
-          value: sql<number>`count(distinct ${users.id})`,
+          value: countDistinct(users.id),
         })
         .from(users)
         .innerJoin(hackerApplicants, hackerApplicantJoin)
