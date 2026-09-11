@@ -208,8 +208,9 @@ export async function exportBroadcastRecipients(broadcastId: string) {
 export async function findActiveBroadcast() {
   const organizer = await requireOrganizer();
 
-  await expireStaleBroadcasts();
-
+  // Resume is a read path: a lapsed lease only means the prior tab lost its
+  // claim, not that the broadcast is abandoned. Expiring here would mark the
+  // row dead on reload and block sendBroadcastBatch from continuing it.
   const [broadcast] = await db
     .select()
     .from(broadcastLogs)
