@@ -45,6 +45,11 @@ export const broadcastOmittedSchema = z.object({
   omittedTo: z.array(z.string().trim().min(1)),
 });
 
+export const broadcastRetryResultsSchema = z.object({
+  originalBroadcastId: z.string().uuid(),
+  retryBroadcastId: z.string().uuid(),
+});
+
 export async function startBroadcast(input: unknown) {
   const organizer = await requireOrganizer();
   const body = broadcastStartSchema.parse(input);
@@ -466,6 +471,105 @@ export async function retryFailedBroadcast(input: unknown) {
     totalRecipients: failedRecipients.length,
     status: buildBroadcastStatus(broadcast),
   };
+}
+
+export async function applyBroadcastRetryResults(input: unknown) {
+  const organizer = await requireOrganizer();
+  const body = broadcastRetryResultsSchema.parse(input);
+
+  const [original, retry] = await Promise.all([
+    db
+      .select()
+      .from(broadcastLogs)
+      .where(eq(broadcastLogs.id, body.originalBroadcastId))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select()
+      .from(broadcastLogs)
+      .where(eq(broadcastLogs.id, body.retryBroadcastId))
+      .limit(1)
+      .then((rows) => rows[0]),
+  ]);
+
+  if (!original || original.sentBy !== organizer.id) {
+    throw new EmailCampaignError("Broadcast not found", 404);
+  }
+
+  if (!retry || retry.sentBy !== organizer.id) {
+    throw new EmailCampaignError("Retry broadcast not found", 404);
+  }
+
+  if (retry.status !== "complete") {
+    throw new EmailCampaignError("Retry broadcast is not complete yet.", 409);
+  }
+
+  const originalFailures = listBroadcastFailures(
+    original.recipients ?? [],
+    original.deliveredTo ?? [],
+    original.recentFailures ?? [],
+  );
+  const eligibleRecipients = new Set(
+    splitBroadcastFailures(
+      originalFailures,
+      original.omittedTo ?? [],
+    ).retryFailures.map((failure) => failure.recipient),
+  );
+
+  for (const recipient of retry.recipients ?? []) {
+    if (!eligibleRecipients.has(recipient)) {
+      throw new EmailCampaignError(
+        `Recipient is not eligible for retry merge: ${recipient}`,
+        400,
+      );
+    }
+  }
+
+  const deliveredTo = [
+    ...new Set([...(original.deliveredTo ?? []), ...(retry.deliveredTo ?? [])]),
+  ];
+  const recentFailuresByRecipient = new Map(
+    (original.recentFailures ?? []).map((failure) => [
+      failure.recipient,
+      failure.error,
+    ]),
+  );
+
+  for (const failure of retry.recentFailures ?? []) {
+    recentFailuresByRecipient.set(failure.recipient, failure.error);
+  }
+
+  for (const recipient of retry.deliveredTo ?? []) {
+    recentFailuresByRecipient.delete(recipient);
+  }
+
+  const recentFailures = Array.from(recentFailuresByRecipient.entries()).map(
+    ([recipient, error]) => ({
+      recipient,
+      error,
+    }),
+  );
+  const failedCount = listBroadcastFailures(
+    original.recipients ?? [],
+    deliveredTo,
+    recentFailures,
+  ).length;
+
+  const [updated] = await db
+    .update(broadcastLogs)
+    .set({
+      deliveredTo,
+      recentFailures,
+      failedCount,
+    })
+    .where(eq(broadcastLogs.id, original.id))
+    .returning();
+
+  if (!updated) {
+    throw new EmailCampaignError("Broadcast not found", 404);
+  }
+
+  return buildBroadcastDeliveryDetails(updated);
 }
 
 export async function findActiveBroadcast() {

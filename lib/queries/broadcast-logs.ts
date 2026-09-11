@@ -1,4 +1,5 @@
 import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { countRemainingFailures } from "@/lib/broadcast/failures";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   type BroadcastLogListItem,
@@ -55,6 +56,8 @@ export async function listBroadcastLogs(
       deliveredTo: broadcastLogs.deliveredTo,
       recipients: broadcastLogs.recipients,
       failedCount: broadcastLogs.failedCount,
+      omittedTo: broadcastLogs.omittedTo,
+      recentFailures: broadcastLogs.recentFailures,
       operatorEmail: users.email,
       totalCount: sql<number>`count(*) over()::int`,
     })
@@ -75,7 +78,14 @@ export async function listBroadcastLogs(
       status: row.status,
       deliveredTo: row.deliveredTo,
       recipients: row.recipients,
-      failedCount: row.failedCount,
+      failedCount: countRemainingFailures({
+        status: row.status,
+        recipients: row.recipients,
+        deliveredTo: row.deliveredTo,
+        omittedTo: row.omittedTo,
+        failedCount: row.failedCount,
+        recentFailures: row.recentFailures,
+      }),
       operatorEmail: row.operatorEmail,
     })) satisfies BroadcastLogListItem[],
     totalCount: rows[0]?.totalCount ?? 0,

@@ -2,6 +2,7 @@
 
 import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import {
+  applyBroadcastRetryResults,
   findActiveBroadcast,
   getBroadcastDeliveryDetails,
   retryFailedBroadcast,
@@ -40,6 +41,10 @@ export async function retryFailedBroadcastAction(input: unknown) {
 
 export async function updateBroadcastOmittedAction(input: unknown) {
   return updateBroadcastOmitted(input);
+}
+
+export async function applyBroadcastRetryResultsAction(input: unknown) {
+  return applyBroadcastRetryResults(input);
 }
 
 export async function listBroadcastLogsAction(

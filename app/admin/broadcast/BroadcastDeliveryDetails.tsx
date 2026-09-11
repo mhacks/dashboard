@@ -40,6 +40,7 @@ import {
   XIcon,
 } from "lucide-react";
 import {
+  applyBroadcastRetryResultsAction,
   getBroadcastDeliveryDetailsAction,
   retryFailedBroadcastAction,
   updateBroadcastOmittedAction,
@@ -194,7 +195,7 @@ function ErrorFilterMenu({
     function updatePosition() {
       const trigger = triggerRef.current;
       const container = portalContainer;
-      if (!trigger) {
+      if (!trigger || !container) {
         return;
       }
 
@@ -673,9 +674,11 @@ function LoadingState() {
 export function BroadcastDeliveryDetails({
   broadcastId,
   children,
+  onFailedCountChange,
 }: {
   broadcastId: string;
   children: React.ReactNode;
+  onFailedCountChange?: (broadcastId: string, failedCount: number) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -767,6 +770,7 @@ export function BroadcastDeliveryDetails({
           omittedTo,
         });
         setDetails(result);
+        onFailedCountChange?.(broadcastId, result.retryFailures.length);
         setSelectedRecipients((current) => {
           const next = new Set(current);
           for (const recipient of current) {
@@ -928,6 +932,15 @@ export function BroadcastDeliveryDetails({
         setRetryStatus(finalStatus);
 
         if (finalStatus.complete) {
+          const updatedDetails = await applyBroadcastRetryResultsAction({
+            originalBroadcastId: broadcastId,
+            retryBroadcastId: started.broadcastId,
+          });
+          setDetails(updatedDetails);
+          onFailedCountChange?.(
+            broadcastId,
+            updatedDetails.retryFailures.length,
+          );
           setRetryNotice(
             finalStatus.failedCount > 0
               ? `Retry finished with ${finalStatus.sentCount} sent and ${finalStatus.failedCount} failed.`
