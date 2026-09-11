@@ -29,6 +29,8 @@ function TeamInviteEmail({
   return (
     <Html lang="en">
       <Head>
+        {/* Email HTML, not a Next.js page — same font links as otp.html. */}
+        {/* eslint-disable @next/next/no-page-custom-font */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -39,6 +41,7 @@ function TeamInviteEmail({
           href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;700;800;900&display=swap"
           rel="stylesheet"
         />
+        {/* eslint-enable @next/next/no-page-custom-font */}
       </Head>
       <Preview>{previewText}</Preview>
       <Body style={body}>
