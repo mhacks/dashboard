@@ -42,6 +42,24 @@ export async function startBroadcast(input: unknown) {
     );
   }
 
+  const [activeBroadcast] = await db
+    .select({ id: broadcastLogs.id })
+    .from(broadcastLogs)
+    .where(
+      and(
+        eq(broadcastLogs.sentBy, organizer.id),
+        eq(broadcastLogs.status, "sending"),
+      ),
+    )
+    .limit(1);
+
+  if (activeBroadcast) {
+    throw new EmailCampaignError(
+      "You already have a broadcast in progress. Resume or wait for it to finish before starting another.",
+      409,
+    );
+  }
+
   const [broadcast] = await db
     .insert(broadcastLogs)
     .values({
