@@ -1,6 +1,6 @@
 {
-  "id": "9265443c-0001-4714-9bf4-2ab22eedbab5",
-  "prevId": "77b9c5dc-8e8c-4f37-aee1-42b199559f46",
+  "id": "75a6d756-230e-47c0-ad4b-6ad4550f4b53",
+  "prevId": "ecda95c8-594c-4274-9786-271933b8dbb2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -263,7 +263,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"hacker_applicants\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
         },
         "hacker_applicants_update_organizer": {
           "name": "hacker_applicants_update_organizer",
@@ -272,8 +272,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -495,7 +495,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "hacker_application_review_events_organizer_insert": {
           "name": "hacker_application_review_events_organizer_insert",
@@ -504,7 +504,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -626,7 +626,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "hacker_application_reviews_organizer_insert": {
           "name": "hacker_application_reviews_organizer_insert",
@@ -635,7 +635,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "hacker_application_reviews_organizer_update": {
           "name": "hacker_application_reviews_organizer_update",
@@ -644,8 +644,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -780,7 +780,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "blacklist_organizer_insert": {
           "name": "blacklist_organizer_insert",
@@ -789,7 +789,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "blacklist_organizer_update": {
           "name": "blacklist_organizer_update",
@@ -798,8 +798,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         },
         "blacklist_organizer_delete": {
           "name": "blacklist_organizer_delete",
@@ -808,7 +808,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {
@@ -817,72 +817,6 @@
           "value": "\"blacklist\".\"full_name\" is not null or \"blacklist\".\"phone_number\" is not null"
         }
       },
-      "isRLSEnabled": true
-    },
-    "public.broadcast_logs": {
-      "name": "broadcast_logs",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "subject": {
-          "name": "subject",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sent_at": {
-          "name": "sent_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "sent_by": {
-          "name": "sent_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "broadcasted_to_email": {
-          "name": "broadcasted_to_email",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "broadcast_logs_sent_by_users_id_fk": {
-          "name": "broadcast_logs_sent_by_users_id_fk",
-          "tableFrom": "broadcast_logs",
-          "tableTo": "users",
-          "columnsFrom": [
-            "sent_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.email_send_deliveries": {
@@ -1005,7 +939,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_send_deliveries_organizer_insert": {
           "name": "email_send_deliveries_organizer_insert",
@@ -1014,7 +948,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_send_deliveries_organizer_update": {
           "name": "email_send_deliveries_organizer_update",
@@ -1023,8 +957,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1220,7 +1154,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_send_runs_organizer_insert": {
           "name": "email_send_runs_organizer_insert",
@@ -1229,7 +1163,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_send_runs_organizer_update": {
           "name": "email_send_runs_organizer_update",
@@ -1238,8 +1172,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1403,7 +1337,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_templates_organizer_insert": {
           "name": "email_templates_organizer_insert",
@@ -1412,7 +1346,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_templates_organizer_update": {
           "name": "email_templates_organizer_update",
@@ -1421,8 +1355,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         },
         "email_templates_organizer_delete": {
           "name": "email_templates_organizer_delete",
@@ -1431,7 +1365,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1493,7 +1427,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "email_theme_settings_organizer_insert": {
           "name": "email_theme_settings_organizer_insert",
@@ -1502,7 +1436,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "email_theme_settings_organizer_update": {
           "name": "email_theme_settings_organizer_update",
@@ -1511,8 +1445,457 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.event_checkins": {
+      "name": "event_checkins",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checked_in_at": {
+          "name": "checked_in_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "checked_in_by": {
+          "name": "checked_in_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "method": {
+          "name": "method",
+          "type": "checkin_method",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scan'"
+        }
+      },
+      "indexes": {
+        "event_checkins_event_time_idx": {
+          "name": "event_checkins_event_time_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "checked_in_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_checkins_event_id_fkey": {
+          "name": "event_checkins_event_id_fkey",
+          "tableFrom": "event_checkins",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_checkins_user_id_fkey": {
+          "name": "event_checkins_user_id_fkey",
+          "tableFrom": "event_checkins",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_checkins_checked_in_by_fkey": {
+          "name": "event_checkins_checked_in_by_fkey",
+          "tableFrom": "event_checkins",
+          "tableTo": "users",
+          "columnsFrom": [
+            "checked_in_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "event_checkins_event_user_unique": {
+          "name": "event_checkins_event_user_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "user_id"
+          ]
+        }
+      },
+      "policies": {
+        "event_checkins_select_own_or_staff": {
+          "name": "event_checkins_select_own_or_staff",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"event_checkins\".\"user_id\" = (select auth.uid()) OR (select public.is_event_staff())"
+        },
+        "event_checkins_insert_staff": {
+          "name": "event_checkins_insert_staff",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
+        },
+        "event_checkins_delete_organizer": {
+          "name": "event_checkins_delete_organizer",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.event_scan_log": {
+      "name": "event_scan_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scanned_by": {
+          "name": "scanned_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "event_scan_outcome",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_scan_id": {
+          "name": "client_scan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "raw_code": {
+          "name": "raw_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scanned_at": {
+          "name": "scanned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "event_scan_log_event_time_idx": {
+          "name": "event_scan_log_event_time_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scanned_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_scan_log_event_id_fkey": {
+          "name": "event_scan_log_event_id_fkey",
+          "tableFrom": "event_scan_log",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_scan_log_user_id_fkey": {
+          "name": "event_scan_log_user_id_fkey",
+          "tableFrom": "event_scan_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "event_scan_log_scanned_by_fkey": {
+          "name": "event_scan_log_scanned_by_fkey",
+          "tableFrom": "event_scan_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "scanned_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "event_scan_log_event_client_scan_unique": {
+          "name": "event_scan_log_event_client_scan_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "client_scan_id"
+          ]
+        }
+      },
+      "policies": {
+        "event_scan_log_select_staff": {
+          "name": "event_scan_log_select_staff",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_event_staff())"
+        },
+        "event_scan_log_insert_staff": {
+          "name": "event_scan_log_insert_staff",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(select public.is_event_staff()) and \"event_scan_log\".\"scanned_by\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.events": {
+      "name": "events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "events_created_by_fkey": {
+          "name": "events_created_by_fkey",
+          "tableFrom": "events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "events_slug_unique": {
+          "name": "events_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {
+        "events_select_staff": {
+          "name": "events_select_staff",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_event_staff())"
+        },
+        "events_insert_organizer": {
+          "name": "events_insert_organizer",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(select public.is_organizer())"
+        },
+        "events_update_organizer": {
+          "name": "events_update_organizer",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        },
+        "events_delete_organizer": {
+          "name": "events_delete_organizer",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1642,7 +2025,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"hacker_reimbursements\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"hacker_reimbursements\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
         },
         "hacker_reimbursements_organizer_insert": {
           "name": "hacker_reimbursements_organizer_insert",
@@ -1651,7 +2034,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "hacker_reimbursements_organizer_update": {
           "name": "hacker_reimbursements_organizer_update",
@@ -1660,8 +2043,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         },
         "hacker_reimbursements_organizer_delete": {
           "name": "hacker_reimbursements_organizer_delete",
@@ -1670,7 +2053,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1775,6 +2158,150 @@
             "authenticated"
           ],
           "using": "\"hacker_rsvp_drafts\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.hacker_rsvp_exceptions": {
+      "name": "hacker_rsvp_exceptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hacker_rsvp_exceptions_expires_at_idx": {
+          "name": "hacker_rsvp_exceptions_expires_at_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "hacker_rsvp_exceptions_user_id_users_id_fk": {
+          "name": "hacker_rsvp_exceptions_user_id_users_id_fk",
+          "tableFrom": "hacker_rsvp_exceptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "hacker_rsvp_exceptions_created_by_user_id_users_id_fk": {
+          "name": "hacker_rsvp_exceptions_created_by_user_id_users_id_fk",
+          "tableFrom": "hacker_rsvp_exceptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "hacker_rsvp_exceptions_user_id_unique": {
+          "name": "hacker_rsvp_exceptions_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {
+        "hacker_rsvp_exceptions_organizer_select": {
+          "name": "hacker_rsvp_exceptions_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        },
+        "hacker_rsvp_exceptions_organizer_insert": {
+          "name": "hacker_rsvp_exceptions_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(select public.is_organizer())"
+        },
+        "hacker_rsvp_exceptions_organizer_update": {
+          "name": "hacker_rsvp_exceptions_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -1962,7 +2489,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"hacker_rsvps\".\"user_id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"hacker_rsvps\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
         }
       },
       "checkConstraints": {
@@ -2055,7 +2582,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())"
         },
         "user_invitations_organizer_insert": {
           "name": "user_invitations_organizer_insert",
@@ -2064,7 +2591,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "withCheck": "(select public.is_organizer())"
         },
         "user_invitations_organizer_update": {
           "name": "user_invitations_organizer_update",
@@ -2073,8 +2600,8 @@
           "to": [
             "authenticated"
           ],
-          "using": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)",
-          "withCheck": "exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -2125,7 +2652,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "\"users\".\"id\" = (select auth.uid()) OR exists (\n  select 1\n  from public.users\n  where id = (select auth.uid())\n    and role = 'organizer'\n)"
+          "using": "\"users\".\"id\" = (select auth.uid()) OR (select public.is_organizer())"
         }
       },
       "checkConstraints": {},
@@ -2169,6 +2696,27 @@
       "values": [
         "structured",
         "html"
+      ]
+    },
+    "public.checkin_method": {
+      "name": "checkin_method",
+      "schema": "public",
+      "values": [
+        "scan",
+        "manual"
+      ]
+    },
+    "public.event_scan_outcome": {
+      "name": "event_scan_outcome",
+      "schema": "public",
+      "values": [
+        "checked_in",
+        "already_checked_in",
+        "unknown_code",
+        "not_accepted",
+        "no_rsvp",
+        "event_closed",
+        "reverted"
       ]
     },
     "public.reimbursement_status": {

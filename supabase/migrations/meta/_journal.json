@@ -117,8 +117,36 @@
     {
       "idx": 16,
       "version": "7",
-      "when": 1788480540400,
-      "tag": "20260904000900_broadcast_logs",
+      "when": 1788497511689,
+      "tag": "20260825161042_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788204254490,
+      "tag": "20260831192414_rsvp_exceptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788482656709,
+      "tag": "20260904004416_rsvp_exceptions_definer_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788497511690,
+      "tag": "20260904045151_check_in_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789081626761,
+      "tag": "20260910230706_user_groups",
       "breakpoints": true
     }
   ]
