@@ -156,9 +156,29 @@ export type ReviewApplicationSummary = {
   createdAt: string;
 };
 
+export type PossibleReapplicationSignal =
+  | "phone"
+  | "resume"
+  | "github"
+  | "linkedin"
+  | "name_university_graduation_year";
+
+export type PossibleReapplicationMatch = {
+  applicationId: string;
+  slug: string;
+  applicantName: string;
+  applicantEmail: string | null;
+  signals: PossibleReapplicationSignal[];
+};
+
 export type ReviewListSummaryItem = {
   application: ReviewApplicationSummary;
   review: ReviewRecord | null;
+  /**
+   * Derived at dashboard-read time. Nothing is persisted on either
+   * application or its review when a possible reapplication is found.
+   */
+  possibleReapplications: PossibleReapplicationMatch[];
 };
 
 export type ApplicationRound = "early" | "regular";
