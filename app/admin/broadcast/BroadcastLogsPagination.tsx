@@ -2,17 +2,20 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
+import { buildBroadcastLogsQuery } from "./broadcast-log-query";
 
 type BroadcastLogsPaginationProps = {
   pageIndex: number;
   totalCount: number;
   pageSize: number;
+  searchQuery: string;
 };
 
 export function BroadcastLogsPagination({
   pageIndex,
   totalCount,
   pageSize,
+  searchQuery,
 }: BroadcastLogsPaginationProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -24,9 +27,10 @@ export function BroadcastLogsPagination({
       pageSize={pageSize}
       onPageChange={(nextPageIndex) => {
         router.push(
-          nextPageIndex === 0
-            ? pathname
-            : `${pathname}?logsPage=${nextPageIndex + 1}`,
+          `${pathname}${buildBroadcastLogsQuery({
+            q: searchQuery || undefined,
+            logsPage: nextPageIndex === 0 ? undefined : nextPageIndex + 1,
+          })}`,
         );
       }}
     />

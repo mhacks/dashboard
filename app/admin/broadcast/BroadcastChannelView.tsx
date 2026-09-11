@@ -6,6 +6,7 @@ import type { BroadcastTargetSummary } from "@/lib/broadcast/types";
 import BroadcastForm from "./BroadcastForm";
 import { BroadcastChannelMobileNav } from "./BroadcastChannelSidebar";
 import { BroadcastLogsPagination } from "./BroadcastLogsPagination";
+import { BroadcastLogsSearch } from "./BroadcastLogsSearch";
 import { BroadcastMessageFeed } from "./BroadcastMessageFeed";
 import { BroadcastMessageScroll } from "./BroadcastMessageScroll";
 
@@ -13,12 +14,14 @@ type BroadcastChannelViewProps = {
   targets: BroadcastTargetSummary[];
   channelTargetId: string | null;
   pageIndex: number;
+  searchQuery: string;
 };
 
 export async function BroadcastChannelView({
   targets,
   channelTargetId,
   pageIndex,
+  searchQuery,
 }: BroadcastChannelViewProps) {
   const channelTarget = channelTargetId
     ? targets.find((target) => target.id === channelTargetId)
@@ -31,14 +34,22 @@ export async function BroadcastChannelView({
   const { items: logs, totalCount } = await listBroadcastLogs(
     pageIndex,
     BROADCAST_LOGS_PAGE_SIZE,
-    channelTargetId ? { target: channelTargetId } : undefined,
+    {
+      ...(channelTargetId ? { target: channelTargetId } : {}),
+      ...(searchQuery ? { search: searchQuery } : {}),
+    },
   );
   const targetLabels = Object.fromEntries(
     targets.map((target) => [target.id, target.label]),
   );
-  const emptyMessage = channelTarget
-    ? `No broadcasts to ${channelTarget.label} yet. Send the first message below.`
-    : "No broadcasts yet. Send the first message below.";
+  const emptyMessage = searchQuery
+    ? "No broadcasts match your search."
+    : channelTarget
+      ? `No broadcasts to ${channelTarget.label} yet. Send the first message below.`
+      : "No broadcasts yet. Send the first message below.";
+  const searchChannelLabel = channelTarget
+    ? channelTarget.label.replace(/\s*\([^)]*\)\s*$/, "").trim()
+    : "Global";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
@@ -47,8 +58,13 @@ export async function BroadcastChannelView({
         activeTargetId={channelTargetId}
       />
 
+      <BroadcastLogsSearch
+        initialQuery={searchQuery}
+        channelLabel={searchChannelLabel}
+      />
+
       <BroadcastMessageScroll
-        scrollKey={`${channelTargetId ?? "global"}:${pageIndex}:${logs[logs.length - 1]?.id ?? "empty"}`}
+        scrollKey={`${channelTargetId ?? "global"}:${pageIndex}:${searchQuery}:${logs[logs.length - 1]?.id ?? "empty"}`}
       >
         <div className="flex flex-col gap-2 px-1 pb-2">
           {totalCount > BROADCAST_LOGS_PAGE_SIZE ? (
@@ -56,6 +72,7 @@ export async function BroadcastChannelView({
               pageIndex={pageIndex}
               totalCount={totalCount}
               pageSize={BROADCAST_LOGS_PAGE_SIZE}
+              searchQuery={searchQuery}
             />
           ) : null}
           <BroadcastMessageFeed

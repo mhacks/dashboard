@@ -1,4 +1,4 @@
-import { and, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   type BroadcastLogListItem,
@@ -14,6 +14,7 @@ export {
 
 export type BroadcastLogsFilter = {
   target?: string;
+  search?: string;
 };
 
 export async function listBroadcastLogs(
@@ -27,6 +28,18 @@ export async function listBroadcastLogs(
 
   if (filter?.target) {
     conditions.push(eq(broadcastLogs.target, filter.target));
+  }
+
+  const trimmedSearch = filter?.search?.trim().slice(0, 100) ?? "";
+  if (trimmedSearch) {
+    const pattern = `%${trimmedSearch}%`;
+    conditions.push(
+      or(
+        ilike(broadcastLogs.subject, pattern),
+        ilike(broadcastLogs.body, pattern),
+        ilike(users.email, pattern),
+      )!,
+    );
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

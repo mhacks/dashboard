@@ -9,11 +9,12 @@ export default async function BroadcastChannelPage({
   searchParams,
 }: {
   params: Promise<{ channelSlug: string }>;
-  searchParams: Promise<{ logsPage?: string }>;
+  searchParams: Promise<{ logsPage?: string; q?: string }>;
 }) {
   const { channelSlug } = await params;
   const query = await searchParams;
   const pageIndex = Math.max(0, Number(query.logsPage ?? "1") - 1);
+  const searchQuery = query.q?.trim() ?? "";
   const channelTargetId = channelSlugToTargetId(channelSlug);
   const targets = await listBroadcastTargetSummaries();
 
@@ -29,6 +30,7 @@ export default async function BroadcastChannelPage({
       targets={targets}
       channelTargetId={channelTargetId}
       pageIndex={pageIndex}
+      searchQuery={searchQuery}
     />
   );
 }
