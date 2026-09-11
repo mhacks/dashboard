@@ -1,22 +1,16 @@
 import { desc, eq, sql } from "drizzle-orm";
+import {
+  BROADCAST_LOGS_PAGE_SIZE,
+  type BroadcastLogListItem,
+} from "@/lib/broadcast/log-types";
 import { db } from "@/lib/db";
 import { broadcastLogs } from "@/lib/db/schema/broadcasts";
 import { users } from "@/lib/db/schema/users";
 
-export const BROADCAST_LOGS_PAGE_SIZE = 25;
-
-export type BroadcastLogListItem = {
-  id: string;
-  target: string;
-  subject: string;
-  body: string;
-  sentAt: Date;
-  status: string;
-  deliveredTo: string[] | null;
-  recipients: string[] | null;
-  failedCount: number;
-  operatorEmail: string | null;
-};
+export {
+  BROADCAST_LOGS_PAGE_SIZE,
+  type BroadcastLogListItem,
+} from "@/lib/broadcast/log-types";
 
 export async function listBroadcastLogs(
   pageIndex = 0,
@@ -57,7 +51,7 @@ export async function listBroadcastLogs(
       recipients: row.recipients,
       failedCount: row.failedCount,
       operatorEmail: row.operatorEmail,
-    })),
+    })) satisfies BroadcastLogListItem[],
     totalCount: rows[0]?.totalCount ?? 0,
   };
 }

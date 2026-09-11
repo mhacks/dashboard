@@ -236,15 +236,43 @@ export default function BroadcastForm({
 
   return (
     <>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <form
           ref={formRef}
           onSubmit={handleSubmit}
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-4"
         >
-          <div className="flex flex-col gap-3">
-            <Label>Targets</Label>
-            <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="broadcast-subject">Subject</Label>
+            <Input
+              id="broadcast-subject"
+              name="subject"
+              required
+              disabled={isSending || inProgress}
+              placeholder="Message subject"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="broadcast-body">Message</Label>
+            <Textarea
+              id="broadcast-body"
+              name="body"
+              rows={4}
+              required
+              maxLength={BROADCAST_BODY_LIMIT}
+              disabled={isSending || inProgress}
+              placeholder="Write your broadcast..."
+              onChange={(event) => setBodyLength(event.target.value.length)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {bodyLength} / {BROADCAST_BODY_LIMIT}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className="text-xs text-muted-foreground">To</Label>
+            <div className="flex flex-wrap gap-2">
               {targets.map((target) => {
                 const checked = selectedTargetIds.includes(target.id);
                 const disabled = isSending || inProgress;
@@ -254,10 +282,10 @@ export default function BroadcastForm({
                     key={target.id}
                     htmlFor={`broadcast-target-${target.id}`}
                     className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors",
+                      "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
                       checked
-                        ? "border-primary/40 bg-primary/5"
-                        : "border-border bg-background",
+                        ? "border-primary/40 bg-primary/5 text-foreground"
+                        : "border-border bg-background text-muted-foreground",
                       disabled && "cursor-not-allowed opacity-60",
                     )}
                   >
@@ -268,59 +296,37 @@ export default function BroadcastForm({
                         toggleTarget(target.id, value === true)
                       }
                       disabled={disabled}
-                      className="mt-0.5"
+                      className="size-3.5"
                     />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <p className="font-medium leading-snug">
-                        {target.label} ({target.recipientCount})
-                      </p>
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        {target.description}
-                      </p>
-                    </div>
+                    <span>
+                      {target.label}{" "}
+                      <span className="text-muted-foreground">
+                        ({target.recipientCount})
+                      </span>
+                    </span>
                   </label>
                 );
               })}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="broadcast-subject">Subject</Label>
-            <Input
-              id="broadcast-subject"
-              name="subject"
-              required
-              disabled={isSending || inProgress}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="broadcast-body">Body</Label>
-            <Textarea
-              id="broadcast-body"
-              name="body"
-              rows={5}
-              required
-              maxLength={BROADCAST_BODY_LIMIT}
-              disabled={isSending || inProgress}
-              onChange={(event) => setBodyLength(event.target.value.length)}
-            />
-            <p className="text-sm text-muted-foreground">
-              {bodyLength} / {BROADCAST_BODY_LIMIT}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {selectedTargets.length === 0
+                ? "Select at least one target."
+                : `${totalRecipientCount} recipient${totalRecipientCount === 1 ? "" : "s"} selected`}
             </p>
+            <Button
+              type="submit"
+              disabled={isSending || inProgress || selectedTargets.length === 0}
+            >
+              {isSending
+                ? "Sending..."
+                : selectedTargets.length === 1
+                  ? `Send to ${selectedTargets[0].label}`
+                  : `Send to ${selectedTargets.length} targets`}
+            </Button>
           </div>
-
-          <Button
-            type="submit"
-            className="self-start"
-            disabled={isSending || inProgress || selectedTargets.length === 0}
-          >
-            {isSending
-              ? "Sending..."
-              : selectedTargets.length === 1
-                ? `Send via ${selectedTargets[0].label}`
-                : `Send to ${selectedTargets.length} targets`}
-          </Button>
         </form>
 
         {inProgress && (

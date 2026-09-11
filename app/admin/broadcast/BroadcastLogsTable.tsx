@@ -1,6 +1,6 @@
 import { getBroadcastTarget } from "@/lib/broadcast/registry";
 import "@/lib/broadcast/targets";
-import type { BroadcastLogListItem } from "@/lib/queries/broadcast-logs";
+import type { BroadcastLogListItem } from "@/lib/broadcast/log-types";
 import {
   Table,
   TableBody,

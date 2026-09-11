@@ -1,6 +1,5 @@
 import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import "@/lib/broadcast/targets";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   listBroadcastLogs,
@@ -9,7 +8,7 @@ import { AdminPageHeader } from "../components/admin-page-header";
 import { AdminPageShell } from "../components/admin-page-shell";
 import BroadcastForm from "./BroadcastForm";
 import { BroadcastLogsPagination } from "./BroadcastLogsPagination";
-import { BroadcastLogsTable } from "./BroadcastLogsTable";
+import { BroadcastMessageFeed } from "./BroadcastMessageFeed";
 
 export default async function BroadcastPage({
   searchParams,
@@ -20,6 +19,9 @@ export default async function BroadcastPage({
   const pageIndex = Math.max(0, Number(params.logsPage ?? "1") - 1);
   const targets = await listBroadcastTargetSummaries();
   const { items: logs, totalCount } = await listBroadcastLogs(pageIndex);
+  const targetLabels = Object.fromEntries(
+    targets.map((target) => [target.id, target.label]),
+  );
   const totalRecipients = targets.reduce(
     (sum, target) => sum + target.recipientCount,
     0,
@@ -27,40 +29,29 @@ export default async function BroadcastPage({
 
   return (
     <AdminPageShell width="wide">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 lg:max-w-4xl">
         <AdminPageHeader
           title="Broadcast"
-          description={`Send a message to ${totalRecipients} recipients across ${targets.length} target${targets.length === 1 ? "" : "s"}. Use sparingly.`}
+          description={`One-way announcements to ${totalRecipients} recipients across ${targets.length} target${targets.length === 1 ? "" : "s"}. Use sparingly.`}
         />
-
-        <Card>
-          <CardContent className="p-6">
-            <BroadcastForm targets={targets} />
-          </CardContent>
-        </Card>
 
         <section
           id="broadcast-logs"
-          className="flex flex-col gap-3 scroll-mt-5"
+          className="flex flex-col gap-4 scroll-mt-5"
         >
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Logs</h2>
-            <p className="text-sm text-muted-foreground">
-              Every broadcast sent, with the operator and recipient list.
-            </p>
-          </div>
-
-          <Card>
-            <CardContent className="p-0">
-              <BroadcastLogsTable logs={logs} />
-              <BroadcastLogsPagination
-                pageIndex={pageIndex}
-                totalCount={totalCount}
-                pageSize={BROADCAST_LOGS_PAGE_SIZE}
-              />
-            </CardContent>
-          </Card>
+          <BroadcastMessageFeed logs={logs} targetLabels={targetLabels} />
+          {totalCount > BROADCAST_LOGS_PAGE_SIZE ? (
+            <BroadcastLogsPagination
+              pageIndex={pageIndex}
+              totalCount={totalCount}
+              pageSize={BROADCAST_LOGS_PAGE_SIZE}
+            />
+          ) : null}
         </section>
+
+        <div className="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-4 backdrop-blur supports-backdrop-filter:bg-background/80 md:-mx-6 md:px-6">
+          <BroadcastForm targets={targets} />
+        </div>
       </div>
     </AdminPageShell>
   );
