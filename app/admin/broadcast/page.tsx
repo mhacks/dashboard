@@ -27,36 +27,41 @@ export default async function BroadcastPage({
 
   return (
     <AdminPageShell width="wide">
-      <AdminPageHeader
-        title="Broadcast"
-        description={`Send a message to ${totalRecipients} recipients across ${targets.length} target${targets.length === 1 ? "" : "s"}. Use sparingly.`}
-      />
-
-      <Card className="max-w-3xl">
-        <CardContent>
-          <BroadcastForm targets={targets} />
-        </CardContent>
-      </Card>
-
-      <section id="broadcast-logs" className="flex flex-col gap-3 scroll-mt-5">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Logs</h2>
-          <p className="text-sm text-muted-foreground">
-            Every broadcast sent, with the operator and recipient list.
-          </p>
-        </div>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        <AdminPageHeader
+          title="Broadcast"
+          description={`Send a message to ${totalRecipients} recipients across ${targets.length} target${targets.length === 1 ? "" : "s"}. Use sparingly.`}
+        />
 
         <Card>
-          <CardContent className="p-0">
-            <BroadcastLogsTable logs={logs} />
-            <BroadcastLogsPagination
-              pageIndex={pageIndex}
-              totalCount={totalCount}
-              pageSize={BROADCAST_LOGS_PAGE_SIZE}
-            />
+          <CardContent className="p-6">
+            <BroadcastForm targets={targets} />
           </CardContent>
         </Card>
-      </section>
+
+        <section
+          id="broadcast-logs"
+          className="flex flex-col gap-3 scroll-mt-5"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Logs</h2>
+            <p className="text-sm text-muted-foreground">
+              Every broadcast sent, with the operator and recipient list.
+            </p>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <BroadcastLogsTable logs={logs} />
+              <BroadcastLogsPagination
+                pageIndex={pageIndex}
+                totalCount={totalCount}
+                pageSize={BROADCAST_LOGS_PAGE_SIZE}
+              />
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </AdminPageShell>
   );
 }
