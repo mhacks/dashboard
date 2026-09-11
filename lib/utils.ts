@@ -14,3 +14,7 @@ export function isTouchDevice(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(hover: none), (pointer: coarse)").matches;
 }
+
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

@@ -33,12 +33,7 @@ import type {
 import { SendHorizontalIcon } from "lucide-react";
 import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
 import { runBroadcastLoop } from "./run-broadcast-loop";
-import { useRecipientSelection } from "./use-recipient-selection";
-
-type BroadcastDraft = {
-  subject: string;
-  body: string;
-};
+import { useSelectionSet } from "./use-selection-set";
 
 export default function BroadcastForm({
   targets,
@@ -56,12 +51,15 @@ export default function BroadcastForm({
   const {
     selected: selectedTargetIds,
     toggle: toggleTarget,
-    setRecipients: setSelectedTargetIds,
-  } = useRecipientSelection(defaultTargetIds);
+    setItems: setSelectedTargetIds,
+  } = useSelectionSet(defaultTargetIds);
   const [bodyLength, setBodyLength] = useState(0);
   const [status, setStatus] = useState<BroadcastSendStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [draft, setDraft] = useState<BroadcastDraft | null>(null);
+  const [draft, setDraft] = useState<{
+    subject: string;
+    body: string;
+  } | null>(null);
   const [successResult, setSuccessResult] = useState<{
     sent: number;
     failed: number;

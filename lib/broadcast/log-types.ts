@@ -1,4 +1,5 @@
 import type { BroadcastFailure } from "@/lib/broadcast/types";
+import type { BroadcastLogRow } from "@/lib/db/schema/broadcasts";
 
 export const BROADCAST_LOGS_PAGE_SIZE = 25;
 
@@ -7,14 +8,11 @@ export type BroadcastLogsFilter = {
   search?: string;
 };
 
-export type BroadcastLogListItem = {
-  id: string;
-  target: string;
-  subject: string;
-  body: string;
-  sentAt: Date;
-  status: string;
-  failedCount: number;
+export type BroadcastLogListItem = Pick<
+  BroadcastLogRow,
+  "id" | "target" | "subject" | "body" | "sentAt" | "status"
+> & {
+  retryFailedCount: number;
   operatorEmail: string | null;
 };
 

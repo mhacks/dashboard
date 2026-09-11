@@ -38,11 +38,11 @@ function operatorInitials(email: string | null) {
     return "?";
   }
 
-  const local = email.split("@")[0] ?? email;
+  const local = email.split("@")[0];
   const parts = local.split(/[._-]+/).filter(Boolean);
 
   if (parts.length >= 2) {
-    return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }
 
   return local.slice(0, 2).toUpperCase();
@@ -128,10 +128,12 @@ export function BroadcastMessageFeed({
                   </Badge>
                   <DeliveryDetailsBadge
                     broadcastId={log.id}
-                    label={log.failedCount > 0 ? "Failed" : "Details"}
-                    variant={log.failedCount > 0 ? "destructive" : "outline"}
+                    label={log.retryFailedCount > 0 ? "Failed" : "Details"}
+                    variant={
+                      log.retryFailedCount > 0 ? "destructive" : "outline"
+                    }
                     className={
-                      log.failedCount > 0
+                      log.retryFailedCount > 0
                         ? undefined
                         : "hidden group-hover:inline-flex"
                     }

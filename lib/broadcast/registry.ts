@@ -23,16 +23,12 @@ export function getBroadcastTarget(id: string): BroadcastTarget {
   return target;
 }
 
-export function listBroadcastTargets(): BroadcastTarget[] {
-  return Array.from(targets.values());
-}
-
 export const listBroadcastTargetSummaries = cache(
   async (): Promise<BroadcastTargetSummary[]> => {
     await requireOrganizer();
 
     return Promise.all(
-      listBroadcastTargets().map(async (target) => ({
+      Array.from(targets.values()).map(async (target) => ({
         id: target.id,
         label: target.label,
         recipientCount: await target.countRecipients(),

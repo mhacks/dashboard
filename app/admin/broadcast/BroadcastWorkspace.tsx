@@ -54,7 +54,7 @@ export function BroadcastWorkspace({
         0,
         BROADCAST_LOGS_PAGE_SIZE,
         {
-          target: activeTargetId ?? undefined,
+          target: activeTargetId,
           search: searchQuery.trim() || undefined,
         },
       );

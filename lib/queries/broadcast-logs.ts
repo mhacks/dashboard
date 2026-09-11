@@ -46,7 +46,7 @@ export async function listBroadcastLogs(
       body: broadcastLogs.body,
       sentAt: broadcastLogs.sentAt,
       status: broadcastLogs.status,
-      failedCount: broadcastLogs.retryFailedCount,
+      retryFailedCount: broadcastLogs.retryFailedCount,
       operatorEmail: users.email,
     })
     .from(broadcastLogs)

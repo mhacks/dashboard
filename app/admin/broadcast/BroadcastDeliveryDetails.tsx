@@ -52,50 +52,63 @@ import {
 } from "./actions";
 import { RecipientSearchField } from "./RecipientSearchField";
 import { runBroadcastLoop } from "./run-broadcast-loop";
-import { useRecipientSelection } from "./use-recipient-selection";
+import { useSelectionSet } from "./use-selection-set";
 
 type DeliveryTab = "failed" | "omitted" | "delivered";
+type DeliveryListMode = "retry" | "omitted" | "delivered";
+
+const deliveryListCopy: Record<
+  DeliveryListMode,
+  {
+    empty: string;
+    helper: string;
+    searchPlaceholder: string;
+    emptySearch: string;
+    checkboxLabel: (recipient: string) => string;
+  }
+> = {
+  retry: {
+    empty: "No failed recipients queued for retry.",
+    helper:
+      "All failed recipients will be retried by default. Check specific recipients to retry or omit only those.",
+    searchPlaceholder: "Search by recipient or error...",
+    emptySearch: "No failures match your search.",
+    checkboxLabel: (recipient) => `Select ${recipient} for retry or omit`,
+  },
+  omitted: {
+    empty: "No omitted recipients.",
+    helper:
+      "These recipients will not be retried. Check recipients to move them back to Failed.",
+    searchPlaceholder: "Search by recipient or error...",
+    emptySearch: "No failures match your search.",
+    checkboxLabel: (recipient) => `Select ${recipient} to move back to Failed`,
+  },
+  delivered: {
+    empty: "No successful deliveries yet.",
+    helper: "Check recipients to move them to Failed for retry.",
+    searchPlaceholder: "Search delivered recipients...",
+    emptySearch: "No delivered recipients match your search.",
+    checkboxLabel: (recipient) => `Select ${recipient} to mark as failed`,
+  },
+};
 
 function matchesSearch(value: string, query: string) {
   return query === "" || value.toLowerCase().includes(query);
-}
-
-function addVisibleRecipients(
-  selectedRecipients: Set<string>,
-  visibleRecipients: string[],
-  onSetSelection: (recipients: string[]) => void,
-) {
-  const next = new Set(selectedRecipients);
-  for (const recipient of visibleRecipients) {
-    next.add(recipient);
-  }
-  onSetSelection(Array.from(next));
-}
-
-function removeVisibleRecipients(
-  selectedRecipients: Set<string>,
-  visibleRecipients: string[],
-  onSetSelection: (recipients: string[]) => void,
-) {
-  const visibleSet = new Set(visibleRecipients);
-  onSetSelection(
-    Array.from(selectedRecipients).filter(
-      (recipient) => !visibleSet.has(recipient),
-    ),
-  );
 }
 
 function RecipientSelectionToolbar({
   summary,
   visibleRecipients,
   selectedRecipients,
-  onSetSelection,
+  onAddVisible,
+  onRemoveVisible,
   showVisibleLabels,
 }: {
   summary: ReactNode;
   visibleRecipients: string[];
   selectedRecipients: Set<string>;
-  onSetSelection: (recipients: string[]) => void;
+  onAddVisible: (recipients: string[]) => void;
+  onRemoveVisible: (recipients: string[]) => void;
   showVisibleLabels: boolean;
 }) {
   const selectedVisibleCount = visibleRecipients.filter((recipient) =>
@@ -114,13 +127,7 @@ function RecipientSelectionToolbar({
           variant="ghost"
           size="xs"
           disabled={allVisibleSelected || visibleRecipients.length === 0}
-          onClick={() =>
-            addVisibleRecipients(
-              selectedRecipients,
-              visibleRecipients,
-              onSetSelection,
-            )
-          }
+          onClick={() => onAddVisible(visibleRecipients)}
         >
           {showVisibleLabels ? "Select visible" : "Select all"}
         </Button>
@@ -132,13 +139,7 @@ function RecipientSelectionToolbar({
           variant="ghost"
           size="xs"
           disabled={selectedVisibleCount === 0}
-          onClick={() =>
-            removeVisibleRecipients(
-              selectedRecipients,
-              visibleRecipients,
-              onSetSelection,
-            )
-          }
+          onClick={() => onRemoveVisible(visibleRecipients)}
         >
           {showVisibleLabels ? "Deselect visible" : "Deselect all"}
         </Button>
@@ -350,17 +351,20 @@ function FailureListPanel({
   interactive,
   selectedRecipients,
   onToggleRecipient,
-  onSetSelection,
+  onAddVisible,
+  onRemoveVisible,
 }: {
   failures: BroadcastFailure[];
-  mode: "retry" | "omitted";
+  mode: DeliveryListMode;
   interactive: boolean;
   selectedRecipients: Set<string>;
   onToggleRecipient: (recipient: string, selected: boolean) => void;
-  onSetSelection: (recipients: string[]) => void;
+  onAddVisible: (recipients: string[]) => void;
+  onRemoveVisible: (recipients: string[]) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const errorFilters = useRecipientSelection();
+  const errorFilters = useSelectionSet();
+  const copy = deliveryListCopy[mode];
 
   const errorGroups = useMemo(() => {
     const groups = new Map<string, number>();
@@ -406,22 +410,14 @@ function FailureListPanel({
   const filtered = searchQuery.length > 0 || errorFilters.selected.size > 0;
 
   if (failures.length === 0) {
-    return (
-      <EmptyPanel>
-        {mode === "retry"
-          ? "No failed recipients queued for retry."
-          : "No omitted recipients."}
-      </EmptyPanel>
-    );
+    return <EmptyPanel>{copy.empty}</EmptyPanel>;
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {interactive ? (
         <div className="shrink-0 rounded-lg border border-muted px-3 py-2 text-xs text-muted-foreground">
-          {mode === "retry"
-            ? "All failed recipients will be retried by default. Check specific recipients to retry or omit only those."
-            : "These recipients will not be retried. Check recipients to move them back to Failed."}
+          {copy.helper}
         </div>
       ) : null}
 
@@ -430,7 +426,7 @@ function FailureListPanel({
           <RecipientSearchField
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search by recipient or error..."
+            placeholder={copy.searchPlaceholder}
             className="flex-1"
           />
           {errorGroups.length > 1 ? (
@@ -439,7 +435,7 @@ function FailureListPanel({
               selectedErrors={errorFilters.selected}
               onToggleError={errorFilters.toggle}
               onSelectAll={() =>
-                errorFilters.setRecipients(errorGroups.map(([error]) => error))
+                errorFilters.setItems(errorGroups.map(([error]) => error))
               }
               onClear={errorFilters.reset}
             />
@@ -483,13 +479,16 @@ function FailureListPanel({
                 </span>{" "}
                 will be retried
               </>
-            ) : (
+            ) : mode === "omitted" ? (
               <>Select recipients to move back to Failed</>
+            ) : (
+              <>Select recipients to mark as failed</>
             )
           }
           visibleRecipients={visibleRecipients}
           selectedRecipients={selectedRecipients}
-          onSetSelection={onSetSelection}
+          onAddVisible={onAddVisible}
+          onRemoveVisible={onRemoveVisible}
           showVisibleLabels={filtered}
         />
       ) : null}
@@ -497,7 +496,7 @@ function FailureListPanel({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
         {filteredFailures.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No failures match your search.
+            {copy.emptySearch}
           </p>
         ) : (
           <ul className="min-h-0 flex-1 overflow-y-auto">
@@ -511,108 +510,7 @@ function FailureListPanel({
                 onToggleSelected={(checked) =>
                   onToggleRecipient(failure.recipient, checked)
                 }
-                checkboxLabel={
-                  mode === "retry"
-                    ? `Select ${failure.recipient} for retry or omit`
-                    : `Select ${failure.recipient} to move back to Failed`
-                }
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DeliveredPanel({
-  recipients,
-  interactive,
-  selectedRecipients,
-  onToggleRecipient,
-  onSetSelection,
-}: {
-  recipients: string[];
-  interactive: boolean;
-  selectedRecipients: Set<string>;
-  onToggleRecipient: (recipient: string, selected: boolean) => void;
-  onSetSelection: (recipients: string[]) => void;
-}) {
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredRecipients = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return recipients;
-    }
-
-    return recipients.filter((recipient) => matchesSearch(recipient, query));
-  }, [recipients, searchQuery]);
-
-  const usingSubset = selectedRecipients.size > 0;
-  const selectedCount = recipients.filter((recipient) =>
-    selectedRecipients.has(recipient),
-  ).length;
-  const filtered = searchQuery.length > 0;
-
-  if (recipients.length === 0) {
-    return <EmptyPanel>No successful deliveries yet.</EmptyPanel>;
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      {interactive ? (
-        <div className="shrink-0 rounded-lg border border-muted px-3 py-2 text-xs text-muted-foreground">
-          Check recipients to move them to Failed for retry.
-        </div>
-      ) : null}
-
-      <RecipientSearchField
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search delivered recipients..."
-        className="shrink-0"
-      />
-
-      {interactive ? (
-        <RecipientSelectionToolbar
-          summary={
-            usingSubset ? (
-              <>
-                <span className="font-medium text-foreground">
-                  {selectedCount}
-                </span>{" "}
-                of {recipients.length} selected
-              </>
-            ) : (
-              <>Select recipients to mark as failed</>
-            )
-          }
-          visibleRecipients={filteredRecipients}
-          selectedRecipients={selectedRecipients}
-          onSetSelection={onSetSelection}
-          showVisibleLabels={filtered}
-        />
-      ) : null}
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-        {filteredRecipients.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No delivered recipients match your search.
-          </p>
-        ) : (
-          <ul className="min-h-0 flex-1 overflow-y-auto">
-            {filteredRecipients.map((recipient) => (
-              <FailureDeliveryRow
-                key={recipient}
-                failure={{ recipient, error: "" }}
-                selected={selectedRecipients.has(recipient)}
-                usingSubset={usingSubset}
-                interactive={interactive}
-                onToggleSelected={(checked) =>
-                  onToggleRecipient(recipient, checked)
-                }
-                checkboxLabel={`Select ${recipient} to mark as failed`}
+                checkboxLabel={copy.checkboxLabel(failure.recipient)}
               />
             ))}
           </ul>
@@ -642,9 +540,9 @@ export function BroadcastDeliveryDetails({
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DeliveryTab>("failed");
   const [details, setDetails] = useState<DeliveryDetails | null>(null);
-  const retrySelection = useRecipientSelection();
-  const omittedSelection = useRecipientSelection();
-  const deliveredSelection = useRecipientSelection();
+  const retrySelection = useSelectionSet();
+  const omittedSelection = useSelectionSet();
+  const deliveredSelection = useSelectionSet();
   const [retryStatus, setRetryStatus] = useState<BroadcastSendStatus | null>(
     null,
   );
@@ -657,11 +555,16 @@ export function BroadcastDeliveryDetails({
   const canManageDeliveries = details?.status === "complete";
   const panelsInteractive =
     canManageDeliveries && !isRetrying && !isSavingChanges;
-  const retryFailures = useMemo(
-    () => details?.retryFailures ?? [],
-    [details?.retryFailures],
-  );
+  const retryFailures = details?.retryFailures ?? [];
   const omittedFailures = details?.omittedFailures ?? [];
+  const deliveredFailures = useMemo(
+    () =>
+      (details?.deliveredTo ?? []).map((recipient) => ({
+        recipient,
+        error: "",
+      })),
+    [details?.deliveredTo],
+  );
   const omittedRecipients = omittedFailures.map((failure) => failure.recipient);
   const failedCount = retryFailures.length;
   const selectedCount = retrySelection.selected.size;
@@ -681,21 +584,23 @@ export function BroadcastDeliveryDetails({
   const canRetry =
     canManageDeliveries && failedCount > 0 && !isRetrying && !isSavingChanges;
   const retryInProgress = Boolean(retryStatus && !retryStatus.complete);
-  const retryRecipientSet = useMemo(
-    () => new Set(retryFailures.map((failure) => failure.recipient)),
-    [retryFailures],
-  );
+
+  function resetDeliverySelections() {
+    retrySelection.reset();
+    omittedSelection.reset();
+    deliveredSelection.reset();
+  }
 
   function applyDeliveryResult(result: DeliveryDetails) {
     setDetails(result);
     router.refresh();
-    retrySelection.pruneToRecipients(
+    retrySelection.pruneTo(
       result.retryFailures.map((failure) => failure.recipient),
     );
-    omittedSelection.pruneToRecipients(
+    omittedSelection.pruneTo(
       result.omittedFailures.map((failure) => failure.recipient),
     );
-    deliveredSelection.pruneToRecipients(result.deliveredTo);
+    deliveredSelection.pruneTo(result.deliveredTo);
   }
 
   function saveDeliveryDetails(
@@ -774,13 +679,13 @@ export function BroadcastDeliveryDetails({
   }
 
   function recipientsToRetry() {
-    if (retrySelection.selected.size > 0) {
-      return Array.from(retrySelection.selected).filter((recipient) =>
-        retryRecipientSet.has(recipient),
-      );
+    if (retrySelection.selected.size === 0) {
+      return retryFailures.map((failure) => failure.recipient);
     }
 
-    return retryFailures.map((failure) => failure.recipient);
+    return retryFailures
+      .map((failure) => failure.recipient)
+      .filter((recipient) => retrySelection.selected.has(recipient));
   }
 
   function loadDetails() {
@@ -796,14 +701,10 @@ export function BroadcastDeliveryDetails({
               ? "omitted"
               : "delivered",
         );
-        retrySelection.reset();
-        omittedSelection.reset();
-        deliveredSelection.reset();
+        resetDeliverySelections();
       } catch (loadError) {
         setDetails(null);
-        retrySelection.reset();
-        omittedSelection.reset();
-        deliveredSelection.reset();
+        resetDeliverySelections();
         setError(
           broadcastErrorMessage(loadError, "Could not load delivery details."),
         );
@@ -824,9 +725,7 @@ export function BroadcastDeliveryDetails({
     }
 
     setDetails(null);
-    retrySelection.reset();
-    omittedSelection.reset();
-    deliveredSelection.reset();
+    resetDeliverySelections();
     setError(null);
     setRetryNotice(null);
     setRetryStatus(null);
@@ -869,7 +768,7 @@ export function BroadcastDeliveryDetails({
             originalBroadcastId: broadcastId,
             retryBroadcastId: started.broadcastId,
           });
-          setDetails(updatedDetails);
+          applyDeliveryResult(updatedDetails);
           setRetryNotice(
             formatBroadcastOutcome(
               finalStatus.sentCount,
@@ -880,7 +779,6 @@ export function BroadcastDeliveryDetails({
               },
             ),
           );
-          router.refresh();
           return;
         }
 
@@ -961,9 +859,15 @@ export function BroadcastDeliveryDetails({
                 {details ? (
                   <Tabs
                     value={activeTab}
-                    onValueChange={(value) =>
-                      setActiveTab(value as DeliveryTab)
-                    }
+                    onValueChange={(value) => {
+                      if (
+                        value === "failed" ||
+                        value === "omitted" ||
+                        value === "delivered"
+                      ) {
+                        setActiveTab(value);
+                      }
+                    }}
                     className="flex min-h-0 flex-1 flex-col gap-3"
                   >
                     <TabsList className="w-full shrink-0">
@@ -988,7 +892,8 @@ export function BroadcastDeliveryDetails({
                         interactive={panelsInteractive}
                         selectedRecipients={retrySelection.selected}
                         onToggleRecipient={retrySelection.toggle}
-                        onSetSelection={retrySelection.setRecipients}
+                        onAddVisible={retrySelection.addMany}
+                        onRemoveVisible={retrySelection.removeMany}
                       />
                     </TabsContent>
 
@@ -1002,7 +907,8 @@ export function BroadcastDeliveryDetails({
                         interactive={panelsInteractive}
                         selectedRecipients={omittedSelection.selected}
                         onToggleRecipient={omittedSelection.toggle}
-                        onSetSelection={omittedSelection.setRecipients}
+                        onAddVisible={omittedSelection.addMany}
+                        onRemoveVisible={omittedSelection.removeMany}
                       />
                     </TabsContent>
 
@@ -1010,12 +916,14 @@ export function BroadcastDeliveryDetails({
                       value="delivered"
                       className="mt-0 flex min-h-0 flex-1 flex-col"
                     >
-                      <DeliveredPanel
-                        recipients={details.deliveredTo}
+                      <FailureListPanel
+                        failures={deliveredFailures}
+                        mode="delivered"
                         interactive={panelsInteractive}
                         selectedRecipients={deliveredSelection.selected}
                         onToggleRecipient={deliveredSelection.toggle}
-                        onSetSelection={deliveredSelection.setRecipients}
+                        onAddVisible={deliveredSelection.addMany}
+                        onRemoveVisible={deliveredSelection.removeMany}
                       />
                     </TabsContent>
                   </Tabs>

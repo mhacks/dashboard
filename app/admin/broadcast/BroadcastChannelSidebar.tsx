@@ -23,17 +23,6 @@ const channelNavClass = {
   },
 } as const;
 
-function channelNavItems(targets: BroadcastTargetSummary[]) {
-  return [
-    { id: null, label: "Global", count: null as number | null },
-    ...targets.map((target) => ({
-      id: target.id,
-      label: target.label,
-      count: target.recipientCount,
-    })),
-  ];
-}
-
 export function BroadcastChannelNav({
   targets,
   activeTargetId,
@@ -45,7 +34,18 @@ export function BroadcastChannelNav({
   onSelect: (targetId: string | null) => void;
   variant: "sidebar" | "mobile";
 }) {
-  const channels = channelNavItems(targets);
+  const channels: {
+    id: string | null;
+    label: string;
+    count: number | null;
+  }[] = [
+    { id: null, label: "Global", count: null },
+    ...targets.map((target) => ({
+      id: target.id,
+      label: target.label,
+      count: target.recipientCount,
+    })),
+  ];
   const styles = channelNavClass[variant];
 
   return (

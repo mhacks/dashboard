@@ -17,6 +17,7 @@ import {
   BROADCAST_SUBJECT_LIMIT,
 } from "@/lib/broadcast/config";
 import { categorizeBroadcastDeliveries } from "@/lib/broadcast/failures";
+import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
 import { broadcastDeliveryProgress } from "@/lib/broadcast/progress";
 import { getBroadcastTarget } from "@/lib/broadcast/registry";
 import type {
@@ -24,6 +25,7 @@ import type {
   BroadcastSendStatus,
 } from "@/lib/broadcast/types";
 import { db } from "@/lib/db";
+import { isUniqueViolation } from "@/lib/db/errors";
 import {
   broadcastDeliveries,
   broadcastLogs,
@@ -33,34 +35,35 @@ import {
   EmailCampaignError,
   getCampaignLimits,
 } from "@/lib/email/campaigns/config";
+import { sleep } from "@/lib/utils";
 
-export const broadcastStartSchema = z.object({
+const broadcastStartSchema = z.object({
   target: z.string().trim().min(1),
   subject: z.string().trim().min(1).max(BROADCAST_SUBJECT_LIMIT),
   body: z.string().trim().min(1).max(BROADCAST_BODY_LIMIT),
 });
 
-export const broadcastBatchSchema = z.object({
+const broadcastBatchSchema = z.object({
   broadcastId: z.string().uuid(),
   cursor: z.number().int().min(0).default(0),
 });
 
-export const broadcastRetrySchema = z.object({
+const broadcastRetrySchema = z.object({
   broadcastId: z.string().uuid(),
   recipients: z.array(z.string().trim().min(1)).min(1),
 });
 
-export const broadcastOmittedSchema = z.object({
+const broadcastOmittedSchema = z.object({
   broadcastId: z.string().uuid(),
   omittedTo: z.array(z.string().trim().min(1)),
 });
 
-export const broadcastMarkFailedSchema = z.object({
+const broadcastMarkFailedSchema = z.object({
   broadcastId: z.string().uuid(),
   recipients: z.array(z.string().trim().min(1)).min(1),
 });
 
-export const broadcastRetryResultsSchema = z.object({
+const broadcastRetryResultsSchema = z.object({
   originalBroadcastId: z.string().uuid(),
   retryBroadcastId: z.string().uuid(),
 });
@@ -149,14 +152,16 @@ export async function sendBroadcastBatch(input: unknown) {
   return buildBroadcastStatus(latest);
 }
 
-export async function getBroadcastDeliveryDetails(broadcastId: string) {
+export async function getBroadcastDeliveryDetails(
+  broadcastId: string,
+): Promise<BroadcastDeliveryDetails> {
   await requireOrganizer();
-  const log = await getBroadcastLog(broadcastId);
-  const deliveries = await listBroadcastDeliveries(broadcastId);
+  const [log, deliveries] = await Promise.all([
+    getBroadcastLog(broadcastId),
+    listBroadcastDeliveries(broadcastId),
+  ]);
   const { totalRecipients, sentCount, failedCount, pendingCount } =
     broadcastDeliveryProgress(log);
-  const { deliveredTo, retryFailures, omittedFailures } =
-    categorizeBroadcastDeliveries(log.status, deliveries);
 
   return {
     status: log.status,
@@ -164,9 +169,7 @@ export async function getBroadcastDeliveryDetails(broadcastId: string) {
     sentCount,
     failedCount,
     pendingCount,
-    deliveredTo,
-    retryFailures,
-    omittedFailures,
+    ...categorizeBroadcastDeliveries(log.status, deliveries),
   };
 }
 
@@ -784,7 +787,7 @@ async function createSendingBroadcast(input: {
       return broadcast;
     });
   } catch (error) {
-    if (isActiveBroadcastConflict(error)) {
+    if (isUniqueViolation(error)) {
       throw new EmailCampaignError(input.targetInProgressMessage, 409);
     }
 
@@ -814,13 +817,4 @@ function normalizeRecipientList(
   }
 
   return normalized;
-}
-
-function isActiveBroadcastConflict(error: unknown) {
-  const wrapped = error as { code?: string; cause?: { code?: string } };
-  return (wrapped.code ?? wrapped.cause?.code) === "23505";
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
