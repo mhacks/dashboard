@@ -7,6 +7,10 @@ import {
   sendBroadcastBatch,
   startBroadcast,
 } from "@/lib/broadcast/service";
+import {
+  listBroadcastLogs,
+  type BroadcastLogsFilter,
+} from "@/lib/queries/broadcast-logs";
 
 export async function listBroadcastTargetsAction() {
   return listBroadcastTargetSummaries();
@@ -26,4 +30,12 @@ export async function findActiveBroadcastAction() {
 
 export async function getBroadcastDeliveryDetailsAction(broadcastId: string) {
   return getBroadcastDeliveryDetails(broadcastId);
+}
+
+export async function listBroadcastLogsAction(
+  pageIndex: number,
+  pageSize: number,
+  filter?: BroadcastLogsFilter,
+) {
+  return listBroadcastLogs(pageIndex, pageSize, filter);
 }

@@ -5,10 +5,9 @@ import { BroadcastChannelView } from "./BroadcastChannelView";
 export default async function BroadcastPage({
   searchParams,
 }: {
-  searchParams: Promise<{ logsPage?: string; q?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const params = await searchParams;
-  const pageIndex = Math.max(0, Number(params.logsPage ?? "1") - 1);
   const searchQuery = params.q?.trim() ?? "";
   const targets = await listBroadcastTargetSummaries();
 
@@ -16,7 +15,6 @@ export default async function BroadcastPage({
     <BroadcastChannelView
       targets={targets}
       channelTargetId={null}
-      pageIndex={pageIndex}
       searchQuery={searchQuery}
     />
   );

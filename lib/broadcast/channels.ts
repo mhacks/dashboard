@@ -21,16 +21,3 @@ export function getBroadcastChannelPath(targetId: string | null) {
 
   return `/admin/broadcast/${targetToChannelSlug(targetId)}`;
 }
-
-export function buildBroadcastChannelHref(
-  targetId: string | null,
-  options?: { logsPage?: number },
-) {
-  const path = getBroadcastChannelPath(targetId);
-
-  if (!options?.logsPage || options.logsPage <= 1) {
-    return path;
-  }
-
-  return `${path}?logsPage=${options.logsPage}`;
-}

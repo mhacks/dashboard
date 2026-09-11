@@ -5,22 +5,18 @@ import {
 import type { BroadcastTargetSummary } from "@/lib/broadcast/types";
 import BroadcastForm from "./BroadcastForm";
 import { BroadcastChannelMobileNav } from "./BroadcastChannelSidebar";
-import { BroadcastLogsPagination } from "./BroadcastLogsPagination";
 import { BroadcastLogsSearch } from "./BroadcastLogsSearch";
-import { BroadcastMessageFeed } from "./BroadcastMessageFeed";
-import { BroadcastMessageScroll } from "./BroadcastMessageScroll";
+import { BroadcastMessageFeedPanel } from "./BroadcastMessageFeedPanel";
 
 type BroadcastChannelViewProps = {
   targets: BroadcastTargetSummary[];
   channelTargetId: string | null;
-  pageIndex: number;
   searchQuery: string;
 };
 
 export async function BroadcastChannelView({
   targets,
   channelTargetId,
-  pageIndex,
   searchQuery,
 }: BroadcastChannelViewProps) {
   const channelTarget = channelTargetId
@@ -32,7 +28,7 @@ export async function BroadcastChannelView({
   }
 
   const { items: logs, totalCount } = await listBroadcastLogs(
-    pageIndex,
+    0,
     BROADCAST_LOGS_PAGE_SIZE,
     {
       ...(channelTargetId ? { target: channelTargetId } : {}),
@@ -63,25 +59,15 @@ export async function BroadcastChannelView({
         channelLabel={searchChannelLabel}
       />
 
-      <BroadcastMessageScroll
-        scrollKey={`${channelTargetId ?? "global"}:${pageIndex}:${searchQuery}:${logs[logs.length - 1]?.id ?? "empty"}`}
-      >
-        <div className="flex flex-col gap-2 px-1 pb-2">
-          {totalCount > BROADCAST_LOGS_PAGE_SIZE ? (
-            <BroadcastLogsPagination
-              pageIndex={pageIndex}
-              totalCount={totalCount}
-              pageSize={BROADCAST_LOGS_PAGE_SIZE}
-              searchQuery={searchQuery}
-            />
-          ) : null}
-          <BroadcastMessageFeed
-            logs={logs}
-            targetLabels={targetLabels}
-            emptyMessage={emptyMessage}
-          />
-        </div>
-      </BroadcastMessageScroll>
+      <BroadcastMessageFeedPanel
+        key={`${channelTargetId ?? "global"}:${searchQuery}`}
+        initialLogs={logs}
+        totalCount={totalCount}
+        channelTargetId={channelTargetId}
+        searchQuery={searchQuery}
+        targetLabels={targetLabels}
+        emptyMessage={emptyMessage}
+      />
 
       <div className="shrink-0 -mx-4 border-t bg-background/95 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 md:-mx-6 md:px-6">
         <BroadcastForm targets={targets} channelTargetId={channelTargetId} />

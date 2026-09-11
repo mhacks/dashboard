@@ -64,9 +64,7 @@ export function BroadcastMessageFeed({
   targetLabels: Record<string, string>;
   emptyMessage?: string;
 }) {
-  const orderedLogs = [...logs].reverse();
-
-  if (orderedLogs.length === 0) {
+  if (logs.length === 0) {
     return (
       <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
         {emptyMessage}
@@ -76,8 +74,8 @@ export function BroadcastMessageFeed({
 
   return (
     <div className="flex flex-col">
-      {orderedLogs.map((log, index) => {
-        const previousLog = orderedLogs[index - 1];
+      {logs.map((log, index) => {
+        const previousLog = logs[index - 1];
         const showDayDivider =
           !previousLog || dayKey(previousLog.sentAt) !== dayKey(log.sentAt);
 
