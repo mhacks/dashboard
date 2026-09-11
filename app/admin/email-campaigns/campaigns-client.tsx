@@ -144,6 +144,8 @@ const defaultAudienceQuery: EmailAudienceQuery = {
 };
 const audienceDecisionOptions = [
   ["all_applicants", "All applicants"],
+  ["draft", "Draft application (not submitted)"],
+  ["umich", "All @umich.edu users"],
   ["accepted", "All accepted"],
   ["rsvped", "All RSVPed"],
   ["rejected", "All rejected"],
@@ -2227,12 +2229,20 @@ function SendPanel({
                   className={inputClass}
                   value={audienceQuery.decisionGroup}
                   disabled={Boolean(busy)}
-                  onChange={(event) =>
-                    onAudienceQueryChange({
-                      decisionGroup: event.target
-                        .value as EmailAudienceQuery["decisionGroup"],
-                    })
-                  }
+                  onChange={(event) => {
+                    const decisionGroup = event.target
+                      .value as EmailAudienceQuery["decisionGroup"];
+
+                    onAudienceQueryChange(
+                      decisionGroup === "draft" || decisionGroup === "umich"
+                        ? {
+                            decisionGroup,
+                            travelAward: "any",
+                            rsvpTravelPlan: "any",
+                          }
+                        : { decisionGroup },
+                    );
+                  }}
                 >
                   {audienceDecisionOptions.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -2245,7 +2255,11 @@ function SendPanel({
                 <select
                   className={inputClass}
                   value={audienceQuery.travelAward}
-                  disabled={Boolean(busy)}
+                  disabled={
+                    Boolean(busy) ||
+                    audienceQuery.decisionGroup === "draft" ||
+                    audienceQuery.decisionGroup === "umich"
+                  }
                   onChange={(event) =>
                     onAudienceQueryChange({
                       travelAward: event.target
@@ -2264,7 +2278,11 @@ function SendPanel({
                 <select
                   className={inputClass}
                   value={audienceQuery.rsvpTravelPlan}
-                  disabled={Boolean(busy)}
+                  disabled={
+                    Boolean(busy) ||
+                    audienceQuery.decisionGroup === "draft" ||
+                    audienceQuery.decisionGroup === "umich"
+                  }
                   onChange={(event) =>
                     onAudienceQueryChange({
                       rsvpTravelPlan: event.target
