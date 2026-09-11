@@ -93,74 +93,37 @@ export async function sendBroadcastBatch(input: unknown) {
   }
 
   const target = getBroadcastTarget(broadcast.target);
-  const recipients = broadcast.recipients ?? [];
-  const batchEnd = Math.min(
-    broadcast.nextCursor + limits.batchSize,
-    recipients.length,
-  );
-  const batch = recipients.slice(broadcast.nextCursor, batchEnd);
   const message = {
     subject: broadcast.subject,
     body: broadcast.body,
   };
 
-  let failedCount = broadcast.failedCount;
-  let nextCursor = broadcast.nextCursor;
-  const deliveredTo = [...(broadcast.deliveredTo ?? [])];
-  const recentFailures = [...(broadcast.recentFailures ?? [])];
+  for (let index = 0; index < limits.batchSize; index += 1) {
+    const claim = await claimNextBroadcastRecipient(
+      broadcast.id,
+      index === 0 ? body.cursor : undefined,
+    );
 
-  for (const recipient of batch) {
-    const result = await target.deliver(message, recipient);
-
-    if (result.status === "sent") {
-      deliveredTo.push(recipient);
-    } else {
-      failedCount += 1;
-      recentFailures.push({
-        recipient,
-        error: result.error ?? "Unknown delivery error",
-      });
+    if (claim.kind !== "claimed") {
+      break;
     }
 
-    nextCursor += 1;
+    const result = await target.deliver(message, claim.recipient);
+    await recordBroadcastDelivery(broadcast.id, claim.recipient, result);
     await sleep(limits.sendDelayMs);
   }
 
-  const complete = nextCursor >= recipients.length;
-  const trimmedFailures = recentFailures.slice(-10);
+  const [latest] = await db
+    .select()
+    .from(broadcastLogs)
+    .where(eq(broadcastLogs.id, broadcast.id))
+    .limit(1);
 
-  const [updated] = await db
-    .update(broadcastLogs)
-    .set({
-      deliveredTo,
-      failedCount,
-      nextCursor,
-      recentFailures: trimmedFailures,
-      status: complete ? "complete" : "sending",
-    })
-    .where(
-      and(
-        eq(broadcastLogs.id, broadcast.id),
-        eq(broadcastLogs.nextCursor, broadcast.nextCursor),
-      ),
-    )
-    .returning();
-
-  if (!updated) {
-    const [latest] = await db
-      .select()
-      .from(broadcastLogs)
-      .where(eq(broadcastLogs.id, broadcast.id))
-      .limit(1);
-
-    if (!latest) {
-      throw new EmailCampaignError("Broadcast not found", 404);
-    }
-
-    return buildBroadcastStatus(latest);
+  if (!latest) {
+    throw new EmailCampaignError("Broadcast not found", 404);
   }
 
-  return buildBroadcastStatus(updated);
+  return buildBroadcastStatus(latest);
 }
 
 export async function findActiveBroadcast() {
@@ -179,6 +142,108 @@ export async function findActiveBroadcast() {
     .limit(1);
 
   return broadcast ? buildBroadcastStatus(broadcast) : null;
+}
+
+type BroadcastRecipientClaim =
+  | { kind: "claimed"; recipient: string }
+  | { kind: "misaligned" }
+  | { kind: "complete" };
+
+async function claimNextBroadcastRecipient(
+  broadcastId: string,
+  expectedCursor?: number,
+): Promise<BroadcastRecipientClaim> {
+  return db.transaction(async (tx) => {
+    const [broadcast] = await tx
+      .select()
+      .from(broadcastLogs)
+      .where(eq(broadcastLogs.id, broadcastId))
+      .limit(1)
+      .for("update");
+
+    if (!broadcast || broadcast.status !== "sending") {
+      return { kind: "complete" };
+    }
+
+    const recipients = broadcast.recipients ?? [];
+
+    if (broadcast.nextCursor >= recipients.length) {
+      if (broadcast.status !== "complete") {
+        await tx
+          .update(broadcastLogs)
+          .set({ status: "complete" })
+          .where(eq(broadcastLogs.id, broadcastId));
+      }
+
+      return { kind: "complete" };
+    }
+
+    if (
+      expectedCursor !== undefined &&
+      broadcast.nextCursor !== expectedCursor
+    ) {
+      return { kind: "misaligned" };
+    }
+
+    const recipient = recipients[broadcast.nextCursor];
+    const nextCursor = broadcast.nextCursor + 1;
+    const complete = nextCursor >= recipients.length;
+
+    await tx
+      .update(broadcastLogs)
+      .set({
+        nextCursor,
+        status: complete ? "complete" : "sending",
+      })
+      .where(eq(broadcastLogs.id, broadcastId));
+
+    return { kind: "claimed", recipient };
+  });
+}
+
+async function recordBroadcastDelivery(
+  broadcastId: string,
+  recipient: string,
+  result: { status: "sent" | "failed"; error?: string | null },
+) {
+  await db.transaction(async (tx) => {
+    const [broadcast] = await tx
+      .select()
+      .from(broadcastLogs)
+      .where(eq(broadcastLogs.id, broadcastId))
+      .limit(1)
+      .for("update");
+
+    if (!broadcast) {
+      return;
+    }
+
+    if (result.status === "sent") {
+      await tx
+        .update(broadcastLogs)
+        .set({
+          deliveredTo: [...(broadcast.deliveredTo ?? []), recipient],
+        })
+        .where(eq(broadcastLogs.id, broadcastId));
+      return;
+    }
+
+    const recentFailures = [
+      ...(broadcast.recentFailures ?? []),
+      {
+        recipient,
+        error: result.error ?? "Unknown delivery error",
+      },
+    ];
+
+    await tx
+      .update(broadcastLogs)
+      .set({
+        failedCount: broadcast.failedCount + 1,
+        recentFailures: recentFailures.slice(-10),
+      })
+      .where(eq(broadcastLogs.id, broadcastId));
+  });
 }
 
 function buildBroadcastStatus(broadcast: BroadcastLogRow): BroadcastSendStatus {
