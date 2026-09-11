@@ -1,7 +1,7 @@
 import type { BroadcastSendStatus } from "@/lib/broadcast/types";
 import { sendBroadcastBatchAction } from "./actions";
 
-export function broadcastProgressKey(status: BroadcastSendStatus) {
+function broadcastProgressKey(status: BroadcastSendStatus) {
   return `${status.nextCursor}:${status.sentCount}:${status.failedCount}`;
 }
 

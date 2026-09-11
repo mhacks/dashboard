@@ -1,7 +1,5 @@
-import {
-  listBroadcastTargetSummaries,
-  sumBroadcastRecipientCounts,
-} from "@/lib/broadcast/registry";
+import { sumBroadcastRecipientCounts } from "@/lib/broadcast/channels";
+import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import "@/lib/broadcast/targets";
 import { AdminPageHeader } from "../components/admin-page-header";
 import { BroadcastChannelSidebar } from "./BroadcastChannelSidebar";

@@ -2,12 +2,12 @@ import type { BroadcastSendStatus } from "@/lib/broadcast/types";
 
 export function broadcastDeliveryProgress(log: {
   status: string;
-  recipients: string[] | null;
-  deliveredTo: string[] | null;
+  recipients: string[];
+  deliveredTo: string[];
   failedCount: number;
 }) {
-  const totalRecipients = log.recipients?.length ?? 0;
-  const sentCount = log.deliveredTo?.length ?? 0;
+  const totalRecipients = log.recipients.length;
+  const sentCount = log.deliveredTo.length;
   const failedCount = log.failedCount;
   const complete = log.status === "complete";
   const pendingCount = complete
@@ -33,6 +33,18 @@ export function formatBroadcastProgress(
     `${status.pendingCount} pending`,
   ].join(options?.separator ?? ", ");
   return options?.prefix ? `${options.prefix}: ${summary}` : summary;
+}
+
+export function formatBroadcastOutcome(
+  sentCount: number,
+  failedCount: number,
+  options: { finishedLabel: string; successMessage: string },
+) {
+  if (failedCount > 0) {
+    return `${options.finishedLabel} finished with ${sentCount} sent and ${failedCount} failed.`;
+  }
+
+  return options.successMessage;
 }
 
 export function broadcastProgressPercent(status: BroadcastSendStatus) {

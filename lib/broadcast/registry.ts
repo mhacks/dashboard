@@ -26,12 +26,6 @@ export function listBroadcastTargets(): BroadcastTarget[] {
   return Array.from(targets.values());
 }
 
-export function sumBroadcastRecipientCounts(
-  targets: Pick<BroadcastTargetSummary, "recipientCount">[],
-) {
-  return targets.reduce((sum, target) => sum + target.recipientCount, 0);
-}
-
 export const listBroadcastTargetSummaries = cache(
   async (): Promise<BroadcastTargetSummary[]> => {
     await requireOrganizer();
@@ -40,7 +34,6 @@ export const listBroadcastTargetSummaries = cache(
       listBroadcastTargets().map(async (target) => ({
         id: target.id,
         label: target.label,
-        description: target.description,
         recipientCount: await target.countRecipients(),
       })),
     );

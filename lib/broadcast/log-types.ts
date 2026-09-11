@@ -9,8 +9,6 @@ export type BroadcastLogListItem = {
   body: string;
   sentAt: Date;
   status: string;
-  deliveredTo: string[] | null;
-  recipients: string[] | null;
   failedCount: number;
   operatorEmail: string | null;
 };

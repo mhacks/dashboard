@@ -10,19 +10,14 @@ function DeliveryDetailsBadge({
   label,
   variant = "outline",
   className,
-  onFailedCountChange,
 }: {
   broadcastId: string;
   label: string;
   variant?: "destructive" | "outline" | "secondary";
   className?: string;
-  onFailedCountChange?: (broadcastId: string, failedCount: number) => void;
 }) {
   return (
-    <BroadcastDeliveryDetails
-      broadcastId={broadcastId}
-      onFailedCountChange={onFailedCountChange}
-    >
+    <BroadcastDeliveryDetails broadcastId={broadcastId}>
       <Badge
         variant={variant}
         className={cn("h-5 gap-1 px-2 text-[11px] font-normal", className)}
@@ -79,12 +74,10 @@ export function BroadcastMessageFeed({
   logs,
   targetLabels,
   emptyMessage = "No broadcasts yet. Send the first message below.",
-  onFailedCountChange,
 }: {
   logs: BroadcastLogListItem[];
   targetLabels: Record<string, string>;
   emptyMessage?: string;
-  onFailedCountChange?: (broadcastId: string, failedCount: number) => void;
 }) {
   if (logs.length === 0) {
     return (
@@ -133,21 +126,16 @@ export function BroadcastMessageFeed({
                   >
                     {targetLabel(log.target, targetLabels)}
                   </Badge>
-                  {log.failedCount > 0 ? (
-                    <DeliveryDetailsBadge
-                      broadcastId={log.id}
-                      label="Failed"
-                      variant="destructive"
-                      onFailedCountChange={onFailedCountChange}
-                    />
-                  ) : (
-                    <DeliveryDetailsBadge
-                      broadcastId={log.id}
-                      label="Details"
-                      className="hidden group-hover:inline-flex"
-                      onFailedCountChange={onFailedCountChange}
-                    />
-                  )}
+                  <DeliveryDetailsBadge
+                    broadcastId={log.id}
+                    label={log.failedCount > 0 ? "Failed" : "Details"}
+                    variant={log.failedCount > 0 ? "destructive" : "outline"}
+                    className={
+                      log.failedCount > 0
+                        ? undefined
+                        : "hidden group-hover:inline-flex"
+                    }
+                  />
                   {log.status === "sending" ? (
                     <Badge
                       variant="secondary"

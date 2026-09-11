@@ -18,10 +18,12 @@ export function broadcastChannelLabel(label: string) {
   return label.replace(/\s*\([^)]*\)\s*$/, "").trim();
 }
 
-export function getBroadcastChannelPath(targetId: string | null) {
-  if (!targetId) {
-    return "/admin/broadcast";
-  }
+export function sumBroadcastRecipientCounts(
+  targets: { recipientCount: number }[],
+) {
+  return targets.reduce((sum, target) => sum + target.recipientCount, 0);
+}
 
+export function getBroadcastChannelPath(targetId: string) {
   return `/admin/broadcast/${targetToChannelSlug(targetId)}`;
 }

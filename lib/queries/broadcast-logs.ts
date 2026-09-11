@@ -10,13 +10,6 @@ import { db } from "@/lib/db";
 import { broadcastLogs } from "@/lib/db/schema/broadcasts";
 import { users } from "@/lib/db/schema/users";
 
-export {
-  BROADCAST_LOGS_PAGE_SIZE,
-  type BroadcastLogListItem,
-} from "@/lib/broadcast/log-types";
-
-export type { BroadcastLogsFilter } from "@/lib/broadcast/log-filter";
-
 export async function listBroadcastLogs(
   pageIndex = 0,
   pageSize = BROADCAST_LOGS_PAGE_SIZE,
@@ -27,11 +20,11 @@ export async function listBroadcastLogs(
   const safePageSize = Math.min(Math.max(pageSize, 1), 50);
   const conditions: SQL[] = [];
 
-  if (filter?.target) {
+  if (filter.target) {
     conditions.push(eq(broadcastLogs.target, filter.target));
   }
 
-  const trimmedSearch = filter?.search?.trim().slice(0, 100) ?? "";
+  const trimmedSearch = filter.search?.trim().slice(0, 100) ?? "";
   if (trimmedSearch) {
     const pattern = `%${trimmedSearch}%`;
     const searchMatch = or(
@@ -59,7 +52,6 @@ export async function listBroadcastLogs(
       recipients: broadcastLogs.recipients,
       failedCount: broadcastLogs.failedCount,
       omittedTo: broadcastLogs.omittedTo,
-      recentFailures: broadcastLogs.recentFailures,
       operatorEmail: users.email,
       totalCount: sql<number>`count(*) over()::int`,
     })
@@ -78,15 +70,12 @@ export async function listBroadcastLogs(
       body: row.body,
       sentAt: row.sentAt,
       status: row.status,
-      deliveredTo: row.deliveredTo,
-      recipients: row.recipients,
       failedCount: countRemainingFailures({
         status: row.status,
         recipients: row.recipients,
         deliveredTo: row.deliveredTo,
         omittedTo: row.omittedTo,
         failedCount: row.failedCount,
-        recentFailures: row.recentFailures,
       }),
       operatorEmail: row.operatorEmail,
     })) satisfies BroadcastLogListItem[],

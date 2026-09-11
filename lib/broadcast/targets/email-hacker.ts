@@ -2,10 +2,11 @@ import { count, eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/aws/ses";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
-import { renderHtmlEmail } from "@/lib/email/render";
+import { escapeHtml, renderHtmlEmail } from "@/lib/email/render";
 import type {
   BroadcastDeliveryResult,
   BroadcastMessage,
+  BroadcastRenderedMessage,
   BroadcastTarget,
 } from "@/lib/broadcast/types";
 
@@ -15,6 +16,7 @@ export const hackerEmailTarget: BroadcastTarget = {
   description: "Send an email to every user with the hacker role.",
   countRecipients,
   resolveRecipients,
+  renderMessage,
   deliver,
 };
 
@@ -38,56 +40,45 @@ async function resolveRecipients() {
     .filter((email) => email.length > 0);
 }
 
+function renderMessage(message: BroadcastMessage): BroadcastRenderedMessage {
+  const rendered = renderHtmlEmail({
+    subject: message.subject,
+    previewText: "",
+    html: message.body
+      .split("\n")
+      .map((line) => `<p>${escapeHtml(line)}</p>`)
+      .join(""),
+  });
+
+  return {
+    subject: rendered.subject,
+    html: rendered.html,
+    text: message.body,
+  };
+}
+
 async function deliver(
-  message: BroadcastMessage,
+  message: BroadcastRenderedMessage,
   recipient: string,
 ): Promise<BroadcastDeliveryResult> {
   try {
-    const rendered = renderHtmlEmail({
-      subject: message.subject,
-      previewText: "",
-      html: message.body
-        .split("\n")
-        .map((line) => `<p>${escapeHtml(line)}</p>`)
-        .join(""),
-    });
-
-    const messageId = await sendEmail({
+    await sendEmail({
       to: recipient,
-      subject: rendered.subject,
-      text: message.body,
-      html: rendered.html,
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
     });
 
     return {
       recipient,
       status: "sent",
-      reference: messageId,
       error: null,
     };
   } catch (error) {
     return {
       recipient,
       status: "failed",
-      reference: null,
-      error: sanitizeEmailError(error),
+      error: error instanceof Error ? error.message : "Unknown email error",
     };
   }
-}
-
-function sanitizeEmailError(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unknown email error";
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }

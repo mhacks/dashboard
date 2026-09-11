@@ -4,14 +4,14 @@ import type { BroadcastFailure } from "@/lib/broadcast/types";
 
 type BroadcastFailureLog = {
   status: string;
-  recipients: string[] | null;
-  deliveredTo: string[] | null;
-  omittedTo: string[] | null;
+  recipients: string[];
+  deliveredTo: string[];
+  omittedTo: string[];
   failedCount: number;
-  recentFailures: BroadcastFailure[] | null;
+  recentFailures: BroadcastFailure[];
 };
 
-export function listBroadcastFailures(
+function listBroadcastFailures(
   recipients: string[],
   deliveredTo: string[],
   recordedFailures: BroadcastFailure[],
@@ -29,11 +29,24 @@ export function listBroadcastFailures(
     }));
 }
 
-export function splitBroadcastFailures(
-  failures: BroadcastFailure[],
-  omittedTo: string[],
+export function categorizeBroadcastDeliveryFailures(
+  log: Pick<
+    BroadcastFailureLog,
+    "status" | "recipients" | "deliveredTo" | "omittedTo" | "recentFailures"
+  >,
 ) {
-  const omittedSet = new Set(omittedTo);
+  const omittedSet = new Set(log.omittedTo);
+  const failures =
+    log.status === "complete"
+      ? listBroadcastFailures(
+          log.recipients,
+          log.deliveredTo,
+          log.recentFailures,
+        )
+      : log.recentFailures.map((failure) => ({
+          recipient: failure.recipient,
+          error: failure.error,
+        }));
   const retryFailures: BroadcastFailure[] = [];
   const omittedFailures: BroadcastFailure[] = [];
 
@@ -45,43 +58,7 @@ export function splitBroadcastFailures(
     }
   }
 
-  return { retryFailures, omittedFailures };
-}
-
-export function categorizeBroadcastDeliveryFailures(
-  log: Pick<
-    BroadcastFailureLog,
-    "status" | "recipients" | "deliveredTo" | "omittedTo" | "recentFailures"
-  >,
-) {
-  const deliveredTo = log.deliveredTo ?? [];
-  const omittedTo = log.omittedTo ?? [];
-  const recipients = log.recipients ?? [];
-  const failures =
-    log.status === "complete"
-      ? listBroadcastFailures(recipients, deliveredTo, log.recentFailures ?? [])
-      : (log.recentFailures ?? []).map((failure) => ({
-          recipient: failure.recipient,
-          error: failure.error,
-        }));
-  const { retryFailures, omittedFailures } = splitBroadcastFailures(
-    failures,
-    omittedTo,
-  );
-
   return { failures, retryFailures, omittedFailures };
-}
-
-export function getRetryFailuresFromLog(
-  log: Pick<
-    BroadcastFailureLog,
-    "recipients" | "deliveredTo" | "omittedTo" | "recentFailures"
-  >,
-) {
-  return categorizeBroadcastDeliveryFailures({
-    ...log,
-    status: "complete",
-  }).retryFailures;
 }
 
 export function buildBroadcastDeliveryDetails(
@@ -95,8 +72,6 @@ export function buildBroadcastDeliveryDetails(
     | "recentFailures"
   >,
 ): BroadcastDeliveryDetails {
-  const deliveredTo = log.deliveredTo ?? [];
-  const omittedTo = log.omittedTo ?? [];
   const { totalRecipients, sentCount, failedCount, pendingCount } =
     broadcastDeliveryProgress(log);
   const { failures, retryFailures, omittedFailures } =
@@ -108,8 +83,8 @@ export function buildBroadcastDeliveryDetails(
     sentCount,
     failedCount,
     pendingCount,
-    deliveredTo,
-    omittedTo,
+    deliveredTo: log.deliveredTo,
+    omittedTo: log.omittedTo,
     failures,
     retryFailures,
     omittedFailures,
@@ -127,20 +102,20 @@ export function mergeRetryResultsIntoOriginal(
   >,
 ) {
   const deliveredTo = [
-    ...new Set([...(original.deliveredTo ?? []), ...(retry.deliveredTo ?? [])]),
+    ...new Set([...original.deliveredTo, ...retry.deliveredTo]),
   ];
   const recentFailuresByRecipient = new Map(
-    (original.recentFailures ?? []).map((failure) => [
+    original.recentFailures.map((failure) => [
       failure.recipient,
       failure.error,
     ]),
   );
 
-  for (const failure of retry.recentFailures ?? []) {
+  for (const failure of retry.recentFailures) {
     recentFailuresByRecipient.set(failure.recipient, failure.error);
   }
 
-  for (const recipient of retry.deliveredTo ?? []) {
+  for (const recipient of retry.deliveredTo) {
     recentFailuresByRecipient.delete(recipient);
   }
 
@@ -151,7 +126,7 @@ export function mergeRetryResultsIntoOriginal(
     }),
   );
   const failedCount = listBroadcastFailures(
-    original.recipients ?? [],
+    original.recipients,
     deliveredTo,
     recentFailures,
   ).length;
@@ -159,11 +134,25 @@ export function mergeRetryResultsIntoOriginal(
   return { deliveredTo, recentFailures, failedCount };
 }
 
-/** Count failures that still need attention in the feed and delivery modal. */
-export function countRemainingFailures(log: BroadcastFailureLog) {
+export function countRemainingFailures(
+  log: Pick<
+    BroadcastFailureLog,
+    "status" | "recipients" | "deliveredTo" | "omittedTo" | "failedCount"
+  >,
+) {
   if (log.status !== "complete" || log.failedCount === 0) {
     return log.failedCount;
   }
 
-  return getRetryFailuresFromLog(log).length;
+  const delivered = new Set(log.deliveredTo);
+  const omitted = new Set(log.omittedTo);
+  let remaining = 0;
+
+  for (const recipient of log.recipients) {
+    if (!delivered.has(recipient) && !omitted.has(recipient)) {
+      remaining += 1;
+    }
+  }
+
+  return remaining;
 }

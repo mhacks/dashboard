@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BroadcastLogListItem } from "@/lib/broadcast/log-types";
 import { BROADCAST_LOGS_PAGE_SIZE } from "@/lib/broadcast/log-types";
 import { buildBroadcastLogsFilter } from "@/lib/broadcast/log-filter";
@@ -26,9 +26,6 @@ export function BroadcastMessageFeedPanel({
   emptyMessage,
 }: BroadcastMessageFeedPanelProps) {
   const [olderLogs, setOlderLogs] = useState<BroadcastLogListItem[]>([]);
-  const [failedCountOverrides, setFailedCountOverrides] = useState<
-    Record<string, number>
-  >({});
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
@@ -36,34 +33,16 @@ export function BroadcastMessageFeedPanel({
   const shouldScrollToBottomRef = useRef(true);
   const nextPageIndexRef = useRef(1);
 
-  const updateFailedCount = useCallback(
-    (broadcastId: string, failedCount: number) => {
-      setFailedCountOverrides((current) => ({
-        ...current,
-        [broadcastId]: failedCount,
-      }));
-    },
-    [],
-  );
-
   const logs = useMemo(() => {
-    const applyOverrides = (items: BroadcastLogListItem[]) =>
-      items.map((log) => {
-        const failedCount = failedCountOverrides[log.id];
-        return failedCount === undefined ? log : { ...log, failedCount };
-      });
-
-    const recent = applyOverrides([...initialLogs].reverse());
+    const recent = [...initialLogs].reverse();
     if (olderLogs.length === 0) {
       return recent;
     }
 
     const recentIds = new Set(recent.map((log) => log.id));
-    const older = applyOverrides(
-      olderLogs.filter((log) => !recentIds.has(log.id)),
-    );
+    const older = olderLogs.filter((log) => !recentIds.has(log.id));
     return [...older, ...recent];
-  }, [failedCountOverrides, initialLogs, olderLogs]);
+  }, [initialLogs, olderLogs]);
 
   const hasMore = logs.length < totalCount;
   const hasMoreRef = useRef(hasMore);
@@ -195,7 +174,6 @@ export function BroadcastMessageFeedPanel({
             logs={logs}
             targetLabels={targetLabels}
             emptyMessage={emptyMessage}
-            onFailedCountChange={updateFailedCount}
           />
         </div>
       </div>

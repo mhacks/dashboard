@@ -1,9 +1,8 @@
+import { notFound } from "next/navigation";
 import { broadcastChannelLabel } from "@/lib/broadcast/channels";
 import { buildBroadcastLogsFilter } from "@/lib/broadcast/log-filter";
-import {
-  BROADCAST_LOGS_PAGE_SIZE,
-  listBroadcastLogs,
-} from "@/lib/queries/broadcast-logs";
+import { BROADCAST_LOGS_PAGE_SIZE } from "@/lib/broadcast/log-types";
+import { listBroadcastLogs } from "@/lib/queries/broadcast-logs";
 import type { BroadcastTargetSummary } from "@/lib/broadcast/types";
 import BroadcastForm from "./BroadcastForm";
 import { BroadcastChannelMobileNav } from "./BroadcastChannelSidebar";
@@ -26,7 +25,7 @@ export async function BroadcastChannelView({
     : null;
 
   if (channelTargetId && !channelTarget) {
-    return null;
+    notFound();
   }
 
   const { items: logs, totalCount } = await listBroadcastLogs(

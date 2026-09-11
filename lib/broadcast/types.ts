@@ -3,10 +3,15 @@ export type BroadcastMessage = {
   body: string;
 };
 
+export type BroadcastRenderedMessage = {
+  subject: string;
+  text: string;
+  html: string;
+};
+
 export type BroadcastDeliveryResult = {
   recipient: string;
   status: "sent" | "failed";
-  reference: string | null;
   error: string | null;
 };
 
@@ -24,13 +29,11 @@ export type BroadcastSendStatus = {
   pendingCount: number;
   nextCursor: number;
   complete: boolean;
-  recentFailures: BroadcastFailure[];
 };
 
 export type BroadcastTargetSummary = {
   id: string;
   label: string;
-  description: string;
   recipientCount: number;
 };
 
@@ -40,8 +43,9 @@ export interface BroadcastTarget {
   description: string;
   countRecipients(): Promise<number>;
   resolveRecipients(): Promise<string[]>;
+  renderMessage(message: BroadcastMessage): BroadcastRenderedMessage;
   deliver(
-    message: BroadcastMessage,
+    message: BroadcastRenderedMessage,
     recipient: string,
   ): Promise<BroadcastDeliveryResult>;
 }

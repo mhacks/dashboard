@@ -21,8 +21,10 @@ import {
 } from "@/lib/broadcast/config";
 import {
   BROADCAST_PAUSED_NOTICE,
+  formatBroadcastOutcome,
   formatBroadcastProgress,
 } from "@/lib/broadcast/progress";
+import { sumBroadcastRecipientCounts } from "@/lib/broadcast/channels";
 import { cn } from "@/lib/utils";
 import type {
   BroadcastSendStatus,
@@ -56,7 +58,6 @@ export default function BroadcastForm({
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState<BroadcastDraft | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [successOpen, setSuccessOpen] = useState(false);
   const [successResult, setSuccessResult] = useState<{
     sent: number;
     failed: number;
@@ -66,10 +67,7 @@ export default function BroadcastForm({
   const selectedTargets = targets.filter((target) =>
     selectedTargetIds.includes(target.id),
   );
-  const totalRecipientCount = selectedTargets.reduce(
-    (sum, target) => sum + target.recipientCount,
-    0,
-  );
+  const totalRecipientCount = sumBroadcastRecipientCounts(selectedTargets);
 
   useEffect(() => {
     void findActiveBroadcastAction().then((active) => {
@@ -127,7 +125,6 @@ export default function BroadcastForm({
             sent: finalStatus.sentCount,
             failed: finalStatus.failedCount,
           });
-          setSuccessOpen(true);
           router.refresh();
         }
       } catch (error) {
@@ -191,7 +188,6 @@ export default function BroadcastForm({
         }
 
         setSuccessResult({ sent: totalSent, failed: totalFailed });
-        setSuccessOpen(true);
         router.refresh();
       } catch (error) {
         setNotice(broadcastErrorMessage(error));
@@ -209,10 +205,12 @@ export default function BroadcastForm({
     );
   }
 
-  const successDescription =
-    successResult && successResult.failed > 0
-      ? `Delivery finished with ${successResult.sent} sent and ${successResult.failed} failed.`
-      : `Your message was delivered to ${successResult?.sent ?? 0} hackers.`;
+  const successDescription = successResult
+    ? formatBroadcastOutcome(successResult.sent, successResult.failed, {
+        finishedLabel: "Delivery",
+        successMessage: `Your message was delivered to ${successResult.sent} hackers.`,
+      })
+    : "";
 
   const formDisabled = isSending || inProgress;
   const recipientSummary =
@@ -226,14 +224,7 @@ export default function BroadcastForm({
         {inProgress ? (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5">
             <p className="text-[11px] text-muted-foreground">
-              {notice ??
-                (status
-                  ? formatBroadcastProgress(status)
-                  : formatBroadcastProgress({
-                      sentCount: 0,
-                      failedCount: 0,
-                      pendingCount: 0,
-                    }))}
+              {notice ?? (status ? formatBroadcastProgress(status) : null)}
             </p>
             <Button
               type="button"
@@ -361,7 +352,14 @@ export default function BroadcastForm({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={successOpen} onOpenChange={setSuccessOpen}>
+      <AlertDialog
+        open={successResult !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSuccessResult(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Broadcast sent</AlertDialogTitle>

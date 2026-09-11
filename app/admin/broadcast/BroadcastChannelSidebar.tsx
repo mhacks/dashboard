@@ -10,13 +10,25 @@ import {
 import type { BroadcastTargetSummary } from "@/lib/broadcast/types";
 import { cn } from "@/lib/utils";
 
+function channelNavItems(targets: BroadcastTargetSummary[]) {
+  return [
+    { id: null, href: "/admin/broadcast", label: "Global", count: null },
+    ...targets.map((target) => ({
+      id: target.id,
+      href: getBroadcastChannelPath(target.id),
+      label: broadcastChannelLabel(target.label),
+      count: target.recipientCount,
+    })),
+  ];
+}
+
 export function BroadcastChannelSidebar({
   targets,
 }: {
   targets: BroadcastTargetSummary[];
 }) {
   const pathname = usePathname();
-  const globalActive = pathname === "/admin/broadcast";
+  const channels = channelNavItems(targets);
 
   return (
     <nav
@@ -27,27 +39,13 @@ export function BroadcastChannelSidebar({
         Channels
       </p>
 
-      <Link
-        href="/admin/broadcast"
-        className={cn(
-          "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-          globalActive
-            ? "bg-primary/10 font-medium text-foreground"
-            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-        )}
-      >
-        <HashIcon className="size-3.5 shrink-0 opacity-70" />
-        <span className="truncate">Global</span>
-      </Link>
-
-      {targets.map((target) => {
-        const href = getBroadcastChannelPath(target.id);
-        const active = pathname === href;
+      {channels.map((channel) => {
+        const active = pathname === channel.href;
 
         return (
           <Link
-            key={target.id}
-            href={href}
+            key={channel.id ?? "global"}
+            href={channel.href}
             className={cn(
               "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
               active
@@ -56,12 +54,12 @@ export function BroadcastChannelSidebar({
             )}
           >
             <HashIcon className="size-3.5 shrink-0 opacity-70" />
-            <span className="truncate">
-              {broadcastChannelLabel(target.label)}
-            </span>
-            <span className="ml-auto text-[10px] text-muted-foreground">
-              {target.recipientCount}
-            </span>
+            <span className="truncate">{channel.label}</span>
+            {channel.count !== null ? (
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {channel.count}
+              </span>
+            ) : null}
           </Link>
         );
       })}
@@ -77,41 +75,31 @@ export function BroadcastChannelMobileNav({
   activeTargetId: string | null;
 }) {
   const pathname = usePathname();
+  const channels = channelNavItems(targets);
 
   return (
     <nav
       aria-label="Broadcast channels"
       className="flex gap-1.5 overflow-x-auto pb-1 md:hidden"
     >
-      <Link
-        href="/admin/broadcast"
-        className={cn(
-          "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
-          pathname === "/admin/broadcast"
-            ? "border-primary/40 bg-primary/5 text-foreground"
-            : "border-border text-muted-foreground",
-        )}
-      >
-        <HashIcon className="size-3" />
-        Global
-      </Link>
-
-      {targets.map((target) => {
-        const href = getBroadcastChannelPath(target.id);
+      {channels.map((channel) => {
+        const active = channel.id
+          ? activeTargetId === channel.id
+          : pathname === channel.href;
 
         return (
           <Link
-            key={target.id}
-            href={href}
+            key={channel.id ?? "global"}
+            href={channel.href}
             className={cn(
               "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
-              activeTargetId === target.id
+              active
                 ? "border-primary/40 bg-primary/5 text-foreground"
                 : "border-border text-muted-foreground",
             )}
           >
             <HashIcon className="size-3" />
-            {broadcastChannelLabel(target.label)}
+            {channel.label}
           </Link>
         );
       })}
