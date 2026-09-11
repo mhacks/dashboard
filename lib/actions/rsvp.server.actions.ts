@@ -18,9 +18,10 @@ import {
 } from "@/lib/db/schema/rsvps";
 import {
   assertAcceptedRsvpDecision,
+  assertRsvpOpenForUser,
+  assertRsvpOpenForUserInTransaction,
   lockWritableRsvpApplicant,
 } from "@/lib/rsvp/access";
-import { assertRsvpOpen } from "@/lib/rsvp/deadline";
 import { receiptKeyForUser } from "@/lib/rsvp/receipt";
 import { deleteRsvpReceipt, validateRsvpReceiptInS3 } from "@/lib/rsvp/storage";
 import {
@@ -149,7 +150,7 @@ export async function saveRsvpDraft(
   input: unknown,
 ): Promise<{ updatedAt: string; version: number }> {
   const user = await requireSessionUser();
-  assertRsvpOpen();
+  await assertRsvpOpenForUser(user.id);
   const request = saveDraftInputSchema.parse(input);
   const updatedAt = new Date().toISOString();
 
@@ -212,7 +213,7 @@ export async function saveRsvpDraftWithoutReceipt(input: unknown): Promise<{
   version: number;
 }> {
   const user = await requireSessionUser();
-  assertRsvpOpen();
+  await assertRsvpOpenForUser(user.id);
   const request = saveDraftWithoutReceiptInputSchema.parse(input);
   const updatedAt = new Date().toISOString();
 
@@ -314,7 +315,7 @@ function finalInsertValues({
 
 export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
   const user = await requireSessionUser();
-  assertRsvpOpen();
+  await assertRsvpOpenForUser(user.id);
   const request = submitRsvpInputSchema.parse(input);
 
   const [preflight] = await db
@@ -414,7 +415,7 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
   }
 
   const result = await db.transaction(async (tx) => {
-    assertRsvpOpen();
+    await assertRsvpOpenForUserInTransaction(tx, user.id);
     const [application] = await tx
       .select({
         id: hackerApplicants.id,

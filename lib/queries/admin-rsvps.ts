@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 
-import type { ApplicationDecision } from "@/lib/decisions";
+import { RSVP_ELIGIBLE_DECISIONS } from "@/lib/decisions";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
@@ -22,13 +22,6 @@ import type {
   AdminRsvpDetail,
   AdminRsvpSummary,
 } from "@/lib/types/admin-rsvps";
-
-const RSVP_ELIGIBLE_DECISIONS = [
-  "early_accepted",
-  "early_rsvped",
-  "regular_accepted",
-  "regular_rsvped",
-] as const satisfies readonly ApplicationDecision[];
 
 const applicationSlugSql = sql<string>`'app_' || substring(md5(${hackerApplicants.userId}::text) from 1 for 24)`;
 

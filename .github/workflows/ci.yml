@@ -19,6 +19,11 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
 
+      - name: Check migrations
+        run: |
+          git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+          node scripts/check-migrations.mjs
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 

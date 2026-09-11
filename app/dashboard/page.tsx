@@ -16,6 +16,7 @@ import {
   getApplicantDecision,
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
+import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
 
 /**
  * Stage is derived, never stored. `applied` is the enum's "submitted, no
@@ -31,7 +32,11 @@ function stageFor(application: ApplicantDecisionRow | null): ApplicantStage {
 export default async function DashboardPage() {
   const { id: userId, role } = await requireSessionUser();
 
-  const application = await getApplicantDecision(userId);
+  // Independent of each other, so they overlap rather than queue.
+  const [application, canCheckIn] = await Promise.all([
+    getApplicantDecision(userId),
+    getAttendeeQrEligibility(userId),
+  ]);
 
   // Only meaningful before submitting — submitting deletes the draft row. Note
   // /apply writes an empty draft on first visit, so progress is measured from
@@ -53,6 +58,8 @@ export default async function DashboardPage() {
   return (
     <ApplicantDashboard
       role={role}
+      userId={userId}
+      canCheckIn={canCheckIn}
       firstName={application?.firstName ?? null}
       data={{
         stage: stageFor(application),

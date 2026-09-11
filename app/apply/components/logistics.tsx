@@ -30,10 +30,12 @@ const Logistics = ({
   register,
   errors,
   control,
+  showTravelReimbursementQuestions,
 }: {
   register: UseFormRegister<HackerApplicationFormData>;
   errors: FieldErrors<HackerApplicationFormData>;
   control: Control<HackerApplicationFormData>;
+  showTravelReimbursementQuestions: boolean;
 }) => {
   const needsTravelReimbursement = useWatch({
     control,
@@ -164,46 +166,48 @@ const Logistics = ({
           </FormField>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Controller
-              name="needsTravelReimbursement"
-              control={control}
-              render={({ field }) => (
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  id="needsTravelReimbursement"
-                />
-              )}
-            />
-            <Label htmlFor="needsTravelReimbursement">
-              Will you require travel reimbursement?
-            </Label>
-          </div>
-          {needsTravelReimbursement && (
-            <FormField label="If travel reimbursement cannot be provided, would you still attend?">
+        {showTravelReimbursementQuestions && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
               <Controller
-                name="wouldAttendWithoutReimbursement"
+                name="needsTravelReimbursement"
                 control={control}
                 render={({ field }) => (
-                  <Select
-                    value={field.value?.toString()}
-                    onValueChange={(val) => field.onChange(val === "true")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">Yes</SelectItem>
-                      <SelectItem value="false">No</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    id="needsTravelReimbursement"
+                  />
                 )}
               />
-            </FormField>
-          )}
-        </div>
+              <Label htmlFor="needsTravelReimbursement">
+                Will you require travel reimbursement?
+              </Label>
+            </div>
+            {needsTravelReimbursement && (
+              <FormField label="If travel reimbursement cannot be provided, would you still attend?">
+                <Controller
+                  name="wouldAttendWithoutReimbursement"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value?.toString()}
+                      onValueChange={(val) => field.onChange(val === "true")}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Yes</SelectItem>
+                        <SelectItem value="false">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FormField>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

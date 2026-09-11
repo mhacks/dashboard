@@ -9,6 +9,7 @@ import {
   hackerApplicationDrafts,
 } from "@/lib/db/schema/applications";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
+import { getApplicationRound } from "@/lib/types/application-reviews";
 
 export default async function ApplicationFormPage() {
   const { id: userId } = await requireSessionUser();
@@ -42,6 +43,9 @@ export default async function ApplicationFormPage() {
           existingData={existingApp}
           draftData={null}
           resumeUrl={resumeUrl}
+          showTravelReimbursementQuestions={
+            getApplicationRound(existingApp.createdAt) === "early"
+          }
         />
       </Suspense>
     );
@@ -83,6 +87,9 @@ export default async function ApplicationFormPage() {
         existingData={null}
         draftData={draftData}
         resumeUrl={resumeUrl}
+        showTravelReimbursementQuestions={
+          getApplicationRound(new Date().toISOString()) === "early"
+        }
       />
     </Suspense>
   );

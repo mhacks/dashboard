@@ -12,7 +12,7 @@ import {
   hackerRsvps,
   type HackerRsvpRow,
 } from "@/lib/db/schema/rsvps";
-import { isRsvpOpen } from "@/lib/rsvp/deadline";
+import { getRsvpAccessForUser } from "@/lib/rsvp/access";
 import {
   applyTravelEligibilityDefaults,
   getRsvpTravelEligibility,
@@ -308,8 +308,10 @@ export async function getAttendeeRsvpState({
     row.reimbursementCents,
   );
 
+  const access = await getRsvpAccessForUser({ userId, nowMs });
+
   return {
-    kind: isRsvpOpen(nowMs) ? "editable" : "closed",
+    kind: access.open ? "editable" : "closed",
     draft,
     accountEmail,
     travelEligibility: getRsvpTravelEligibility(

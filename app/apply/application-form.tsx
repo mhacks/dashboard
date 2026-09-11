@@ -81,7 +81,10 @@ const SECTION_OF_FIELD: Partial<
 // before collapsing the rest into "and N more".
 const MAX_SECTIONS_SHOWN = 3;
 
-function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
+function rowToFormData(
+  row: HackerApplicantRow,
+  showTravelReimbursementQuestions: boolean,
+): HackerApplicationFormData {
   return {
     firstName: row.firstName,
     lastName: row.lastName,
@@ -104,9 +107,12 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
     airportCode: row.airportCode ?? "",
     shirtSize: row.shirtSize,
     allergiesDescription: row.allergiesDescription ?? "",
-    needsTravelReimbursement: row.needsTravelReimbursement,
-    wouldAttendWithoutReimbursement:
-      row.wouldAttendWithoutReimbursement ?? undefined,
+    needsTravelReimbursement: showTravelReimbursementQuestions
+      ? row.needsTravelReimbursement
+      : false,
+    wouldAttendWithoutReimbursement: showTravelReimbursementQuestions
+      ? (row.wouldAttendWithoutReimbursement ?? undefined)
+      : undefined,
     github: row.github ?? "",
     linkedin: row.linkedin ?? "",
     personalSite: row.personalSite ?? "",
@@ -130,10 +136,12 @@ export default function ApplyPage({
   existingData,
   draftData,
   resumeUrl,
+  showTravelReimbursementQuestions,
 }: {
   existingData: HackerApplicantRow | null;
   draftData: Record<string, unknown> | null;
   resumeUrl: string | null;
+  showTravelReimbursementQuestions: boolean;
 }) {
   const readOnly = existingData !== null;
   const [step, setStep] = useState(0);
@@ -162,7 +170,7 @@ export default function ApplyPage({
     resolver: zodResolver(hackerApplicationSchema),
     mode: "onChange",
     defaultValues: existingData
-      ? rowToFormData(existingData)
+      ? rowToFormData(existingData, showTravelReimbursementQuestions)
       : {
           firstName: draft.firstName ?? "",
           lastName: draft.lastName ?? "",
@@ -187,9 +195,12 @@ export default function ApplyPage({
           airportCode: draft.airportCode ?? "",
           shirtSize: draft.shirtSize ?? "",
           allergiesDescription: draft.allergiesDescription ?? "",
-          needsTravelReimbursement: draft.needsTravelReimbursement ?? false,
-          wouldAttendWithoutReimbursement:
-            draft.wouldAttendWithoutReimbursement ?? undefined,
+          needsTravelReimbursement: showTravelReimbursementQuestions
+            ? (draft.needsTravelReimbursement ?? false)
+            : false,
+          wouldAttendWithoutReimbursement: showTravelReimbursementQuestions
+            ? (draft.wouldAttendWithoutReimbursement ?? undefined)
+            : undefined,
           github: draft.github ?? "",
           linkedin: draft.linkedin ?? "",
           personalSite: draft.personalSite ?? "",
@@ -615,6 +626,9 @@ export default function ApplyPage({
                       register={register}
                       errors={errors}
                       control={control}
+                      showTravelReimbursementQuestions={
+                        showTravelReimbursementQuestions
+                      }
                     />
                   )}
                   {step === 4 && (

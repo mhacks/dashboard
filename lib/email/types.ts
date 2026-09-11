@@ -139,6 +139,8 @@ export const directBatchSendSchema = z.object({
 
 export const emailAudienceDecisionGroupSchema = z.enum([
   "all_applicants",
+  "draft",
+  "umich",
   "accepted",
   "rsvped",
   "rejected",
