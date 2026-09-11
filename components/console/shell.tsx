@@ -4,14 +4,14 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Rail } from "./rail";
 
-function ConsoleFieldPhoto() {
+function ConsoleFieldPhoto({ src }: { src: string }) {
   return (
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 bg-[#8f8f8a]"
     >
       <Image
-        src="/decision/bg-console.jpg"
+        src={src}
         alt=""
         fill
         sizes="100vw"
@@ -40,6 +40,7 @@ export function ConsoleShell({
   width = "wide",
   centred = false,
   field = true,
+  fieldSrc = "/decision/bg-console.jpg",
 }: {
   children: ReactNode;
   width?: "wide" | "letter";
@@ -50,6 +51,8 @@ export function ConsoleShell({
    * the decision.
    */
   field?: boolean;
+  /** Which photo stands behind the sheet. Defaults to the dashboard's own. */
+  fieldSrc?: string;
 }) {
   return (
     <div
@@ -58,7 +61,7 @@ export function ConsoleShell({
         centred && "justify-center",
       )}
     >
-      {field ? <ConsoleFieldPhoto /> : null}
+      {field ? <ConsoleFieldPhoto src={fieldSrc} /> : null}
       <div
         className={cn(
           "console-sheet relative z-10 mx-auto w-full border border-ui-line-strong shadow-[0_2px_30px_rgba(23,23,26,0.22)]",
