@@ -1,4 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import {
@@ -41,6 +42,8 @@ export async function startBroadcast(input: unknown) {
       400,
     );
   }
+
+  await expireStaleBroadcasts(target.id);
 
   const [activeBroadcast] = await db
     .select({ id: broadcastLogs.id })
@@ -94,6 +97,7 @@ export async function startBroadcast(input: unknown) {
         failedCount: 0,
         nextCursor: 0,
         recentFailures: [],
+        leaseExpiresAt: broadcastLeaseExpiry(),
       })
       .returning();
   } catch (error) {
@@ -137,6 +141,13 @@ export async function sendBroadcastBatch(input: unknown) {
     return buildBroadcastStatus(broadcast);
   }
 
+  if (broadcast.status === "expired") {
+    throw new EmailCampaignError(
+      "This broadcast expired and can no longer be resumed.",
+      409,
+    );
+  }
+
   if (body.cursor !== broadcast.nextCursor) {
     return buildBroadcastStatus(broadcast);
   }
@@ -177,6 +188,8 @@ export async function sendBroadcastBatch(input: unknown) {
 
 export async function findActiveBroadcast() {
   const organizer = await requireOrganizer();
+
+  await expireStaleBroadcasts();
 
   const [broadcast] = await db
     .select()
@@ -224,6 +237,20 @@ async function claimNextBroadcastRecipient(
     }
 
     if (broadcast.processingRecipient) {
+      if (broadcastLeaseIsActive(broadcast)) {
+        return { kind: "misaligned" };
+      }
+
+      const leaseToken = randomUUID();
+
+      await tx
+        .update(broadcastLogs)
+        .set({
+          leaseToken,
+          leaseExpiresAt: broadcastLeaseExpiry(),
+        })
+        .where(eq(broadcastLogs.id, broadcastId));
+
       return { kind: "claimed", recipient: broadcast.processingRecipient };
     }
 
@@ -233,10 +260,15 @@ async function claimNextBroadcastRecipient(
     }
 
     const recipient = recipients[broadcast.nextCursor];
+    const leaseToken = randomUUID();
 
     await tx
       .update(broadcastLogs)
-      .set({ processingRecipient: recipient })
+      .set({
+        processingRecipient: recipient,
+        leaseToken,
+        leaseExpiresAt: broadcastLeaseExpiry(),
+      })
       .where(eq(broadcastLogs.id, broadcastId));
 
     return { kind: "claimed", recipient };
@@ -266,6 +298,8 @@ async function recordBroadcastDelivery(
     const baseUpdate = {
       nextCursor,
       processingRecipient: null,
+      leaseToken: null,
+      leaseExpiresAt: complete ? null : broadcastLeaseExpiry(),
       status: complete ? "complete" : "sending",
     };
 
@@ -317,8 +351,52 @@ async function finalizeBroadcastIfComplete(
 
   await tx
     .update(broadcastLogs)
-    .set({ status: "complete", processingRecipient: null })
+    .set({
+      status: "complete",
+      processingRecipient: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+    })
     .where(eq(broadcastLogs.id, broadcast.id));
+}
+
+async function expireStaleBroadcasts(target?: string) {
+  const now = new Date().toISOString();
+  const conditions = [
+    eq(broadcastLogs.status, "sending"),
+    or(
+      isNull(broadcastLogs.leaseExpiresAt),
+      lt(broadcastLogs.leaseExpiresAt, now),
+    ),
+  ];
+
+  if (target) {
+    conditions.push(eq(broadcastLogs.target, target));
+  }
+
+  await db
+    .update(broadcastLogs)
+    .set({
+      status: "expired",
+      processingRecipient: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+    })
+    .where(and(...conditions));
+}
+
+function broadcastLeaseIsActive(broadcast: BroadcastLogRow) {
+  return Boolean(
+    broadcast.leaseToken &&
+    broadcast.leaseExpiresAt &&
+    Date.parse(broadcast.leaseExpiresAt) > Date.now(),
+  );
+}
+
+function broadcastLeaseExpiry() {
+  return new Date(
+    Date.now() + getCampaignLimits().staleSendingLeaseMs,
+  ).toISOString();
 }
 
 function buildBroadcastStatus(broadcast: BroadcastLogRow): BroadcastSendStatus {

@@ -28,6 +28,11 @@ export const broadcastLogs = pgTable(
     failedCount: integer("failed_count").notNull().default(0),
     nextCursor: integer("next_cursor").notNull().default(0),
     processingRecipient: text("processing_recipient"),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
     recentFailures: jsonb("recent_failures")
       .$type<BroadcastFailure[]>()
       .notNull()
