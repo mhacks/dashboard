@@ -28,6 +28,7 @@ export type BroadcastSendStatus = {
   pendingCount: number;
   nextCursor: number;
   complete: boolean;
+  parentBroadcastId: string | null;
 };
 
 export type BroadcastTargetSummary = {

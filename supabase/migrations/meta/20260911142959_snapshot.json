@@ -1,5 +1,5 @@
 {
-  "id": "a065ca92-1da4-4b56-a9f4-a4d816adb045",
+  "id": "4fd6958c-6d71-4b96-a70c-908acdd0be35",
   "prevId": "c5561032-cf36-4d70-8b3d-d1d4c89a2c27",
   "version": "7",
   "dialect": "postgresql",
@@ -1056,6 +1056,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "parent_broadcast_id": {
+          "name": "parent_broadcast_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "lease_expires_at": {
           "name": "lease_expires_at",
           "type": "timestamp with time zone",
@@ -1124,6 +1130,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "sent_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "broadcast_logs_parent_broadcast_id_fkey": {
+          "name": "broadcast_logs_parent_broadcast_id_fkey",
+          "tableFrom": "broadcast_logs",
+          "tableTo": "broadcast_logs",
+          "columnsFrom": [
+            "parent_broadcast_id"
           ],
           "columnsTo": [
             "id"

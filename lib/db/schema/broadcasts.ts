@@ -34,12 +34,18 @@ export const broadcastLogs = pgTable(
     retryFailedCount: integer("retry_failed_count").notNull().default(0),
     nextCursor: integer("next_cursor").notNull().default(0),
     processingRecipient: text("processing_recipient"),
+    parentBroadcastId: uuid("parent_broadcast_id"),
     leaseExpiresAt: timestamp("lease_expires_at", {
       withTimezone: true,
       mode: "string",
     }),
   },
   (table) => [
+    foreignKey({
+      columns: [table.parentBroadcastId],
+      foreignColumns: [table.id],
+      name: "broadcast_logs_parent_broadcast_id_fkey",
+    }).onDelete("set null"),
     uniqueIndex("broadcast_logs_active_target_unique")
       .on(table.target)
       .where(sql`${table.status} = 'sending'`),

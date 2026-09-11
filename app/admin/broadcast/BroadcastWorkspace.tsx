@@ -26,14 +26,27 @@ export function BroadcastWorkspace({
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
   const [channelLogs, setChannelLogs] = useState<BroadcastLogListItem[]>([]);
   const [channelTotalCount, setChannelTotalCount] = useState(0);
+  const [channelLogsKey, setChannelLogsKey] = useState<string | null>(null);
   const [, startLoadingChannel] = useTransition();
 
   const channelTarget = activeTargetId
     ? targets.find((target) => target.id === activeTargetId)
     : null;
-  const logs = activeTargetId === null ? initialLogs : channelLogs;
+  const channelKey =
+    activeTargetId === null ? null : `${activeTargetId}:${searchQuery}`;
+  const channelLogsCurrent = channelLogsKey === channelKey;
+  const logs =
+    activeTargetId === null
+      ? initialLogs
+      : channelLogsCurrent
+        ? channelLogs
+        : [];
   const totalCount =
-    activeTargetId === null ? initialTotalCount : channelTotalCount;
+    activeTargetId === null
+      ? initialTotalCount
+      : channelLogsCurrent
+        ? channelTotalCount
+        : 0;
   const emptyMessage = searchQuery
     ? "No broadcasts match your search."
     : channelTarget
@@ -62,6 +75,7 @@ export function BroadcastWorkspace({
       if (!cancelled) {
         setChannelLogs(result.items);
         setChannelTotalCount(result.totalCount);
+        setChannelLogsKey(`${activeTargetId}:${searchQuery}`);
       }
     });
 
@@ -76,8 +90,6 @@ export function BroadcastWorkspace({
     }
 
     setActiveTargetId(targetId);
-    setChannelLogs([]);
-    setChannelTotalCount(0);
   }
 
   return (

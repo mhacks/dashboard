@@ -110,6 +110,7 @@ export async function sendBroadcastBatch(input: unknown) {
   );
 
   if (broadcast.status === "complete") {
+    await mergeRetryResultsIfNeeded(broadcast);
     return buildBroadcastStatus(broadcast);
   }
 
@@ -149,6 +150,7 @@ export async function sendBroadcastBatch(input: unknown) {
   }
 
   const latest = await getBroadcastLog(broadcast.id);
+  await mergeRetryResultsIfNeeded(latest);
   return buildBroadcastStatus(latest);
 }
 
@@ -311,6 +313,7 @@ export async function retryFailedBroadcast(input: unknown) {
     body: original.body,
     sentBy: organizer.id,
     recipients: failedRecipients,
+    parentBroadcastId: original.id,
     organizerInProgressMessage:
       "You already have a broadcast in progress. Resume or wait for it to finish before retrying.",
     targetInProgressMessage:
@@ -329,7 +332,7 @@ export async function applyBroadcastRetryResults(input: unknown) {
   const body = broadcastRetryResultsSchema.parse(input);
 
   const [original, retry] = await Promise.all([
-    getBroadcastLogForOrganizer(body.originalBroadcastId, organizer.id),
+    getBroadcastLog(body.originalBroadcastId),
     getBroadcastLogForOrganizer(
       body.retryBroadcastId,
       organizer.id,
@@ -341,19 +344,23 @@ export async function applyBroadcastRetryResults(input: unknown) {
     throw new EmailCampaignError("Retry broadcast is not complete yet.", 409);
   }
 
+  if (retry.parentBroadcastId && retry.parentBroadcastId !== original.id) {
+    throw new EmailCampaignError(
+      "Retry broadcast does not belong to this original broadcast.",
+      400,
+    );
+  }
+
   const [originalDeliveries, retryDeliveries] = await Promise.all([
     listBroadcastDeliveries(original.id),
     listBroadcastDeliveries(retry.id),
   ]);
-  const eligibleRecipients = new Set(
-    categorizeBroadcastDeliveries(
-      original.status,
-      originalDeliveries,
-    ).retryFailures.map((failure) => failure.recipient),
+  const originalRecipientSet = new Set(
+    originalDeliveries.map((delivery) => delivery.recipient),
   );
 
   for (const delivery of retryDeliveries) {
-    if (!eligibleRecipients.has(delivery.recipient)) {
+    if (!originalRecipientSet.has(delivery.recipient)) {
       throw new EmailCampaignError(
         `Recipient is not eligible for retry merge: ${delivery.recipient}`,
         400,
@@ -699,7 +706,19 @@ function buildBroadcastStatus(broadcast: BroadcastLogRow): BroadcastSendStatus {
     pendingCount,
     nextCursor: broadcast.nextCursor,
     complete,
+    parentBroadcastId: broadcast.parentBroadcastId,
   };
+}
+
+async function mergeRetryResultsIfNeeded(broadcast: BroadcastLogRow) {
+  if (broadcast.status !== "complete" || !broadcast.parentBroadcastId) {
+    return;
+  }
+
+  await applyBroadcastRetryResults({
+    originalBroadcastId: broadcast.parentBroadcastId,
+    retryBroadcastId: broadcast.id,
+  });
 }
 
 async function assertNoActiveBroadcasts(
@@ -741,6 +760,7 @@ async function createSendingBroadcast(input: {
   body: string;
   sentBy: string;
   recipients: string[];
+  parentBroadcastId?: string;
   organizerInProgressMessage: string;
   targetInProgressMessage: string;
 }) {
@@ -767,6 +787,7 @@ async function createSendingBroadcast(input: {
           failedCount: 0,
           retryFailedCount: 0,
           nextCursor: 0,
+          parentBroadcastId: input.parentBroadcastId,
           leaseExpiresAt: broadcastLeaseExpiry(),
         })
         .returning();

@@ -177,6 +177,10 @@ export default function BroadcastForm({
           const finalStatus = await sendBroadcast(started.status, target.label);
 
           if (!finalStatus.complete) {
+            if (totalSent > 0 || totalFailed > 0) {
+              setSuccessResult({ sent: totalSent, failed: totalFailed });
+            }
+            router.refresh();
             return;
           }
 
@@ -374,6 +378,11 @@ export default function BroadcastForm({
           <AlertDialogFooter>
             <AlertDialogAction
               onClick={() => {
+                if (status && !status.complete) {
+                  setSuccessResult(null);
+                  return;
+                }
+
                 resetForm();
               }}
             >

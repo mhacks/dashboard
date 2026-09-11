@@ -25,12 +25,14 @@ CREATE TABLE "broadcast_logs" (
 	"retry_failed_count" integer DEFAULT 0 NOT NULL,
 	"next_cursor" integer DEFAULT 0 NOT NULL,
 	"processing_recipient" text,
+	"parent_broadcast_id" uuid,
 	"lease_expires_at" timestamp with time zone
 );
 --> statement-breakpoint
 ALTER TABLE "broadcast_logs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "broadcast_deliveries" ADD CONSTRAINT "broadcast_deliveries_broadcast_id_fkey" FOREIGN KEY ("broadcast_id") REFERENCES "public"."broadcast_logs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "broadcast_logs" ADD CONSTRAINT "broadcast_logs_sent_by_users_id_fk" FOREIGN KEY ("sent_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "broadcast_logs" ADD CONSTRAINT "broadcast_logs_parent_broadcast_id_fkey" FOREIGN KEY ("parent_broadcast_id") REFERENCES "public"."broadcast_logs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "broadcast_deliveries_broadcast_status_idx" ON "broadcast_deliveries" USING btree ("broadcast_id","status","omitted");--> statement-breakpoint
 CREATE UNIQUE INDEX "broadcast_logs_active_target_unique" ON "broadcast_logs" USING btree ("target") WHERE "broadcast_logs"."status" = 'sending';--> statement-breakpoint
 CREATE INDEX "broadcast_logs_sent_at_idx" ON "broadcast_logs" USING btree ("sent_at");--> statement-breakpoint
