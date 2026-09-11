@@ -657,7 +657,10 @@ export function BroadcastDeliveryDetails({
   const canManageDeliveries = details?.status === "complete";
   const panelsInteractive =
     canManageDeliveries && !isRetrying && !isSavingChanges;
-  const retryFailures = details?.retryFailures ?? [];
+  const retryFailures = useMemo(
+    () => details?.retryFailures ?? [],
+    [details?.retryFailures],
+  );
   const omittedFailures = details?.omittedFailures ?? [];
   const omittedRecipients = omittedFailures.map((failure) => failure.recipient);
   const failedCount = retryFailures.length;
