@@ -2,19 +2,22 @@ import type { BroadcastSendStatus } from "@/lib/broadcast/types";
 
 export function broadcastDeliveryProgress(log: {
   status: string;
-  recipients: string[];
-  deliveredTo: string[];
+  totalRecipients: number;
+  sentCount: number;
   failedCount: number;
 }) {
-  const totalRecipients = log.recipients.length;
-  const sentCount = log.deliveredTo.length;
-  const failedCount = log.failedCount;
   const complete = log.status === "complete";
   const pendingCount = complete
     ? 0
-    : Math.max(0, totalRecipients - sentCount - failedCount);
+    : Math.max(0, log.totalRecipients - log.sentCount - log.failedCount);
 
-  return { totalRecipients, sentCount, failedCount, pendingCount, complete };
+  return {
+    totalRecipients: log.totalRecipients,
+    sentCount: log.sentCount,
+    failedCount: log.failedCount,
+    pendingCount,
+    complete,
+  };
 }
 
 export const BROADCAST_PAUSED_NOTICE =

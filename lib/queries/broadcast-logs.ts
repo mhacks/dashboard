@@ -1,6 +1,5 @@
 import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
-import { countRemainingFailures } from "@/lib/broadcast/failures";
 import type { BroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
@@ -40,45 +39,35 @@ export async function listBroadcastLogs(
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const rows = await db
-    .select({
-      id: broadcastLogs.id,
-      target: broadcastLogs.target,
-      subject: broadcastLogs.subject,
-      body: broadcastLogs.body,
-      sentAt: broadcastLogs.sentAt,
-      status: broadcastLogs.status,
-      deliveredTo: broadcastLogs.deliveredTo,
-      recipients: broadcastLogs.recipients,
-      failedCount: broadcastLogs.failedCount,
-      omittedTo: broadcastLogs.omittedTo,
-      operatorEmail: users.email,
-      totalCount: sql<number>`count(*) over()::int`,
-    })
-    .from(broadcastLogs)
-    .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
-    .where(whereClause)
-    .orderBy(desc(broadcastLogs.sentAt))
-    .limit(safePageSize)
-    .offset(safePageIndex * safePageSize);
+  const [rows, countRows] = await Promise.all([
+    db
+      .select({
+        id: broadcastLogs.id,
+        target: broadcastLogs.target,
+        subject: broadcastLogs.subject,
+        body: broadcastLogs.body,
+        sentAt: broadcastLogs.sentAt,
+        status: broadcastLogs.status,
+        failedCount: broadcastLogs.retryFailedCount,
+        operatorEmail: users.email,
+      })
+      .from(broadcastLogs)
+      .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
+      .where(whereClause)
+      .orderBy(desc(broadcastLogs.sentAt))
+      .limit(safePageSize)
+      .offset(safePageIndex * safePageSize),
+    db
+      .select({
+        totalCount: sql<number>`count(*)::int`,
+      })
+      .from(broadcastLogs)
+      .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
+      .where(whereClause),
+  ]);
 
   return {
-    items: rows.map((row) => ({
-      id: row.id,
-      target: row.target,
-      subject: row.subject,
-      body: row.body,
-      sentAt: row.sentAt,
-      status: row.status,
-      failedCount: countRemainingFailures({
-        status: row.status,
-        recipients: row.recipients,
-        deliveredTo: row.deliveredTo,
-        omittedTo: row.omittedTo,
-        failedCount: row.failedCount,
-      }),
-      operatorEmail: row.operatorEmail,
-    })) satisfies BroadcastLogListItem[],
-    totalCount: rows[0]?.totalCount ?? 0,
+    items: rows satisfies BroadcastLogListItem[],
+    totalCount: countRows[0]?.totalCount ?? 0,
   };
 }
