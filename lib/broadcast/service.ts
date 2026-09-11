@@ -60,21 +60,52 @@ export async function startBroadcast(input: unknown) {
     );
   }
 
-  const [broadcast] = await db
-    .insert(broadcastLogs)
-    .values({
-      target: target.id,
-      subject: body.subject,
-      body: body.body,
-      sentBy: organizer.id,
-      status: "sending",
-      recipients,
-      deliveredTo: [],
-      failedCount: 0,
-      nextCursor: 0,
-      recentFailures: [],
-    })
-    .returning();
+  const [activeTargetBroadcast] = await db
+    .select({ id: broadcastLogs.id })
+    .from(broadcastLogs)
+    .where(
+      and(
+        eq(broadcastLogs.target, target.id),
+        eq(broadcastLogs.status, "sending"),
+      ),
+    )
+    .limit(1);
+
+  if (activeTargetBroadcast) {
+    throw new EmailCampaignError(
+      "Another broadcast is already in progress for this target. Wait for it to finish before starting another.",
+      409,
+    );
+  }
+
+  let broadcast: BroadcastLogRow | undefined;
+
+  try {
+    [broadcast] = await db
+      .insert(broadcastLogs)
+      .values({
+        target: target.id,
+        subject: body.subject,
+        body: body.body,
+        sentBy: organizer.id,
+        status: "sending",
+        recipients,
+        deliveredTo: [],
+        failedCount: 0,
+        nextCursor: 0,
+        recentFailures: [],
+      })
+      .returning();
+  } catch (error) {
+    if (isActiveBroadcastConflict(error)) {
+      throw new EmailCampaignError(
+        "Another broadcast is already in progress for this target. Wait for it to finish before starting another.",
+        409,
+      );
+    }
+
+    throw error;
+  }
 
   if (!broadcast) {
     throw new EmailCampaignError("Could not create broadcast", 500);
@@ -284,6 +315,11 @@ function buildBroadcastStatus(broadcast: BroadcastLogRow): BroadcastSendStatus {
     complete,
     recentFailures: broadcast.recentFailures ?? [],
   };
+}
+
+function isActiveBroadcastConflict(error: unknown) {
+  const wrapped = error as { code?: string; cause?: { code?: string } };
+  return (wrapped.code ?? wrapped.cause?.code) === "23505";
 }
 
 function sleep(ms: number) {
