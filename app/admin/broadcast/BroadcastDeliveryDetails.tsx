@@ -54,10 +54,12 @@ function DeliveryList({
   );
 }
 
-export function BroadcastDeliveryDetailsButton({
+export function BroadcastDeliveryDetails({
   broadcastId,
+  children,
 }: {
   broadcastId: string;
+  children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState<BroadcastDeliveryDetails | null>(null);
@@ -97,10 +99,10 @@ export function BroadcastDeliveryDetailsButton({
     <>
       <button
         type="button"
-        className="underline"
+        className="inline-flex border-0 bg-transparent p-0"
         onClick={() => handleOpenChange(true)}
       >
-        View details
+        {children}
       </button>
 
       <AlertDialog open={open} onOpenChange={handleOpenChange}>

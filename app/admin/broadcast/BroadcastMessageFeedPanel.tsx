@@ -163,7 +163,7 @@ export function BroadcastMessageFeedPanel({
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
       <div className="flex min-h-full flex-col justify-end">
-        <div className="flex flex-col gap-2 px-1 pb-2">
+        <div className="flex flex-col gap-3 px-2 pb-4">
           <div
             ref={topSentinelRef}
             className="h-px shrink-0"

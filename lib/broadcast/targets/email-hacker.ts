@@ -11,7 +11,7 @@ import type {
 
 export const hackerEmailTarget: BroadcastTarget = {
   id: "email:hacker",
-  label: "All hackers (email)",
+  label: "Hacker Emails",
   description: "Send an email to every user with the hacker role.",
   countRecipients,
   resolveRecipients,
