@@ -23,7 +23,7 @@ export default async function BroadcastSuccessPage({
           <a href="/admin/broadcast">Send another</a>
         </Button>
         <Button asChild variant="outline">
-          <a href="/admin/broadcast/logs">View logs</a>
+          <a href="/admin/broadcast#broadcast-logs">View logs</a>
         </Button>
       </div>
     </AdminPageShell>

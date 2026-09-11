@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { exportBroadcastRecipientsAction } from "../actions";
+import { exportBroadcastRecipientsAction } from "./actions";
 
 function downloadTextFile(content: string, filename: string) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
