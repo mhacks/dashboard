@@ -13,6 +13,7 @@ import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import {
   BROADCAST_BODY_LIMIT,
+  BROADCAST_MANUAL_FAILURE_ERROR,
   BROADCAST_SUBJECT_LIMIT,
 } from "@/lib/broadcast/config";
 import { categorizeBroadcastDeliveries } from "@/lib/broadcast/failures";
@@ -52,6 +53,11 @@ export const broadcastRetrySchema = z.object({
 export const broadcastOmittedSchema = z.object({
   broadcastId: z.string().uuid(),
   omittedTo: z.array(z.string().trim().min(1)),
+});
+
+export const broadcastMarkFailedSchema = z.object({
+  broadcastId: z.string().uuid(),
+  recipients: z.array(z.string().trim().min(1)).min(1),
 });
 
 export const broadcastRetryResultsSchema = z.object({
@@ -216,6 +222,50 @@ export async function updateBroadcastOmitted(input: unknown) {
       .update(broadcastDeliveries)
       .set({ omitted: false })
       .where(and(...clearOmitted));
+
+    await syncBroadcastCounts(tx, body.broadcastId);
+  });
+
+  return getBroadcastDeliveryDetails(body.broadcastId);
+}
+
+export async function markBroadcastDeliveriesFailed(input: unknown) {
+  await requireOrganizer();
+  const body = broadcastMarkFailedSchema.parse(input);
+  const log = await getBroadcastLog(body.broadcastId);
+
+  if (log.status !== "complete") {
+    throw new EmailCampaignError(
+      "Delivered recipients can only be marked as failed on completed broadcasts.",
+      409,
+    );
+  }
+
+  const deliveries = await listBroadcastDeliveries(body.broadcastId);
+  const deliveredSet = new Set(
+    categorizeBroadcastDeliveries(log.status, deliveries).deliveredTo,
+  );
+  const recipients = normalizeRecipientList(
+    body.recipients,
+    deliveredSet,
+    (recipient) => `Recipient was not delivered: ${recipient}`,
+  );
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(broadcastDeliveries)
+      .set({
+        status: "failed",
+        error: BROADCAST_MANUAL_FAILURE_ERROR,
+        omitted: false,
+      })
+      .where(
+        and(
+          eq(broadcastDeliveries.broadcastId, body.broadcastId),
+          eq(broadcastDeliveries.status, "sent"),
+          inArray(broadcastDeliveries.recipient, recipients),
+        ),
+      );
 
     await syncBroadcastCounts(tx, body.broadcastId);
   });

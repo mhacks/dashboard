@@ -4,6 +4,7 @@ import {
   applyBroadcastRetryResults,
   findActiveBroadcast,
   getBroadcastDeliveryDetails,
+  markBroadcastDeliveriesFailed,
   retryFailedBroadcast,
   sendBroadcastBatch,
   startBroadcast,
@@ -34,6 +35,10 @@ export async function retryFailedBroadcastAction(input: unknown) {
 
 export async function updateBroadcastOmittedAction(input: unknown) {
   return updateBroadcastOmitted(input);
+}
+
+export async function markBroadcastDeliveriesFailedAction(input: unknown) {
+  return markBroadcastDeliveriesFailed(input);
 }
 
 export async function applyBroadcastRetryResultsAction(input: unknown) {

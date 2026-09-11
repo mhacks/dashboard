@@ -77,15 +77,17 @@ export default function BroadcastForm({
   );
 
   useEffect(() => {
-    void findActiveBroadcastAction().then((active) => {
-      if (active && !active.complete) {
-        setStatus(active);
-        setSelectedTargetIds([active.target]);
-        setNotice(
-          formatBroadcastProgress(active, { prefix: "Resuming broadcast" }),
-        );
-      }
-    });
+    void findActiveBroadcastAction()
+      .then((active) => {
+        if (active && !active.complete) {
+          setStatus(active);
+          setSelectedTargetIds([active.target]);
+          setNotice(
+            formatBroadcastProgress(active, { prefix: "Resuming broadcast" }),
+          );
+        }
+      })
+      .catch(() => undefined);
   }, [setSelectedTargetIds]);
 
   async function sendBroadcast(
@@ -377,7 +379,7 @@ export default function BroadcastForm({
                 resetForm();
               }}
             >
-              Send another
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
