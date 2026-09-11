@@ -67,13 +67,15 @@ for (const e of entries) {
 
 // 3. The real check. Anything this branch adds must outrank every `when`
 //    already on the base branch, or the base's databases will skip it.
+//
+// 4. Never drop a migration that's already on the base branch. Once it is on
+//    main it may have been applied in production; removing the file does not
+//    undo that, it just makes deploys and other branches diverge.
 let base = null;
 try {
   base = readJournal(atRef(BASE, JOURNAL));
 } catch {
-  console.log(
-    `migrations: ${BASE} unavailable, skipping the merge-order check`,
-  );
+  console.log(`migrations: ${BASE} unavailable, skipping base-branch checks`);
 }
 
 if (base?.length) {
@@ -88,6 +90,14 @@ if (base?.length) {
         `${highWaterMark} (${behind.tag}). Production would skip this ` +
         `migration without erroring. Rebase on ${BASE}, delete the migration ` +
         `and re-run \`pnpm db:generate\` so it gets a current timestamp.`,
+    );
+  }
+
+  for (const e of base) {
+    if (tags.has(e.tag)) continue;
+    problems.push(
+      `${e.tag}: present on ${BASE} but missing here. Do not drop migrations ` +
+        `already on main; add a new migration instead.`,
     );
   }
 }
