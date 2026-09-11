@@ -51,7 +51,7 @@ export default async function BroadcastPage({
           </div>
         </BroadcastMessageScroll>
 
-        <div className="shrink-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/80 md:-mx-6 md:px-6">
+        <div className="shrink-0 -mx-4 border-t bg-background/95 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 md:-mx-6 md:px-6">
           <BroadcastForm targets={targets} />
         </div>
       </div>

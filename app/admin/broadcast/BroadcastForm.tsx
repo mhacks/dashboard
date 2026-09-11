@@ -13,16 +13,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BROADCAST_BODY_LIMIT } from "@/lib/broadcast/config";
+import {
+  BROADCAST_BODY_LIMIT,
+  BROADCAST_SUBJECT_LIMIT,
+} from "@/lib/broadcast/config";
 import { cn } from "@/lib/utils";
 import type {
   BroadcastSendStatus,
   BroadcastTargetSummary,
 } from "@/lib/broadcast/types";
+import { SendHorizontalIcon } from "lucide-react";
 import {
   findActiveBroadcastAction,
   sendBroadcastBatchAction,
@@ -234,122 +236,120 @@ export default function BroadcastForm({
       ? `Delivery finished with ${successResult.sent} sent and ${successResult.failed} failed.`
       : `Your message was delivered to ${successResult?.sent ?? 0} hackers.`;
 
+  const formDisabled = isSending || inProgress;
+  const recipientSummary =
+    selectedTargets.length === 0
+      ? "Select at least one target"
+      : `${totalRecipientCount} recipient${totalRecipientCount === 1 ? "" : "s"}`;
+
   return (
     <>
-      <div className="flex flex-col gap-4">
-        <form
-          ref={formRef}
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4"
-        >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="broadcast-subject">Subject</Label>
-            <Input
-              id="broadcast-subject"
-              name="subject"
-              required
-              disabled={isSending || inProgress}
-              placeholder="Message subject"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="broadcast-body">Message</Label>
-            <Textarea
-              id="broadcast-body"
-              name="body"
-              rows={4}
-              required
-              maxLength={BROADCAST_BODY_LIMIT}
-              disabled={isSending || inProgress}
-              placeholder="Write your broadcast..."
-              onChange={(event) => setBodyLength(event.target.value.length)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {bodyLength} / {BROADCAST_BODY_LIMIT}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label className="text-xs text-muted-foreground">To</Label>
-            <div className="flex flex-wrap gap-2">
-              {targets.map((target) => {
-                const checked = selectedTargetIds.includes(target.id);
-                const disabled = isSending || inProgress;
-
-                return (
-                  <label
-                    key={target.id}
-                    htmlFor={`broadcast-target-${target.id}`}
-                    className={cn(
-                      "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                      checked
-                        ? "border-primary/40 bg-primary/5 text-foreground"
-                        : "border-border bg-background text-muted-foreground",
-                      disabled && "cursor-not-allowed opacity-60",
-                    )}
-                  >
-                    <Checkbox
-                      id={`broadcast-target-${target.id}`}
-                      checked={checked}
-                      onCheckedChange={(value) =>
-                        toggleTarget(target.id, value === true)
-                      }
-                      disabled={disabled}
-                      className="size-3.5"
-                    />
-                    <span>
-                      {target.label}{" "}
-                      <span className="text-muted-foreground">
-                        ({target.recipientCount})
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              {selectedTargets.length === 0
-                ? "Select at least one target."
-                : `${totalRecipientCount} recipient${totalRecipientCount === 1 ? "" : "s"} selected`}
-            </p>
-            <Button
-              type="submit"
-              disabled={isSending || inProgress || selectedTargets.length === 0}
-            >
-              {isSending
-                ? "Sending..."
-                : selectedTargets.length === 1
-                  ? `Send to ${selectedTargets[0].label}`
-                  : `Send to ${selectedTargets.length} targets`}
-            </Button>
-          </div>
-        </form>
-
-        {inProgress && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col gap-2">
+        {inProgress ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5">
+            <p className="text-[11px] text-muted-foreground">
               {notice ??
                 `${status?.sentCount ?? 0} sent, ${status?.failedCount ?? 0} failed, ${status?.pendingCount ?? 0} pending.`}
             </p>
             <Button
               type="button"
               variant="outline"
-              className="self-start"
+              size="sm"
+              className="h-7 px-2 text-xs"
               disabled={isSending}
               onClick={() => void resumeBroadcast()}
             >
-              {isSending ? "Sending..." : "Resume broadcast"}
+              {isSending ? "Sending..." : "Resume"}
             </Button>
           </div>
-        )}
+        ) : null}
 
-        {notice && !inProgress && (
-          <p className="text-sm text-muted-foreground">{notice}</p>
-        )}
+        {notice && !inProgress ? (
+          <p className="px-1 text-[11px] text-muted-foreground">{notice}</p>
+        ) : null}
+
+        <form
+          ref={formRef}
+          onSubmit={handleSubmit}
+          className="overflow-hidden rounded-lg border bg-card shadow-xs"
+        >
+          <div className="flex flex-wrap items-center gap-1.5 border-b px-2.5 py-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              To
+            </span>
+            {targets.map((target) => {
+              const checked = selectedTargetIds.includes(target.id);
+
+              return (
+                <button
+                  key={target.id}
+                  type="button"
+                  disabled={formDisabled}
+                  onClick={() => toggleTarget(target.id, !checked)}
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+                    checked
+                      ? "border-primary/40 bg-primary/5 text-foreground"
+                      : "border-border bg-background text-muted-foreground",
+                    formDisabled && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  {target.label}
+                  <span className="ml-1 text-muted-foreground">
+                    {target.recipientCount}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="px-2.5 py-1">
+            <Input
+              id="broadcast-subject"
+              name="subject"
+              required
+              disabled={formDisabled}
+              maxLength={BROADCAST_SUBJECT_LIMIT}
+              placeholder="Subject"
+              className="h-7 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            />
+            <div className="border-t" />
+            <Textarea
+              id="broadcast-body"
+              name="body"
+              rows={3}
+              required
+              maxLength={BROADCAST_BODY_LIMIT}
+              disabled={formDisabled}
+              placeholder="Write your broadcast..."
+              onChange={(event) => setBodyLength(event.target.value.length)}
+              className="min-h-16 resize-none border-0 bg-transparent px-0 py-2 shadow-none focus-visible:ring-0"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 border-t px-2.5 py-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              {recipientSummary}
+              <span aria-hidden="true"> · </span>
+              {bodyLength}/{BROADCAST_BODY_LIMIT}
+            </p>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-7 gap-1.5 px-2.5"
+              disabled={formDisabled || selectedTargets.length === 0}
+            >
+              {isSending ? (
+                "Sending..."
+              ) : (
+                <>
+                  Send
+                  <SendHorizontalIcon className="size-3.5" />
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
