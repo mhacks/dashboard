@@ -4,7 +4,6 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BroadcastLogListItem } from "@/lib/broadcast/log-types";
 import { BROADCAST_LOGS_PAGE_SIZE } from "@/lib/broadcast/log-types";
-import { buildBroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import { listBroadcastLogsAction } from "./actions";
 import { BroadcastMessageFeed } from "./BroadcastMessageFeed";
 
@@ -110,7 +109,10 @@ export function BroadcastMessageFeedPanel({
         const result = await listBroadcastLogsAction(
           pageIndex,
           BROADCAST_LOGS_PAGE_SIZE,
-          buildBroadcastLogsFilter(channelTargetId, searchQuery),
+          {
+            target: channelTargetId ?? undefined,
+            search: searchQuery.trim() || undefined,
+          },
           { includeCount: false },
         );
 

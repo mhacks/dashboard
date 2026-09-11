@@ -25,7 +25,6 @@ import {
   formatBroadcastOutcome,
   formatBroadcastProgress,
 } from "@/lib/broadcast/progress";
-import { sumBroadcastRecipientCounts } from "@/lib/broadcast/channels";
 import { cn } from "@/lib/utils";
 import type {
   BroadcastSendStatus,
@@ -34,6 +33,7 @@ import type {
 import { SendHorizontalIcon } from "lucide-react";
 import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
 import { runBroadcastLoop } from "./run-broadcast-loop";
+import { useRecipientSelection } from "./use-recipient-selection";
 
 type BroadcastDraft = {
   subject: string;
@@ -50,14 +50,18 @@ export default function BroadcastForm({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const channelLocked = Boolean(channelTargetId);
-  const [selectedTargetIds, setSelectedTargetIds] = useState<string[]>(() =>
-    channelTargetId ? [channelTargetId] : targets.map((target) => target.id),
-  );
+  const defaultTargetIds = channelTargetId
+    ? [channelTargetId]
+    : targets.map((target) => target.id);
+  const {
+    selected: selectedTargetIds,
+    toggle: toggleTarget,
+    setRecipients: setSelectedTargetIds,
+  } = useRecipientSelection(defaultTargetIds);
   const [bodyLength, setBodyLength] = useState(0);
   const [status, setStatus] = useState<BroadcastSendStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState<BroadcastDraft | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [successResult, setSuccessResult] = useState<{
     sent: number;
     failed: number;
@@ -65,9 +69,12 @@ export default function BroadcastForm({
   const [isSending, startSending] = useTransition();
 
   const selectedTargets = targets.filter((target) =>
-    selectedTargetIds.includes(target.id),
+    selectedTargetIds.has(target.id),
   );
-  const totalRecipientCount = sumBroadcastRecipientCounts(selectedTargets);
+  const totalRecipientCount = selectedTargets.reduce(
+    (sum, target) => sum + target.recipientCount,
+    0,
+  );
 
   useEffect(() => {
     void findActiveBroadcastAction().then((active) => {
@@ -79,17 +86,7 @@ export default function BroadcastForm({
         );
       }
     });
-  }, []);
-
-  function toggleTarget(targetId: string, checked: boolean) {
-    setSelectedTargetIds((current) => {
-      if (checked) {
-        return current.includes(targetId) ? current : [...current, targetId];
-      }
-
-      return current.filter((id) => id !== targetId);
-    });
-  }
+  }, [setSelectedTargetIds]);
 
   async function sendBroadcast(
     initialStatus: BroadcastSendStatus,
@@ -140,9 +137,7 @@ export default function BroadcastForm({
     setNotice(null);
     setDraft(null);
     setSuccessResult(null);
-    setSelectedTargetIds(
-      channelTargetId ? [channelTargetId] : targets.map((target) => target.id),
-    );
+    setSelectedTargetIds(defaultTargetIds);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -157,13 +152,15 @@ export default function BroadcastForm({
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
     });
-    setConfirmOpen(true);
   }
 
   function confirmSend() {
     if (selectedTargets.length === 0 || !draft) {
       return;
     }
+
+    const pendingDraft = draft;
+    setDraft(null);
 
     startSending(async () => {
       try {
@@ -174,8 +171,8 @@ export default function BroadcastForm({
           setNotice(`Starting broadcast to ${target.label}...`);
           const started = await startBroadcastAction({
             target: target.id,
-            subject: draft.subject,
-            body: draft.body,
+            subject: pendingDraft.subject,
+            body: pendingDraft.body,
           });
           const finalStatus = await sendBroadcast(started.status, target.label);
 
@@ -256,7 +253,7 @@ export default function BroadcastForm({
               ? targets.filter((target) => target.id === channelTargetId)
               : targets
             ).map((target) => {
-              const checked = selectedTargetIds.includes(target.id);
+              const checked = selectedTargetIds.has(target.id);
 
               return (
                 <button
@@ -334,7 +331,14 @@ export default function BroadcastForm({
         </form>
       </div>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={draft !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDraft(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Send broadcast?</AlertDialogTitle>

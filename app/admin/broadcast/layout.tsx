@@ -1,4 +1,3 @@
-import { sumBroadcastRecipientCounts } from "@/lib/broadcast/channels";
 import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import { AdminPageHeader } from "../components/admin-page-header";
 
@@ -8,7 +7,10 @@ export default async function BroadcastLayout({
   children: React.ReactNode;
 }) {
   const targets = await listBroadcastTargetSummaries();
-  const totalRecipients = sumBroadcastRecipientCounts(targets);
+  const totalRecipients = targets.reduce(
+    (sum, target) => sum + target.recipientCount,
+    0,
+  );
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background px-4 text-foreground md:px-6">

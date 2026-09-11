@@ -1,5 +1,3 @@
-import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
-import { broadcastDeliveryProgress } from "@/lib/broadcast/progress";
 import type { BroadcastFailure } from "@/lib/broadcast/types";
 import type { BroadcastDeliveryRow } from "@/lib/db/schema/broadcasts";
 
@@ -39,30 +37,4 @@ export function categorizeBroadcastDeliveries(
   }
 
   return { deliveredTo, retryFailures, omittedFailures };
-}
-
-export function buildBroadcastDeliveryDetails(
-  log: {
-    status: string;
-    totalRecipients: number;
-    sentCount: number;
-    failedCount: number;
-  },
-  deliveries: BroadcastDeliveryRecord[],
-): BroadcastDeliveryDetails {
-  const { totalRecipients, sentCount, failedCount, pendingCount } =
-    broadcastDeliveryProgress(log);
-  const { deliveredTo, retryFailures, omittedFailures } =
-    categorizeBroadcastDeliveries(log.status, deliveries);
-
-  return {
-    status: log.status,
-    totalRecipients,
-    sentCount,
-    failedCount,
-    pendingCount,
-    deliveredTo,
-    retryFailures,
-    omittedFailures,
-  };
 }

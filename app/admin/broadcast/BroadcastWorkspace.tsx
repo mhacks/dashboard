@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { buildBroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   type BroadcastLogListItem,
@@ -9,10 +8,7 @@ import {
 import type { BroadcastTargetSummary } from "@/lib/broadcast/types";
 import { listBroadcastLogsAction } from "./actions";
 import BroadcastForm from "./BroadcastForm";
-import {
-  BroadcastChannelMobileNav,
-  BroadcastChannelSidebar,
-} from "./BroadcastChannelSidebar";
+import { BroadcastChannelNav } from "./BroadcastChannelSidebar";
 import { BroadcastLogsSearch } from "./BroadcastLogsSearch";
 import { BroadcastMessageFeedPanel } from "./BroadcastMessageFeedPanel";
 
@@ -57,7 +53,10 @@ export function BroadcastWorkspace({
       const result = await listBroadcastLogsAction(
         0,
         BROADCAST_LOGS_PAGE_SIZE,
-        buildBroadcastLogsFilter(activeTargetId, searchQuery),
+        {
+          target: activeTargetId ?? undefined,
+          search: searchQuery.trim() || undefined,
+        },
       );
 
       if (!cancelled) {
@@ -83,14 +82,16 @@ export function BroadcastWorkspace({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-4">
-      <BroadcastChannelSidebar
+      <BroadcastChannelNav
+        variant="sidebar"
         targets={targets}
         activeTargetId={activeTargetId}
         onSelect={selectChannel}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-        <BroadcastChannelMobileNav
+        <BroadcastChannelNav
+          variant="mobile"
           targets={targets}
           activeTargetId={activeTargetId}
           onSelect={selectChannel}

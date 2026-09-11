@@ -2,6 +2,11 @@ import type { BroadcastFailure } from "@/lib/broadcast/types";
 
 export const BROADCAST_LOGS_PAGE_SIZE = 25;
 
+export type BroadcastLogsFilter = {
+  target?: string;
+  search?: string;
+};
+
 export type BroadcastLogListItem = {
   id: string;
   target: string;

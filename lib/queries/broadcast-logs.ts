@@ -1,9 +1,9 @@
 import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
-import type { BroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   type BroadcastLogListItem,
+  type BroadcastLogsFilter,
 } from "@/lib/broadcast/log-types";
 import { db } from "@/lib/db";
 import { broadcastLogs } from "@/lib/db/schema/broadcasts";
@@ -28,20 +28,17 @@ export async function listBroadcastLogs(
   const trimmedSearch = filter.search?.trim().slice(0, 100) ?? "";
   if (trimmedSearch) {
     const pattern = `%${trimmedSearch}%`;
-    const searchMatch = or(
-      ilike(broadcastLogs.subject, pattern),
-      ilike(broadcastLogs.body, pattern),
-      ilike(users.email, pattern),
+    conditions.push(
+      or(
+        ilike(broadcastLogs.subject, pattern),
+        ilike(broadcastLogs.body, pattern),
+        ilike(users.email, pattern),
+      ) as SQL,
     );
-
-    if (searchMatch) {
-      conditions.push(searchMatch);
-    }
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const rows = await db
+  const listQuery = db
     .select({
       id: broadcastLogs.id,
       target: broadcastLogs.target,
@@ -59,26 +56,30 @@ export async function listBroadcastLogs(
     .limit(safePageSize)
     .offset(safePageIndex * safePageSize);
 
-  let totalCount = 0;
+  if (!includeCount) {
+    return {
+      items: (await listQuery) satisfies BroadcastLogListItem[],
+      totalCount: 0,
+    };
+  }
 
-  if (includeCount) {
-    const countQuery = db
-      .select({
-        totalCount: sql<number>`count(*)::int`,
-      })
-      .from(broadcastLogs);
+  const countQuery = db
+    .select({
+      totalCount: sql<number>`count(*)::int`,
+    })
+    .from(broadcastLogs);
 
-    const countRows = trimmedSearch
-      ? await countQuery
+  const [rows, countRows] = await Promise.all([
+    listQuery,
+    trimmedSearch
+      ? countQuery
           .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
           .where(whereClause)
-      : await countQuery.where(whereClause);
-
-    totalCount = countRows[0]?.totalCount ?? 0;
-  }
+      : countQuery.where(whereClause),
+  ]);
 
   return {
     items: rows satisfies BroadcastLogListItem[],
-    totalCount,
+    totalCount: countRows[0]?.totalCount ?? 0,
   };
 }

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
-export function useRecipientSelection() {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+export function useRecipientSelection(initial: Iterable<string> = []) {
+  const [selected, setSelected] = useState(() => new Set(initial));
 
   const toggle = useCallback((recipient: string, checked: boolean) => {
     setSelected((current) => {

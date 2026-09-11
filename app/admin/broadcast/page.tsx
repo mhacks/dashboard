@@ -1,6 +1,7 @@
-import { parseBroadcastLogsSearchQuery } from "@/lib/broadcast/log-filter";
+import { BROADCAST_LOGS_PAGE_SIZE } from "@/lib/broadcast/log-types";
 import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
-import { BroadcastChannelView } from "./BroadcastChannelView";
+import { listBroadcastLogs } from "@/lib/queries/broadcast-logs";
+import { BroadcastWorkspace } from "./BroadcastWorkspace";
 
 export default async function BroadcastPage({
   searchParams,
@@ -8,8 +9,22 @@ export default async function BroadcastPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const params = await searchParams;
-  const searchQuery = parseBroadcastLogsSearchQuery(params);
-  const targets = await listBroadcastTargetSummaries();
+  const searchQuery = params.q?.trim() ?? "";
+  const [targets, { items: logs, totalCount }] = await Promise.all([
+    listBroadcastTargetSummaries(),
+    listBroadcastLogs(
+      0,
+      BROADCAST_LOGS_PAGE_SIZE,
+      searchQuery ? { search: searchQuery } : {},
+    ),
+  ]);
 
-  return <BroadcastChannelView targets={targets} searchQuery={searchQuery} />;
+  return (
+    <BroadcastWorkspace
+      targets={targets}
+      searchQuery={searchQuery}
+      initialLogs={logs}
+      initialTotalCount={totalCount}
+    />
+  );
 }

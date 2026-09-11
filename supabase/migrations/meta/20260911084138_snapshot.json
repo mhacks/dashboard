@@ -1,5 +1,5 @@
 {
-  "id": "1091a34b-a2f0-4c29-b320-f13e0494523f",
+  "id": "a065ca92-1da4-4b56-a9f4-a4d816adb045",
   "prevId": "c5561032-cf36-4d70-8b3d-d1d4c89a2c27",
   "version": "7",
   "dialect": "postgresql",
@@ -1053,12 +1053,6 @@
         "processing_recipient": {
           "name": "processing_recipient",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lease_token": {
-          "name": "lease_token",
-          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },

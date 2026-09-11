@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { buildBroadcastLogsQuery } from "@/lib/broadcast/log-filter";
 import { RecipientSearchField } from "./RecipientSearchField";
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -60,7 +59,11 @@ export function BroadcastLogsSearch({
 
     pendingSearchRef.current = trimmed;
     setIsSearching(true);
-    router.push(`/admin/broadcast${buildBroadcastLogsQuery(trimmed)}`);
+    router.push(
+      trimmed
+        ? `/admin/broadcast?${new URLSearchParams({ q: trimmed })}`
+        : "/admin/broadcast",
+    );
   }
 
   function scheduleNavigation(nextQuery: string) {

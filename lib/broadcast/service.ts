@@ -15,10 +15,7 @@ import {
   BROADCAST_BODY_LIMIT,
   BROADCAST_SUBJECT_LIMIT,
 } from "@/lib/broadcast/config";
-import {
-  buildBroadcastDeliveryDetails,
-  categorizeBroadcastDeliveries,
-} from "@/lib/broadcast/failures";
+import { categorizeBroadcastDeliveries } from "@/lib/broadcast/failures";
 import { broadcastDeliveryProgress } from "@/lib/broadcast/progress";
 import { getBroadcastTarget } from "@/lib/broadcast/registry";
 import type {
@@ -150,7 +147,21 @@ export async function getBroadcastDeliveryDetails(broadcastId: string) {
   await requireOrganizer();
   const log = await getBroadcastLog(broadcastId);
   const deliveries = await listBroadcastDeliveries(broadcastId);
-  return buildBroadcastDeliveryDetails(log, deliveries);
+  const { totalRecipients, sentCount, failedCount, pendingCount } =
+    broadcastDeliveryProgress(log);
+  const { deliveredTo, retryFailures, omittedFailures } =
+    categorizeBroadcastDeliveries(log.status, deliveries);
+
+  return {
+    status: log.status,
+    totalRecipients,
+    sentCount,
+    failedCount,
+    pendingCount,
+    deliveredTo,
+    retryFailures,
+    omittedFailures,
+  };
 }
 
 export async function updateBroadcastOmitted(input: unknown) {
@@ -492,7 +503,6 @@ async function recordBroadcastDelivery(
       .set({
         nextCursor,
         processingRecipient: null,
-        leaseToken: null,
         leaseExpiresAt: complete ? null : broadcastLeaseExpiry(),
         status: complete ? "complete" : "sending",
         sentCount,
@@ -522,35 +532,31 @@ async function finalizeBroadcastIfComplete(
     .set({
       status: "complete",
       processingRecipient: null,
-      leaseToken: null,
       leaseExpiresAt: null,
     })
     .where(eq(broadcastLogs.id, broadcast.id));
 }
 
-async function expireStaleBroadcasts(target?: string) {
+async function expireStaleBroadcasts(target: string) {
   const now = new Date().toISOString();
-  const conditions = [
-    eq(broadcastLogs.status, "sending"),
-    or(
-      isNull(broadcastLogs.leaseExpiresAt),
-      lt(broadcastLogs.leaseExpiresAt, now),
-    ),
-  ];
-
-  if (target) {
-    conditions.push(eq(broadcastLogs.target, target));
-  }
 
   await db
     .update(broadcastLogs)
     .set({
       status: "expired",
       processingRecipient: null,
-      leaseToken: null,
       leaseExpiresAt: null,
     })
-    .where(and(...conditions));
+    .where(
+      and(
+        eq(broadcastLogs.status, "sending"),
+        eq(broadcastLogs.target, target),
+        or(
+          isNull(broadcastLogs.leaseExpiresAt),
+          lt(broadcastLogs.leaseExpiresAt, now),
+        ),
+      ),
+    );
 }
 
 function broadcastLeaseIsActive(broadcast: BroadcastLogRow) {
@@ -716,16 +722,14 @@ async function createSendingBroadcast(input: {
         throw new EmailCampaignError("Could not create broadcast", 500);
       }
 
-      if (recipients.length > 0) {
-        await tx.insert(broadcastDeliveries).values(
-          recipients.map((recipient, position) => ({
-            broadcastId: broadcast.id,
-            recipient,
-            position,
-            status: "pending",
-          })),
-        );
-      }
+      await tx.insert(broadcastDeliveries).values(
+        recipients.map((recipient, position) => ({
+          broadcastId: broadcast.id,
+          recipient,
+          position,
+          status: "pending",
+        })),
+      );
 
       return broadcast;
     });

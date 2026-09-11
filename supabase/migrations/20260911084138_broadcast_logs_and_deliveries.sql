@@ -25,7 +25,6 @@ CREATE TABLE "broadcast_logs" (
 	"retry_failed_count" integer DEFAULT 0 NOT NULL,
 	"next_cursor" integer DEFAULT 0 NOT NULL,
 	"processing_recipient" text,
-	"lease_token" uuid,
 	"lease_expires_at" timestamp with time zone
 );
 --> statement-breakpoint

@@ -9,7 +9,7 @@ import {
   startBroadcast,
   updateBroadcastOmitted,
 } from "@/lib/broadcast/service";
-import type { BroadcastLogsFilter } from "@/lib/broadcast/log-filter";
+import type { BroadcastLogsFilter } from "@/lib/broadcast/log-types";
 import { listBroadcastLogs } from "@/lib/queries/broadcast-logs";
 
 export async function startBroadcastAction(input: unknown) {
