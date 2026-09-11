@@ -46,13 +46,16 @@ type BroadcastDraft = {
 
 export default function BroadcastForm({
   targets,
+  channelTargetId = null,
 }: {
   targets: BroadcastTargetSummary[];
+  channelTargetId?: string | null;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const channelLocked = Boolean(channelTargetId);
   const [selectedTargetIds, setSelectedTargetIds] = useState<string[]>(() =>
-    targets.map((target) => target.id),
+    channelTargetId ? [channelTargetId] : targets.map((target) => target.id),
   );
   const [bodyLength, setBodyLength] = useState(0);
   const [status, setStatus] = useState<BroadcastSendStatus | null>(null);
@@ -164,7 +167,9 @@ export default function BroadcastForm({
     setNotice(null);
     setDraft(null);
     setSuccessResult(null);
-    setSelectedTargetIds(targets.map((target) => target.id));
+    setSelectedTargetIds(
+      channelTargetId ? [channelTargetId] : targets.map((target) => target.id),
+    );
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -277,21 +282,28 @@ export default function BroadcastForm({
             <span className="text-[11px] font-medium text-muted-foreground">
               To
             </span>
-            {targets.map((target) => {
+            {(channelLocked
+              ? targets.filter((target) => target.id === channelTargetId)
+              : targets
+            ).map((target) => {
               const checked = selectedTargetIds.includes(target.id);
 
               return (
                 <button
                   key={target.id}
                   type="button"
-                  disabled={formDisabled}
+                  disabled={formDisabled || channelLocked}
                   onClick={() => toggleTarget(target.id, !checked)}
                   className={cn(
                     "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] transition-colors",
                     checked
                       ? "border-primary/40 bg-primary/5 text-foreground"
                       : "border-border bg-background text-muted-foreground",
-                    formDisabled && "cursor-not-allowed opacity-60",
+                    (formDisabled || channelLocked) &&
+                      "cursor-default opacity-100",
+                    formDisabled &&
+                      !channelLocked &&
+                      "cursor-not-allowed opacity-60",
                   )}
                 >
                   {target.label}

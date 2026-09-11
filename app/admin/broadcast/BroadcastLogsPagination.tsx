@@ -23,9 +23,11 @@ export function BroadcastLogsPagination({
       totalItems={totalCount}
       pageSize={pageSize}
       onPageChange={(nextPageIndex) => {
-        const query =
-          nextPageIndex === 0 ? "" : `?logsPage=${nextPageIndex + 1}`;
-        router.push(`${pathname}${query}`);
+        router.push(
+          nextPageIndex === 0
+            ? pathname
+            : `${pathname}?logsPage=${nextPageIndex + 1}`,
+        );
       }}
     />
   );

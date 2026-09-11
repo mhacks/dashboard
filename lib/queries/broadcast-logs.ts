@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   type BroadcastLogListItem,
@@ -12,12 +12,24 @@ export {
   type BroadcastLogListItem,
 } from "@/lib/broadcast/log-types";
 
+export type BroadcastLogsFilter = {
+  target?: string;
+};
+
 export async function listBroadcastLogs(
   pageIndex = 0,
   pageSize = BROADCAST_LOGS_PAGE_SIZE,
+  filter?: BroadcastLogsFilter,
 ) {
   const safePageIndex = Math.max(0, pageIndex);
   const safePageSize = Math.min(Math.max(pageSize, 1), 50);
+  const conditions: SQL[] = [];
+
+  if (filter?.target) {
+    conditions.push(eq(broadcastLogs.target, filter.target));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const rows = await db
     .select({
@@ -35,6 +47,7 @@ export async function listBroadcastLogs(
     })
     .from(broadcastLogs)
     .leftJoin(users, eq(broadcastLogs.sentBy, users.id))
+    .where(whereClause)
     .orderBy(desc(broadcastLogs.sentAt))
     .limit(safePageSize)
     .offset(safePageIndex * safePageSize);
