@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
-import { listUnsubscribedContacts } from "@/lib/aws/ses";
 import { db } from "@/lib/db";
 import {
   emailSendDeliveries,
@@ -36,15 +35,6 @@ import {
 } from "@/lib/email/types";
 
 const successfulTestProofWindowMs = 30 * 60 * 1000;
-const unsubscribedSkipReason =
-  "Skipped: recipient unsubscribed from optional MHacks email.";
-const unsubscribedRecipientReason =
-  "This recipient unsubscribed from optional MHacks email, so it was not sent. Send it as a required operational email if they need it.";
-// No address here: actions.ts redacts the server-managed test list out of
-// anything returned to the browser, so the message has to be actionable
-// without naming who.
-const unsubscribedTestRecipientReason =
-  "A required test recipient has unsubscribed from optional MHacks email, so this test could not prove delivery. Resubscribe them to the SES event-updates topic, or send this campaign as a required operational email.";
 const activeSendRecoveryWindowMs = 7 * 24 * 60 * 60 * 1000;
 const compactRunRetentionMs = 30 * 24 * 60 * 60 * 1000;
 const expiredTestProofRetentionMs = 60 * 60 * 1000;
@@ -70,22 +60,6 @@ export async function sendOneDirectEmail(input: unknown) {
   const email = body.email.trim().toLowerCase();
   const mergeData = buildMergeData(email, body.mergeData);
   const campaign = campaignLikeFromDirectTemplate(body.template);
-  // Reporting "sent" here would be a lie: SES accepts the call and bounces it
-  // afterwards, so the organizer would believe a one-off went out when it never
-  // arrived. Naming the address is safe because they just typed it.
-  const unsubscribed =
-    body.deliveryType === "subscription"
-      ? await listUnsubscribedContacts()
-      : new Set<string>();
-
-  if (unsubscribed.has(email)) {
-    return {
-      email,
-      status: "failed",
-      messageId: null,
-      error: unsubscribedRecipientReason,
-    } satisfies SendResult;
-  }
 
   const result = await sendSnapshotToEmail(
     campaign,
@@ -114,40 +88,23 @@ export async function sendDirectTestEmails(input: unknown) {
         : null,
   };
   const results: SendResult[] = [];
-  // An opted-out test recipient would have their copy accepted by SES and then
-  // bounced asynchronously, so the test would report success while nobody read
-  // the email — and that success is what unlocks the full-list send. Fail the
-  // test instead: no token is issued unless every recipient can actually
-  // receive it.
-  const unsubscribed =
-    body.deliveryType === "subscription"
-      ? await listUnsubscribedContacts()
-      : new Set<string>();
 
   for (const recipient of recipients) {
-    const email = recipient.email.trim().toLowerCase();
     results.push(
-      unsubscribed.has(email)
-        ? {
-            email,
-            status: "failed",
-            messageId: null,
-            error: unsubscribedTestRecipientReason,
-          }
-        : await sendSnapshotToEmail(
-            campaignLike,
-            recipient.email,
-            buildMergeData(recipient.email, {
-              ...body.mergeData,
-              ...recipient.mergeData,
-            }),
-            body.deliveryType,
-          ),
+      await sendSnapshotToEmail(
+        campaignLike,
+        recipient.email,
+        buildMergeData(recipient.email, {
+          ...body.mergeData,
+          ...recipient.mergeData,
+        }),
+        body.deliveryType,
+      ),
     );
   }
 
   const failedCount = results.filter(
-    (result) => result.status === "failed",
+    (result) => result.status !== "sent",
   ).length;
   const testSendToken =
     results.length > 0 && failedCount === 0 ? randomUUID() : null;
@@ -227,10 +184,6 @@ export async function sendDirectBatch(input: unknown) {
   const campaign = campaignLikeFromDirectTemplate(
     run.templateSnapshot ?? body.template,
   );
-  const unsubscribed =
-    body.deliveryType === "subscription"
-      ? await listUnsubscribedContacts()
-      : new Set<string>();
   const lease = await claimSendLease({
     runId: run.id,
     cursor: body.cursor,
@@ -253,22 +206,12 @@ export async function sendDirectBatch(input: unknown) {
       continue;
     }
 
-    // Recorded as failed rather than sent: the message genuinely was not
-    // delivered, and counting it as sent would overstate the campaign.
-    const skipped = unsubscribed.has(delivery.email);
-    const result: SendResult = skipped
-      ? {
-          email: delivery.email,
-          status: "failed",
-          messageId: null,
-          error: unsubscribedSkipReason,
-        }
-      : await sendSnapshotToEmail(
-          campaign,
-          delivery.email,
-          delivery.mergeData,
-          body.deliveryType,
-        );
+    const result = await sendSnapshotToEmail(
+      campaign,
+      delivery.email,
+      delivery.mergeData,
+      body.deliveryType,
+    );
     await recordDeliveryResult({
       runId: run.id,
       leaseToken: lease.leaseToken,
@@ -277,7 +220,7 @@ export async function sendDirectBatch(input: unknown) {
     });
 
     // Only a real SES call needs the send-rate pause.
-    if (!skipped) {
+    if (result.status !== "suppressed") {
       await sleep(limits.sendDelayMs);
     }
   }
@@ -439,6 +382,7 @@ async function resolveOrCreateSendRun({
         status: "sending",
         sentCount: 0,
         failedCount: 0,
+        suppressedCount: 0,
         nextCursor: 0,
         recentFailures: [],
         recoveryExpiresAt: recoveryExpiry(),
@@ -697,6 +641,10 @@ async function recordDeliveryResult({
         sentCount: result.status === "sent" ? run.sentCount + 1 : run.sentCount,
         failedCount:
           result.status === "failed" ? run.failedCount + 1 : run.failedCount,
+        suppressedCount:
+          result.status === "suppressed"
+            ? run.suppressedCount + 1
+            : run.suppressedCount,
         nextCursor: Math.max(run.nextCursor, recipientIndex + 1),
         recentFailures:
           result.status === "failed"
@@ -711,7 +659,9 @@ async function recordDeliveryResult({
 
     if (
       updatedRun &&
-      updatedRun.sentCount + updatedRun.failedCount ===
+      updatedRun.sentCount +
+        updatedRun.failedCount +
+        updatedRun.suppressedCount ===
         updatedRun.totalRecipients
     ) {
       await finalizeRun(tx, updatedRun, []);
@@ -851,7 +801,9 @@ async function resolveInterruptedDeliveries({
 
     if (
       updatedRun &&
-      updatedRun.sentCount + updatedRun.failedCount ===
+      updatedRun.sentCount +
+        updatedRun.failedCount +
+        updatedRun.suppressedCount ===
         updatedRun.totalRecipients
     ) {
       await finalizeRun(tx, updatedRun, []);
@@ -895,7 +847,13 @@ function buildSendRunStatus(
   );
   const remainingCount = complete
     ? 0
-    : Math.max(0, run.totalRecipients - run.sentCount - run.failedCount);
+    : Math.max(
+        0,
+        run.totalRecipients -
+          run.sentCount -
+          run.failedCount -
+          run.suppressedCount,
+      );
   const sendingCount = complete
     ? 0
     : Math.min(remainingCount, activelySending.length);
@@ -912,6 +870,7 @@ function buildSendRunStatus(
     totalRecipients: run.totalRecipients,
     sentCount: run.sentCount,
     failedCount: run.failedCount,
+    suppressedCount: run.suppressedCount,
     pendingCount,
     sendingCount,
     leaseActive: activeLease,
@@ -934,7 +893,8 @@ async function finalizeRun(
 ) {
   if (
     deliveries.length !== 0 ||
-    run.sentCount + run.failedCount !== run.totalRecipients
+    run.sentCount + run.failedCount + run.suppressedCount !==
+      run.totalRecipients
   ) {
     throw new EmailCampaignError(
       "Send recovery data is incomplete; refusing to finalize the run",
@@ -944,6 +904,7 @@ async function finalizeRun(
 
   const sentCount = run.sentCount;
   const failedCount = run.failedCount;
+  const suppressedCount = run.suppressedCount;
   const now = new Date().toISOString();
   const [completedRun] = await tx
     .update(emailSendRuns)
@@ -951,6 +912,7 @@ async function finalizeRun(
       status: failedCount > 0 ? "failed" : "sent",
       sentCount,
       failedCount,
+      suppressedCount,
       nextCursor: run.totalRecipients,
       recentFailures: [],
       templateSnapshot: null,
@@ -973,6 +935,7 @@ async function finalizeRun(
       status: failedCount > 0 ? "failed" : "sent",
       sentCount,
       failedCount,
+      suppressedCount,
       nextCursor: run.totalRecipients,
       recentFailures: [],
       templateSnapshot: null,

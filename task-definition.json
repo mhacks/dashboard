@@ -13,7 +13,12 @@
         }
       ],
       "essential": true,
-      "environment": [],
+      "environment": [
+        {
+          "name": "EMAIL_PUBLIC_ORIGIN",
+          "value": "https://mhacks.org"
+        }
+      ],
       "mountPoints": [],
       "volumesFrom": [],
       "secrets": [
@@ -48,6 +53,10 @@
         {
           "name": "AWS_SES_SECRET_ACCESS_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/AWS_SES_SECRET_ACCESS_KEY"
+        },
+        {
+          "name": "EMAIL_UNSUBSCRIBE_SECRET",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/EMAIL_UNSUBSCRIBE_SECRET"
         },
         {
           "name": "DATABASE_URL",

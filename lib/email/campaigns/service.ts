@@ -1,4 +1,5 @@
-import { managedUnsubscribeUrl, sendEmail } from "@/lib/aws/ses";
+import { sendEmail } from "@/lib/aws/ses";
+import { prepareOptionalEmailDelivery } from "@/lib/email/preferences";
 import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type {
@@ -9,7 +10,7 @@ import type {
   EmailThemeTokens,
 } from "@/lib/email/types";
 
-type SendStatus = "sent" | "failed";
+type SendStatus = "sent" | "failed" | "suppressed";
 type EmailRecipientMergeData = Record<string, string>;
 
 export type EmailTemplateSnapshot = {
@@ -63,11 +64,25 @@ export async function sendSnapshotToEmail(
   deliveryType: EmailDeliveryType = "transactional",
 ): Promise<SendResult> {
   try {
+    const preference =
+      deliveryType === "subscription"
+        ? await prepareOptionalEmailDelivery(email)
+        : null;
+
+    if (preference?.suppressed) {
+      return {
+        email,
+        status: "suppressed",
+        messageId: null,
+        error: "Recipient unsubscribed from optional MHacks email.",
+      };
+    }
+
     const rendered = await renderSnapshot(
       campaign.templateSnapshot,
       campaign.themeSnapshot ?? defaultEmailTheme,
       mergeData,
-      deliveryType === "subscription" ? managedUnsubscribeUrl() : undefined,
+      preference?.footerUrl,
     );
     const messageId = await sendEmail({
       to: email,
@@ -75,6 +90,7 @@ export async function sendSnapshotToEmail(
       html: rendered.html,
       text: rendered.text,
       deliveryType,
+      unsubscribeUrl: preference?.oneClickUrl,
     });
 
     return { email, status: "sent", messageId, error: null };

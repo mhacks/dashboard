@@ -83,7 +83,7 @@ export async function sendDirectTestEmailsAction(input: unknown) {
     error: redactEmailAddresses(result.error),
   }));
   const firstFailure = redactedResults.find(
-    (result) => result.status === "failed",
+    (result) => result.status !== "sent",
   );
 
   return {

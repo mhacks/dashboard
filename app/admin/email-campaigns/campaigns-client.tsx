@@ -95,6 +95,7 @@ interface DirectSendStatus {
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
+  suppressedCount: number;
   pendingCount: number;
   sendingCount: number;
   leaseActive: boolean;
@@ -656,14 +657,14 @@ export default function EmailCampaignsClient({
       }
       setSendNotice(
         recoveredStatus
-          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
+          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.pendingCount} pending.`
           : `${parsed.emails.length} recipients ready.`,
       );
       showToast(
         recoveredStatus ? "info" : "success",
         recoveredStatus ? "Saved send recovered" : "Recipient list ready",
         recoveredStatus
-          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
+          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
           : `${parsed.emails.length} valid, ${parsed.duplicateCount} duplicate${
               parsed.duplicateCount === 1 ? "" : "s"
             }, ${parsed.invalid.length} invalid.`,
@@ -711,14 +712,14 @@ export default function EmailCampaignsClient({
       }
       setSendNotice(
         recoveredStatus
-          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
+          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.pendingCount} pending.`
           : `${resolved.emails.length} recipients loaded.`,
       );
       showToast(
         recoveredStatus ? "info" : "success",
         recoveredStatus ? "Saved send recovered" : "Group loaded",
         recoveredStatus
-          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
+          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
           : `${resolved.emails.length} valid recipient${
               resolved.emails.length === 1 ? "" : "s"
             } from ${resolved.label}.`,
@@ -879,6 +880,7 @@ export default function EmailCampaignsClient({
           totalRecipients: recipientResult?.emails.length ?? 0,
           sentCount: 0,
           failedCount: 0,
+          suppressedCount: 0,
           pendingCount: recipientResult?.emails.length ?? 0,
           sendingCount: 0,
           leaseActive: false,
@@ -907,7 +909,7 @@ export default function EmailCampaignsClient({
         showToast(
           "loading",
           "Sending list",
-          `${status.sentCount} sent, ${status.failedCount} failed, ${status.pendingCount} pending${
+          `${status.sentCount} sent, ${status.suppressedCount} suppressed, ${status.failedCount} failed, ${status.pendingCount} pending${
             status.sendingCount ? `, ${status.sendingCount} sending` : ""
           }.`,
         );
@@ -929,7 +931,7 @@ export default function EmailCampaignsClient({
       setSendNotice(
         status
           ? status.complete
-            ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
+            ? `Send complete: ${status.sentCount} sent, ${status.suppressedCount} suppressed, ${status.failedCount} failed.`
             : status.interrupted
               ? "One delivery was interrupted after it started. Verify it in SES, then resolve it without automatically resending."
               : status.leaseActive && status.leaseExpiresAt
@@ -946,7 +948,7 @@ export default function EmailCampaignsClient({
         status?.complete ? "List send complete" : "List send paused",
         status
           ? status.complete
-            ? `${status.sentCount} sent, ${status.failedCount} failed.`
+            ? `${status.sentCount} sent, ${status.suppressedCount} suppressed, ${status.failedCount} failed.`
             : status.interrupted
               ? "Verify the interrupted delivery in SES before resolving it."
               : status.leaseActive && status.leaseExpiresAt
@@ -1013,12 +1015,12 @@ export default function EmailCampaignsClient({
       if (nextStatus.complete) {
         clearCompletedSend();
         setSendNotice(
-          `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
+          `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.suppressedCount} suppressed, ${nextStatus.failedCount} failed.`,
         );
         showToast(
           nextStatus.failedCount ? "error" : "success",
           "List send complete",
-          `${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
+          `${nextStatus.sentCount} sent, ${nextStatus.suppressedCount} suppressed, ${nextStatus.failedCount} failed.`,
         );
       } else {
         setSendNotice(
@@ -2077,7 +2079,7 @@ function SendPanel({
         </div>
 
         {sendStatus ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-5">
             <Metric
               label="Status"
               value={
@@ -2094,6 +2096,7 @@ function SendPanel({
             />
             <Metric label="Recipients" value={sendStatus.totalRecipients} />
             <Metric label="Sent" value={sendStatus.sentCount} />
+            <Metric label="Suppressed" value={sendStatus.suppressedCount} />
             <Metric label="Failed" value={sendStatus.failedCount} />
             {sendStatus.sendingCount ? (
               <Metric label="Sending" value={sendStatus.sendingCount} />
@@ -2123,7 +2126,7 @@ function SendPanel({
             </span>
             <span className="mt-1 block text-xs leading-5 text-muted-foreground">
               Newsletters and promotional announcements. Adds one-click
-              unsubscribe and honors the SES event-updates preference.
+              unsubscribe and honors the MHacks event-updates preference.
             </span>
           </button>
           <button
@@ -2395,6 +2398,7 @@ function SendPanel({
             {sendStatus ? (
               <p className="mt-2 text-sm text-muted-foreground">
                 {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
+                {sendStatus.suppressedCount} suppressed,{" "}
                 {sendStatus.failedCount} failed
                 {sendStatus.sendingCount
                   ? `, ${sendStatus.sendingCount} sending`
@@ -2513,7 +2517,9 @@ function SendProgress({
 
   const completed =
     sendStatus && sendStatus.totalRecipients > 0
-      ? sendStatus.sentCount + sendStatus.failedCount
+      ? sendStatus.sentCount +
+        sendStatus.suppressedCount +
+        sendStatus.failedCount
       : 0;
   const progress =
     sendStatus && sendStatus.totalRecipients > 0
@@ -2538,7 +2544,7 @@ function SendProgress({
                     ? "Interrupted delivery"
                     : "Send progress";
   const detail = sendStatus
-    ? `${sendStatus.sentCount} sent, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
+    ? `${sendStatus.sentCount} sent, ${sendStatus.suppressedCount} suppressed, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
         sendStatus.sendingCount ? `, ${sendStatus.sendingCount} sending` : ""
       }${
         sendStatus.leaseActive && sendStatus.leaseExpiresAt
@@ -3177,6 +3183,7 @@ function loadStoredSendStatus() {
           stored.interrupted ?? stored.staleBatchCursor !== undefined,
         leaseActive: stored.leaseActive ?? false,
         leaseExpiresAt: stored.leaseExpiresAt ?? null,
+        suppressedCount: stored.suppressedCount ?? 0,
         unverifiedRecipients: stored.unverifiedRecipients ?? [],
       }
     : null;
