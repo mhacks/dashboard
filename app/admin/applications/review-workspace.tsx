@@ -46,6 +46,8 @@ import {
   reviewDraftSchema,
   reviewSyncPayloadSchema,
   type ApplicationRound,
+  type PossibleReapplicationMatch,
+  type PossibleReapplicationSignal,
   type ReviewCounts,
   type ReviewWorkspaceData,
   type ReviewDraftInput,
@@ -263,6 +265,7 @@ function getCounts(items: ReviewListSummaryItem[]): ReviewCounts {
 function summaryItemFromDetail(
   detail: ReviewListItem,
   whyMhacksPreview: string,
+  possibleReapplications: PossibleReapplicationMatch[],
 ): ReviewListSummaryItem {
   const application = detail.application;
 
@@ -286,6 +289,7 @@ function summaryItemFromDetail(
       whyMhacksPreview,
     },
     review: detail.review,
+    possibleReapplications,
   };
 }
 
@@ -312,6 +316,34 @@ function ReviewBadge({ review }: { review: ReviewRecord | null }) {
     <span className="text-xs text-muted-foreground">
       by {review.reviewerEmail ?? "organizer"}
     </span>
+  );
+}
+
+const REAPPLICATION_SIGNAL_LABELS: Record<PossibleReapplicationSignal, string> =
+  {
+    phone: "same phone number",
+    resume: "exact same resume file",
+    github: "same GitHub profile",
+    linkedin: "same LinkedIn profile",
+    name_university_graduation_year:
+      "same name, university, and graduation year",
+  };
+
+function PossibleReapplicationBadge({
+  matches,
+}: {
+  matches: PossibleReapplicationMatch[];
+}) {
+  if (matches.length === 0) return null;
+
+  return (
+    <Badge
+      variant="outline"
+      className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
+    >
+      <AlertTriangleIcon className="size-3" />
+      Possible reapplication
+    </Badge>
   );
 }
 
@@ -351,7 +383,12 @@ function initialApplicationsPageForSelection(
   const filtered =
     statusFilter === "all"
       ? items
-      : items.filter((item) => item.application.status === statusFilter);
+      : items.filter(
+          (item) =>
+            item.application.status === statusFilter ||
+            (statusFilter === "flagged" &&
+              item.possibleReapplications.length > 0),
+        );
   const selectedIndex = filtered.findIndex(
     (item) => item.application.id === selectedId,
   );
@@ -784,7 +821,12 @@ export default function ApplicationReviewWorkspace({
     const statusItems = (
       statusFilter === "all"
         ? roundItems
-        : roundItems.filter((item) => item.application.status === statusFilter)
+        : roundItems.filter(
+            (item) =>
+              item.application.status === statusFilter ||
+              (statusFilter === "flagged" &&
+                item.possibleReapplications.length > 0),
+          )
     ).filter((item) => matchesReviewFilters(item.application, filters));
     if (!needle) return statusItems;
 
@@ -796,6 +838,7 @@ export default function ApplicationReviewWorkspace({
         item.application.major,
         item.application.whyMhacksPreview,
         item.application.status,
+        item.possibleReapplications.length > 0 ? "possible reapplication" : "",
       ]
         .filter(Boolean)
         .join(" ")
@@ -837,6 +880,15 @@ export default function ApplicationReviewWorkspace({
   );
 
   const counts = useMemo(() => getCounts(roundItems), [roundItems]);
+  const flaggedFilterCount = useMemo(
+    () =>
+      roundItems.filter(
+        (item) =>
+          item.application.status === "flagged" ||
+          item.possibleReapplications.length > 0,
+      ).length,
+    [roundItems],
+  );
   const roundCounts = useMemo(
     () =>
       items.reduce(
@@ -853,6 +905,8 @@ export default function ApplicationReviewWorkspace({
     [items, selectedId],
   );
   const activeItem = selectedDetail ?? selectedSummaryItem;
+  const activePossibleReapplications =
+    selectedSummaryItem?.possibleReapplications ?? [];
   const completedCount = counts.reviewed + counts.flagged;
   const completionPercent =
     counts.total === 0 ? 0 : Math.round((completedCount / counts.total) * 100);
@@ -937,7 +991,11 @@ export default function ApplicationReviewWorkspace({
       setItems((current) =>
         current.map((item) =>
           item.application.id === applicationId
-            ? summaryItemFromDetail(detail, item.application.whyMhacksPreview)
+            ? summaryItemFromDetail(
+                detail,
+                item.application.whyMhacksPreview,
+                item.possibleReapplications,
+              )
             : item,
         ),
       );
@@ -1446,7 +1504,7 @@ export default function ApplicationReviewWorkspace({
             <StatusFilterTab value="all" count={counts.total} />
             <StatusFilterTab value="pending" count={counts.pending} />
             <StatusFilterTab value="reviewed" count={counts.reviewed} />
-            <StatusFilterTab value="flagged" count={counts.flagged} />
+            <StatusFilterTab value="flagged" count={flaggedFilterCount} />
           </TabsList>
         </Tabs>
         <div className="flex items-center gap-2">
@@ -1495,7 +1553,7 @@ export default function ApplicationReviewWorkspace({
                       )}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     <Badge
                       variant="outline"
                       className={statusClassName(item.application.status)}
@@ -1505,6 +1563,9 @@ export default function ApplicationReviewWorkspace({
                     {item.review?.flaggedForReview && (
                       <FlagIcon className="size-3.5 text-amber-600" />
                     )}
+                    <PossibleReapplicationBadge
+                      matches={item.possibleReapplications}
+                    />
                     <ReviewBadge review={item.review} />
                   </div>
                   <p className="mt-2 truncate text-xs font-medium">
@@ -1623,6 +1684,47 @@ export default function ApplicationReviewWorkspace({
                 </div>
               )}
             </div>
+
+            {activePossibleReapplications.length > 0 && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+                <div className="flex items-start gap-3">
+                  <AlertTriangleIcon className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" />
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">
+                      Possible regular-round reapplication
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-amber-900/80 dark:text-amber-100/75">
+                      This is a dashboard-only warning. No application or review
+                      fields were changed; verify the match manually.
+                    </p>
+                    <ul className="mt-3 space-y-2 text-sm">
+                      {activePossibleReapplications.map((match) => (
+                        <li key={match.applicationId}>
+                          <a
+                            href={applicationReviewHref(match.slug)}
+                            className="font-medium underline underline-offset-2 hover:opacity-75"
+                          >
+                            {match.applicantName}
+                          </a>
+                          {match.applicantEmail
+                            ? ` (${match.applicantEmail})`
+                            : ""}
+                          <span className="text-amber-900/75 dark:text-amber-100/70">
+                            {" "}
+                            —{" "}
+                            {match.signals
+                              .map(
+                                (signal) => REAPPLICATION_SIGNAL_LABELS[signal],
+                              )
+                              .join(", ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <ResumePreview
               resumeKey={selectedDetail.application.resume}
