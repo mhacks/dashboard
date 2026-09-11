@@ -9,9 +9,9 @@ const testRecipientEmails = requiredEmailCampaignTestRecipients.map(
   (recipient) => recipient.email.trim().toLowerCase(),
 );
 
-export const organizerTestEmailTarget: BroadcastTarget = {
-  id: "email:organizer-test",
-  label: "Organizer Test Emails",
+export const testEmailTarget: BroadcastTarget = {
+  id: "email:test",
+  label: "Test",
   countRecipients,
   resolveRecipients,
   renderMessage: renderBroadcastEmail,
