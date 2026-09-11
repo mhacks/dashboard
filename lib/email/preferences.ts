@@ -10,6 +10,10 @@ import {
 import { users, type UserEntry } from "@/lib/db/schema/users";
 
 export const optionalEmailTopic = "event-updates";
+const emailPublicOrigin =
+  process.env.NODE_ENV === "production"
+    ? "https://mhacks.org"
+    : "http://localhost:3000";
 
 type PreferenceSource = (typeof emailPreferenceSource.enumValues)[number];
 type PreferenceStatus = (typeof emailPreferenceStatus.enumValues)[number];
@@ -188,27 +192,10 @@ function normalizeEmail(email: string) {
 }
 
 function preferenceUrl(pathname: string, id: string, signature: string) {
-  const url = new URL(pathname, publicOrigin());
+  const url = new URL(pathname, emailPublicOrigin);
   url.searchParams.set("id", id);
   url.searchParams.set("sig", signature);
   return url.toString();
-}
-
-function publicOrigin() {
-  const configured = process.env.EMAIL_PUBLIC_ORIGIN;
-  const origin = configured?.trim()
-    ? new URL(configured)
-    : new URL(
-        process.env.NODE_ENV === "production"
-          ? "https://mhacks.org"
-          : "http://localhost:3000",
-      );
-
-  if (process.env.NODE_ENV === "production" && origin.protocol !== "https:") {
-    throw new Error("EMAIL_PUBLIC_ORIGIN must use HTTPS in production.");
-  }
-
-  return origin;
 }
 
 function signPreferenceId(id: string) {

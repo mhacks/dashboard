@@ -13,12 +13,7 @@
         }
       ],
       "essential": true,
-      "environment": [
-        {
-          "name": "EMAIL_PUBLIC_ORIGIN",
-          "value": "https://mhacks.org"
-        }
-      ],
+      "environment": [],
       "mountPoints": [],
       "volumesFrom": [],
       "secrets": [

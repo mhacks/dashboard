@@ -9,15 +9,12 @@ Set these variables in every deployed environment:
 
 ```bash
 EMAIL_UNSUBSCRIBE_SECRET=<a-long-random-secret>
-EMAIL_PUBLIC_ORIGIN=https://mhacks.org
 ```
 
 `EMAIL_UNSUBSCRIBE_SECRET` signs links, must contain at least 32 characters in
 production, and must not be exposed to the browser. Rotating it invalidates
-links in previously sent email, so rotate only when necessary.
-`EMAIL_PUBLIC_ORIGIN` is optional when production is served from
-`https://mhacks.org`; it exists for preview or alternate deployments and must
-use HTTPS in production.
+links in previously sent email, so rotate only when necessary. Production
+unsubscribe links always use `https://mhacks.org`.
 
 Development falls back to `http://localhost:3000` and a local-only signing
 secret so Mailpit sends work without extra setup.
