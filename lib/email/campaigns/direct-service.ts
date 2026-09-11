@@ -31,6 +31,7 @@ import {
   directSendOneSchema,
   directTestSendSchema,
   type DirectEmailTemplateInput,
+  type EmailDeliveryType,
 } from "@/lib/email/types";
 
 const successfulTestProofWindowMs = 30 * 60 * 1000;
@@ -59,7 +60,13 @@ export async function sendOneDirectEmail(input: unknown) {
   const email = body.email.trim().toLowerCase();
   const mergeData = buildMergeData(email, body.mergeData);
   const campaign = campaignLikeFromDirectTemplate(body.template);
-  const result = await sendSnapshotToEmail(campaign, email, mergeData);
+
+  const result = await sendSnapshotToEmail(
+    campaign,
+    email,
+    mergeData,
+    body.deliveryType,
+  );
 
   return result;
 }
@@ -68,7 +75,10 @@ export async function sendDirectTestEmails(input: unknown) {
   const organizer = await requireOrganizer();
   await pruneExpiredSendData();
   const body = directTestSendSchema.parse(input);
-  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const templateFingerprint = fingerprintDirectTemplate(
+    body.template,
+    body.deliveryType,
+  );
   const recipients = requiredEmailCampaignTestRecipients;
   const campaignLike = {
     templateSnapshot: snapshotFromDirectTemplate(body.template),
@@ -88,12 +98,13 @@ export async function sendDirectTestEmails(input: unknown) {
           ...body.mergeData,
           ...recipient.mergeData,
         }),
+        body.deliveryType,
       ),
     );
   }
 
   const failedCount = results.filter(
-    (result) => result.status === "failed",
+    (result) => result.status !== "sent",
   ).length;
   const testSendToken =
     results.length > 0 && failedCount === 0 ? randomUUID() : null;
@@ -121,7 +132,10 @@ export async function sendDirectBatch(input: unknown) {
   const body = directBatchSendSchema.parse(input);
   const parsed = parseRecipientText(body.recipients);
   const limits = getCampaignLimits();
-  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const templateFingerprint = fingerprintDirectTemplate(
+    body.template,
+    body.deliveryType,
+  );
   const recipientListHash = fingerprintRecipients(parsed.recipients);
 
   enforceRecipientLimit(parsed.emails.length);
@@ -152,6 +166,7 @@ export async function sendDirectBatch(input: unknown) {
     templateFingerprint,
     recipientListHash,
     recipients,
+    deliveryType: body.deliveryType,
     testSendToken: body.testSendToken,
   });
 
@@ -195,6 +210,7 @@ export async function sendDirectBatch(input: unknown) {
       campaign,
       delivery.email,
       delivery.mergeData,
+      body.deliveryType,
     );
     await recordDeliveryResult({
       runId: run.id,
@@ -202,7 +218,11 @@ export async function sendDirectBatch(input: unknown) {
       recipientIndex: delivery.recipientIndex,
       result,
     });
-    await sleep(limits.sendDelayMs);
+
+    // Only a real SES call needs the send-rate pause.
+    if (result.status !== "suppressed") {
+      await sleep(limits.sendDelayMs);
+    }
   }
 
   await releaseSendLease({
@@ -217,7 +237,7 @@ export async function findActiveDirectSend(input: unknown) {
   const organizer = await requireOrganizer();
   await pruneExpiredSendData();
   const body = directBatchSendSchema
-    .pick({ template: true, recipients: true })
+    .pick({ template: true, deliveryType: true, recipients: true })
     .parse(input);
   const parsed = parseRecipientText(body.recipients);
 
@@ -225,7 +245,10 @@ export async function findActiveDirectSend(input: unknown) {
     return null;
   }
 
-  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const templateFingerprint = fingerprintDirectTemplate(
+    body.template,
+    body.deliveryType,
+  );
   const recipientListHash = fingerprintRecipients(parsed.recipients);
   const [run] = await db
     .select()
@@ -261,6 +284,7 @@ async function resolveOrCreateSendRun({
   templateFingerprint,
   recipientListHash,
   recipients,
+  deliveryType,
   testSendToken,
 }: {
   requestedRunId: string;
@@ -269,6 +293,7 @@ async function resolveOrCreateSendRun({
   templateFingerprint: string;
   recipientListHash: string;
   recipients: Array<{ email: string; mergeData: Record<string, string> }>;
+  deliveryType: EmailDeliveryType;
   testSendToken: string | undefined;
 }) {
   return db.transaction(async (tx) => {
@@ -339,6 +364,7 @@ async function resolveOrCreateSendRun({
     await assertSuccessfulTestSend({
       organizer,
       template,
+      deliveryType,
       testSendToken,
       tx,
     });
@@ -356,6 +382,7 @@ async function resolveOrCreateSendRun({
         status: "sending",
         sentCount: 0,
         failedCount: 0,
+        suppressedCount: 0,
         nextCursor: 0,
         recentFailures: [],
         recoveryExpiresAt: recoveryExpiry(),
@@ -614,6 +641,10 @@ async function recordDeliveryResult({
         sentCount: result.status === "sent" ? run.sentCount + 1 : run.sentCount,
         failedCount:
           result.status === "failed" ? run.failedCount + 1 : run.failedCount,
+        suppressedCount:
+          result.status === "suppressed"
+            ? run.suppressedCount + 1
+            : run.suppressedCount,
         nextCursor: Math.max(run.nextCursor, recipientIndex + 1),
         recentFailures:
           result.status === "failed"
@@ -628,7 +659,9 @@ async function recordDeliveryResult({
 
     if (
       updatedRun &&
-      updatedRun.sentCount + updatedRun.failedCount ===
+      updatedRun.sentCount +
+        updatedRun.failedCount +
+        updatedRun.suppressedCount ===
         updatedRun.totalRecipients
     ) {
       await finalizeRun(tx, updatedRun, []);
@@ -768,7 +801,9 @@ async function resolveInterruptedDeliveries({
 
     if (
       updatedRun &&
-      updatedRun.sentCount + updatedRun.failedCount ===
+      updatedRun.sentCount +
+        updatedRun.failedCount +
+        updatedRun.suppressedCount ===
         updatedRun.totalRecipients
     ) {
       await finalizeRun(tx, updatedRun, []);
@@ -812,7 +847,13 @@ function buildSendRunStatus(
   );
   const remainingCount = complete
     ? 0
-    : Math.max(0, run.totalRecipients - run.sentCount - run.failedCount);
+    : Math.max(
+        0,
+        run.totalRecipients -
+          run.sentCount -
+          run.failedCount -
+          run.suppressedCount,
+      );
   const sendingCount = complete
     ? 0
     : Math.min(remainingCount, activelySending.length);
@@ -829,6 +870,7 @@ function buildSendRunStatus(
     totalRecipients: run.totalRecipients,
     sentCount: run.sentCount,
     failedCount: run.failedCount,
+    suppressedCount: run.suppressedCount,
     pendingCount,
     sendingCount,
     leaseActive: activeLease,
@@ -851,7 +893,8 @@ async function finalizeRun(
 ) {
   if (
     deliveries.length !== 0 ||
-    run.sentCount + run.failedCount !== run.totalRecipients
+    run.sentCount + run.failedCount + run.suppressedCount !==
+      run.totalRecipients
   ) {
     throw new EmailCampaignError(
       "Send recovery data is incomplete; refusing to finalize the run",
@@ -861,6 +904,7 @@ async function finalizeRun(
 
   const sentCount = run.sentCount;
   const failedCount = run.failedCount;
+  const suppressedCount = run.suppressedCount;
   const now = new Date().toISOString();
   const [completedRun] = await tx
     .update(emailSendRuns)
@@ -868,6 +912,7 @@ async function finalizeRun(
       status: failedCount > 0 ? "failed" : "sent",
       sentCount,
       failedCount,
+      suppressedCount,
       nextCursor: run.totalRecipients,
       recentFailures: [],
       templateSnapshot: null,
@@ -890,6 +935,7 @@ async function finalizeRun(
       status: failedCount > 0 ? "failed" : "sent",
       sentCount,
       failedCount,
+      suppressedCount,
       nextCursor: run.totalRecipients,
       recentFailures: [],
       templateSnapshot: null,
@@ -981,11 +1027,13 @@ async function pruneExpiredSendData() {
 async function findSuccessfulTestSend({
   organizer,
   template,
+  deliveryType,
   testSendToken,
   tx = db,
 }: {
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
+  deliveryType: EmailDeliveryType;
   testSendToken: string | undefined;
   tx?: Pick<typeof db, "select">;
 }): Promise<ApprovedTestSend | null> {
@@ -993,7 +1041,7 @@ async function findSuccessfulTestSend({
     return null;
   }
 
-  const expectedFingerprint = fingerprintDirectTemplate(template);
+  const expectedFingerprint = fingerprintDirectTemplate(template, deliveryType);
   const now = Date.now();
   const [proof] = await tx
     .select()
@@ -1028,17 +1076,20 @@ async function findSuccessfulTestSend({
 async function assertSuccessfulTestSend({
   organizer,
   template,
+  deliveryType,
   testSendToken,
   tx = db,
 }: {
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
+  deliveryType: EmailDeliveryType;
   testSendToken: string | undefined;
   tx?: Pick<typeof db, "select">;
 }): Promise<ApprovedTestSend> {
   const matchingProof = await findSuccessfulTestSend({
     organizer,
     template,
+    deliveryType,
     testSendToken,
     tx,
   });
@@ -1076,16 +1127,26 @@ async function recordSuccessfulTestSend({
   });
 }
 
-function fingerprintDirectTemplate(template: DirectEmailTemplateInput) {
+function fingerprintDirectTemplate(
+  template: DirectEmailTemplateInput,
+  deliveryType: EmailDeliveryType,
+) {
+  // "subscription" is the default type, so it stays out of the hashed payload:
+  // that keeps the fingerprint byte-identical to the pre-delivery-type shape
+  // and lets send runs started before this feature still resume.
+  const deliveryTypeKey =
+    deliveryType === "subscription" ? {} : { deliveryType };
   const payload =
     template.type === "structured"
       ? {
           snapshot: snapshotFromDirectTemplate(template),
           theme: template.theme ?? defaultEmailTheme,
+          ...deliveryTypeKey,
         }
       : {
           snapshot: snapshotFromDirectTemplate(template),
           theme: null,
+          ...deliveryTypeKey,
         };
 
   return createHash("sha256").update(stableStringify(payload)).digest("hex");

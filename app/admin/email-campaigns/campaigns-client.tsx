@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import type {
   EmailAudienceQuery,
   EmailCampaignContent,
+  EmailDeliveryType,
   EmailThemeTokens,
 } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
@@ -94,6 +95,7 @@ interface DirectSendStatus {
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
+  suppressedCount: number;
   pendingCount: number;
   sendingCount: number;
   leaseActive: boolean;
@@ -131,6 +133,7 @@ const currentThemeStorageVersion = "m26-single-font-config";
 const activeSendStatusStorageKey = "mhacks-email-active-send-status";
 const activeSendRecipientsStorageKey = "mhacks-email-active-send-recipients";
 const activeTestProofStorageKey = "mhacks-email-active-test-proof";
+const deliveryTypeStorageKey = "mhacks-email-delivery-type";
 const builtInRecipientMergeFields = new Set(["email", "name"]);
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
@@ -205,6 +208,11 @@ export default function EmailCampaignsClient({
     useState<EmailAudienceQuery>(defaultAudienceQuery);
   const [audienceLabel, setAudienceLabel] = useState("");
   const [sendOneEmail, setSendOneEmail] = useState("");
+  // Seeded on mount rather than from localStorage here: this component is
+  // server-rendered, and reading storage in the initializer makes the first
+  // client render disagree with the SSR markup.
+  const [deliveryType, setDeliveryType] =
+    useState<EmailDeliveryType>("subscription");
   const testEmails = serverManagedTestListLabel;
   const [sendNotice, setSendNotice] = useState("");
   const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(() =>
@@ -238,8 +246,8 @@ export default function EmailCampaignsClient({
     [selectedTemplate],
   );
   const currentTestProofKey = useMemo(
-    () => buildTestSendProofKey(selectedTemplate, theme),
-    [selectedTemplate, theme],
+    () => buildTestSendProofKey(selectedTemplate, theme, deliveryType),
+    [selectedTemplate, theme, deliveryType],
   );
   const activeTestSendProof = freshTestSendProof(
     testSendProof,
@@ -582,37 +590,42 @@ export default function EmailCampaignsClient({
     }
   }
 
-  async function renderPreview(
-    template: MasterTemplate,
-    activeTheme: EmailThemeTokens,
-    activeMergeData: Record<string, string>,
-  ) {
-    const payload =
-      template.type === "html"
-        ? {
-            type: "html" as const,
-            subject: template.subject,
-            previewText: template.previewText,
-            html: template.html ?? "",
-            mergeData: activeMergeData,
-          }
-        : {
-            type: "structured" as const,
-            templateId: template.sourceTemplateId,
-            subject: template.subject,
-            previewText: template.previewText,
-            content: template.content,
-            theme: activeTheme,
-            mergeData: activeMergeData,
-          };
+  const renderPreview = useCallback(
+    async (
+      template: MasterTemplate,
+      activeTheme: EmailThemeTokens,
+      activeMergeData: Record<string, string>,
+    ) => {
+      const payload =
+        template.type === "html"
+          ? {
+              type: "html" as const,
+              subject: template.subject,
+              previewText: template.previewText,
+              html: template.html ?? "",
+              mergeData: activeMergeData,
+              deliveryType,
+            }
+          : {
+              type: "structured" as const,
+              templateId: template.sourceTemplateId,
+              subject: template.subject,
+              previewText: template.previewText,
+              content: template.content,
+              theme: activeTheme,
+              mergeData: activeMergeData,
+              deliveryType,
+            };
 
-    try {
-      const rendered = await renderEmailPreviewAction(payload);
-      setPreviewHtml(rendered.html);
-    } catch {
-      setPreviewHtml("");
-    }
-  }
+      try {
+        const rendered = await renderEmailPreviewAction(payload);
+        setPreviewHtml(rendered.html);
+      } catch {
+        setPreviewHtml("");
+      }
+    },
+    [deliveryType],
+  );
 
   async function checkRecipientList() {
     setBusy("check-recipients");
@@ -630,6 +643,7 @@ export default function EmailCampaignsClient({
         template
           ? findActiveDirectSendAction({
               template,
+              deliveryType,
               recipients: recipientText,
             })
           : Promise.resolve(null),
@@ -645,14 +659,14 @@ export default function EmailCampaignsClient({
       }
       setSendNotice(
         recoveredStatus
-          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
+          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.pendingCount} pending.`
           : `${parsed.emails.length} recipients ready.`,
       );
       showToast(
         recoveredStatus ? "info" : "success",
         recoveredStatus ? "Saved send recovered" : "Recipient list ready",
         recoveredStatus
-          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
+          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
           : `${parsed.emails.length} valid, ${parsed.duplicateCount} duplicate${
               parsed.duplicateCount === 1 ? "" : "s"
             }, ${parsed.invalid.length} invalid.`,
@@ -686,6 +700,7 @@ export default function EmailCampaignsClient({
       const recoveredStatus = template
         ? await findActiveDirectSendAction({
             template,
+            deliveryType,
             recipients: resolved.recipientText,
           })
         : null;
@@ -699,14 +714,14 @@ export default function EmailCampaignsClient({
       }
       setSendNotice(
         recoveredStatus
-          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
+          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.pendingCount} pending.`
           : `${resolved.emails.length} recipients loaded.`,
       );
       showToast(
         recoveredStatus ? "info" : "success",
         recoveredStatus ? "Saved send recovered" : "Group loaded",
         recoveredStatus
-          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
+          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.suppressedCount} suppressed, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
           : `${resolved.emails.length} valid recipient${
               resolved.emails.length === 1 ? "" : "s"
             } from ${resolved.label}.`,
@@ -751,6 +766,7 @@ export default function EmailCampaignsClient({
     try {
       const data = await sendOneDirectEmailAction({
         template,
+        deliveryType,
         email: sendOneEmail,
         mergeData: effectiveMergePreviewData,
       });
@@ -791,6 +807,7 @@ export default function EmailCampaignsClient({
     try {
       const data = await sendDirectTestEmailsAction({
         template,
+        deliveryType,
         mergeData: effectiveMergePreviewData,
       });
       const sent = data.results.filter((result) => result.status === "sent");
@@ -865,6 +882,7 @@ export default function EmailCampaignsClient({
           totalRecipients: recipientResult?.emails.length ?? 0,
           sentCount: 0,
           failedCount: 0,
+          suppressedCount: 0,
           pendingCount: recipientResult?.emails.length ?? 0,
           sendingCount: 0,
           leaseActive: false,
@@ -884,6 +902,7 @@ export default function EmailCampaignsClient({
         status = await sendDirectBatchAction({
           runId,
           template,
+          deliveryType,
           recipients: recipientText,
           testSendToken: proof?.token,
           cursor,
@@ -892,7 +911,7 @@ export default function EmailCampaignsClient({
         showToast(
           "loading",
           "Sending list",
-          `${status.sentCount} sent, ${status.failedCount} failed, ${status.pendingCount} pending${
+          `${status.sentCount} sent, ${status.suppressedCount} suppressed, ${status.failedCount} failed, ${status.pendingCount} pending${
             status.sendingCount ? `, ${status.sendingCount} sending` : ""
           }.`,
         );
@@ -914,7 +933,7 @@ export default function EmailCampaignsClient({
       setSendNotice(
         status
           ? status.complete
-            ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
+            ? `Send complete: ${status.sentCount} sent, ${status.suppressedCount} suppressed, ${status.failedCount} failed.`
             : status.interrupted
               ? "One delivery was interrupted after it started. Verify it in SES, then resolve it without automatically resending."
               : status.leaseActive && status.leaseExpiresAt
@@ -931,7 +950,7 @@ export default function EmailCampaignsClient({
         status?.complete ? "List send complete" : "List send paused",
         status
           ? status.complete
-            ? `${status.sentCount} sent, ${status.failedCount} failed.`
+            ? `${status.sentCount} sent, ${status.suppressedCount} suppressed, ${status.failedCount} failed.`
             : status.interrupted
               ? "Verify the interrupted delivery in SES before resolving it."
               : status.leaseActive && status.leaseExpiresAt
@@ -988,6 +1007,7 @@ export default function EmailCampaignsClient({
       const nextStatus = await sendDirectBatchAction({
         runId: status.runId,
         template,
+        deliveryType,
         recipients: recipientText,
         cursor: status.nextCursor,
         resolveInterrupted: true,
@@ -997,12 +1017,12 @@ export default function EmailCampaignsClient({
       if (nextStatus.complete) {
         clearCompletedSend();
         setSendNotice(
-          `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
+          `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.suppressedCount} suppressed, ${nextStatus.failedCount} failed.`,
         );
         showToast(
           nextStatus.failedCount ? "error" : "success",
           "List send complete",
-          `${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
+          `${nextStatus.sentCount} sent, ${nextStatus.suppressedCount} suppressed, ${nextStatus.failedCount} failed.`,
         );
       } else {
         setSendNotice(
@@ -1078,6 +1098,8 @@ export default function EmailCampaignsClient({
       if (localTheme) {
         setTheme(localTheme);
       }
+
+      setDeliveryType(loadStoredDeliveryType());
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -1091,7 +1113,7 @@ export default function EmailCampaignsClient({
     }, 180);
 
     return () => window.clearTimeout(timer);
-  }, [selectedTemplate, theme, effectiveMergePreviewData]);
+  }, [selectedTemplate, theme, effectiveMergePreviewData, renderPreview]);
 
   useEffect(() => {
     if (!toast || toast.tone === "loading") {
@@ -1122,6 +1144,7 @@ export default function EmailCampaignsClient({
     const timer = window.setTimeout(() => {
       void findActiveDirectSendAction({
         template,
+        deliveryType,
         recipients: recipientText,
       })
         .then((recoveredStatus) => {
@@ -1154,6 +1177,7 @@ export default function EmailCampaignsClient({
     recipientText,
     selectedTemplate,
     theme,
+    deliveryType,
   ]);
 
   const selectedSection =
@@ -1282,6 +1306,7 @@ export default function EmailCampaignsClient({
               audienceQuery={audienceQuery}
               audienceLabel={audienceLabel}
               sendOneEmail={sendOneEmail}
+              deliveryType={deliveryType}
               testEmails={testEmails}
               sendStatus={activeSendStatus}
               testSendProof={activeTestSendProof}
@@ -1299,6 +1324,12 @@ export default function EmailCampaignsClient({
               onLoadAudience={() => void loadAudienceRecipients()}
               onCheckRecipients={() => void checkRecipientList()}
               onSendOneEmailChange={setSendOneEmail}
+              onDeliveryTypeChange={(nextDeliveryType) => {
+                setDeliveryType(nextDeliveryType);
+                storeDeliveryType(nextDeliveryType);
+                clearTestSendProof();
+                clearSendStatus();
+              }}
               onSendOne={() => void sendOneRecipient()}
               onTestSend={() => void sendTestEmails()}
               onStartSend={() => void startFullSend()}
@@ -1925,6 +1956,7 @@ function SendPanel({
   audienceQuery,
   audienceLabel,
   sendOneEmail,
+  deliveryType,
   testEmails,
   sendStatus,
   testSendProof,
@@ -1936,6 +1968,7 @@ function SendPanel({
   onLoadAudience,
   onCheckRecipients,
   onSendOneEmailChange,
+  onDeliveryTypeChange,
   onSendOne,
   onTestSend,
   onStartSend,
@@ -1950,6 +1983,7 @@ function SendPanel({
   audienceQuery: EmailAudienceQuery;
   audienceLabel: string;
   sendOneEmail: string;
+  deliveryType: EmailDeliveryType;
   testEmails: string;
   sendStatus: DirectSendStatus | null;
   testSendProof: TestSendProof | null;
@@ -1961,6 +1995,7 @@ function SendPanel({
   onLoadAudience: () => void;
   onCheckRecipients: () => void;
   onSendOneEmailChange: (value: string) => void;
+  onDeliveryTypeChange: (value: EmailDeliveryType) => void;
   onSendOne: () => void;
   onTestSend: () => void;
   onStartSend: () => void;
@@ -2046,7 +2081,7 @@ function SendPanel({
         </div>
 
         {sendStatus ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-5">
             <Metric
               label="Status"
               value={
@@ -2063,11 +2098,65 @@ function SendPanel({
             />
             <Metric label="Recipients" value={sendStatus.totalRecipients} />
             <Metric label="Sent" value={sendStatus.sentCount} />
+            <Metric label="Suppressed" value={sendStatus.suppressedCount} />
             <Metric label="Failed" value={sendStatus.failedCount} />
             {sendStatus.sendingCount ? (
               <Metric label="Sending" value={sendStatus.sendingCount} />
             ) : null}
           </div>
+        ) : null}
+      </section>
+
+      <section className={cn(adminInsetClass, "p-4")}>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Message type
+        </p>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            className={cn(
+              "rounded-md border p-3 text-left transition",
+              deliveryType === "subscription"
+                ? "border-primary bg-muted/50"
+                : "border-border bg-card hover:bg-muted/30",
+            )}
+            disabled={Boolean(busy) || Boolean(sendStatus)}
+            onClick={() => onDeliveryTypeChange("subscription")}
+          >
+            <span className="text-sm font-semibold text-foreground">
+              Optional update
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+              Newsletters and promotional announcements. Adds one-click
+              unsubscribe and honors the MHacks event-updates preference.
+            </span>
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "rounded-md border p-3 text-left transition",
+              deliveryType === "transactional"
+                ? "border-primary bg-muted/50"
+                : "border-border bg-card hover:bg-muted/30",
+            )}
+            disabled={Boolean(busy) || Boolean(sendStatus)}
+            onClick={() => onDeliveryTypeChange("transactional")}
+          >
+            <span className="text-sm font-semibold text-foreground">
+              Required operational email
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+              Decisions, RSVP actions, travel details, and account notices.
+              Sends without subscription-management headers.
+            </span>
+          </button>
+        </div>
+        {deliveryType === "transactional" ? (
+          <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-amber-800">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            Use this only when recipients need the message to participate in or
+            manage their existing MHacks application, RSVP, or account.
+          </p>
         ) : null}
       </section>
 
@@ -2327,6 +2416,7 @@ function SendPanel({
             {sendStatus ? (
               <p className="mt-2 text-sm text-muted-foreground">
                 {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
+                {sendStatus.suppressedCount} suppressed,{" "}
                 {sendStatus.failedCount} failed
                 {sendStatus.sendingCount
                   ? `, ${sendStatus.sendingCount} sending`
@@ -2445,7 +2535,9 @@ function SendProgress({
 
   const completed =
     sendStatus && sendStatus.totalRecipients > 0
-      ? sendStatus.sentCount + sendStatus.failedCount
+      ? sendStatus.sentCount +
+        sendStatus.suppressedCount +
+        sendStatus.failedCount
       : 0;
   const progress =
     sendStatus && sendStatus.totalRecipients > 0
@@ -2470,7 +2562,7 @@ function SendProgress({
                     ? "Interrupted delivery"
                     : "Send progress";
   const detail = sendStatus
-    ? `${sendStatus.sentCount} sent, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
+    ? `${sendStatus.sentCount} sent, ${sendStatus.suppressedCount} suppressed, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
         sendStatus.sendingCount ? `, ${sendStatus.sendingCount} sending` : ""
       }${
         sendStatus.leaseActive && sendStatus.leaseExpiresAt
@@ -3109,6 +3201,7 @@ function loadStoredSendStatus() {
           stored.interrupted ?? stored.staleBatchCursor !== undefined,
         leaseActive: stored.leaseActive ?? false,
         leaseExpiresAt: stored.leaseExpiresAt ?? null,
+        suppressedCount: stored.suppressedCount ?? 0,
         unverifiedRecipients: stored.unverifiedRecipients ?? [],
       }
     : null;
@@ -3279,6 +3372,7 @@ function errorMessage(error: unknown) {
 function buildTestSendProofKey(
   template: MasterTemplate | null,
   theme: EmailThemeTokens,
+  deliveryType: EmailDeliveryType,
 ) {
   if (!template) {
     return "no-template";
@@ -3293,6 +3387,7 @@ function buildTestSendProofKey(
     content: template.content,
     html: template.html,
     theme,
+    deliveryType,
   });
 }
 
@@ -3359,6 +3454,17 @@ function readStorage<T>(key: string, fallback: T): T {
 
 function canUseLocalStorage() {
   return typeof window !== "undefined" && Boolean(window.localStorage);
+}
+
+function loadStoredDeliveryType(): EmailDeliveryType {
+  const value = readStorage<unknown>(deliveryTypeStorageKey, "subscription");
+  return value === "transactional" ? value : "subscription";
+}
+
+function storeDeliveryType(value: EmailDeliveryType) {
+  if (canUseLocalStorage()) {
+    window.localStorage.setItem(deliveryTypeStorageKey, JSON.stringify(value));
+  }
 }
 
 const adminPanelClass = "rounded-lg border bg-card";

@@ -79,7 +79,11 @@ export async function updateSession(request: NextRequest) {
     isPathOrChild("/oauth/consent") ||
     // Public docs page explaining how to connect an AI agent to the MCP
     // server — needs to be readable before/without logging in.
-    isPathOrChild("/how-to-mcp");
+    isPathOrChild("/how-to-mcp") ||
+    // Email clients and recipients must be able to use one-click and footer
+    // unsubscribe links without an MHacks session.
+    isPathOrChild("/email/unsubscribe") ||
+    isPathOrChild("/api/email/unsubscribe");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

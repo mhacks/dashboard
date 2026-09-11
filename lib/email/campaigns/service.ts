@@ -1,14 +1,16 @@
 import { sendEmail } from "@/lib/aws/ses";
+import { prepareOptionalEmailDelivery } from "@/lib/email/preferences";
 import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import type {
   DirectEmailTemplateInput,
   EmailCampaignContent,
+  EmailDeliveryType,
   EmailTemplateType,
   EmailThemeTokens,
 } from "@/lib/email/types";
 
-type SendStatus = "sent" | "failed";
+type SendStatus = "sent" | "failed" | "suppressed";
 type EmailRecipientMergeData = Record<string, string>;
 
 export type EmailTemplateSnapshot = {
@@ -59,18 +61,36 @@ export async function sendSnapshotToEmail(
   },
   email: string,
   mergeData: EmailRecipientMergeData,
+  deliveryType: EmailDeliveryType = "transactional",
 ): Promise<SendResult> {
   try {
+    const preference =
+      deliveryType === "subscription"
+        ? await prepareOptionalEmailDelivery(email)
+        : null;
+
+    if (preference?.suppressed) {
+      return {
+        email,
+        status: "suppressed",
+        messageId: null,
+        error: "Recipient unsubscribed from optional MHacks email.",
+      };
+    }
+
     const rendered = await renderSnapshot(
       campaign.templateSnapshot,
       campaign.themeSnapshot ?? defaultEmailTheme,
       mergeData,
+      preference?.footerUrl,
     );
     const messageId = await sendEmail({
       to: email,
       subject: rendered.subject,
       html: rendered.html,
       text: rendered.text,
+      deliveryType,
+      unsubscribeUrl: preference?.oneClickUrl,
     });
 
     return { email, status: "sent", messageId, error: null };
@@ -96,6 +116,7 @@ async function renderSnapshot(
   snapshot: EmailTemplateSnapshot,
   theme: EmailThemeTokens,
   mergeData: EmailRecipientMergeData,
+  unsubscribeUrl?: string,
 ) {
   if (snapshot.type === "html") {
     return renderHtmlEmail({
@@ -103,6 +124,7 @@ async function renderSnapshot(
       previewText: snapshot.previewText,
       html: snapshot.html ?? "",
       mergeData,
+      unsubscribeUrl,
     });
   }
 
@@ -113,5 +135,6 @@ async function renderSnapshot(
     content: snapshot.content,
     theme,
     mergeData,
+    unsubscribeUrl,
   });
 }

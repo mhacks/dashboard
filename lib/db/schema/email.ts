@@ -13,7 +13,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { authenticatedRole } from "drizzle-orm/supabase";
+import { authUid, authenticatedRole } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";
 import { users } from "./users";
 import type {
@@ -32,6 +32,63 @@ export const emailTemplateType = pgEnum("email_template_type", [
   "structured",
   "html",
 ]);
+
+export const emailPreferenceStatus = pgEnum("email_preference_status", [
+  "subscribed",
+  "unsubscribed",
+]);
+
+export const emailPreferenceSource = pgEnum("email_preference_source", [
+  "send",
+  "one_click",
+  "footer",
+  "account",
+]);
+
+export const emailPreferences = pgTable(
+  "email_preferences",
+  {
+    id: uuid().defaultRandom().primaryKey().notNull(),
+    userId: uuid("user_id"),
+    email: text().notNull(),
+    topic: text().default("event-updates").notNull(),
+    status: emailPreferenceStatus().default("subscribed").notNull(),
+    source: emailPreferenceSource().default("send").notNull(),
+    unsubscribedAt: timestamp("unsubscribed_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "email_preferences_user_id_fkey",
+    }).onDelete("set null"),
+    uniqueIndex("email_preferences_email_topic_unique").on(
+      sql`lower(${table.email})`,
+      table.topic,
+    ),
+    index("email_preferences_user_topic_idx").on(table.userId, table.topic),
+    pgPolicy("email_preferences_own_or_organizer_select", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
+    }),
+  ],
+).enableRLS();
 
 export const emailTemplates = pgTable(
   "email_templates",
@@ -152,6 +209,7 @@ export const emailSendRuns = pgTable(
     status: text().default("sending").notNull(),
     sentCount: integer("sent_count").default(0).notNull(),
     failedCount: integer("failed_count").default(0).notNull(),
+    suppressedCount: integer("suppressed_count").default(0).notNull(),
     nextCursor: integer("next_cursor").default(0).notNull(),
     recentFailures: jsonb("recent_failures")
       .$type<EmailSendFailure[]>()
@@ -275,5 +333,6 @@ export const emailSendDeliveries = pgTable(
 export type EmailTemplateRow = typeof emailTemplates.$inferSelect;
 export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
 export type EmailThemeSettingRow = typeof emailThemeSettings.$inferSelect;
+export type EmailPreferenceRow = typeof emailPreferences.$inferSelect;
 export type EmailSendRunRow = typeof emailSendRuns.$inferSelect;
 export type EmailSendDeliveryRow = typeof emailSendDeliveries.$inferSelect;
