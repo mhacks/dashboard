@@ -1,5 +1,5 @@
 {
-  "id": "2c29144a-f11c-4f58-aff2-fc1b052b571e",
+  "id": "cce6c8a7-7fb6-4465-857f-dbdd3e13e136",
   "prevId": "c5561032-cf36-4d70-8b3d-d1d4c89a2c27",
   "version": "7",
   "dialect": "postgresql",
@@ -830,6 +830,13 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "target": {
+          "name": "target",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'email:hacker'"
+        },
         "subject": {
           "name": "subject",
           "type": "text",
@@ -855,15 +862,85 @@
           "primaryKey": false,
           "notNull": false
         },
-        "broadcasted_to_email": {
-          "name": "broadcasted_to_email",
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'complete'"
+        },
+        "recipients": {
+          "name": "recipients",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "delivered_to": {
+          "name": "delivered_to",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "failed_count": {
+          "name": "failed_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_cursor": {
+          "name": "next_cursor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "processing_recipient": {
+          "name": "processing_recipient",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_token": {
+          "name": "lease_token",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recent_failures": {
+          "name": "recent_failures",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "broadcast_logs_active_target_unique": {
+          "name": "broadcast_logs_active_target_unique",
+          "columns": [
+            {
+              "expression": "target",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"broadcast_logs\".\"status\" = 'sending'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "broadcast_logs_sent_by_users_id_fk": {
           "name": "broadcast_logs_sent_by_users_id_fk",
