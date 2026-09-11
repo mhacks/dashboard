@@ -1,0 +1,2 @@
+export const BROADCAST_BODY_LIMIT = 160;
+export const BROADCAST_SUBJECT_LIMIT = 200;

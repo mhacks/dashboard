@@ -1,37 +1,24 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema/users";
-import { broadcastLogs } from "@/lib/db/schema/broadcasts";
-import { getSessionUser } from "@/lib/auth/session";
-import { sendBulkEmail } from "@/lib/aws/ses.placeholder";
+import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
+import {
+  findActiveBroadcast,
+  sendBroadcastBatch,
+  startBroadcast,
+} from "@/lib/broadcast/service";
 
-export async function broadcastAll(formData: FormData) {
-  const sessionUser = await getSessionUser();
-  if (!sessionUser || sessionUser.role !== "organizer") {
-    throw new Error("Unauthorized");
-  }
+export async function listBroadcastTargetsAction() {
+  return listBroadcastTargetSummaries();
+}
 
-  const subject = formData.get("subject") as string;
-  const body = formData.get("body") as string;
+export async function startBroadcastAction(input: unknown) {
+  return startBroadcast(input);
+}
 
-  const emailRows = await db
-    .select({ email: users.email })
-    .from(users)
-    .where(eq(users.role, "hacker"));
+export async function sendBroadcastBatchAction(input: unknown) {
+  return sendBroadcastBatch(input);
+}
 
-  const emails = emailRows.map((r) => r.email).filter((e) => e.length > 0);
-
-  const emailResults = await sendBulkEmail(emails, subject, body);
-
-  await db.insert(broadcastLogs).values({
-    subject,
-    body,
-    sentBy: sessionUser.id,
-    broadcastedToEmail: emailResults.succeeded,
-  });
-
-  redirect("/admin/broadcast/success");
+export async function findActiveBroadcastAction() {
+  return findActiveBroadcast();
 }

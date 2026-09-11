@@ -1,6 +1,5 @@
-import { count, eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema/users";
+import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
+import "@/lib/broadcast/targets";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AdminPageHeader } from "../components/admin-page-header";
@@ -8,21 +7,22 @@ import { AdminPageShell } from "../components/admin-page-shell";
 import BroadcastForm from "./BroadcastForm";
 
 export default async function BroadcastPage() {
-  const [{ value: hackerCount }] = await db
-    .select({ value: count() })
-    .from(users)
-    .where(eq(users.role, "hacker"));
+  const targets = await listBroadcastTargetSummaries();
+  const totalRecipients = targets.reduce(
+    (sum, target) => sum + target.recipientCount,
+    0,
+  );
 
   return (
     <AdminPageShell width="narrow">
       <AdminPageHeader
         title="Broadcast"
-        description={`Send an email to all ${hackerCount} hackers. Use sparingly.`}
+        description={`Send a message to ${totalRecipients} recipients across ${targets.length} target${targets.length === 1 ? "" : "s"}. Use sparingly.`}
       />
 
       <Card>
         <CardContent>
-          <BroadcastForm hackerCount={hackerCount} />
+          <BroadcastForm targets={targets} />
         </CardContent>
       </Card>
 
