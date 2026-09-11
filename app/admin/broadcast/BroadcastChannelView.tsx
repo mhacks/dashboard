@@ -1,3 +1,5 @@
+import { broadcastChannelLabel } from "@/lib/broadcast/channels";
+import { buildBroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   listBroadcastLogs,
@@ -30,10 +32,7 @@ export async function BroadcastChannelView({
   const { items: logs, totalCount } = await listBroadcastLogs(
     0,
     BROADCAST_LOGS_PAGE_SIZE,
-    {
-      ...(channelTargetId ? { target: channelTargetId } : {}),
-      ...(searchQuery ? { search: searchQuery } : {}),
-    },
+    buildBroadcastLogsFilter(channelTargetId, searchQuery),
   );
   const targetLabels = Object.fromEntries(
     targets.map((target) => [target.id, target.label]),
@@ -44,7 +43,7 @@ export async function BroadcastChannelView({
       ? `No broadcasts to ${channelTarget.label} yet. Send the first message below.`
       : "No broadcasts yet. Send the first message below.";
   const searchChannelLabel = channelTarget
-    ? channelTarget.label.replace(/\s*\([^)]*\)\s*$/, "").trim()
+    ? broadcastChannelLabel(channelTarget.label)
     : "Global";
 
   return (

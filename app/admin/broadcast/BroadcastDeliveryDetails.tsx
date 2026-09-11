@@ -1,15 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState, useTransition } from "react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -18,15 +10,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Meter } from "@/components/ui/meter";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
+import {
+  BROADCAST_PAUSED_NOTICE,
+  broadcastProgressPercent,
+  formatBroadcastProgress,
+} from "@/lib/broadcast/progress";
 import type {
-  BroadcastDeliveryDetails,
-  BroadcastDeliveryFailure,
-} from "@/lib/broadcast/log-types";
-import type { BroadcastSendStatus } from "@/lib/broadcast/types";
+  BroadcastFailure,
+  BroadcastSendStatus,
+} from "@/lib/broadcast/types";
 import { cn } from "@/lib/utils";
 import {
   ArrowRightIcon,
@@ -35,7 +38,6 @@ import {
   ListFilterIcon,
   Loader2Icon,
   RotateCwIcon,
-  SearchIcon,
   Undo2Icon,
   XIcon,
 } from "lucide-react";
@@ -45,21 +47,12 @@ import {
   retryFailedBroadcastAction,
   updateBroadcastOmittedAction,
 } from "./actions";
+import { broadcastErrorMessage } from "./broadcast-utils";
+import { RecipientSearchField } from "./RecipientSearchField";
 import { runBroadcastLoop } from "./run-broadcast-loop";
+import { useRecipientSelection } from "./use-recipient-selection";
 
 type DeliveryTab = "failed" | "omitted" | "delivered";
-
-const ERROR_FILTER_MENU_WIDTH = 320;
-
-function progressPercent(status: BroadcastSendStatus) {
-  if (status.totalRecipients === 0) {
-    return 0;
-  }
-
-  return Math.round(
-    ((status.sentCount + status.failedCount) / status.totalRecipients) * 100,
-  );
-}
 
 function CopyRecipientButton({ recipient }: { recipient: string }) {
   const [copied, setCopied] = useState(false);
@@ -96,14 +89,14 @@ function FailureDeliveryRow({
   failure,
   selected,
   usingSubset,
-  showCheckbox,
+  interactive,
   onToggleSelected,
   checkboxLabel,
 }: {
-  failure: BroadcastDeliveryFailure;
+  failure: BroadcastFailure;
   selected?: boolean;
   usingSubset?: boolean;
-  showCheckbox?: boolean;
+  interactive?: boolean;
   onToggleSelected?: (selected: boolean) => void;
   checkboxLabel: string;
 }) {
@@ -111,11 +104,11 @@ function FailureDeliveryRow({
     <li
       className={cn(
         "min-w-0 border-b px-3 py-2.5 last:border-b-0",
-        showCheckbox && usingSubset && !selected && "bg-muted/20",
+        interactive && usingSubset && !selected && "bg-muted/20",
       )}
     >
       <div className="flex items-start gap-2">
-        {showCheckbox ? (
+        {interactive ? (
           <Checkbox
             checked={selected}
             onCheckedChange={(checked) => onToggleSelected?.(checked === true)}
@@ -128,7 +121,7 @@ function FailureDeliveryRow({
             <p
               className={cn(
                 "min-w-0 flex-1 break-all text-sm",
-                !showCheckbox || !usingSubset || selected
+                !interactive || !usingSubset || selected
                   ? "text-foreground"
                   : "text-muted-foreground",
               )}
@@ -150,20 +143,11 @@ function ErrorFilterMenu({
   errorGroups,
   selectedErrors,
   onSelectedErrorsChange,
-  portalContainer,
 }: {
   errorGroups: [string, number][];
   selectedErrors: Set<string>;
   onSelectedErrorsChange: (errors: Set<string>) => void;
-  portalContainer: HTMLDivElement | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuPosition, setMenuPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
   const allErrors = errorGroups.map(([error]) => error);
   const allSelected =
     allErrors.length > 0 &&
@@ -187,171 +171,89 @@ function ErrorFilterMenu({
     onSelectedErrorsChange(new Set());
   }
 
-  useLayoutEffect(() => {
-    if (!open || !portalContainer) {
-      return;
-    }
-
-    function updatePosition() {
-      const trigger = triggerRef.current;
-      const container = portalContainer;
-      if (!trigger || !container) {
-        return;
-      }
-
-      const triggerRect = trigger.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const left = Math.max(
-        8,
-        Math.min(
-          triggerRect.right - containerRect.left - ERROR_FILTER_MENU_WIDTH,
-          containerRect.width - ERROR_FILTER_MENU_WIDTH - 8,
-        ),
-      );
-
-      setMenuPosition({
-        top: triggerRect.bottom - containerRect.top + 4,
-        left,
-      });
-    }
-
-    updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
-
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
-    };
-  }, [open, portalContainer]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (
-        menuRef.current?.contains(target) ||
-        triggerRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      setOpen(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
   return (
-    <div className="relative shrink-0">
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 gap-1.5 px-2.5"
-        aria-expanded={open}
-        aria-haspopup="listbox"
+    <Popover modal>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5"
+          aria-haspopup="listbox"
+          aria-label="Filter by error"
+        >
+          <ListFilterIcon className="size-3.5" />
+          {selectedErrors.size > 0 ? (
+            <span className="text-xs">{selectedErrors.size}</span>
+          ) : null}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="z-[60] w-80 gap-0 overflow-hidden p-0 font-red-hat text-xs"
+        role="listbox"
+        aria-multiselectable="true"
         aria-label="Filter by error"
-        onClick={() => setOpen((current) => !current)}
       >
-        <ListFilterIcon className="size-3.5" />
-        {selectedErrors.size > 0 ? (
-          <span className="text-xs">{selectedErrors.size}</span>
-        ) : null}
-      </Button>
-
-      {open && menuPosition && portalContainer
-        ? createPortal(
-            <div
-              ref={menuRef}
-              className="pointer-events-auto absolute z-[60] flex flex-col overflow-hidden rounded-lg bg-popover font-red-hat text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10"
-              style={{
-                top: menuPosition.top,
-                left: menuPosition.left,
-                width: ERROR_FILTER_MENU_WIDTH,
-              }}
-              role="listbox"
-              aria-multiselectable="true"
-              aria-label="Filter by error"
+        <PopoverHeader className="flex-row items-center justify-between gap-2 border-b px-3 py-2 text-xs">
+          <PopoverTitle>Filter by error</PopoverTitle>
+          <div className="flex items-center gap-2 text-[11px]">
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              disabled={allSelected}
+              onClick={selectAllErrors}
             >
-              <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-                <p className="font-medium">Filter by error</p>
-                <div className="flex items-center gap-2 text-[11px]">
-                  <button
-                    type="button"
-                    className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
-                    disabled={allSelected}
-                    onClick={selectAllErrors}
-                  >
-                    Select all
-                  </button>
-                  <span className="text-muted-foreground" aria-hidden="true">
-                    ·
-                  </span>
-                  <button
-                    type="button"
-                    className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
-                    disabled={selectedErrors.size === 0}
-                    onClick={clearErrorFilters}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-              <div className="max-h-64 overflow-y-auto overscroll-y-contain">
-                <ul className="p-1.5">
-                  {errorGroups.map(([error, count]) => {
-                    const checked = selectedErrors.has(error);
+              Select all
+            </button>
+            <span className="text-muted-foreground" aria-hidden="true">
+              ·
+            </span>
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              disabled={selectedErrors.size === 0}
+              onClick={clearErrorFilters}
+            >
+              Clear
+            </button>
+          </div>
+        </PopoverHeader>
+        <div className="max-h-64 overflow-y-auto overscroll-y-contain">
+          <ul className="p-1.5">
+            {errorGroups.map(([error, count]) => {
+              const checked = selectedErrors.has(error);
 
-                    return (
-                      <li key={error}>
-                        <label
-                          className={cn(
-                            "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted/60",
-                            checked && "bg-primary/5",
-                          )}
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(nextChecked) =>
-                              toggleError(error, nextChecked === true)
-                            }
-                            className="mt-0.5"
-                            aria-label={`Filter by ${error}`}
-                          />
-                          <span className="min-w-0 flex-1 break-words leading-relaxed">
-                            {error}{" "}
-                            <span className="whitespace-nowrap text-muted-foreground">
-                              ({count})
-                            </span>
-                          </span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>,
-            portalContainer,
-          )
-        : null}
-    </div>
+              return (
+                <li key={error}>
+                  <label
+                    className={cn(
+                      "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted/60",
+                      checked && "bg-primary/5",
+                    )}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(nextChecked) =>
+                        toggleError(error, nextChecked === true)
+                      }
+                      className="mt-0.5"
+                      aria-label={`Filter by ${error}`}
+                    />
+                    <span className="min-w-0 flex-1 break-words leading-relaxed">
+                      {error}{" "}
+                      <span className="whitespace-nowrap text-muted-foreground">
+                        ({count})
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -362,15 +264,13 @@ function FailureListPanel({
   selectedRecipients,
   onToggleRecipient,
   onSetSelection,
-  filterMenuPortal,
 }: {
-  failures: BroadcastDeliveryFailure[];
+  failures: BroadcastFailure[];
   mode: "retry" | "omitted";
   interactive: boolean;
   selectedRecipients?: Set<string>;
   onToggleRecipient?: (recipient: string, selected: boolean) => void;
   onSetSelection?: (recipients: string[]) => void;
-  filterMenuPortal: HTMLDivElement | null;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedErrorFilters, setSelectedErrorFilters] = useState<Set<string>>(
@@ -414,14 +314,13 @@ function FailureListPanel({
   const visibleRecipients = filteredFailures.map(
     (failure) => failure.recipient,
   );
-  const showCheckbox = interactive;
   const usingSubset = (selectedRecipients?.size ?? 0) > 0;
   const selectedVisibleCount = visibleRecipients.filter((recipient) =>
     selectedRecipients?.has(recipient),
   ).length;
-  const selectedCount =
-    failures.filter((failure) => selectedRecipients?.has(failure.recipient))
-      .length ?? 0;
+  const selectedCount = failures.filter((failure) =>
+    selectedRecipients?.has(failure.recipient),
+  ).length;
   const allVisibleSelected =
     visibleRecipients.length > 0 &&
     visibleRecipients.every((recipient) => selectedRecipients?.has(recipient));
@@ -473,24 +372,17 @@ function FailureListPanel({
 
       <div className="flex shrink-0 flex-col gap-2">
         <div className="flex gap-2">
-          <div className="relative min-w-0 flex-1">
-            <SearchIcon
-              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search by recipient or error..."
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
+          <RecipientSearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by recipient or error..."
+            className="flex-1"
+          />
           {errorGroups.length > 1 ? (
             <ErrorFilterMenu
               errorGroups={errorGroups}
               selectedErrors={selectedErrorFilters}
               onSelectedErrorsChange={setSelectedErrorFilters}
-              portalContainer={filterMenuPortal}
             />
           ) : null}
         </div>
@@ -520,57 +412,51 @@ function FailureListPanel({
 
       {interactive ? (
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-          {showCheckbox ? (
-            <p className="text-xs text-muted-foreground">
-              {usingSubset ? (
-                <>
-                  <span className="font-medium text-foreground">
-                    {selectedCount}
-                  </span>{" "}
-                  of {failures.length} selected
-                </>
-              ) : mode === "retry" ? (
-                <>
-                  All{" "}
-                  <span className="font-medium text-foreground">
-                    {failures.length}
-                  </span>{" "}
-                  will be retried
-                </>
-              ) : (
-                <>Select recipients to move back to Failed</>
-              )}
-            </p>
-          ) : (
-            <span />
-          )}
-          {showCheckbox ? (
-            <div className="flex flex-wrap items-center gap-2 text-[11px]">
-              <button
-                type="button"
-                className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
-                disabled={allVisibleSelected || visibleRecipients.length === 0}
-                onClick={selectVisible}
-              >
-                {searchQuery || selectedErrorFilters.size > 0
-                  ? "Select visible"
-                  : "Select all"}
-              </button>
-              <span className="text-muted-foreground" aria-hidden="true">
-                ·
-              </span>
-              <button
-                type="button"
-                className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
-                disabled={selectedVisibleCount === 0}
-                onClick={deselectVisible}
-              >
-                {searchQuery || selectedErrorFilters.size > 0
-                  ? "Deselect visible"
-                  : "Deselect all"}
-              </button>
-            </div>
-          ) : null}
+          <p className="text-xs text-muted-foreground">
+            {usingSubset ? (
+              <>
+                <span className="font-medium text-foreground">
+                  {selectedCount}
+                </span>{" "}
+                of {failures.length} selected
+              </>
+            ) : mode === "retry" ? (
+              <>
+                All{" "}
+                <span className="font-medium text-foreground">
+                  {failures.length}
+                </span>{" "}
+                will be retried
+              </>
+            ) : (
+              <>Select recipients to move back to Failed</>
+            )}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              disabled={allVisibleSelected || visibleRecipients.length === 0}
+              onClick={selectVisible}
+            >
+              {searchQuery || selectedErrorFilters.size > 0
+                ? "Select visible"
+                : "Select all"}
+            </button>
+            <span className="text-muted-foreground" aria-hidden="true">
+              ·
+            </span>
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              disabled={selectedVisibleCount === 0}
+              onClick={deselectVisible}
+            >
+              {searchQuery || selectedErrorFilters.size > 0
+                ? "Deselect visible"
+                : "Deselect all"}
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -587,7 +473,7 @@ function FailureListPanel({
                 failure={failure}
                 selected={selectedRecipients?.has(failure.recipient)}
                 usingSubset={usingSubset}
-                showCheckbox={showCheckbox}
+                interactive={interactive}
                 onToggleSelected={(checked) =>
                   onToggleRecipient?.(failure.recipient, checked)
                 }
@@ -629,18 +515,12 @@ function DeliveredPanel({ recipients }: { recipients: string[] }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="relative shrink-0">
-        <SearchIcon
-          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search delivered recipients..."
-          className="h-8 pl-8 text-xs"
-        />
-      </div>
+      <RecipientSearchField
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search delivered recipients..."
+        className="shrink-0"
+      />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
         {filteredRecipients.length === 0 ? (
@@ -684,12 +564,8 @@ export function BroadcastDeliveryDetails({
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DeliveryTab>("failed");
   const [details, setDetails] = useState<BroadcastDeliveryDetails | null>(null);
-  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(
-    new Set(),
-  );
-  const [selectedOmittedRecipients, setSelectedOmittedRecipients] = useState<
-    Set<string>
-  >(new Set());
+  const retrySelection = useRecipientSelection();
+  const omittedSelection = useRecipientSelection();
   const [retryStatus, setRetryStatus] = useState<BroadcastSendStatus | null>(
     null,
   );
@@ -698,20 +574,15 @@ export function BroadcastDeliveryDetails({
   const [isLoading, startLoading] = useTransition();
   const [isSavingOmitted, startSavingOmitted] = useTransition();
   const [isRetrying, startRetrying] = useTransition();
-  const [filterMenuPortal, setFilterMenuPortal] =
-    useState<HTMLDivElement | null>(null);
 
   const canSelectForRetry =
     details?.status === "complete" && details.failedCount > 0;
-  const retryFailures = useMemo(
-    () => details?.retryFailures ?? [],
-    [details?.retryFailures],
-  );
+  const retryFailures = details?.retryFailures ?? [];
   const omittedFailures = details?.omittedFailures ?? [];
   const readOnlyFailures = details?.failures ?? [];
   const failedCount = retryFailures.length;
-  const selectedCount = selectedRecipients.size;
-  const selectedOmittedCount = selectedOmittedRecipients.size;
+  const selectedCount = retrySelection.selected.size;
+  const selectedOmittedCount = omittedSelection.selected.size;
   const omittedCount = omittedFailures.length;
   const usingSubsetSelection = selectedCount > 0;
   const retryTargetCount = usingSubsetSelection ? selectedCount : failedCount;
@@ -725,41 +596,12 @@ export function BroadcastDeliveryDetails({
     canSelectForRetry && failedCount > 0 && !isRetrying && !isSavingOmitted;
   const retryInProgress = Boolean(retryStatus && !retryStatus.complete);
   const retryRecipientSet = useMemo(
-    () => new Set(retryFailures.map((failure) => failure.recipient)),
-    [retryFailures],
+    () =>
+      new Set(
+        (details?.retryFailures ?? []).map((failure) => failure.recipient),
+      ),
+    [details?.retryFailures],
   );
-
-  function setSelection(recipients: string[]) {
-    setSelectedRecipients(new Set(recipients));
-  }
-
-  function setOmittedSelection(recipients: string[]) {
-    setSelectedOmittedRecipients(new Set(recipients));
-  }
-
-  function toggleRecipient(recipient: string, selected: boolean) {
-    setSelectedRecipients((current) => {
-      const next = new Set(current);
-      if (selected) {
-        next.add(recipient);
-      } else {
-        next.delete(recipient);
-      }
-      return next;
-    });
-  }
-
-  function toggleOmittedRecipient(recipient: string, selected: boolean) {
-    setSelectedOmittedRecipients((current) => {
-      const next = new Set(current);
-      if (selected) {
-        next.add(recipient);
-      } else {
-        next.delete(recipient);
-      }
-      return next;
-    });
-  }
 
   function persistOmitted(omittedTo: string[]) {
     setError(null);
@@ -771,37 +613,18 @@ export function BroadcastDeliveryDetails({
         });
         setDetails(result);
         onFailedCountChange?.(broadcastId, result.retryFailures.length);
-        setSelectedRecipients((current) => {
-          const next = new Set(current);
-          for (const recipient of current) {
-            if (
-              !result.retryFailures.some(
-                (failure) => failure.recipient === recipient,
-              )
-            ) {
-              next.delete(recipient);
-            }
-          }
-          return next;
-        });
-        setSelectedOmittedRecipients((current) => {
-          const next = new Set(current);
-          for (const recipient of current) {
-            if (
-              !result.omittedFailures.some(
-                (failure) => failure.recipient === recipient,
-              )
-            ) {
-              next.delete(recipient);
-            }
-          }
-          return next;
-        });
+        retrySelection.pruneToRecipients(
+          result.retryFailures.map((failure) => failure.recipient),
+        );
+        omittedSelection.pruneToRecipients(
+          result.omittedFailures.map((failure) => failure.recipient),
+        );
       } catch (saveError) {
         setError(
-          saveError instanceof Error
-            ? saveError.message
-            : "Could not update omitted recipients.",
+          broadcastErrorMessage(
+            saveError,
+            "Could not update omitted recipients.",
+          ),
         );
       }
     });
@@ -832,18 +655,18 @@ export function BroadcastDeliveryDetails({
 
   function moveSelectedRecipients() {
     if (activeTab === "failed") {
-      omitRecipients(Array.from(selectedRecipients));
+      omitRecipients(Array.from(retrySelection.selected));
       return;
     }
 
     if (activeTab === "omitted") {
-      includeRecipients(Array.from(selectedOmittedRecipients));
+      includeRecipients(Array.from(omittedSelection.selected));
     }
   }
 
   function recipientsToRetry() {
-    if (selectedRecipients.size > 0) {
-      return Array.from(selectedRecipients).filter((recipient) =>
+    if (retrySelection.selected.size > 0) {
+      return Array.from(retrySelection.selected).filter((recipient) =>
         retryRecipientSet.has(recipient),
       );
     }
@@ -864,16 +687,14 @@ export function BroadcastDeliveryDetails({
               ? "omitted"
               : "delivered",
         );
-        setSelectedRecipients(new Set());
-        setSelectedOmittedRecipients(new Set());
+        retrySelection.reset();
+        omittedSelection.reset();
       } catch (loadError) {
         setDetails(null);
-        setSelectedRecipients(new Set());
-        setSelectedOmittedRecipients(new Set());
+        retrySelection.reset();
+        omittedSelection.reset();
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Could not load delivery details.",
+          broadcastErrorMessage(loadError, "Could not load delivery details."),
         );
       }
     });
@@ -892,8 +713,8 @@ export function BroadcastDeliveryDetails({
     }
 
     setDetails(null);
-    setSelectedRecipients(new Set());
-    setSelectedOmittedRecipients(new Set());
+    retrySelection.reset();
+    omittedSelection.reset();
     setError(null);
     setRetryNotice(null);
     setRetryStatus(null);
@@ -950,15 +771,14 @@ export function BroadcastDeliveryDetails({
           return;
         }
 
-        setRetryNotice(
-          "Retry paused while another send is in progress or the lease is active. Reload this page to resume.",
-        );
+        setRetryNotice(BROADCAST_PAUSED_NOTICE);
       } catch (retryError) {
         setRetryStatus(null);
         setError(
-          retryError instanceof Error
-            ? retryError.message
-            : "Could not retry failed deliveries.",
+          broadcastErrorMessage(
+            retryError,
+            "Could not retry failed deliveries.",
+          ),
         );
       }
     });
@@ -1002,12 +822,13 @@ export function BroadcastDeliveryDetails({
                       Retry in progress
                     </span>
                     <span className="text-muted-foreground">
-                      {retryStatus.sentCount} sent · {retryStatus.failedCount}{" "}
-                      failed · {retryStatus.pendingCount} pending
+                      {formatBroadcastProgress(retryStatus, {
+                        separator: " · ",
+                      })}
                     </span>
                   </div>
                   <Meter
-                    value={progressPercent(retryStatus)}
+                    value={broadcastProgressPercent(retryStatus)}
                     className="h-1.5"
                   />
                 </div>
@@ -1058,10 +879,9 @@ export function BroadcastDeliveryDetails({
                       interactive={
                         canSelectForRetry && !isRetrying && !isSavingOmitted
                       }
-                      selectedRecipients={selectedRecipients}
-                      onToggleRecipient={toggleRecipient}
-                      onSetSelection={setSelection}
-                      filterMenuPortal={filterMenuPortal}
+                      selectedRecipients={retrySelection.selected}
+                      onToggleRecipient={retrySelection.toggle}
+                      onSetSelection={retrySelection.setRecipients}
                     />
 
                     {details.status === "sending" &&
@@ -1083,10 +903,9 @@ export function BroadcastDeliveryDetails({
                       interactive={
                         canSelectForRetry && !isRetrying && !isSavingOmitted
                       }
-                      selectedRecipients={selectedOmittedRecipients}
-                      onToggleRecipient={toggleOmittedRecipient}
-                      onSetSelection={setOmittedSelection}
-                      filterMenuPortal={filterMenuPortal}
+                      selectedRecipients={omittedSelection.selected}
+                      onToggleRecipient={omittedSelection.toggle}
+                      onSetSelection={omittedSelection.setRecipients}
                     />
                   </TabsContent>
 
@@ -1178,11 +997,6 @@ export function BroadcastDeliveryDetails({
                 </div>
               ) : null}
             </div>
-
-            <div
-              ref={setFilterMenuPortal}
-              className="pointer-events-none absolute inset-0 z-[60] overflow-visible"
-            />
           </div>
         </AlertDialogContent>
       </AlertDialog>

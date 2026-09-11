@@ -19,6 +19,10 @@ import {
   BROADCAST_BODY_LIMIT,
   BROADCAST_SUBJECT_LIMIT,
 } from "@/lib/broadcast/config";
+import {
+  BROADCAST_PAUSED_NOTICE,
+  formatBroadcastProgress,
+} from "@/lib/broadcast/progress";
 import { cn } from "@/lib/utils";
 import type {
   BroadcastSendStatus,
@@ -26,11 +30,8 @@ import type {
 } from "@/lib/broadcast/types";
 import { SendHorizontalIcon } from "lucide-react";
 import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
+import { broadcastErrorMessage } from "./broadcast-utils";
 import { runBroadcastLoop } from "./run-broadcast-loop";
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Something went wrong.";
-}
 
 type BroadcastDraft = {
   subject: string;
@@ -76,7 +77,7 @@ export default function BroadcastForm({
         setStatus(active);
         setSelectedTargetIds([active.target]);
         setNotice(
-          `Resuming broadcast: ${active.sentCount} sent, ${active.failedCount} failed, ${active.pendingCount} pending.`,
+          formatBroadcastProgress(active, { prefix: "Resuming broadcast" }),
         );
       }
     });
@@ -101,17 +102,13 @@ export default function BroadcastForm({
       (currentStatus) => {
         setStatus(currentStatus);
         setNotice(
-          targetLabel
-            ? `${targetLabel}: ${currentStatus.sentCount} sent, ${currentStatus.failedCount} failed, ${currentStatus.pendingCount} pending.`
-            : `${currentStatus.sentCount} sent, ${currentStatus.failedCount} failed, ${currentStatus.pendingCount} pending.`,
+          formatBroadcastProgress(currentStatus, { prefix: targetLabel }),
         );
       },
     );
 
     if (!finalStatus.complete) {
-      setNotice(
-        "Broadcast paused while another send is in progress or the lease is active. Reload this page to resume from the last checkpoint.",
-      );
+      setNotice(BROADCAST_PAUSED_NOTICE);
     }
 
     return finalStatus;
@@ -134,7 +131,7 @@ export default function BroadcastForm({
           router.refresh();
         }
       } catch (error) {
-        setNotice(errorMessage(error));
+        setNotice(broadcastErrorMessage(error));
       }
     });
   }
@@ -197,7 +194,7 @@ export default function BroadcastForm({
         setSuccessOpen(true);
         router.refresh();
       } catch (error) {
-        setNotice(errorMessage(error));
+        setNotice(broadcastErrorMessage(error));
       }
     });
   }
@@ -230,7 +227,13 @@ export default function BroadcastForm({
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5">
             <p className="text-[11px] text-muted-foreground">
               {notice ??
-                `${status?.sentCount ?? 0} sent, ${status?.failedCount ?? 0} failed, ${status?.pendingCount ?? 0} pending.`}
+                (status
+                  ? formatBroadcastProgress(status)
+                  : formatBroadcastProgress({
+                      sentCount: 0,
+                      failedCount: 0,
+                      pendingCount: 0,
+                    }))}
             </p>
             <Button
               type="button"

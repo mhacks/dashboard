@@ -1,5 +1,7 @@
 import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { requireOrganizer } from "@/lib/auth/guards";
 import { countRemainingFailures } from "@/lib/broadcast/failures";
+import type { BroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import {
   BROADCAST_LOGS_PAGE_SIZE,
   type BroadcastLogListItem,
@@ -13,16 +15,14 @@ export {
   type BroadcastLogListItem,
 } from "@/lib/broadcast/log-types";
 
-export type BroadcastLogsFilter = {
-  target?: string;
-  search?: string;
-};
+export type { BroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 
 export async function listBroadcastLogs(
   pageIndex = 0,
   pageSize = BROADCAST_LOGS_PAGE_SIZE,
-  filter?: BroadcastLogsFilter,
+  filter: BroadcastLogsFilter = {},
 ) {
+  await requireOrganizer();
   const safePageIndex = Math.max(0, pageIndex);
   const safePageSize = Math.min(Math.max(pageSize, 1), 50);
   const conditions: SQL[] = [];
@@ -34,13 +34,15 @@ export async function listBroadcastLogs(
   const trimmedSearch = filter?.search?.trim().slice(0, 100) ?? "";
   if (trimmedSearch) {
     const pattern = `%${trimmedSearch}%`;
-    conditions.push(
-      or(
-        ilike(broadcastLogs.subject, pattern),
-        ilike(broadcastLogs.body, pattern),
-        ilike(users.email, pattern),
-      )!,
+    const searchMatch = or(
+      ilike(broadcastLogs.subject, pattern),
+      ilike(broadcastLogs.body, pattern),
+      ilike(users.email, pattern),
     );
+
+    if (searchMatch) {
+      conditions.push(searchMatch);
+    }
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

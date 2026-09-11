@@ -1,6 +1,5 @@
 "use server";
 
-import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import {
   applyBroadcastRetryResults,
   findActiveBroadcast,
@@ -10,14 +9,8 @@ import {
   startBroadcast,
   updateBroadcastOmitted,
 } from "@/lib/broadcast/service";
-import {
-  listBroadcastLogs,
-  type BroadcastLogsFilter,
-} from "@/lib/queries/broadcast-logs";
-
-export async function listBroadcastTargetsAction() {
-  return listBroadcastTargetSummaries();
-}
+import type { BroadcastLogsFilter } from "@/lib/broadcast/log-filter";
+import { listBroadcastLogs } from "@/lib/queries/broadcast-logs";
 
 export async function startBroadcastAction(input: unknown) {
   return startBroadcast(input);
@@ -50,7 +43,7 @@ export async function applyBroadcastRetryResultsAction(input: unknown) {
 export async function listBroadcastLogsAction(
   pageIndex: number,
   pageSize: number,
-  filter?: BroadcastLogsFilter,
+  filter: BroadcastLogsFilter = {},
 ) {
   return listBroadcastLogs(pageIndex, pageSize, filter);
 }

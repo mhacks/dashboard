@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { requireOrganizer } from "@/lib/auth/guards";
 import { EmailCampaignError } from "@/lib/email/campaigns/config";
 import type {
   BroadcastTarget,
@@ -24,19 +26,23 @@ export function listBroadcastTargets(): BroadcastTarget[] {
   return Array.from(targets.values());
 }
 
-export async function listBroadcastTargetSummaries(): Promise<
-  BroadcastTargetSummary[]
-> {
-  const summaries: BroadcastTargetSummary[] = [];
-
-  for (const target of listBroadcastTargets()) {
-    summaries.push({
-      id: target.id,
-      label: target.label,
-      description: target.description,
-      recipientCount: await target.countRecipients(),
-    });
-  }
-
-  return summaries;
+export function sumBroadcastRecipientCounts(
+  targets: Pick<BroadcastTargetSummary, "recipientCount">[],
+) {
+  return targets.reduce((sum, target) => sum + target.recipientCount, 0);
 }
+
+export const listBroadcastTargetSummaries = cache(
+  async (): Promise<BroadcastTargetSummary[]> => {
+    await requireOrganizer();
+
+    return Promise.all(
+      listBroadcastTargets().map(async (target) => ({
+        id: target.id,
+        label: target.label,
+        description: target.description,
+        recipientCount: await target.countRecipients(),
+      })),
+    );
+  },
+);

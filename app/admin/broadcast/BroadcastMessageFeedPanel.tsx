@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BroadcastLogListItem } from "@/lib/broadcast/log-types";
 import { BROADCAST_LOGS_PAGE_SIZE } from "@/lib/broadcast/log-types";
+import { buildBroadcastLogsFilter } from "@/lib/broadcast/log-filter";
 import { listBroadcastLogsAction } from "./actions";
 import { BroadcastMessageFeed } from "./BroadcastMessageFeed";
 
@@ -15,10 +16,6 @@ type BroadcastMessageFeedPanelProps = {
   targetLabels: Record<string, string>;
   emptyMessage: string;
 };
-
-function chronologicalLogs(logs: BroadcastLogListItem[]) {
-  return [...logs].reverse();
-}
 
 export function BroadcastMessageFeedPanel({
   initialLogs,
@@ -32,7 +29,6 @@ export function BroadcastMessageFeedPanel({
   const [failedCountOverrides, setFailedCountOverrides] = useState<
     Record<string, number>
   >({});
-  const [nextPageIndex, setNextPageIndex] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
@@ -57,7 +53,7 @@ export function BroadcastMessageFeedPanel({
         return failedCount === undefined ? log : { ...log, failedCount };
       });
 
-    const recent = applyOverrides(chronologicalLogs(initialLogs));
+    const recent = applyOverrides([...initialLogs].reverse());
     if (olderLogs.length === 0) {
       return recent;
     }
@@ -75,10 +71,6 @@ export function BroadcastMessageFeedPanel({
   useEffect(() => {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
-
-  useEffect(() => {
-    nextPageIndexRef.current = nextPageIndex;
-  }, [nextPageIndex]);
 
   useEffect(() => {
     if (!shouldScrollToBottomRef.current) {
@@ -139,13 +131,10 @@ export function BroadcastMessageFeedPanel({
         const result = await listBroadcastLogsAction(
           pageIndex,
           BROADCAST_LOGS_PAGE_SIZE,
-          {
-            ...(channelTargetId ? { target: channelTargetId } : {}),
-            ...(searchQuery ? { search: searchQuery } : {}),
-          },
+          buildBroadcastLogsFilter(channelTargetId, searchQuery),
         );
 
-        const batch = chronologicalLogs(result.items);
+        const batch = [...result.items].reverse();
         setOlderLogs((previous) => {
           const existingIds = new Set([
             ...previous.map((log) => log.id),
@@ -155,7 +144,6 @@ export function BroadcastMessageFeedPanel({
           return [...newLogs, ...previous];
         });
         nextPageIndexRef.current = pageIndex + 1;
-        setNextPageIndex(pageIndex + 1);
       } finally {
         loadingRef.current = false;
         setIsLoadingMore(false);

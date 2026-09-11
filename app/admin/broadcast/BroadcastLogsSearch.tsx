@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { buildBroadcastLogsQuery } from "./broadcast-log-query";
+import { buildBroadcastLogsQuery } from "@/lib/broadcast/log-filter";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -67,9 +67,7 @@ export function BroadcastLogsSearch({
 
     pendingSearchRef.current = trimmed;
     setIsSearching(true);
-    router.push(
-      `${pathname}${buildBroadcastLogsQuery({ q: trimmed || undefined })}`,
-    );
+    router.push(`${pathname}${buildBroadcastLogsQuery(trimmed || undefined)}`);
   }
 
   function scheduleNavigation(nextQuery: string) {

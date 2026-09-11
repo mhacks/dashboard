@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HashIcon } from "lucide-react";
-import { getBroadcastChannelPath } from "@/lib/broadcast/channels";
+import {
+  broadcastChannelLabel,
+  getBroadcastChannelPath,
+} from "@/lib/broadcast/channels";
 import type { BroadcastTargetSummary } from "@/lib/broadcast/types";
 import { cn } from "@/lib/utils";
-
-function channelLabel(label: string) {
-  return label.replace(/\s*\([^)]*\)\s*$/, "").trim();
-}
 
 export function BroadcastChannelSidebar({
   targets,
@@ -57,7 +56,9 @@ export function BroadcastChannelSidebar({
             )}
           >
             <HashIcon className="size-3.5 shrink-0 opacity-70" />
-            <span className="truncate">{channelLabel(target.label)}</span>
+            <span className="truncate">
+              {broadcastChannelLabel(target.label)}
+            </span>
             <span className="ml-auto text-[10px] text-muted-foreground">
               {target.recipientCount}
             </span>
@@ -110,7 +111,7 @@ export function BroadcastChannelMobileNav({
             )}
           >
             <HashIcon className="size-3" />
-            {channelLabel(target.label)}
+            {broadcastChannelLabel(target.label)}
           </Link>
         );
       })}

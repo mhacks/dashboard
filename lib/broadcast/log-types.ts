@@ -1,3 +1,5 @@
+import type { BroadcastFailure } from "@/lib/broadcast/types";
+
 export const BROADCAST_LOGS_PAGE_SIZE = 25;
 
 export type BroadcastLogListItem = {
@@ -13,11 +15,6 @@ export type BroadcastLogListItem = {
   operatorEmail: string | null;
 };
 
-export type BroadcastDeliveryFailure = {
-  recipient: string;
-  error: string;
-};
-
 export type BroadcastDeliveryDetails = {
   status: string;
   totalRecipients: number;
@@ -26,7 +23,7 @@ export type BroadcastDeliveryDetails = {
   pendingCount: number;
   deliveredTo: string[];
   omittedTo: string[];
-  failures: BroadcastDeliveryFailure[];
-  retryFailures: BroadcastDeliveryFailure[];
-  omittedFailures: BroadcastDeliveryFailure[];
+  failures: BroadcastFailure[];
+  retryFailures: BroadcastFailure[];
+  omittedFailures: BroadcastFailure[];
 };

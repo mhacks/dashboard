@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { channelSlugToTargetId } from "@/lib/broadcast/channels";
+import { parseBroadcastLogsSearchQuery } from "@/lib/broadcast/log-filter";
 import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import "@/lib/broadcast/targets";
 import { BroadcastChannelView } from "../BroadcastChannelView";
@@ -13,7 +14,7 @@ export default async function BroadcastChannelPage({
 }) {
   const { channelSlug } = await params;
   const query = await searchParams;
-  const searchQuery = query.q?.trim() ?? "";
+  const searchQuery = parseBroadcastLogsSearchQuery(query);
   const channelTargetId = channelSlugToTargetId(channelSlug);
   const targets = await listBroadcastTargetSummaries();
 

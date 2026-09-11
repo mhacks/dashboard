@@ -14,6 +14,10 @@ export function channelSlugToTargetId(channelSlug: string) {
   )}`;
 }
 
+export function broadcastChannelLabel(label: string) {
+  return label.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
 export function getBroadcastChannelPath(targetId: string | null) {
   if (!targetId) {
     return "/admin/broadcast";
