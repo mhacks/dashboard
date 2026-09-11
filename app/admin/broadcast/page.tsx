@@ -11,11 +11,5 @@ export default async function BroadcastPage({
   const searchQuery = parseBroadcastLogsSearchQuery(params);
   const targets = await listBroadcastTargetSummaries();
 
-  return (
-    <BroadcastChannelView
-      targets={targets}
-      channelTargetId={null}
-      searchQuery={searchQuery}
-    />
-  );
+  return <BroadcastChannelView targets={targets} searchQuery={searchQuery} />;
 }

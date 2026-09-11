@@ -1,7 +1,6 @@
 import { sumBroadcastRecipientCounts } from "@/lib/broadcast/channels";
 import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import { AdminPageHeader } from "../components/admin-page-header";
-import { BroadcastChannelSidebar } from "./BroadcastChannelSidebar";
 
 export default async function BroadcastLayout({
   children,
@@ -20,8 +19,7 @@ export default async function BroadcastLayout({
         />
       </div>
 
-      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 gap-4 pt-4 pb-5 lg:max-w-6xl">
-        <BroadcastChannelSidebar targets={targets} />
+      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 pt-4 pb-5 lg:max-w-6xl">
         {children}
       </div>
     </div>

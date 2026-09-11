@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { buildBroadcastLogsQuery } from "@/lib/broadcast/log-filter";
 import { RecipientSearchField } from "./RecipientSearchField";
@@ -17,7 +17,6 @@ export function BroadcastLogsSearch({
   channelLabel,
 }: BroadcastLogsSearchProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [query, setQuery] = useState(initialQuery);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -61,7 +60,7 @@ export function BroadcastLogsSearch({
 
     pendingSearchRef.current = trimmed;
     setIsSearching(true);
-    router.push(`${pathname}${buildBroadcastLogsQuery(trimmed)}`);
+    router.push(`/admin/broadcast${buildBroadcastLogsQuery(trimmed)}`);
   }
 
   function scheduleNavigation(nextQuery: string) {
