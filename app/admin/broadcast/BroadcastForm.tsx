@@ -231,7 +231,7 @@ export default function BroadcastForm({
 
   const successDescription =
     successResult && successResult.failed > 0
-      ? `Delivery finished with ${successResult.sent} sent and ${successResult.failed} failed. Check the logs for details.`
+      ? `Delivery finished with ${successResult.sent} sent and ${successResult.failed} failed.`
       : `Your message was delivered to ${successResult?.sent ?? 0} hackers.`;
 
   return (
@@ -379,15 +379,6 @@ export default function BroadcastForm({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                document
-                  .getElementById("broadcast-logs")
-                  ?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              View logs
-            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 resetForm();

@@ -35,10 +35,7 @@ export default async function BroadcastPage({
           description={`One-way announcements to ${totalRecipients} recipients across ${targets.length} target${targets.length === 1 ? "" : "s"}. Use sparingly.`}
         />
 
-        <section
-          id="broadcast-logs"
-          className="flex flex-col gap-4 scroll-mt-5"
-        >
+        <section className="flex flex-col gap-4">
           <BroadcastMessageFeed logs={logs} targetLabels={targetLabels} />
           {totalCount > BROADCAST_LOGS_PAGE_SIZE ? (
             <BroadcastLogsPagination

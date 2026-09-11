@@ -25,7 +25,7 @@ export function BroadcastLogsPagination({
       onPageChange={(nextPageIndex) => {
         const query =
           nextPageIndex === 0 ? "" : `?logsPage=${nextPageIndex + 1}`;
-        router.push(`${pathname}${query}#broadcast-logs`);
+        router.push(`${pathname}${query}`);
       }}
     />
   );
