@@ -12,7 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -25,12 +32,11 @@ import {
   formatBroadcastOutcome,
   formatBroadcastProgress,
 } from "@/lib/broadcast/progress";
-import { cn } from "@/lib/utils";
 import type {
   BroadcastSendStatus,
   BroadcastTargetSummary,
 } from "@/lib/broadcast/types";
-import { SendHorizontalIcon } from "lucide-react";
+import { ChevronDownIcon, SendHorizontalIcon, XIcon } from "lucide-react";
 import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
 import { runBroadcastLoop } from "./run-broadcast-loop";
 import { useSelectionSet } from "./use-selection-set";
@@ -45,9 +51,7 @@ export default function BroadcastForm({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const channelLocked = Boolean(channelTargetId);
-  const defaultTargetIds = channelTargetId
-    ? [channelTargetId]
-    : targets.map((target) => target.id);
+  const defaultTargetIds = channelTargetId ? [channelTargetId] : [];
   const {
     selected: selectedTargetIds,
     toggle: toggleTarget,
@@ -68,6 +72,9 @@ export default function BroadcastForm({
 
   const selectedTargets = targets.filter((target) =>
     selectedTargetIds.has(target.id),
+  );
+  const availableTargets = targets.filter(
+    (target) => !selectedTargetIds.has(target.id),
   );
   const totalRecipientCount = selectedTargets.reduce(
     (sum, target) => sum + target.recipientCount,
@@ -253,37 +260,69 @@ export default function BroadcastForm({
             <span className="text-[11px] font-medium text-muted-foreground">
               To
             </span>
-            {(channelLocked
-              ? targets.filter((target) => target.id === channelTargetId)
-              : targets
-            ).map((target) => {
-              const checked = selectedTargetIds.has(target.id);
+            {selectedTargets.map((target) => {
+              const removable = !channelLocked && !formDisabled;
 
               return (
-                <button
+                <Badge
                   key={target.id}
-                  type="button"
-                  disabled={formDisabled || channelLocked}
-                  onClick={() => toggleTarget(target.id, !checked)}
-                  className={cn(
-                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] transition-colors",
-                    checked
-                      ? "border-primary/40 bg-primary/5 text-foreground"
-                      : "border-border bg-background text-muted-foreground",
-                    (formDisabled || channelLocked) &&
-                      "cursor-default opacity-100",
-                    formDisabled &&
-                      !channelLocked &&
-                      "cursor-not-allowed opacity-60",
-                  )}
+                  variant="outline"
+                  className="border-primary/40 bg-primary/5 text-[11px] font-normal"
                 >
                   {target.label}
-                  <span className="ml-1 text-muted-foreground">
+                  <span className="text-muted-foreground">
                     {target.recipientCount}
                   </span>
-                </button>
+                  {removable ? (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${target.label}`}
+                      onClick={() => toggleTarget(target.id, false)}
+                      className="rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  ) : null}
+                </Badge>
               );
             })}
+            {!channelLocked && availableTargets.length > 0 ? (
+              <DropdownMenu>
+                <Badge
+                  variant="outline"
+                  asChild
+                  className="cursor-pointer border-dashed text-[11px] font-normal text-muted-foreground hover:bg-muted focus-visible:border-dashed focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <DropdownMenuTrigger
+                    disabled={formDisabled}
+                    aria-label="Add target"
+                  >
+                    Add target
+                    <ChevronDownIcon className="size-3" />
+                  </DropdownMenuTrigger>
+                </Badge>
+                <DropdownMenuContent
+                  align="start"
+                  side="top"
+                  collisionPadding={8}
+                  onCloseAutoFocus={(event) => event.preventDefault()}
+                  className="max-h-[min(16rem,var(--radix-dropdown-menu-content-available-height))] min-w-40 overscroll-y-contain"
+                >
+                  {availableTargets.map((target) => (
+                    <DropdownMenuItem
+                      key={target.id}
+                      className="text-xs hover:bg-muted/60 focus:bg-muted/60 focus:text-foreground not-data-[variant=destructive]:focus:**:text-foreground"
+                      onSelect={() => toggleTarget(target.id, true)}
+                    >
+                      {target.label}
+                      <span className="ml-auto text-muted-foreground">
+                        {target.recipientCount}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
 
           <div className="px-2.5 py-1">
