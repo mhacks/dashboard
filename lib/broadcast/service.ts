@@ -186,6 +186,25 @@ export async function sendBroadcastBatch(input: unknown) {
   return buildBroadcastStatus(latest);
 }
 
+export async function exportBroadcastRecipients(broadcastId: string) {
+  await requireOrganizer();
+
+  const [log] = await db
+    .select({ deliveredTo: broadcastLogs.deliveredTo })
+    .from(broadcastLogs)
+    .where(eq(broadcastLogs.id, broadcastId))
+    .limit(1);
+
+  if (!log) {
+    throw new EmailCampaignError("Broadcast not found", 404);
+  }
+
+  return {
+    filename: `broadcast-${broadcastId}-recipients.txt`,
+    content: (log.deliveredTo ?? []).join("\n"),
+  };
+}
+
 export async function findActiveBroadcast() {
   const organizer = await requireOrganizer();
 

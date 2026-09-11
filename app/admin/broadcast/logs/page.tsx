@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { AdminPageHeader } from "../../components/admin-page-header";
 import { AdminPageShell } from "../../components/admin-page-shell";
+import { BroadcastRecipientsExport } from "./BroadcastRecipientsExport";
 
 function targetLabel(targetId: string) {
   try {
@@ -86,12 +87,10 @@ export default async function BroadcastLogsPage() {
                 <TableCell className="max-w-xs truncate">{log.body}</TableCell>
                 <TableCell>{deliveryLabel}</TableCell>
                 <TableCell>
-                  <a
-                    href={`/admin/broadcast/logs/${log.id}/recipients`}
-                    className="underline"
-                  >
-                    {sentCount} delivered
-                  </a>
+                  <BroadcastRecipientsExport
+                    broadcastId={log.id}
+                    deliveredCount={sentCount}
+                  />
                 </TableCell>
                 <TableCell>{log.operatorEmail ?? "—"}</TableCell>
               </TableRow>
