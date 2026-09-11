@@ -70,7 +70,7 @@ export async function startBroadcast(input: unknown) {
 }
 
 export async function sendBroadcastBatch(input: unknown) {
-  await requireOrganizer();
+  const organizer = await requireOrganizer();
   const body = broadcastBatchSchema.parse(input);
   const limits = getCampaignLimits();
 
@@ -80,7 +80,7 @@ export async function sendBroadcastBatch(input: unknown) {
     .where(eq(broadcastLogs.id, body.broadcastId))
     .limit(1);
 
-  if (!broadcast) {
+  if (!broadcast || broadcast.sentBy !== organizer.id) {
     throw new EmailCampaignError("Broadcast not found", 404);
   }
 
