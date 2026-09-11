@@ -1,1 +1,0 @@
-ALTER TABLE "broadcast_logs" ADD COLUMN "omitted_to" jsonb DEFAULT '[]'::jsonb NOT NULL;
