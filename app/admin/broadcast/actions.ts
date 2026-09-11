@@ -4,8 +4,10 @@ import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import {
   findActiveBroadcast,
   getBroadcastDeliveryDetails,
+  retryFailedBroadcast,
   sendBroadcastBatch,
   startBroadcast,
+  updateBroadcastOmitted,
 } from "@/lib/broadcast/service";
 import {
   listBroadcastLogs,
@@ -30,6 +32,14 @@ export async function findActiveBroadcastAction() {
 
 export async function getBroadcastDeliveryDetailsAction(broadcastId: string) {
   return getBroadcastDeliveryDetails(broadcastId);
+}
+
+export async function retryFailedBroadcastAction(input: unknown) {
+  return retryFailedBroadcast(input);
+}
+
+export async function updateBroadcastOmittedAction(input: unknown) {
+  return updateBroadcastOmitted(input);
 }
 
 export async function listBroadcastLogsAction(

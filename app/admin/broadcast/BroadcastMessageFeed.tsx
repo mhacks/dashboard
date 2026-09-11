@@ -1,8 +1,33 @@
 import type { BroadcastLogListItem } from "@/lib/broadcast/log-types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { ExternalLinkIcon } from "lucide-react";
 import { BroadcastDeliveryDetails } from "./BroadcastDeliveryDetails";
+
+function DeliveryDetailsBadge({
+  broadcastId,
+  label,
+  variant = "outline",
+  className,
+}: {
+  broadcastId: string;
+  label: string;
+  variant?: "destructive" | "outline" | "secondary";
+  className?: string;
+}) {
+  return (
+    <BroadcastDeliveryDetails broadcastId={broadcastId}>
+      <Badge
+        variant={variant}
+        className={cn("h-5 gap-1 px-2 text-[11px] font-normal", className)}
+      >
+        {label}
+        <ExternalLinkIcon className="size-3" aria-hidden="true" />
+      </Badge>
+    </BroadcastDeliveryDetails>
+  );
+}
 
 function targetLabel(targetId: string, targetLabels: Record<string, string>) {
   return targetLabels[targetId] ?? targetId;
@@ -102,19 +127,18 @@ export function BroadcastMessageFeed({
                     {targetLabel(log.target, targetLabels)}
                   </Badge>
                   {log.failedCount > 0 ? (
-                    <BroadcastDeliveryDetails broadcastId={log.id}>
-                      <Badge
-                        variant="destructive"
-                        className="h-5 gap-1 px-2 text-[11px] font-normal"
-                      >
-                        Failed
-                        <ExternalLinkIcon
-                          className="size-3"
-                          aria-hidden="true"
-                        />
-                      </Badge>
-                    </BroadcastDeliveryDetails>
-                  ) : null}
+                    <DeliveryDetailsBadge
+                      broadcastId={log.id}
+                      label="Failed"
+                      variant="destructive"
+                    />
+                  ) : (
+                    <DeliveryDetailsBadge
+                      broadcastId={log.id}
+                      label="Details"
+                      className="hidden group-hover:inline-flex"
+                    />
+                  )}
                   {log.status === "sending" ? (
                     <Badge
                       variant="secondary"

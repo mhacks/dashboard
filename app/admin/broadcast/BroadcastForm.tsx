@@ -25,18 +25,11 @@ import type {
   BroadcastTargetSummary,
 } from "@/lib/broadcast/types";
 import { SendHorizontalIcon } from "lucide-react";
-import {
-  findActiveBroadcastAction,
-  sendBroadcastBatchAction,
-  startBroadcastAction,
-} from "./actions";
+import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
+import { runBroadcastLoop } from "./run-broadcast-loop";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
-}
-
-function broadcastProgressKey(status: BroadcastSendStatus) {
-  return `${status.nextCursor}:${status.sentCount}:${status.failedCount}`;
 }
 
 type BroadcastDraft = {
@@ -99,43 +92,29 @@ export default function BroadcastForm({
     });
   }
 
-  async function runBroadcastLoop(
+  async function sendBroadcast(
     initialStatus: BroadcastSendStatus,
     targetLabel?: string,
   ): Promise<BroadcastSendStatus> {
-    let currentStatus = initialStatus;
-    setStatus(currentStatus);
-
-    for (let batch = 0; batch < 10_000; batch += 1) {
-      const progressBefore = broadcastProgressKey(currentStatus);
-
-      currentStatus = await sendBroadcastBatchAction({
-        broadcastId: currentStatus.broadcastId,
-        cursor: currentStatus.nextCursor,
-      });
-      setStatus(currentStatus);
-      setNotice(
-        targetLabel
-          ? `${targetLabel}: ${currentStatus.sentCount} sent, ${currentStatus.failedCount} failed, ${currentStatus.pendingCount} pending.`
-          : `${currentStatus.sentCount} sent, ${currentStatus.failedCount} failed, ${currentStatus.pendingCount} pending.`,
-      );
-
-      if (currentStatus.complete) {
-        return currentStatus;
-      }
-
-      if (broadcastProgressKey(currentStatus) === progressBefore) {
+    const finalStatus = await runBroadcastLoop(
+      initialStatus,
+      (currentStatus) => {
+        setStatus(currentStatus);
         setNotice(
-          "Broadcast paused while another send is in progress or the lease is active. Reload this page to resume from the last checkpoint.",
+          targetLabel
+            ? `${targetLabel}: ${currentStatus.sentCount} sent, ${currentStatus.failedCount} failed, ${currentStatus.pendingCount} pending.`
+            : `${currentStatus.sentCount} sent, ${currentStatus.failedCount} failed, ${currentStatus.pendingCount} pending.`,
         );
-        return currentStatus;
-      }
+      },
+    );
+
+    if (!finalStatus.complete) {
+      setNotice(
+        "Broadcast paused while another send is in progress or the lease is active. Reload this page to resume from the last checkpoint.",
+      );
     }
 
-    setNotice(
-      "Broadcast paused. Reload this page to resume from the last checkpoint.",
-    );
-    return currentStatus;
+    return finalStatus;
   }
 
   async function resumeBroadcast() {
@@ -145,7 +124,7 @@ export default function BroadcastForm({
 
     startSending(async () => {
       try {
-        const finalStatus = await runBroadcastLoop(status);
+        const finalStatus = await sendBroadcast(status);
         if (finalStatus.complete) {
           setSuccessResult({
             sent: finalStatus.sentCount,
@@ -204,10 +183,7 @@ export default function BroadcastForm({
             subject: draft.subject,
             body: draft.body,
           });
-          const finalStatus = await runBroadcastLoop(
-            started.status,
-            target.label,
-          );
+          const finalStatus = await sendBroadcast(started.status, target.label);
 
           if (!finalStatus.complete) {
             return;

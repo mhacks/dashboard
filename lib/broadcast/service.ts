@@ -6,6 +6,10 @@ import {
   BROADCAST_BODY_LIMIT,
   BROADCAST_SUBJECT_LIMIT,
 } from "@/lib/broadcast/config";
+import {
+  listBroadcastFailures,
+  splitBroadcastFailures,
+} from "@/lib/broadcast/failures";
 import { getBroadcastTarget } from "@/lib/broadcast/registry";
 import "@/lib/broadcast/targets";
 import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
@@ -29,6 +33,16 @@ export const broadcastStartSchema = z.object({
 export const broadcastBatchSchema = z.object({
   broadcastId: z.string().uuid(),
   cursor: z.number().int().min(0).default(0),
+});
+
+export const broadcastRetrySchema = z.object({
+  broadcastId: z.string().uuid(),
+  recipients: z.array(z.string().trim().min(1)).min(1),
+});
+
+export const broadcastOmittedSchema = z.object({
+  broadcastId: z.string().uuid(),
+  omittedTo: z.array(z.string().trim().min(1)),
 });
 
 export async function startBroadcast(input: unknown) {
@@ -95,6 +109,7 @@ export async function startBroadcast(input: unknown) {
         status: "sending",
         recipients,
         deliveredTo: [],
+        omittedTo: [],
         failedCount: 0,
         nextCursor: 0,
         recentFailures: [],
@@ -187,6 +202,52 @@ export async function sendBroadcastBatch(input: unknown) {
   return buildBroadcastStatus(latest);
 }
 
+function buildBroadcastDeliveryDetails(
+  log: Pick<
+    BroadcastLogRow,
+    | "status"
+    | "recipients"
+    | "deliveredTo"
+    | "omittedTo"
+    | "failedCount"
+    | "recentFailures"
+  >,
+): BroadcastDeliveryDetails {
+  const deliveredTo = log.deliveredTo ?? [];
+  const omittedTo = log.omittedTo ?? [];
+  const recipients = log.recipients ?? [];
+  const sentCount = deliveredTo.length;
+  const failedCount = log.failedCount;
+  const complete = log.status === "complete";
+  const pendingCount = complete
+    ? 0
+    : Math.max(0, recipients.length - sentCount - failedCount);
+
+  const failures = complete
+    ? listBroadcastFailures(recipients, deliveredTo, log.recentFailures ?? [])
+    : (log.recentFailures ?? []).map((failure) => ({
+        recipient: failure.recipient,
+        error: failure.error,
+      }));
+  const { retryFailures, omittedFailures } = splitBroadcastFailures(
+    failures,
+    omittedTo,
+  );
+
+  return {
+    status: log.status,
+    totalRecipients: recipients.length,
+    sentCount,
+    failedCount,
+    pendingCount,
+    deliveredTo,
+    omittedTo,
+    failures,
+    retryFailures,
+    omittedFailures,
+  };
+}
+
 export async function getBroadcastDeliveryDetails(
   broadcastId: string,
 ): Promise<BroadcastDeliveryDetails> {
@@ -197,6 +258,7 @@ export async function getBroadcastDeliveryDetails(
       status: broadcastLogs.status,
       recipients: broadcastLogs.recipients,
       deliveredTo: broadcastLogs.deliveredTo,
+      omittedTo: broadcastLogs.omittedTo,
       failedCount: broadcastLogs.failedCount,
       recentFailures: broadcastLogs.recentFailures,
     })
@@ -208,42 +270,201 @@ export async function getBroadcastDeliveryDetails(
     throw new EmailCampaignError("Broadcast not found", 404);
   }
 
-  const deliveredTo = log.deliveredTo ?? [];
-  const recipients = log.recipients ?? [];
-  const deliveredSet = new Set(deliveredTo);
-  const failureByRecipient = new Map(
-    (log.recentFailures ?? []).map((failure) => [
-      failure.recipient,
-      failure.error,
-    ]),
-  );
-  const sentCount = deliveredTo.length;
-  const failedCount = log.failedCount;
-  const complete = log.status === "complete";
-  const pendingCount = complete
-    ? 0
-    : Math.max(0, recipients.length - sentCount - failedCount);
+  return buildBroadcastDeliveryDetails(log);
+}
 
-  const failures = complete
-    ? recipients
-        .filter((recipient) => !deliveredSet.has(recipient))
-        .map((recipient) => ({
-          recipient,
-          error: failureByRecipient.get(recipient) ?? "Delivery failed",
-        }))
-    : (log.recentFailures ?? []).map((failure) => ({
-        recipient: failure.recipient,
-        error: failure.error,
-      }));
+export async function updateBroadcastOmitted(input: unknown) {
+  await requireOrganizer();
+  const body = broadcastOmittedSchema.parse(input);
+
+  const [log] = await db
+    .select()
+    .from(broadcastLogs)
+    .where(eq(broadcastLogs.id, body.broadcastId))
+    .limit(1);
+
+  if (!log) {
+    throw new EmailCampaignError("Broadcast not found", 404);
+  }
+
+  if (log.status !== "complete") {
+    throw new EmailCampaignError(
+      "Omitted recipients can only be updated on completed broadcasts.",
+      409,
+    );
+  }
+
+  const failures = listBroadcastFailures(
+    log.recipients ?? [],
+    log.deliveredTo ?? [],
+    log.recentFailures ?? [],
+  );
+  const failureSet = new Set(failures.map((failure) => failure.recipient));
+  const seenOmitted = new Set<string>();
+  const omittedTo: string[] = [];
+
+  for (const recipient of body.omittedTo) {
+    if (!failureSet.has(recipient)) {
+      throw new EmailCampaignError(
+        `Recipient is not eligible to omit: ${recipient}`,
+        400,
+      );
+    }
+
+    if (seenOmitted.has(recipient)) {
+      continue;
+    }
+
+    seenOmitted.add(recipient);
+    omittedTo.push(recipient);
+  }
+
+  const [updated] = await db
+    .update(broadcastLogs)
+    .set({ omittedTo })
+    .where(eq(broadcastLogs.id, body.broadcastId))
+    .returning();
+
+  if (!updated) {
+    throw new EmailCampaignError("Broadcast not found", 404);
+  }
+
+  return buildBroadcastDeliveryDetails(updated);
+}
+
+export async function retryFailedBroadcast(input: unknown) {
+  const organizer = await requireOrganizer();
+  const body = broadcastRetrySchema.parse(input);
+
+  const [original] = await db
+    .select()
+    .from(broadcastLogs)
+    .where(eq(broadcastLogs.id, body.broadcastId))
+    .limit(1);
+
+  if (!original) {
+    throw new EmailCampaignError("Broadcast not found", 404);
+  }
+
+  if (original.status !== "complete") {
+    throw new EmailCampaignError(
+      "Only completed broadcasts with failures can be retried.",
+      409,
+    );
+  }
+
+  const failures = listBroadcastFailures(
+    original.recipients ?? [],
+    original.deliveredTo ?? [],
+    original.recentFailures ?? [],
+  );
+  const { retryFailures } = splitBroadcastFailures(
+    failures,
+    original.omittedTo ?? [],
+  );
+  const failedRecipientSet = new Set(
+    retryFailures.map((failure) => failure.recipient),
+  );
+  const seenRecipients = new Set<string>();
+  const failedRecipients: string[] = [];
+
+  for (const recipient of body.recipients) {
+    if (!failedRecipientSet.has(recipient)) {
+      throw new EmailCampaignError(
+        `Recipient is not eligible for retry: ${recipient}`,
+        400,
+      );
+    }
+
+    if (seenRecipients.has(recipient)) {
+      continue;
+    }
+
+    seenRecipients.add(recipient);
+    failedRecipients.push(recipient);
+  }
+
+  if (failedRecipients.length === 0) {
+    throw new EmailCampaignError("No failed recipients to retry.", 400);
+  }
+
+  await expireStaleBroadcasts(original.target);
+
+  const [activeBroadcast] = await db
+    .select({ id: broadcastLogs.id })
+    .from(broadcastLogs)
+    .where(
+      and(
+        eq(broadcastLogs.sentBy, organizer.id),
+        eq(broadcastLogs.status, "sending"),
+      ),
+    )
+    .limit(1);
+
+  if (activeBroadcast) {
+    throw new EmailCampaignError(
+      "You already have a broadcast in progress. Resume or wait for it to finish before retrying.",
+      409,
+    );
+  }
+
+  const [activeTargetBroadcast] = await db
+    .select({ id: broadcastLogs.id })
+    .from(broadcastLogs)
+    .where(
+      and(
+        eq(broadcastLogs.target, original.target),
+        eq(broadcastLogs.status, "sending"),
+      ),
+    )
+    .limit(1);
+
+  if (activeTargetBroadcast) {
+    throw new EmailCampaignError(
+      "Another broadcast is already in progress for this target. Wait for it to finish before retrying.",
+      409,
+    );
+  }
+
+  let broadcast: BroadcastLogRow | undefined;
+
+  try {
+    [broadcast] = await db
+      .insert(broadcastLogs)
+      .values({
+        target: original.target,
+        subject: original.subject,
+        body: original.body,
+        sentBy: organizer.id,
+        status: "sending",
+        recipients: failedRecipients,
+        deliveredTo: [],
+        omittedTo: [],
+        failedCount: 0,
+        nextCursor: 0,
+        recentFailures: [],
+        leaseExpiresAt: broadcastLeaseExpiry(),
+      })
+      .returning();
+  } catch (error) {
+    if (isActiveBroadcastConflict(error)) {
+      throw new EmailCampaignError(
+        "Another broadcast is already in progress for this target. Wait for it to finish before retrying.",
+        409,
+      );
+    }
+
+    throw error;
+  }
+
+  if (!broadcast) {
+    throw new EmailCampaignError("Could not create retry broadcast", 500);
+  }
 
   return {
-    status: log.status,
-    totalRecipients: recipients.length,
-    sentCount,
-    failedCount,
-    pendingCount,
-    deliveredTo,
-    failures,
+    broadcastId: broadcast.id,
+    totalRecipients: failedRecipients.length,
+    status: buildBroadcastStatus(broadcast),
   };
 }
 
@@ -389,7 +610,7 @@ async function recordBroadcastDelivery(
       .set({
         ...baseUpdate,
         failedCount: broadcast.failedCount + 1,
-        recentFailures: recentFailures.slice(-10),
+        recentFailures,
       })
       .where(eq(broadcastLogs.id, broadcastId));
   });

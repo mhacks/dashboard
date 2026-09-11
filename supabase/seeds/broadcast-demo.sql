@@ -66,3 +66,135 @@ on conflict (id) do update set
   failed_count = excluded.failed_count,
   next_cursor = excluded.next_cursor,
   recent_failures = excluded.recent_failures;
+
+-- Rich delivery-details fixture: 50 delivered, 50 failed, 50 omitted.
+insert into public.broadcast_logs (
+  id,
+  target,
+  subject,
+  body,
+  sent_at,
+  sent_by,
+  status,
+  recipients,
+  delivered_to,
+  omitted_to,
+  failed_count,
+  next_cursor,
+  recent_failures
+)
+with delivered as (
+  select
+    jsonb_agg(
+      format('delivered-%s@mhacks.test', lpad(recipient_number::text, 2, '0'))
+      order by recipient_number
+    ) as emails
+  from generate_series(1, 50) as recipient_number
+),
+retry_recipients as (
+  select
+    format('failed-%s@mhacks.test', lpad(recipient_number::text, 2, '0')) as email,
+    recipient_number
+  from generate_series(1, 50) as recipient_number
+),
+omitted_recipients as (
+  select
+    format('omitted-%s@mhacks.test', lpad(recipient_number::text, 2, '0')) as email,
+    recipient_number
+  from generate_series(1, 50) as recipient_number
+),
+failure_errors as (
+  select *
+  from (
+    values
+      (1, 'Mailbox unavailable'),
+      (2, 'Address does not exist'),
+      (3, 'Message rejected: recipient on suppression list'),
+      (4, 'Connection timed out while sending'),
+      (5, 'Email address is not verified'),
+      (6, 'Bounce: mailbox full'),
+      (7, 'Throttling failure - maximum send rate exceeded'),
+      (8, 'Invalid domain'),
+      (9, 'Account inactive'),
+      (10, 'Temporary server error (421)'),
+      (11, 'Message size exceeds maximum'),
+      (12, 'DMARC policy rejection'),
+      (13, 'SMTP protocol error: 503 Bad sequence of commands'),
+      (14, '554 Transaction failed permanently'),
+      (15, 'Recipient address rejected: access denied')
+  ) as errors(error_index, message)
+),
+retry_failures as (
+  select
+    jsonb_agg(retry_recipients.email order by retry_recipients.recipient_number) as emails,
+    jsonb_agg(
+      jsonb_build_object(
+        'recipient',
+        retry_recipients.email,
+        'error',
+        failure_errors.message
+      )
+      order by retry_recipients.recipient_number
+    ) as failures
+  from retry_recipients
+  join failure_errors
+    on failure_errors.error_index = ((retry_recipients.recipient_number - 1) % 15) + 1
+),
+omitted as (
+  select
+    jsonb_agg(omitted_recipients.email order by omitted_recipients.recipient_number) as emails,
+    jsonb_agg(
+      jsonb_build_object(
+        'recipient',
+        omitted_recipients.email,
+        'error',
+        failure_errors.message
+      )
+      order by omitted_recipients.recipient_number
+    ) as failures
+  from omitted_recipients
+  join failure_errors
+    on failure_errors.error_index = ((omitted_recipients.recipient_number + 4) % 15) + 1
+),
+all_failures as (
+  select retry_failures.failures || omitted.failures as failures
+  from retry_failures
+  cross join omitted
+),
+all_recipients as (
+  select delivered.emails || retry_failures.emails || omitted.emails as emails
+  from delivered
+  cross join retry_failures
+  cross join omitted
+)
+select
+  '60000000-0000-4000-8000-000000009999'::uuid,
+  'email:hacker',
+  'WiFi password update (delivery test)',
+  'The venue WiFi password changed at 3 PM. Connect to MHacks-Venue and use the password posted in #announcements. Reply if you still cannot get online after restarting your laptop.',
+  now() - interval '3 minutes',
+  '00000000-0000-4000-8000-000000000001'::uuid,
+  'complete',
+  all_recipients.emails,
+  delivered.emails,
+  omitted.emails,
+  100,
+  150,
+  all_failures.failures
+from all_recipients
+cross join delivered
+cross join omitted
+cross join all_failures
+on conflict (id) do update set
+  target = excluded.target,
+  subject = excluded.subject,
+  body = excluded.body,
+  sent_at = excluded.sent_at,
+  sent_by = excluded.sent_by,
+  status = excluded.status,
+  recipients = excluded.recipients,
+  delivered_to = excluded.delivered_to,
+  omitted_to = excluded.omitted_to,
+  failed_count = excluded.failed_count,
+  next_cursor = excluded.next_cursor,
+  recent_failures = excluded.recent_failures;

@@ -1,56 +1,672 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
-import { getBroadcastDeliveryDetailsAction } from "./actions";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Meter } from "@/components/ui/meter";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type {
+  BroadcastDeliveryDetails,
+  BroadcastDeliveryFailure,
+} from "@/lib/broadcast/log-types";
+import type { BroadcastSendStatus } from "@/lib/broadcast/types";
+import { cn } from "@/lib/utils";
+import {
+  ArrowRightIcon,
+  CheckCircle2Icon,
+  CopyIcon,
+  ListFilterIcon,
+  Loader2Icon,
+  RotateCwIcon,
+  SearchIcon,
+  Undo2Icon,
+  XIcon,
+} from "lucide-react";
+import {
+  getBroadcastDeliveryDetailsAction,
+  retryFailedBroadcastAction,
+  updateBroadcastOmittedAction,
+} from "./actions";
+import { runBroadcastLoop } from "./run-broadcast-loop";
 
-function summaryLabel(details: BroadcastDeliveryDetails) {
-  const parts = [`${details.sentCount} sent`, `${details.failedCount} failed`];
+type DeliveryTab = "failed" | "omitted" | "delivered";
 
-  if (details.pendingCount > 0) {
-    parts.push(`${details.pendingCount} pending`);
+const ERROR_FILTER_MENU_WIDTH = 320;
+
+function progressPercent(status: BroadcastSendStatus) {
+  if (status.totalRecipients === 0) {
+    return 0;
   }
 
-  return parts.join(" · ");
+  return Math.round(
+    ((status.sentCount + status.failedCount) / status.totalRecipients) * 100,
+  );
 }
 
-function DeliveryList({
-  title,
-  emptyMessage,
-  items,
-  renderItem,
+function CopyRecipientButton({ recipient }: { recipient: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyRecipient() {
+    try {
+      await navigator.clipboard.writeText(recipient);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-7 w-7 shrink-0 px-0"
+      onClick={() => void copyRecipient()}
+      aria-label={copied ? "Copied" : `Copy ${recipient}`}
+    >
+      {copied ? (
+        <CheckCircle2Icon className="size-3.5 text-emerald-600" />
+      ) : (
+        <CopyIcon className="size-3.5" />
+      )}
+    </Button>
+  );
+}
+
+function FailureDeliveryRow({
+  failure,
+  selected,
+  usingSubset,
+  showCheckbox,
+  onToggleSelected,
+  checkboxLabel,
 }: {
-  title: string;
-  emptyMessage: string;
-  items: string[] | BroadcastDeliveryDetails["failures"];
-  renderItem: (item: (typeof items)[number], index: number) => React.ReactNode;
+  failure: BroadcastDeliveryFailure;
+  selected?: boolean;
+  usingSubset?: boolean;
+  showCheckbox?: boolean;
+  onToggleSelected?: (selected: boolean) => void;
+  checkboxLabel: string;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden">
-      <h3 className="mb-1.5 text-xs font-medium text-foreground">{title}</h3>
-      {items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
-      ) : (
-        <div className="max-h-36 overflow-x-hidden overflow-y-auto rounded-md border">
-          <ul className="divide-y text-xs">
-            {items.map((item, index) => (
-              <li key={index} className="min-w-0 px-2.5 py-1.5">
-                {renderItem(item, index)}
+    <li
+      className={cn(
+        "min-w-0 border-b px-3 py-2.5 last:border-b-0",
+        showCheckbox && usingSubset && !selected && "bg-muted/20",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        {showCheckbox ? (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={(checked) => onToggleSelected?.(checked === true)}
+            className="mt-0.5"
+            aria-label={checkboxLabel}
+          />
+        ) : null}
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-start gap-1">
+            <p
+              className={cn(
+                "min-w-0 flex-1 break-all text-sm",
+                !showCheckbox || !usingSubset || selected
+                  ? "text-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              {failure.recipient}
+            </p>
+            <CopyRecipientButton recipient={failure.recipient} />
+          </div>
+          <p className="rounded-md bg-muted/50 px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">
+            {failure.error}
+          </p>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function ErrorFilterMenu({
+  errorGroups,
+  selectedErrors,
+  onSelectedErrorsChange,
+  portalContainer,
+}: {
+  errorGroups: [string, number][];
+  selectedErrors: Set<string>;
+  onSelectedErrorsChange: (errors: Set<string>) => void;
+  portalContainer: HTMLDivElement | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const allErrors = errorGroups.map(([error]) => error);
+  const allSelected =
+    allErrors.length > 0 &&
+    allErrors.every((error) => selectedErrors.has(error));
+
+  function toggleError(error: string, selected: boolean) {
+    const next = new Set(selectedErrors);
+    if (selected) {
+      next.add(error);
+    } else {
+      next.delete(error);
+    }
+    onSelectedErrorsChange(next);
+  }
+
+  function selectAllErrors() {
+    onSelectedErrorsChange(new Set(allErrors));
+  }
+
+  function clearErrorFilters() {
+    onSelectedErrorsChange(new Set());
+  }
+
+  useLayoutEffect(() => {
+    if (!open || !portalContainer) {
+      return;
+    }
+
+    function updatePosition() {
+      const trigger = triggerRef.current;
+      const container = portalContainer;
+      if (!trigger) {
+        return;
+      }
+
+      const triggerRect = trigger.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const left = Math.max(
+        8,
+        Math.min(
+          triggerRect.right - containerRect.left - ERROR_FILTER_MENU_WIDTH,
+          containerRect.width - ERROR_FILTER_MENU_WIDTH - 8,
+        ),
+      );
+
+      setMenuPosition({
+        top: triggerRect.bottom - containerRect.top + 4,
+        left,
+      });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, portalContainer]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative shrink-0">
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5 px-2.5"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label="Filter by error"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <ListFilterIcon className="size-3.5" />
+        {selectedErrors.size > 0 ? (
+          <span className="text-xs">{selectedErrors.size}</span>
+        ) : null}
+      </Button>
+
+      {open && menuPosition && portalContainer
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="pointer-events-auto absolute z-[60] flex flex-col overflow-hidden rounded-lg bg-popover font-red-hat text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10"
+              style={{
+                top: menuPosition.top,
+                left: menuPosition.left,
+                width: ERROR_FILTER_MENU_WIDTH,
+              }}
+              role="listbox"
+              aria-multiselectable="true"
+              aria-label="Filter by error"
+            >
+              <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+                <p className="font-medium">Filter by error</p>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+                    disabled={allSelected}
+                    onClick={selectAllErrors}
+                  >
+                    Select all
+                  </button>
+                  <span className="text-muted-foreground" aria-hidden="true">
+                    ·
+                  </span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+                    disabled={selectedErrors.size === 0}
+                    onClick={clearErrorFilters}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto overscroll-y-contain">
+                <ul className="p-1.5">
+                  {errorGroups.map(([error, count]) => {
+                    const checked = selectedErrors.has(error);
+
+                    return (
+                      <li key={error}>
+                        <label
+                          className={cn(
+                            "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted/60",
+                            checked && "bg-primary/5",
+                          )}
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(nextChecked) =>
+                              toggleError(error, nextChecked === true)
+                            }
+                            className="mt-0.5"
+                            aria-label={`Filter by ${error}`}
+                          />
+                          <span className="min-w-0 flex-1 break-words leading-relaxed">
+                            {error}{" "}
+                            <span className="whitespace-nowrap text-muted-foreground">
+                              ({count})
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>,
+            portalContainer,
+          )
+        : null}
+    </div>
+  );
+}
+
+function FailureListPanel({
+  failures,
+  mode,
+  interactive,
+  selectedRecipients,
+  onToggleRecipient,
+  onSetSelection,
+  filterMenuPortal,
+}: {
+  failures: BroadcastDeliveryFailure[];
+  mode: "retry" | "omitted";
+  interactive: boolean;
+  selectedRecipients?: Set<string>;
+  onToggleRecipient?: (recipient: string, selected: boolean) => void;
+  onSetSelection?: (recipients: string[]) => void;
+  filterMenuPortal: HTMLDivElement | null;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedErrorFilters, setSelectedErrorFilters] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const errorGroups = useMemo(() => {
+    const groups = new Map<string, number>();
+
+    for (const failure of failures) {
+      groups.set(failure.error, (groups.get(failure.error) ?? 0) + 1);
+    }
+
+    return Array.from(groups.entries()).sort(
+      (left, right) => right[1] - left[1],
+    );
+  }, [failures]);
+
+  const filteredFailures = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return failures.filter((failure) => {
+      if (
+        selectedErrorFilters.size > 0 &&
+        !selectedErrorFilters.has(failure.error)
+      ) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return (
+        failure.recipient.toLowerCase().includes(query) ||
+        failure.error.toLowerCase().includes(query)
+      );
+    });
+  }, [failures, searchQuery, selectedErrorFilters]);
+
+  const visibleRecipients = filteredFailures.map(
+    (failure) => failure.recipient,
+  );
+  const showCheckbox = interactive;
+  const usingSubset = (selectedRecipients?.size ?? 0) > 0;
+  const selectedVisibleCount = visibleRecipients.filter((recipient) =>
+    selectedRecipients?.has(recipient),
+  ).length;
+  const selectedCount =
+    failures.filter((failure) => selectedRecipients?.has(failure.recipient))
+      .length ?? 0;
+  const allVisibleSelected =
+    visibleRecipients.length > 0 &&
+    visibleRecipients.every((recipient) => selectedRecipients?.has(recipient));
+
+  function selectVisible() {
+    if (!selectedRecipients || !onSetSelection) {
+      return;
+    }
+
+    const next = new Set(selectedRecipients);
+    for (const recipient of visibleRecipients) {
+      next.add(recipient);
+    }
+    onSetSelection(Array.from(next));
+  }
+
+  function deselectVisible() {
+    if (!selectedRecipients || !onSetSelection) {
+      return;
+    }
+
+    const visibleSet = new Set(visibleRecipients);
+    onSetSelection(
+      Array.from(selectedRecipients).filter(
+        (recipient) => !visibleSet.has(recipient),
+      ),
+    );
+  }
+
+  if (failures.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        {mode === "retry"
+          ? "No failed recipients queued for retry."
+          : "No omitted recipients."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {interactive ? (
+        <div className="shrink-0 rounded-lg border border-muted px-3 py-2 text-xs text-muted-foreground">
+          {mode === "retry"
+            ? "All failed recipients will be retried by default. Check specific recipients to retry or omit only those."
+            : "These recipients will not be retried. Check recipients to move them back to Failed."}
+        </div>
+      ) : null}
+
+      <div className="flex shrink-0 flex-col gap-2">
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search by recipient or error..."
+              className="h-8 pl-8 text-xs"
+            />
+          </div>
+          {errorGroups.length > 1 ? (
+            <ErrorFilterMenu
+              errorGroups={errorGroups}
+              selectedErrors={selectedErrorFilters}
+              onSelectedErrorsChange={setSelectedErrorFilters}
+              portalContainer={filterMenuPortal}
+            />
+          ) : null}
+        </div>
+
+        {selectedErrorFilters.size > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {errorGroups
+              .filter(([error]) => selectedErrorFilters.has(error))
+              .map(([error, count]) => (
+                <button
+                  key={error}
+                  type="button"
+                  onClick={() => {
+                    const next = new Set(selectedErrorFilters);
+                    next.delete(error);
+                    setSelectedErrorFilters(next);
+                  }}
+                  className="max-w-full truncate rounded-full border border-primary/40 bg-primary/5 px-2 py-0.5 text-[11px] text-foreground transition-colors hover:bg-primary/10"
+                  title={error}
+                >
+                  {error} ({count})
+                </button>
+              ))}
+          </div>
+        ) : null}
+      </div>
+
+      {interactive ? (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+          {showCheckbox ? (
+            <p className="text-xs text-muted-foreground">
+              {usingSubset ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {selectedCount}
+                  </span>{" "}
+                  of {failures.length} selected
+                </>
+              ) : mode === "retry" ? (
+                <>
+                  All{" "}
+                  <span className="font-medium text-foreground">
+                    {failures.length}
+                  </span>{" "}
+                  will be retried
+                </>
+              ) : (
+                <>Select recipients to move back to Failed</>
+              )}
+            </p>
+          ) : (
+            <span />
+          )}
+          {showCheckbox ? (
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <button
+                type="button"
+                className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+                disabled={allVisibleSelected || visibleRecipients.length === 0}
+                onClick={selectVisible}
+              >
+                {searchQuery || selectedErrorFilters.size > 0
+                  ? "Select visible"
+                  : "Select all"}
+              </button>
+              <span className="text-muted-foreground" aria-hidden="true">
+                ·
+              </span>
+              <button
+                type="button"
+                className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+                disabled={selectedVisibleCount === 0}
+                onClick={deselectVisible}
+              >
+                {searchQuery || selectedErrorFilters.size > 0
+                  ? "Deselect visible"
+                  : "Deselect all"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+        {filteredFailures.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No failures match your search.
+          </p>
+        ) : (
+          <ul className="min-h-0 flex-1 overflow-y-auto">
+            {filteredFailures.map((failure) => (
+              <FailureDeliveryRow
+                key={failure.recipient}
+                failure={failure}
+                selected={selectedRecipients?.has(failure.recipient)}
+                usingSubset={usingSubset}
+                showCheckbox={showCheckbox}
+                onToggleSelected={(checked) =>
+                  onToggleRecipient?.(failure.recipient, checked)
+                }
+                checkboxLabel={
+                  mode === "retry"
+                    ? `Select ${failure.recipient} for retry or omit`
+                    : `Select ${failure.recipient} to move back to Failed`
+                }
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeliveredPanel({ recipients }: { recipients: string[] }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredRecipients = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return recipients;
+    }
+
+    return recipients.filter((recipient) =>
+      recipient.toLowerCase().includes(query),
+    );
+  }, [recipients, searchQuery]);
+
+  if (recipients.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        No successful deliveries yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="relative shrink-0">
+        <SearchIcon
+          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search delivered recipients..."
+          className="h-8 pl-8 text-xs"
+        />
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+        {filteredRecipients.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No delivered recipients match your search.
+          </p>
+        ) : (
+          <ul className="min-h-0 flex-1 divide-y overflow-y-auto text-sm">
+            {filteredRecipients.map((recipient) => (
+              <li key={recipient} className="flex items-center gap-1 px-3 py-2">
+                <span className="min-w-0 flex-1 break-all">{recipient}</span>
+                <CopyRecipientButton recipient={recipient} />
               </li>
             ))}
           </ul>
-        </div>
-      )}
-    </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <Skeleton className="h-8 w-full shrink-0 rounded-lg" />
+      <Skeleton className="min-h-0 flex-1 w-full rounded-lg" />
+    </div>
   );
 }
 
@@ -61,10 +677,175 @@ export function BroadcastDeliveryDetails({
   broadcastId: string;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<DeliveryTab>("failed");
   const [details, setDetails] = useState<BroadcastDeliveryDetails | null>(null);
+  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(
+    new Set(),
+  );
+  const [selectedOmittedRecipients, setSelectedOmittedRecipients] = useState<
+    Set<string>
+  >(new Set());
+  const [retryStatus, setRetryStatus] = useState<BroadcastSendStatus | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
+  const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [isLoading, startLoading] = useTransition();
+  const [isSavingOmitted, startSavingOmitted] = useTransition();
+  const [isRetrying, startRetrying] = useTransition();
+  const [filterMenuPortal, setFilterMenuPortal] =
+    useState<HTMLDivElement | null>(null);
+
+  const canSelectForRetry =
+    details?.status === "complete" && details.failedCount > 0;
+  const retryFailures = useMemo(
+    () => details?.retryFailures ?? [],
+    [details?.retryFailures],
+  );
+  const omittedFailures = details?.omittedFailures ?? [];
+  const readOnlyFailures = details?.failures ?? [];
+  const failedCount = retryFailures.length;
+  const selectedCount = selectedRecipients.size;
+  const selectedOmittedCount = selectedOmittedRecipients.size;
+  const omittedCount = omittedFailures.length;
+  const usingSubsetSelection = selectedCount > 0;
+  const retryTargetCount = usingSubsetSelection ? selectedCount : failedCount;
+  const canMoveSelected =
+    activeTab === "failed"
+      ? selectedCount > 0
+      : activeTab === "omitted"
+        ? selectedOmittedCount > 0
+        : false;
+  const canRetry =
+    canSelectForRetry && failedCount > 0 && !isRetrying && !isSavingOmitted;
+  const retryInProgress = Boolean(retryStatus && !retryStatus.complete);
+  const retryRecipientSet = useMemo(
+    () => new Set(retryFailures.map((failure) => failure.recipient)),
+    [retryFailures],
+  );
+
+  function setSelection(recipients: string[]) {
+    setSelectedRecipients(new Set(recipients));
+  }
+
+  function setOmittedSelection(recipients: string[]) {
+    setSelectedOmittedRecipients(new Set(recipients));
+  }
+
+  function toggleRecipient(recipient: string, selected: boolean) {
+    setSelectedRecipients((current) => {
+      const next = new Set(current);
+      if (selected) {
+        next.add(recipient);
+      } else {
+        next.delete(recipient);
+      }
+      return next;
+    });
+  }
+
+  function toggleOmittedRecipient(recipient: string, selected: boolean) {
+    setSelectedOmittedRecipients((current) => {
+      const next = new Set(current);
+      if (selected) {
+        next.add(recipient);
+      } else {
+        next.delete(recipient);
+      }
+      return next;
+    });
+  }
+
+  function persistOmitted(omittedTo: string[]) {
+    setError(null);
+    startSavingOmitted(async () => {
+      try {
+        const result = await updateBroadcastOmittedAction({
+          broadcastId,
+          omittedTo,
+        });
+        setDetails(result);
+        setSelectedRecipients((current) => {
+          const next = new Set(current);
+          for (const recipient of current) {
+            if (
+              !result.retryFailures.some(
+                (failure) => failure.recipient === recipient,
+              )
+            ) {
+              next.delete(recipient);
+            }
+          }
+          return next;
+        });
+        setSelectedOmittedRecipients((current) => {
+          const next = new Set(current);
+          for (const recipient of current) {
+            if (
+              !result.omittedFailures.some(
+                (failure) => failure.recipient === recipient,
+              )
+            ) {
+              next.delete(recipient);
+            }
+          }
+          return next;
+        });
+      } catch (saveError) {
+        setError(
+          saveError instanceof Error
+            ? saveError.message
+            : "Could not update omitted recipients.",
+        );
+      }
+    });
+  }
+
+  function omitRecipients(recipients: string[]) {
+    if (recipients.length === 0 || !details) {
+      return;
+    }
+
+    const nextOmitted = new Set(details.omittedTo);
+    for (const recipient of recipients) {
+      nextOmitted.add(recipient);
+    }
+    persistOmitted(Array.from(nextOmitted));
+  }
+
+  function includeRecipients(recipients: string[]) {
+    if (recipients.length === 0 || !details) {
+      return;
+    }
+
+    const removeSet = new Set(recipients);
+    persistOmitted(
+      details.omittedTo.filter((recipient) => !removeSet.has(recipient)),
+    );
+  }
+
+  function moveSelectedRecipients() {
+    if (activeTab === "failed") {
+      omitRecipients(Array.from(selectedRecipients));
+      return;
+    }
+
+    if (activeTab === "omitted") {
+      includeRecipients(Array.from(selectedOmittedRecipients));
+    }
+  }
+
+  function recipientsToRetry() {
+    if (selectedRecipients.size > 0) {
+      return Array.from(selectedRecipients).filter((recipient) =>
+        retryRecipientSet.has(recipient),
+      );
+    }
+
+    return retryFailures.map((failure) => failure.recipient);
+  }
 
   function loadDetails() {
     setError(null);
@@ -72,8 +853,19 @@ export function BroadcastDeliveryDetails({
       try {
         const result = await getBroadcastDeliveryDetailsAction(broadcastId);
         setDetails(result);
+        setActiveTab(
+          result.retryFailures.length > 0
+            ? "failed"
+            : result.omittedFailures.length > 0
+              ? "omitted"
+              : "delivered",
+        );
+        setSelectedRecipients(new Set());
+        setSelectedOmittedRecipients(new Set());
       } catch (loadError) {
         setDetails(null);
+        setSelectedRecipients(new Set());
+        setSelectedOmittedRecipients(new Set());
         setError(
           loadError instanceof Error
             ? loadError.message
@@ -84,6 +876,10 @@ export function BroadcastDeliveryDetails({
   }
 
   function handleOpenChange(nextOpen: boolean) {
+    if (isRetrying || isSavingOmitted) {
+      return;
+    }
+
     setOpen(nextOpen);
 
     if (nextOpen) {
@@ -92,7 +888,67 @@ export function BroadcastDeliveryDetails({
     }
 
     setDetails(null);
+    setSelectedRecipients(new Set());
+    setSelectedOmittedRecipients(new Set());
     setError(null);
+    setRetryNotice(null);
+    setRetryStatus(null);
+    setActiveTab("failed");
+  }
+
+  function startRetry() {
+    if (!details || failedCount === 0) {
+      return;
+    }
+
+    const recipients = recipientsToRetry();
+
+    if (recipients.length === 0) {
+      return;
+    }
+
+    setRetryNotice(null);
+    setError(null);
+
+    startRetrying(async () => {
+      try {
+        const started = await retryFailedBroadcastAction({
+          broadcastId,
+          recipients,
+        });
+        setRetryStatus(started.status);
+
+        const finalStatus = await runBroadcastLoop(
+          started.status,
+          (currentStatus) => {
+            setRetryStatus(currentStatus);
+          },
+        );
+
+        setRetryStatus(finalStatus);
+
+        if (finalStatus.complete) {
+          setRetryNotice(
+            finalStatus.failedCount > 0
+              ? `Retry finished with ${finalStatus.sentCount} sent and ${finalStatus.failedCount} failed.`
+              : `Retry delivered to ${finalStatus.sentCount} recipients.`,
+          );
+          router.refresh();
+          return;
+        }
+
+        setRetryNotice(
+          "Retry paused while another send is in progress or the lease is active. Reload this page to resume.",
+        );
+      } catch (retryError) {
+        setRetryStatus(null);
+        setError(
+          retryError instanceof Error
+            ? retryError.message
+            : "Could not retry failed deliveries.",
+        );
+      }
+    });
   }
 
   return (
@@ -106,67 +962,215 @@ export function BroadcastDeliveryDetails({
       </button>
 
       <AlertDialog open={open} onOpenChange={handleOpenChange}>
-        <AlertDialogContent className="flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg flex-col gap-4 overflow-hidden sm:max-w-lg">
-          <AlertDialogHeader className="shrink-0 place-items-start text-left">
-            <AlertDialogTitle>Delivery details</AlertDialogTitle>
-            <AlertDialogDescription>
-              {isLoading && !details
-                ? "Loading delivery results..."
-                : error
-                  ? error
-                  : details
-                    ? summaryLabel(details)
-                    : "No delivery details available."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+        <AlertDialogContent
+          size="lg"
+          className="!flex h-[85vh] max-h-[92vh] w-[min(96rem,calc(100vw-2rem))] !max-w-none flex-col gap-0 overflow-hidden p-0"
+        >
+          <AlertDialogTitle className="sr-only">
+            Broadcast delivery results
+          </AlertDialogTitle>
 
-          {details && !error ? (
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-              <DeliveryList
-                title={`Delivered (${details.sentCount})`}
-                emptyMessage="No successful deliveries yet."
-                items={details.deliveredTo}
-                renderItem={(recipient) => (
-                  <span className="break-all text-foreground">{recipient}</span>
-                )}
-              />
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            <AlertDialogCancel
+              disabled={isRetrying || isSavingOmitted}
+              variant="ghost"
+              size="icon"
+              className="absolute top-3 right-3 z-10 size-8"
+            >
+              <XIcon className="size-4" />
+              <span className="sr-only">Close</span>
+            </AlertDialogCancel>
 
-              <DeliveryList
-                title={`Failed (${details.failedCount})`}
-                emptyMessage="No failed deliveries."
-                items={details.failures}
-                renderItem={(failure) => (
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="break-all text-foreground">
-                      {failure.recipient}
-                    </p>
-                    <p className="break-words text-muted-foreground">
-                      {failure.error}
-                    </p>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-12 pb-4">
+              {retryInProgress && retryStatus ? (
+                <div className="mb-3 shrink-0 space-y-2 rounded-lg border bg-muted/30 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-medium text-foreground">
+                      Retry in progress
+                    </span>
+                    <span className="text-muted-foreground">
+                      {retryStatus.sentCount} sent · {retryStatus.failedCount}{" "}
+                      failed · {retryStatus.pendingCount} pending
+                    </span>
                   </div>
-                )}
-              />
-
-              {details.pendingCount > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {details.pendingCount} recipient
-                  {details.pendingCount === 1 ? "" : "s"} still pending.
-                </p>
+                  <Meter
+                    value={progressPercent(retryStatus)}
+                    className="h-1.5"
+                  />
+                </div>
               ) : null}
 
-              {details.status === "sending" &&
-              details.failedCount > details.failures.length ? (
-                <p className="text-xs text-muted-foreground">
-                  Showing the most recent failure details while delivery is in
-                  progress.
+              {retryNotice ? (
+                <div className="mb-3 shrink-0 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-muted-foreground">
+                  {retryNotice}
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="mb-3 shrink-0 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                  {error}
+                </div>
+              ) : null}
+
+              {isLoading && !details ? <LoadingState /> : null}
+
+              {details && !error ? (
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(value) => setActiveTab(value as DeliveryTab)}
+                  className="flex min-h-0 flex-1 flex-col gap-3"
+                >
+                  <TabsList className="w-full shrink-0">
+                    <TabsTrigger value="failed" className="flex-1">
+                      Failed (
+                      {canSelectForRetry ? failedCount : details.failedCount})
+                    </TabsTrigger>
+                    <TabsTrigger value="omitted" className="flex-1">
+                      Omitted ({omittedCount})
+                    </TabsTrigger>
+                    <TabsTrigger value="delivered" className="flex-1">
+                      Delivered ({details.sentCount})
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent
+                    value="failed"
+                    className="mt-0 flex min-h-0 flex-1 flex-col"
+                  >
+                    <FailureListPanel
+                      failures={
+                        canSelectForRetry ? retryFailures : readOnlyFailures
+                      }
+                      mode="retry"
+                      interactive={
+                        canSelectForRetry && !isRetrying && !isSavingOmitted
+                      }
+                      selectedRecipients={selectedRecipients}
+                      onToggleRecipient={toggleRecipient}
+                      onSetSelection={setSelection}
+                      filterMenuPortal={filterMenuPortal}
+                    />
+
+                    {details.status === "sending" &&
+                    details.failedCount > details.failures.length ? (
+                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">
+                        Showing the most recent failure details while delivery
+                        is in progress.
+                      </p>
+                    ) : null}
+                  </TabsContent>
+
+                  <TabsContent
+                    value="omitted"
+                    className="mt-0 flex min-h-0 flex-1 flex-col"
+                  >
+                    <FailureListPanel
+                      failures={omittedFailures}
+                      mode="omitted"
+                      interactive={
+                        canSelectForRetry && !isRetrying && !isSavingOmitted
+                      }
+                      selectedRecipients={selectedOmittedRecipients}
+                      onToggleRecipient={toggleOmittedRecipient}
+                      onSetSelection={setOmittedSelection}
+                      filterMenuPortal={filterMenuPortal}
+                    />
+                  </TabsContent>
+
+                  <TabsContent
+                    value="delivered"
+                    className="mt-0 flex min-h-0 flex-1 flex-col"
+                  >
+                    <DeliveredPanel recipients={details.deliveredTo} />
+                  </TabsContent>
+                </Tabs>
+              ) : null}
+
+              {details && details.pendingCount > 0 ? (
+                <p className="mt-3 shrink-0 text-xs text-muted-foreground">
+                  {details.pendingCount} recipient
+                  {details.pendingCount === 1 ? "" : "s"} still pending
+                  delivery.
                 </p>
               ) : null}
             </div>
-          ) : null}
 
-          <AlertDialogFooter className="shrink-0">
-            <AlertDialogCancel>Close</AlertDialogCancel>
-          </AlertDialogFooter>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t bg-muted/30 px-5 py-4">
+              {canSelectForRetry ? (
+                <p className="text-xs text-muted-foreground">
+                  {activeTab === "omitted"
+                    ? selectedOmittedCount > 0
+                      ? "Move checked recipients back to Failed to include them in the retry."
+                      : "Select recipients to move back to Failed."
+                    : failedCount === 0
+                      ? "No failed recipients remain."
+                      : usingSubsetSelection
+                        ? "Only checked recipients will be retried or omitted."
+                        : `All ${retryTargetCount} failed recipients will be retried.`}
+                </p>
+              ) : (
+                <span />
+              )}
+
+              {canSelectForRetry ? (
+                <div className="flex items-center gap-2">
+                  {activeTab !== "delivered" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={
+                        !canMoveSelected || isRetrying || isSavingOmitted
+                      }
+                      onClick={moveSelectedRecipients}
+                    >
+                      {isSavingOmitted ? (
+                        <>
+                          <Loader2Icon className="size-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : activeTab === "failed" ? (
+                        <>
+                          Omit selected
+                          <ArrowRightIcon className="size-4" />
+                        </>
+                      ) : (
+                        <>
+                          <Undo2Icon className="size-4" />
+                          Include selected
+                        </>
+                      )}
+                    </Button>
+                  ) : null}
+                  {activeTab === "failed" ? (
+                    <Button
+                      type="button"
+                      disabled={!canRetry}
+                      onClick={startRetry}
+                    >
+                      {isRetrying ? (
+                        <>
+                          <Loader2Icon className="size-4 animate-spin" />
+                          Retrying...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCwIcon className="size-4" />
+                          {usingSubsetSelection
+                            ? "Retry selected"
+                            : "Retry all"}
+                        </>
+                      )}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <div
+              ref={setFilterMenuPortal}
+              className="pointer-events-none absolute inset-0 z-[60] overflow-visible"
+            />
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </>
