@@ -2,8 +2,8 @@
 
 import { listBroadcastTargetSummaries } from "@/lib/broadcast/registry";
 import {
-  exportBroadcastRecipients,
   findActiveBroadcast,
+  getBroadcastDeliveryDetails,
   sendBroadcastBatch,
   startBroadcast,
 } from "@/lib/broadcast/service";
@@ -24,6 +24,6 @@ export async function findActiveBroadcastAction() {
   return findActiveBroadcast();
 }
 
-export async function exportBroadcastRecipientsAction(broadcastId: string) {
-  return exportBroadcastRecipients(broadcastId);
+export async function getBroadcastDeliveryDetailsAction(broadcastId: string) {
+  return getBroadcastDeliveryDetails(broadcastId);
 }

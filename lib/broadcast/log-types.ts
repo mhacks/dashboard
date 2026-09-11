@@ -12,3 +12,18 @@ export type BroadcastLogListItem = {
   failedCount: number;
   operatorEmail: string | null;
 };
+
+export type BroadcastDeliveryFailure = {
+  recipient: string;
+  error: string;
+};
+
+export type BroadcastDeliveryDetails = {
+  status: string;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  pendingCount: number;
+  deliveredTo: string[];
+  failures: BroadcastDeliveryFailure[];
+};

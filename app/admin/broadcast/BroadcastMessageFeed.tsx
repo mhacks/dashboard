@@ -1,7 +1,7 @@
 import type { BroadcastLogListItem } from "@/lib/broadcast/log-types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { BroadcastRecipientsExport } from "./BroadcastRecipientsExport";
+import { BroadcastDeliveryDetailsButton } from "./BroadcastDeliveryDetails";
 
 function targetLabel(targetId: string, targetLabels: Record<string, string>) {
   return targetLabels[targetId] ?? targetId;
@@ -133,10 +133,7 @@ export function BroadcastMessageFeed({
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
                   <span>{deliveryLabel(log)}</span>
                   <span aria-hidden="true">·</span>
-                  <BroadcastRecipientsExport
-                    broadcastId={log.id}
-                    deliveredCount={log.deliveredTo?.length ?? 0}
-                  />
+                  <BroadcastDeliveryDetailsButton broadcastId={log.id} />
                 </p>
               </div>
             </article>

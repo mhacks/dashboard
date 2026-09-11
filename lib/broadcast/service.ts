@@ -8,6 +8,7 @@ import {
 } from "@/lib/broadcast/config";
 import { getBroadcastTarget } from "@/lib/broadcast/registry";
 import "@/lib/broadcast/targets";
+import type { BroadcastDeliveryDetails } from "@/lib/broadcast/log-types";
 import type { BroadcastSendStatus } from "@/lib/broadcast/types";
 import { db } from "@/lib/db";
 import {
@@ -186,11 +187,19 @@ export async function sendBroadcastBatch(input: unknown) {
   return buildBroadcastStatus(latest);
 }
 
-export async function exportBroadcastRecipients(broadcastId: string) {
+export async function getBroadcastDeliveryDetails(
+  broadcastId: string,
+): Promise<BroadcastDeliveryDetails> {
   await requireOrganizer();
 
   const [log] = await db
-    .select({ deliveredTo: broadcastLogs.deliveredTo })
+    .select({
+      status: broadcastLogs.status,
+      recipients: broadcastLogs.recipients,
+      deliveredTo: broadcastLogs.deliveredTo,
+      failedCount: broadcastLogs.failedCount,
+      recentFailures: broadcastLogs.recentFailures,
+    })
     .from(broadcastLogs)
     .where(eq(broadcastLogs.id, broadcastId))
     .limit(1);
@@ -199,9 +208,42 @@ export async function exportBroadcastRecipients(broadcastId: string) {
     throw new EmailCampaignError("Broadcast not found", 404);
   }
 
+  const deliveredTo = log.deliveredTo ?? [];
+  const recipients = log.recipients ?? [];
+  const deliveredSet = new Set(deliveredTo);
+  const failureByRecipient = new Map(
+    (log.recentFailures ?? []).map((failure) => [
+      failure.recipient,
+      failure.error,
+    ]),
+  );
+  const sentCount = deliveredTo.length;
+  const failedCount = log.failedCount;
+  const complete = log.status === "complete";
+  const pendingCount = complete
+    ? 0
+    : Math.max(0, recipients.length - sentCount - failedCount);
+
+  const failures = complete
+    ? recipients
+        .filter((recipient) => !deliveredSet.has(recipient))
+        .map((recipient) => ({
+          recipient,
+          error: failureByRecipient.get(recipient) ?? "Delivery failed",
+        }))
+    : (log.recentFailures ?? []).map((failure) => ({
+        recipient: failure.recipient,
+        error: failure.error,
+      }));
+
   return {
-    filename: `broadcast-${broadcastId}-recipients.txt`,
-    content: (log.deliveredTo ?? []).join("\n"),
+    status: log.status,
+    totalRecipients: recipients.length,
+    sentCount,
+    failedCount,
+    pendingCount,
+    deliveredTo,
+    failures,
   };
 }
 
