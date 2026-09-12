@@ -126,26 +126,26 @@ export function BroadcastMessageFeed({
                   >
                     {targetLabel(log.target, targetLabels)}
                   </Badge>
-                  <DeliveryDetailsBadge
-                    broadcastId={log.id}
-                    label={log.retryFailedCount > 0 ? "Failed" : "Details"}
-                    variant={
-                      log.retryFailedCount > 0 ? "destructive" : "outline"
-                    }
-                    className={
-                      log.retryFailedCount > 0
-                        ? undefined
-                        : "hidden group-hover:inline-flex"
-                    }
-                  />
                   {log.status === "sending" ? (
-                    <Badge
-                      variant="secondary"
-                      className="h-5 px-2 text-[11px] font-normal"
-                    >
-                      Sending
-                    </Badge>
-                  ) : null}
+                    <DeliveryDetailsBadge
+                      broadcastId={log.id}
+                      label="In progress"
+                      className="border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-400"
+                    />
+                  ) : (
+                    <DeliveryDetailsBadge
+                      broadcastId={log.id}
+                      label={log.retryFailedCount > 0 ? "Failed" : "Details"}
+                      variant={
+                        log.retryFailedCount > 0 ? "destructive" : "outline"
+                      }
+                      className={
+                        log.retryFailedCount > 0
+                          ? undefined
+                          : "hidden group-hover:inline-flex"
+                      }
+                    />
+                  )}
                 </div>
 
                 <p className="mt-1.5 text-sm font-medium leading-snug">

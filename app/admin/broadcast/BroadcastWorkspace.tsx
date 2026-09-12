@@ -11,6 +11,10 @@ import BroadcastForm from "./BroadcastForm";
 import { BroadcastChannelNav } from "./BroadcastChannelSidebar";
 import { BroadcastLogsSearch } from "./BroadcastLogsSearch";
 import { BroadcastMessageFeedPanel } from "./BroadcastMessageFeedPanel";
+import {
+  BroadcastSyncProvider,
+  useBroadcastSync,
+} from "./BroadcastSyncProvider";
 
 function broadcastLogsViewKey(targetId: string | null, search: string) {
   return `${targetId ?? "global"}:${search}`;
@@ -27,6 +31,30 @@ export function BroadcastWorkspace({
   initialLogs: BroadcastLogListItem[];
   initialTotalCount: number;
 }) {
+  return (
+    <BroadcastSyncProvider>
+      <BroadcastWorkspaceView
+        targets={targets}
+        searchQuery={searchQuery}
+        initialLogs={initialLogs}
+        initialTotalCount={initialTotalCount}
+      />
+    </BroadcastSyncProvider>
+  );
+}
+
+function BroadcastWorkspaceView({
+  targets,
+  searchQuery,
+  initialLogs,
+  initialTotalCount,
+}: {
+  targets: BroadcastTargetSummary[];
+  searchQuery: string;
+  initialLogs: BroadcastLogListItem[];
+  initialTotalCount: number;
+}) {
+  const { subscribeBroadcastSync } = useBroadcastSync();
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
   const [logs, setLogs] = useState(initialLogs);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
@@ -35,6 +63,15 @@ export function BroadcastWorkspace({
   );
   const [, startLoadingLogs] = useTransition();
   const logsRequestId = useRef(0);
+  const logsRef = useRef(logs);
+  const activeTargetIdRef = useRef(activeTargetId);
+  const searchQueryRef = useRef(searchQuery);
+
+  useEffect(() => {
+    logsRef.current = logs;
+    activeTargetIdRef.current = activeTargetId;
+    searchQueryRef.current = searchQuery;
+  }, [activeTargetId, logs, searchQuery]);
 
   const channelTarget =
     targets.find((target) => target.id === activeTargetId) ?? null;
@@ -83,6 +120,24 @@ export function BroadcastWorkspace({
 
     loadLogs(activeTargetId, searchQuery);
   }, [activeTargetId, loadLogs, logsKey, searchQuery, viewKey]);
+
+  useEffect(() => {
+    return subscribeBroadcastSync((payload) => {
+      const targetId = activeTargetIdRef.current;
+      if (targetId && payload.target !== targetId) {
+        return;
+      }
+
+      const known = logsRef.current.some(
+        (log) => log.id === payload.broadcastId,
+      );
+      if (payload.status === "sending" && known) {
+        return;
+      }
+
+      loadLogs(targetId, searchQueryRef.current);
+    });
+  }, [loadLogs, subscribeBroadcastSync]);
 
   function selectChannel(targetId: string | null) {
     if (targetId === activeTargetId) {

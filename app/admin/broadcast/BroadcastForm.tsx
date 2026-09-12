@@ -26,11 +26,7 @@ import {
   BROADCAST_SUBJECT_LIMIT,
   broadcastErrorMessage,
 } from "@/lib/broadcast/config";
-import {
-  BROADCAST_PAUSED_NOTICE,
-  formatBroadcastOutcome,
-  formatBroadcastProgress,
-} from "@/lib/broadcast/progress";
+import { formatBroadcastOutcome } from "@/lib/broadcast/progress";
 import type {
   BroadcastSendStatus,
   BroadcastTargetSummary,
@@ -47,6 +43,7 @@ import {
   listBroadcastTargetRecipientsAction,
   startBroadcastAction,
 } from "./actions";
+import { useBroadcastSync } from "./BroadcastSyncProvider";
 import { runBroadcastLoop } from "./run-broadcast-loop";
 import { useSelectionSet } from "./use-selection-set";
 
@@ -84,6 +81,8 @@ export default function BroadcastForm({
     failed: number;
   } | null>(null);
   const [isSending, startSending] = useTransition();
+  const { publishBroadcastSync, setActiveSendId, subscribeBroadcastSync } =
+    useBroadcastSync();
 
   const selectedTargets = targets.filter((target) =>
     selectedTargetIds.has(target.id),
@@ -102,54 +101,37 @@ export default function BroadcastForm({
         if (active && !active.complete) {
           setStatus(active);
           setSelectedTargetIds([active.target]);
-          setNotice(
-            formatBroadcastProgress(active, { prefix: "Resuming broadcast" }),
-          );
         }
       })
       .catch(() => undefined);
   }, [setSelectedTargetIds]);
 
+  useEffect(() => {
+    return subscribeBroadcastSync((payload) => {
+      setStatus((current) => {
+        if (!current || current.broadcastId !== payload.broadcastId) {
+          return current;
+        }
+
+        return {
+          ...current,
+          sentCount: payload.sentCount,
+          failedCount: payload.failedCount,
+          pendingCount: payload.pendingCount,
+          totalRecipients: payload.totalRecipients,
+          complete:
+            payload.status === "complete" || payload.status === "expired",
+        };
+      });
+    });
+  }, [subscribeBroadcastSync]);
+
   async function sendBroadcast(
     initialStatus: BroadcastSendStatus,
-    targetLabel?: string,
   ): Promise<BroadcastSendStatus> {
-    const finalStatus = await runBroadcastLoop(
-      initialStatus,
-      (currentStatus) => {
-        setStatus(currentStatus);
-        setNotice(
-          formatBroadcastProgress(currentStatus, { prefix: targetLabel }),
-        );
-      },
-    );
-
-    if (!finalStatus.complete) {
-      setNotice(BROADCAST_PAUSED_NOTICE);
-    }
-
-    return finalStatus;
-  }
-
-  async function resumeBroadcast() {
-    if (!status || status.complete) {
-      return;
-    }
-
-    startSending(async () => {
-      try {
-        const finalStatus = await sendBroadcast(status);
-        if (finalStatus.complete) {
-          setSuccessResult({
-            sent: finalStatus.sentCount,
-            failed: finalStatus.failedCount,
-          });
-        }
-      } catch (error) {
-        setNotice(broadcastErrorMessage(error));
-      } finally {
-        onLogsInvalidated();
-      }
+    return runBroadcastLoop(initialStatus, (currentStatus) => {
+      setStatus(currentStatus);
+      publishBroadcastSync(currentStatus);
     });
   }
 
@@ -191,13 +173,16 @@ export default function BroadcastForm({
         let totalFailed = 0;
 
         for (const target of selectedTargets) {
-          setNotice(`Starting broadcast to ${target.label}...`);
           const started = await startBroadcastAction({
             target: target.id,
             subject: pendingDraft.subject,
             body: pendingDraft.body,
           });
-          const finalStatus = await sendBroadcast(started.status, target.label);
+          setActiveSendId(started.status.broadcastId);
+          setStatus(started.status);
+          onLogsInvalidated();
+          publishBroadcastSync(started.status);
+          const finalStatus = await sendBroadcast(started.status);
 
           if (!finalStatus.complete) {
             if (totalSent > 0 || totalFailed > 0) {
@@ -214,6 +199,7 @@ export default function BroadcastForm({
       } catch (error) {
         setNotice(broadcastErrorMessage(error));
       } finally {
+        setActiveSendId(null);
         onLogsInvalidated();
       }
     });
@@ -245,24 +231,6 @@ export default function BroadcastForm({
   return (
     <>
       <div className="flex flex-col gap-2">
-        {inProgress ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5">
-            <p className="text-[11px] text-muted-foreground">
-              {notice ?? (status ? formatBroadcastProgress(status) : null)}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              disabled={isSending}
-              onClick={() => void resumeBroadcast()}
-            >
-              {isSending ? "Sending..." : "Resume"}
-            </Button>
-          </div>
-        ) : null}
-
         {notice && !inProgress ? (
           <p className="px-1 text-[11px] text-muted-foreground">{notice}</p>
         ) : null}
