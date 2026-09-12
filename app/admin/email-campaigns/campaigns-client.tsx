@@ -250,7 +250,6 @@ export default function EmailCampaignsClient({
   const [selectedTemplateId, setSelectedTemplateId] = useState(
     initialTemplates[0]?.id ?? "",
   );
-  const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [templatesPanelCollapsed, setTemplatesPanelCollapsed] = useState(false);
   const panelsMounted = useMounted();
   const templatesPanelRef = usePanelRef();
@@ -392,7 +391,6 @@ export default function EmailCampaignsClient({
     const nextTemplates = [template, ...templates];
     setTemplates(nextTemplates);
     setSelectedTemplateId(template.id);
-    setSelectedSectionIndex(0);
     clearSendStatus();
     setNotice("Template created.");
   }
@@ -486,7 +484,6 @@ export default function EmailCampaignsClient({
         },
       ],
     });
-    setSelectedSectionIndex(selectedTemplate.content.sections.length);
   }
 
   function removeSection(index: number) {
@@ -494,19 +491,7 @@ export default function EmailCampaignsClient({
     const sections = selectedTemplate.content.sections.filter(
       (_section, sectionIndex) => sectionIndex !== index,
     );
-    updateContent({
-      sections:
-        sections.length > 0
-          ? sections
-          : [
-              {
-                id: crypto.randomUUID(),
-                title: "Main",
-                body: "Add copy here.",
-              },
-            ],
-    });
-    setSelectedSectionIndex(Math.max(0, index - 1));
+    updateContent({ sections });
   }
 
   function moveSection(index: number, direction: -1 | 1) {
@@ -517,7 +502,6 @@ export default function EmailCampaignsClient({
     const [section] = sections.splice(index, 1);
     sections.splice(nextIndex, 0, section);
     updateContent({ sections });
-    setSelectedSectionIndex(nextIndex);
   }
 
   function replaceTemplate(template: MasterTemplate, previousId = template.id) {
@@ -625,7 +609,6 @@ export default function EmailCampaignsClient({
         mergeFields,
       );
       updateSelectedTemplate(draft);
-      setSelectedSectionIndex(0);
       clearSendStatus();
       setAiDraftText("");
       setNotice(
@@ -1092,7 +1075,6 @@ export default function EmailCampaignsClient({
 
   function selectTemplate(templateId: string) {
     setSelectedTemplateId(templateId);
-    setSelectedSectionIndex(0);
     clearSendStatus();
   }
 
@@ -1217,8 +1199,6 @@ export default function EmailCampaignsClient({
     theme,
   ]);
 
-  const selectedSection =
-    selectedTemplate?.content?.sections[selectedSectionIndex] ?? null;
   const previewWidth = previewMode === "desktop" ? 720 : 390;
   const showTemplatesRail = panelsMounted && templatesPanelCollapsed;
 
@@ -1344,8 +1324,6 @@ export default function EmailCampaignsClient({
       <BuilderPanel
         notice={notice}
         selectedTemplate={selectedTemplate}
-        selectedSection={selectedSection}
-        selectedSectionIndex={selectedSectionIndex}
         mergeFields={mergeFields}
         mergePreviewData={effectiveMergePreviewData}
         busy={busy}
@@ -1364,7 +1342,6 @@ export default function EmailCampaignsClient({
         onTemplateChange={updateSelectedTemplate}
         onContentChange={updateContent}
         onSectionChange={updateSection}
-        onSectionSelect={setSelectedSectionIndex}
         onSectionAdd={addSection}
         onSectionRemove={removeSection}
         onSectionMove={moveSection}
@@ -1622,11 +1599,94 @@ function EmailCampaignWorkspaceHeader({
   );
 }
 
+function BodyBlockCard({
+  index,
+  total,
+  section,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  index: number;
+  total: number;
+  section: EmailCampaignContent["sections"][number];
+  onChange: (patch: Partial<EmailCampaignContent["sections"][number]>) => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const blockLabel = section.title?.trim() || `Block ${index + 1}`;
+
+  return (
+    <div className="rounded-md border border-border bg-card p-4">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Block {index + 1} of {total}
+          </p>
+          <p className="truncate text-sm font-semibold text-foreground">
+            {blockLabel}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className={adminMiniButtonClass}
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            aria-label={`Move ${blockLabel} up`}
+          >
+            <ArrowUp />
+          </Button>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className={adminMiniButtonClass}
+            onClick={() => onMove(1)}
+            disabled={index === total - 1}
+            aria-label={`Move ${blockLabel} down`}
+          >
+            <ArrowDown />
+          </Button>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className={adminMiniButtonClass}
+            onClick={onRemove}
+            aria-label={`Remove ${blockLabel}`}
+          >
+            <Trash2 />
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-4">
+        <Field label="Title">
+          <input
+            className={inputClass}
+            value={section.title ?? ""}
+            onChange={(event) => onChange({ title: event.target.value })}
+            placeholder={`Block ${index + 1}`}
+          />
+        </Field>
+        <Field label="Copy">
+          <textarea
+            className={textareaClass}
+            rows={6}
+            value={section.body}
+            onChange={(event) => onChange({ body: event.target.value })}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
 function BuilderPanel({
   notice,
   selectedTemplate,
-  selectedSection,
-  selectedSectionIndex,
   mergeFields,
   mergePreviewData,
   busy,
@@ -1640,15 +1700,12 @@ function BuilderPanel({
   onTemplateChange,
   onContentChange,
   onSectionChange,
-  onSectionSelect,
   onSectionAdd,
   onSectionRemove,
   onSectionMove,
 }: {
   notice: string;
   selectedTemplate: MasterTemplate | null;
-  selectedSection: EmailCampaignContent["sections"][number] | null;
-  selectedSectionIndex: number;
   mergeFields: string[];
   mergePreviewData: Record<string, string>;
   busy: string | null;
@@ -1665,7 +1722,6 @@ function BuilderPanel({
     index: number,
     patch: Partial<EmailCampaignContent["sections"][number]>,
   ) => void;
-  onSectionSelect: (index: number) => void;
   onSectionAdd: () => void;
   onSectionRemove: (index: number) => void;
   onSectionMove: (index: number, direction: -1 | 1) => void;
@@ -1729,41 +1785,6 @@ function BuilderPanel({
             }
           />
         </Field>
-        {selectedTemplate.type !== "html" && selectedTemplate.content ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="CTA label">
-              <input
-                className={inputClass}
-                value={selectedTemplate.content.cta?.label ?? ""}
-                onChange={(event) =>
-                  onContentChange({
-                    cta: {
-                      label: event.target.value,
-                      url:
-                        selectedTemplate.content?.cta?.url ??
-                        "https://mhacks.org",
-                    },
-                  })
-                }
-              />
-            </Field>
-            <Field label="CTA URL">
-              <input
-                className={inputClass}
-                value={selectedTemplate.content.cta?.url ?? ""}
-                onChange={(event) =>
-                  onContentChange({
-                    cta: {
-                      label:
-                        selectedTemplate.content?.cta?.label ?? "Learn more",
-                      url: event.target.value,
-                    },
-                  })
-                }
-              />
-            </Field>
-          </div>
-        ) : null}
       </EditorSection>
 
       <EditorSection title="Email subject">
@@ -1788,8 +1809,11 @@ function BuilderPanel({
       </EditorSection>
 
       {selectedTemplate.type === "html" ? (
-        <EditorSection title="Blocks">
-          <Field label="HTML template">
+        <EditorSection
+          title="HTML body"
+          description="Raw HTML rendered for this template."
+        >
+          <Field label="HTML">
             <textarea
               className={`${textareaClass} text-xs`}
               rows={18}
@@ -1801,140 +1825,134 @@ function BuilderPanel({
           </Field>
         </EditorSection>
       ) : selectedTemplate.content ? (
-        <EditorSection title="Blocks">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Eyebrow">
-              <input
-                className={inputClass}
-                value={selectedTemplate.content.eyebrow ?? ""}
-                onChange={(event) =>
-                  onContentChange({ eyebrow: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="Heading">
-              <input
-                className={inputClass}
-                value={selectedTemplate.content.heading}
-                onChange={(event) =>
-                  onContentChange({ heading: event.target.value })
-                }
-              />
-            </Field>
-          </div>
-          <Field label="Intro">
-            <textarea
-              className={textareaClass}
-              rows={2}
-              value={selectedTemplate.content.intro ?? ""}
-              onChange={(event) =>
-                onContentChange({ intro: event.target.value })
-              }
-            />
-          </Field>
-
-          <div className="overflow-hidden rounded-md border border-border bg-card">
-            <div className="grid lg:grid-cols-[230px_1fr]">
-              <div className="border-b p-3 lg:border-b-0 lg:border-r">
-                <div className="mb-3 flex items-center justify-end">
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    className={adminIconButtonClass}
-                    onClick={onSectionAdd}
-                  >
-                    <Plus />
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {selectedTemplate.content.sections.map((section, index) => (
-                    <button
-                      key={section.id}
-                      type="button"
-                      onClick={() => onSectionSelect(index)}
-                      className={`w-full rounded-md border p-3 text-left text-sm transition ${
-                        selectedSectionIndex === index
-                          ? "border-primary bg-card "
-                          : "border-border bg-transparent hover:bg-card"
-                      }`}
-                    >
-                      <p className="truncate font-medium text-foreground">
-                        {section.title || `Block ${index + 1}`}
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {section.body}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="p-4">
-                {selectedSection ? (
-                  <>
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold">Selected block</p>
-                      <div className="flex gap-1">
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          className={adminMiniButtonClass}
-                          onClick={() =>
-                            onSectionMove(selectedSectionIndex, -1)
-                          }
-                        >
-                          <ArrowUp />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          className={adminMiniButtonClass}
-                          onClick={() => onSectionMove(selectedSectionIndex, 1)}
-                        >
-                          <ArrowDown />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          className={adminMiniButtonClass}
-                          onClick={() => onSectionRemove(selectedSectionIndex)}
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
-                    </div>
-                    <Field label="Block title">
-                      <input
-                        className={inputClass}
-                        value={selectedSection.title ?? ""}
-                        onChange={(event) =>
-                          onSectionChange(selectedSectionIndex, {
-                            title: event.target.value,
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field label="Block copy">
-                      <textarea
-                        className={textareaClass}
-                        rows={7}
-                        value={selectedSection.body}
-                        onChange={(event) =>
-                          onSectionChange(selectedSectionIndex, {
-                            body: event.target.value,
-                          })
-                        }
-                      />
-                    </Field>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Select a block to edit.
-                  </p>
-                )}
-              </div>
+        <>
+          <EditorSection
+            title="Header"
+            description="The top of the email, shown before any body blocks."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Eyebrow">
+                <input
+                  className={inputClass}
+                  value={selectedTemplate.content.eyebrow ?? ""}
+                  onChange={(event) =>
+                    onContentChange({ eyebrow: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Heading">
+                <input
+                  className={inputClass}
+                  value={selectedTemplate.content.heading}
+                  onChange={(event) =>
+                    onContentChange({ heading: event.target.value })
+                  }
+                />
+              </Field>
             </div>
-          </div>
-        </EditorSection>
+            <Field label="Intro">
+              <textarea
+                className={textareaClass}
+                rows={2}
+                value={selectedTemplate.content.intro ?? ""}
+                onChange={(event) =>
+                  onContentChange({ intro: event.target.value })
+                }
+              />
+            </Field>
+          </EditorSection>
+
+          <EditorSection
+            title="Body blocks"
+            description="Optional sections between the header and footer. Leave empty for a short email."
+            action={
+              <Button
+                type="button"
+                variant="ghost"
+                className={adminSecondaryButtonClass}
+                onClick={onSectionAdd}
+              >
+                <Plus />
+                Add block
+              </Button>
+            }
+          >
+            {selectedTemplate.content.sections.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border bg-card/50 px-4 py-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No body blocks yet. The email will show the header, footer,
+                  and optional button only.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedTemplate.content.sections.map((section, index) => (
+                  <BodyBlockCard
+                    key={section.id}
+                    index={index}
+                    total={selectedTemplate.content!.sections.length}
+                    section={section}
+                    onChange={(patch) => onSectionChange(index, patch)}
+                    onMove={(direction) => onSectionMove(index, direction)}
+                    onRemove={() => onSectionRemove(index)}
+                  />
+                ))}
+              </div>
+            )}
+          </EditorSection>
+
+          <EditorSection
+            title="Footer"
+            description="Optional call-to-action button and closing note."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Button label">
+                <input
+                  className={inputClass}
+                  value={selectedTemplate.content.cta?.label ?? ""}
+                  onChange={(event) =>
+                    onContentChange({
+                      cta: {
+                        label: event.target.value,
+                        url:
+                          selectedTemplate.content?.cta?.url ??
+                          "https://mhacks.org",
+                      },
+                    })
+                  }
+                  placeholder="Open dashboard"
+                />
+              </Field>
+              <Field label="Button URL">
+                <input
+                  className={inputClass}
+                  value={selectedTemplate.content.cta?.url ?? ""}
+                  onChange={(event) =>
+                    onContentChange({
+                      cta: {
+                        label:
+                          selectedTemplate.content?.cta?.label ?? "Learn more",
+                        url: event.target.value,
+                      },
+                    })
+                  }
+                  placeholder="https://mhacks.org"
+                />
+              </Field>
+            </div>
+            <Field label="Footer note">
+              <textarea
+                className={textareaClass}
+                rows={2}
+                value={selectedTemplate.content.footerNote ?? ""}
+                onChange={(event) =>
+                  onContentChange({ footerNote: event.target.value })
+                }
+                placeholder="Questions? Reply to this email or contact the MHacks team."
+              />
+            </Field>
+          </EditorSection>
+        </>
       ) : null}
 
       <MergeFieldsPanel
@@ -3136,8 +3154,8 @@ function parseAiContentDraft(
     throw new Error("AI draft content must include a heading.");
   }
 
-  if (!Array.isArray(draft.sections) || draft.sections.length === 0) {
-    throw new Error("AI draft content must include at least one section.");
+  if (!Array.isArray(draft.sections)) {
+    throw new Error("AI draft content must include a sections array.");
   }
 
   const sections = draft.sections.map((section, index) => {

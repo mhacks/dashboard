@@ -33,7 +33,7 @@ export const emailCampaignContentSchema = z.object({
   eyebrow: z.string().optional(),
   heading: z.string().min(1),
   intro: z.string().optional(),
-  sections: z.array(emailBodySectionSchema).min(1),
+  sections: z.array(emailBodySectionSchema),
   cta: emailCtaSchema.optional(),
   footerNote: z.string().optional(),
 });
