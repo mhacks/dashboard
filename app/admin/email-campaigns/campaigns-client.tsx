@@ -1261,7 +1261,7 @@ export default function EmailCampaignsClient({
               </div>
             </aside>
 
-            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-muted/30 p-5">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-y-auto border-r bg-muted/30 p-5">
               {surface === "builder" ? (
                 <BuilderPanel
                   notice={notice}
