@@ -1,4 +1,3 @@
-import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { getCampaignLimits } from "@/lib/email/campaigns/config";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import {
@@ -20,14 +19,12 @@ export default async function EmailCampaignsPage({
   const { templates, theme } = await loadInitialEmailWorkspace();
 
   return (
-    <AdminPageShell width="full">
-      <EmailCampaignsClient
-        initialSurface={activeView}
-        initialTemplates={templates}
-        initialTheme={theme}
-        initialCampaignLimits={getCampaignLimits()}
-      />
-    </AdminPageShell>
+    <EmailCampaignsClient
+      initialSurface={activeView}
+      initialTemplates={templates}
+      initialTheme={theme}
+      initialCampaignLimits={getCampaignLimits()}
+    />
   );
 }
 
