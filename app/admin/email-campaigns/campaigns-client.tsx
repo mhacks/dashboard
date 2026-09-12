@@ -26,6 +26,7 @@ import {
   Play,
   Plus,
   Save,
+  Search,
   Send,
   Sparkles,
   Smartphone,
@@ -37,6 +38,12 @@ import {
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   Accordion,
@@ -264,6 +271,7 @@ export default function EmailCampaignsClient({
     initialTemplates[0]?.id ?? "",
   );
   const [templatesPanelCollapsed, setTemplatesPanelCollapsed] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
   const panelsMounted = useMounted();
   const templatesPanelRef = usePanelRef();
   const panelLayout = useDefaultLayout({
@@ -299,6 +307,19 @@ export default function EmailCampaignsClient({
       templates.find((template) => template.id === selectedTemplateId) ?? null,
     [selectedTemplateId, templates],
   );
+  const filteredTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase();
+    if (!query) {
+      return templates;
+    }
+
+    return templates.filter((template) => {
+      const haystack = [template.name, template.description, template.subject]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [templateSearch, templates]);
   const mergeFields = useMemo(
     () => (selectedTemplate ? extractMergeFields(selectedTemplate) : []),
     [selectedTemplate],
@@ -1264,11 +1285,10 @@ export default function EmailCampaignsClient({
       >
         <PanelLeftOpen />
       </Button>
-      <FileText className="mt-3 size-4 text-moss dark:text-sage" />
     </div>
   ) : (
     <>
-      <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+      <div className="shrink-0 space-y-2.5 border-b p-3">
         <div className="flex min-w-0 items-center gap-2">
           {panelsMounted ? (
             <Button
@@ -1286,12 +1306,11 @@ export default function EmailCampaignsClient({
               <PanelLeftClose />
             </Button>
           ) : null}
-          <FileText className="size-4 shrink-0 text-moss dark:text-sage" />
           <h2 className="truncate text-sm font-semibold">Templates</h2>
+          <Badge variant="outline" className="shrink-0">
+            {filteredTemplates.length}
+          </Badge>
         </div>
-        <Badge variant="outline">{templates.length}</Badge>
-      </div>
-      <div className="shrink-0 space-y-2 border-b p-3">
         <input
           ref={uploadRef}
           type="file"
@@ -1302,29 +1321,45 @@ export default function EmailCampaignsClient({
             if (file) void uploadHtmlTemplate(file);
           }}
         />
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            title="New template"
-            onClick={createStructuredTemplate}
-          >
-            <Plus />
-            New
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => uploadRef.current?.click()}
-            disabled={busy === "upload"}
-          >
-            <Upload />
-            Upload
-          </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={templateSearch}
+              onChange={(event) => setTemplateSearch(event.target.value)}
+              placeholder="Search templates"
+              aria-label="Search templates"
+              className={cn(inputClass, "pl-9")}
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-lg"
+                className="shrink-0"
+                title="Add template"
+                aria-label="Add template"
+              >
+                <Plus />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-40 w-auto">
+              <DropdownMenuItem onSelect={createStructuredTemplate}>
+                <Plus />
+                New template
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={busy === "upload"}
+                onSelect={() => uploadRef.current?.click()}
+              >
+                <Upload />
+                Upload HTML
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1332,9 +1367,13 @@ export default function EmailCampaignsClient({
           <div className="p-6 text-sm text-muted-foreground">
             No templates yet.
           </div>
+        ) : filteredTemplates.length === 0 ? (
+          <div className="p-6 text-sm text-muted-foreground">
+            No templates match your search.
+          </div>
         ) : (
           <div className="divide-y">
-            {templates.map((template) => (
+            {filteredTemplates.map((template) => (
               <button
                 key={template.id}
                 type="button"
@@ -1347,14 +1386,9 @@ export default function EmailCampaignsClient({
                     "bg-muted hover:bg-muted",
                 )}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-semibold">
-                    {template.name}
-                  </p>
-                  <Badge variant="outline" className="shrink-0 uppercase">
-                    {template.type}
-                  </Badge>
-                </div>
+                <p className="truncate text-sm font-semibold">
+                  {template.name}
+                </p>
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                   {template.description || template.subject}
                 </p>
