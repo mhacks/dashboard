@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
+  emailHiddenSeedTemplates,
   emailTemplates,
   emailThemeSettings,
   type EmailTemplateRow,
@@ -38,13 +39,30 @@ export interface MasterTemplate {
 export async function listMasterTemplates() {
   await requireOrganizer();
 
-  const rows = await db
-    .select()
-    .from(emailTemplates)
-    .orderBy(desc(emailTemplates.updatedAt));
+  const [rows, hiddenSeeds] = await Promise.all([
+    db.select().from(emailTemplates).orderBy(desc(emailTemplates.updatedAt)),
+    db
+      .select({ sourceTemplateId: emailHiddenSeedTemplates.sourceTemplateId })
+      .from(emailHiddenSeedTemplates),
+  ]);
+
+  const savedTemplates = rows.map(templateFromRow);
+  const hiddenSourceIds = new Set(
+    hiddenSeeds.map((row) => row.sourceTemplateId),
+  );
+  const usedSourceIds = new Set(
+    savedTemplates.map((template) => template.sourceTemplateId),
+  );
 
   return {
-    templates: [...rows.map(templateFromRow), ...getSeedMasterTemplates()],
+    templates: [
+      ...savedTemplates,
+      ...getSeedMasterTemplates().filter(
+        (template) =>
+          !hiddenSourceIds.has(template.sourceTemplateId) &&
+          !usedSourceIds.has(template.sourceTemplateId),
+      ),
+    ],
     databaseReady: true,
   };
 }
@@ -107,13 +125,41 @@ export async function updateMasterTemplate(templateId: string, input: unknown) {
 }
 
 export async function deleteMasterTemplate(templateId: string) {
-  await requireOrganizer();
+  const organizer = await requireOrganizer();
 
-  if (templateId.startsWith("seed-")) {
+  if (templateId.startsWith("local-")) {
     return;
   }
 
-  await db.delete(emailTemplates).where(eq(emailTemplates.id, templateId));
+  if (templateId.startsWith("seed-")) {
+    await hideSeedTemplate(templateId.slice("seed-".length), organizer.id);
+    return;
+  }
+
+  const [deleted] = await db
+    .delete(emailTemplates)
+    .where(eq(emailTemplates.id, templateId))
+    .returning();
+
+  if (!deleted) {
+    throw new EmailCampaignError("Email template not found", 404);
+  }
+
+  await hideSeedTemplate(deleted.sourceTemplateId, organizer.id);
+}
+
+async function hideSeedTemplate(sourceTemplateId: string, organizerId: string) {
+  if (!sourceTemplateId) {
+    return;
+  }
+
+  await db
+    .insert(emailHiddenSeedTemplates)
+    .values({
+      sourceTemplateId,
+      hiddenByUserId: organizerId,
+    })
+    .onConflictDoNothing();
 }
 
 export async function getActiveTheme() {

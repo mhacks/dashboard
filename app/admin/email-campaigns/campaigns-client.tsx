@@ -584,7 +584,7 @@ export default function EmailCampaignsClient({
 
     setBusy("delete-template");
     try {
-      if (!isDraftTemplateId(templateToDelete.id)) {
+      if (!isLocalDraftTemplateId(templateToDelete.id)) {
         await deleteEmailTemplateAction(templateToDelete.id);
       }
 
@@ -594,12 +594,12 @@ export default function EmailCampaignsClient({
       setTemplates(nextTemplates);
       setSelectedTemplateId(nextTemplates[0]?.id ?? "");
       clearSendStatus();
-      setNotice("Template removed.");
-      showToast("success", "Template removed", "Removed from the database.");
+      setNotice("");
+      showToast("success", "Template deleted");
     } catch (error) {
       const message = errorMessage(error);
       setNotice(message);
-      showToast("error", "Template remove failed", message);
+      showToast("error", "Template delete failed", message);
     } finally {
       setBusy(null);
     }
@@ -1164,6 +1164,7 @@ export default function EmailCampaignsClient({
 
   function selectTemplate(templateId: string) {
     setSelectedTemplateId(templateId);
+    setNotice("");
     clearSendStatus();
   }
 
@@ -3251,7 +3252,11 @@ async function persistTemplate(template: MasterTemplate) {
 }
 
 function isDraftTemplateId(templateId: string) {
-  return templateId.startsWith("seed-") || templateId.startsWith("local-");
+  return templateId.startsWith("seed-") || isLocalDraftTemplateId(templateId);
+}
+
+function isLocalDraftTemplateId(templateId: string) {
+  return templateId.startsWith("local-");
 }
 
 function parseEmailCampaignSurface(search: string): EmailCampaignSurface {

@@ -138,6 +138,37 @@ export const emailThemeSettings = pgTable(
   ],
 ).enableRLS();
 
+export const emailHiddenSeedTemplates = pgTable(
+  "email_hidden_seed_templates",
+  {
+    sourceTemplateId: text("source_template_id").primaryKey().notNull(),
+    hiddenByUserId: uuid("hidden_by_user_id").notNull(),
+    hiddenAt: timestamp("hidden_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.hiddenByUserId],
+      foreignColumns: [users.id],
+      name: "email_hidden_seed_templates_hidden_by_user_id_fkey",
+    }).onDelete("restrict"),
+    pgPolicy("email_hidden_seed_templates_organizer_select", {
+      for: "select",
+      to: authenticatedRole,
+      using: isOrganizer,
+    }),
+    pgPolicy("email_hidden_seed_templates_organizer_insert", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: isOrganizer,
+    }),
+  ],
+).enableRLS();
+
 export const emailSendRuns = pgTable(
   "email_send_runs",
   {
@@ -275,5 +306,7 @@ export const emailSendDeliveries = pgTable(
 export type EmailTemplateRow = typeof emailTemplates.$inferSelect;
 export type NewEmailTemplate = typeof emailTemplates.$inferInsert;
 export type EmailThemeSettingRow = typeof emailThemeSettings.$inferSelect;
+export type EmailHiddenSeedTemplateRow =
+  typeof emailHiddenSeedTemplates.$inferSelect;
 export type EmailSendRunRow = typeof emailSendRuns.$inferSelect;
 export type EmailSendDeliveryRow = typeof emailSendDeliveries.$inferSelect;
