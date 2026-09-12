@@ -44,7 +44,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -1405,12 +1404,13 @@ export default function EmailCampaignsClient({
     <>
       <div className="shrink-0 space-y-2.5 border-b p-3">
         <div className="flex min-w-0 items-center gap-2">
+          <h2 className="truncate text-sm font-semibold">Templates</h2>
           {panelsMounted ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="shrink-0"
+              className="ml-auto shrink-0"
               title="Collapse templates panel"
               aria-label="Collapse templates panel"
               onClick={() => {
@@ -1421,10 +1421,6 @@ export default function EmailCampaignsClient({
               <PanelLeftClose />
             </Button>
           ) : null}
-          <h2 className="truncate text-sm font-semibold">Templates</h2>
-          <Badge variant="outline" className="shrink-0">
-            {filteredTemplates.length}
-          </Badge>
         </div>
         {templatesUploadInput}
         <div className="flex items-center gap-2">
