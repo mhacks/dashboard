@@ -3135,14 +3135,19 @@ function StylesPanel({
         <div className="grid gap-3 sm:grid-cols-2">
           {colorFields.map(([key, label]) => (
             <label key={key} className="flex items-center gap-3">
-              <input
-                type="color"
-                value={String(theme[key])}
-                onChange={(event) =>
-                  onThemeChange({ ...theme, [key]: event.target.value })
-                }
-                className="size-9 rounded-md border border-border bg-transparent"
-              />
+              <span
+                className="relative size-9 shrink-0 overflow-hidden rounded-md border border-border focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/50"
+                style={{ backgroundColor: String(theme[key]) }}
+              >
+                <input
+                  type="color"
+                  value={String(theme[key])}
+                  onChange={(event) =>
+                    onThemeChange({ ...theme, [key]: event.target.value })
+                  }
+                  className="absolute inset-0 size-full cursor-pointer opacity-0"
+                />
+              </span>
               <span className="min-w-0">
                 <span className="block text-sm text-muted-foreground">
                   {label}
