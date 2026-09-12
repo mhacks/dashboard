@@ -37,7 +37,12 @@ import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMounted } from "@/hooks/use-mounted";
+import {
+  buildAiTemplateContext,
+  toAiDraftTemplateContext,
+} from "@/lib/email/campaigns/ai-draft-context";
 import type {
   EmailAudienceQuery,
   EmailCampaignContent,
@@ -47,6 +52,7 @@ import { cn } from "@/lib/utils";
 import {
   deleteEmailTemplateAction,
   findActiveDirectSendAction,
+  generateEmailTemplateDraftAction,
   parseDirectRecipientsAction,
   renderEmailPreviewAction,
   resolveEmailAudienceAction,
@@ -277,6 +283,7 @@ export default function EmailCampaignsClient({
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const [notice, setNotice] = useState("");
   const [aiDraftText, setAiDraftText] = useState("");
+  const [aiDescription, setAiDescription] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -585,7 +592,11 @@ export default function EmailCampaignsClient({
     if (!selectedTemplate) return;
 
     try {
-      const context = buildAiTemplateContext(selectedTemplate, mergeFields);
+      const context = buildAiTemplateContext(
+        toAiDraftTemplateContext(selectedTemplate),
+        mergeFields,
+        defaultMergeSamples,
+      );
       await window.navigator.clipboard.writeText(context);
       setNotice("AI context copied.");
       showToast(
@@ -596,6 +607,35 @@ export default function EmailCampaignsClient({
     } catch {
       setNotice("Could not copy AI context.");
       showToast("error", "Could not copy AI context");
+    }
+  }
+
+  async function generateAiTemplateDraft() {
+    if (!selectedTemplate || !aiDescription.trim()) return;
+
+    setBusy("generate-ai-draft");
+
+    try {
+      const result = await generateEmailTemplateDraftAction({
+        description: aiDescription.trim(),
+        template: toAiDraftTemplateContext(selectedTemplate),
+        mergeFields,
+      });
+      setAiDraftText(result.draftText);
+      setNotice(
+        `Draft generated with ${result.model}. Review the JSON below, then import it.`,
+      );
+      showToast(
+        "success",
+        "Draft generated",
+        `Model: ${result.model}. Review before importing.`,
+      );
+    } catch (error) {
+      const message = errorMessage(error);
+      setNotice(message);
+      showToast("error", "Draft generation failed", message);
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -1330,8 +1370,12 @@ export default function EmailCampaignsClient({
         onDownloadTemplate={downloadSelectedTemplate}
         onDeleteTemplate={deleteSelectedTemplate}
         aiDraftText={aiDraftText}
+        aiDescription={aiDescription}
+        generateBusy={busy === "generate-ai-draft"}
         onAiDraftTextChange={setAiDraftText}
+        onAiDescriptionChange={setAiDescription}
         onCopyAiContext={() => void copyAiTemplateContext()}
+        onGenerateAiDraft={() => void generateAiTemplateDraft()}
         onImportAiDraft={importAiTemplateDraft}
         onMergePreviewDataChange={(field, value) =>
           setMergePreviewData((current) => ({
@@ -1693,8 +1737,12 @@ function BuilderPanel({
   onDownloadTemplate,
   onDeleteTemplate,
   aiDraftText,
+  aiDescription,
+  generateBusy,
   onAiDraftTextChange,
+  onAiDescriptionChange,
   onCopyAiContext,
+  onGenerateAiDraft,
   onImportAiDraft,
   onMergePreviewDataChange,
   onTemplateChange,
@@ -1712,8 +1760,12 @@ function BuilderPanel({
   onDownloadTemplate: () => void;
   onDeleteTemplate: () => void;
   aiDraftText: string;
+  aiDescription: string;
+  generateBusy: boolean;
   onAiDraftTextChange: (value: string) => void;
+  onAiDescriptionChange: (value: string) => void;
   onCopyAiContext: () => void;
+  onGenerateAiDraft: () => void;
   onImportAiDraft: () => void;
   onMergePreviewDataChange: (field: string, value: string) => void;
   onTemplateChange: (patch: Partial<MasterTemplate>) => void;
@@ -1964,8 +2016,12 @@ function BuilderPanel({
       <AiDraftPanel
         draftText={aiDraftText}
         templateType={selectedTemplate.type}
-        onCopyContext={onCopyAiContext}
+        aiDescription={aiDescription}
+        generateBusy={generateBusy}
+        onAiDescriptionChange={onAiDescriptionChange}
+        onCopyAiContext={onCopyAiContext}
         onDraftTextChange={onAiDraftTextChange}
+        onGenerateDraft={onGenerateAiDraft}
         onImportDraft={onImportAiDraft}
       />
     </div>
@@ -1975,55 +2031,110 @@ function BuilderPanel({
 function AiDraftPanel({
   draftText,
   templateType,
-  onCopyContext,
+  aiDescription,
+  generateBusy,
+  onAiDescriptionChange,
+  onCopyAiContext,
   onDraftTextChange,
+  onGenerateDraft,
   onImportDraft,
 }: {
   draftText: string;
   templateType: TemplateType;
-  onCopyContext: () => void;
+  aiDescription: string;
+  generateBusy: boolean;
+  onAiDescriptionChange: (value: string) => void;
+  onCopyAiContext: () => void;
   onDraftTextChange: (value: string) => void;
+  onGenerateDraft: () => void;
   onImportDraft: () => void;
 }) {
   return (
     <section className={cn(adminInsetClass, "p-4")}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              AI drafting
-            </p>
-            <span className="rounded border bg-card px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-              Beta
-            </span>
-          </div>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Copy a strict template context for ChatGPT or a local agent, then
-            paste its JSON draft here. Imports apply the draft to the current
-            template in place.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          className={adminSecondaryButtonClass}
-          onClick={onCopyContext}
-        >
-          <Copy />
-          Copy AI context
-        </Button>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          AI drafting
+        </p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          Describe the email you want to generate, or copy the strict template
+          prompt for an external agent. Review the JSON below before importing
+          it into the current template.
+        </p>
       </div>
 
-      <textarea
-        className={cn(textareaClass, "mt-3 min-h-32 text-xs")}
-        value={draftText}
-        onChange={(event) => onDraftTextChange(event.target.value)}
-        placeholder={
-          templateType === "html"
-            ? '{ "subject": "...", "previewText": "...", "html": "<p>...</p>" }'
-            : '{ "subject": "...", "previewText": "...", "content": { "heading": "...", "sections": [...] } }'
-        }
-      />
+      <Tabs defaultValue="generate" className="mt-4">
+        <TabsList variant="line">
+          <TabsTrigger value="generate">Generate</TabsTrigger>
+          <TabsTrigger value="manual">Manual prompt</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="generate" className="mt-4 space-y-3">
+          <Field label="What to generate">
+            <textarea
+              className={textareaClass}
+              rows={4}
+              value={aiDescription}
+              onChange={(event) => onAiDescriptionChange(event.target.value)}
+              placeholder="Example: A short RSVP reminder for accepted hackers. Friendly tone, mention the Friday deadline, and link to the dashboard."
+            />
+          </Field>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Uses OpenRouter&apos;s free router (openrouter/free). Generated
+              JSON appears below for review.
+            </p>
+            <Button
+              type="button"
+              className={adminPrimaryButtonClass}
+              disabled={generateBusy || !aiDescription.trim()}
+              onClick={onGenerateDraft}
+            >
+              <Sparkles />
+              Generate draft
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="manual" className="mt-4 space-y-3">
+          <p className="text-sm leading-6 text-muted-foreground">
+            Copy the full drafting prompt and current template context, then
+            paste the model&apos;s JSON response into the draft box below.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            className={adminSecondaryButtonClass}
+            onClick={onCopyAiContext}
+          >
+            <Copy />
+            Copy AI context
+          </Button>
+        </TabsContent>
+      </Tabs>
+
+      <Field label="Draft JSON">
+        <div className="relative">
+          {generateBusy ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md border border-border bg-background/85">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Generating draft…
+              </div>
+            </div>
+          ) : null}
+          <textarea
+            className={cn(textareaClass, "min-h-32 text-xs")}
+            value={draftText}
+            disabled={generateBusy}
+            onChange={(event) => onDraftTextChange(event.target.value)}
+            placeholder={
+              templateType === "html"
+                ? '{ "subject": "...", "previewText": "...", "html": "<p>...</p>" }'
+                : '{ "subject": "...", "previewText": "...", "content": { "heading": "...", "sections": [...] } }'
+            }
+          />
+        </div>
+      </Field>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           Importing updates the current template locally. It does not save or
@@ -2988,87 +3099,6 @@ function parseEmailCampaignSurface(search: string): EmailCampaignSurface {
   }
 
   return "builder";
-}
-
-function buildAiTemplateContext(
-  template: MasterTemplate,
-  mergeFields: string[],
-) {
-  const allowedMergeFields = Array.from(
-    new Set([...Object.keys(defaultMergeSamples), ...mergeFields]),
-  ).sort((a, b) => a.localeCompare(b));
-  const draftSchema =
-    template.type === "html"
-      ? {
-          name: "optional short template name",
-          description: "optional admin-only description",
-          subject: "required subject, max 180 chars",
-          previewText: "optional inbox preview, max 220 chars",
-          html: "required HTML fragment or document; no scripts, event handlers, or javascript URLs",
-        }
-      : {
-          name: "optional short template name",
-          description: "optional admin-only description",
-          subject: "required subject, max 180 chars",
-          previewText: "optional inbox preview, max 220 chars",
-          content: {
-            eyebrow: "optional short eyebrow",
-            heading: "required heading",
-            intro: "optional intro line",
-            sections: [
-              {
-                kind: "text or code",
-                title: "optional section title",
-                body: "required section copy",
-              },
-            ],
-            cta: {
-              label:
-                "the button text — required together with url, see rules below",
-              url: "plain http(s) or mailto URL; Markdown link syntax is accepted and normalized — required together with label",
-            },
-            footerNote: "optional footer note",
-          },
-        };
-
-  return [
-    "# MHacks Email Template Drafting Context (Beta)",
-    "",
-    "You are revising the CURRENT email template below for MHacks organizers. Return ONLY valid JSON. Do not include Markdown fences or commentary.",
-    "",
-    "Rules:",
-    "- Keep the message concise and operational.",
-    "- Use only the allowed merge fields listed below.",
-    "- Merge fields must be written as {{field_name}}.",
-    "- Do not invent applicant segments, audience sources, backend behavior, or sending rules.",
-    "- Do not include scripts, event handlers, tracking pixels, external forms, or javascript URLs.",
-    "- The cta field is entirely optional, but if you include it, both label and url are required together — never send one without the other. If you don't know the real destination URL, omit the cta field entirely rather than guessing or leaving url blank.",
-    "- Top-level fields you omit (name, description, subject, previewText) are left unchanged on the current template.",
-    "- If you include content (or html), return the COMPLETE block — it replaces the existing one wholesale, it is not merged field by field.",
-    "- The imported draft is applied to the current template in place; it will not create a separate template.",
-    "- The organizer will review before saving or sending.",
-    "",
-    `Template type: ${template.type}`,
-    `Allowed merge fields: ${allowedMergeFields.join(", ") || "none"}`,
-    "",
-    "Expected JSON shape:",
-    JSON.stringify(draftSchema, null, 2),
-    "",
-    "Current template:",
-    JSON.stringify(templateForAiContext(template), null, 2),
-  ].join("\n");
-}
-
-function templateForAiContext(template: MasterTemplate) {
-  return {
-    name: template.name,
-    type: template.type,
-    description: template.description,
-    subject: template.subject,
-    previewText: template.previewText,
-    content: template.content,
-    html: template.html,
-  };
 }
 
 function parseAiTemplateDraft(
