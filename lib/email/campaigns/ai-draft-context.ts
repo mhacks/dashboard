@@ -1,38 +1,22 @@
-import type { EmailCampaignContent } from "@/lib/email/types";
-import { emailCampaignContentSchema } from "@/lib/email/types";
-import { z } from "zod";
+import { defaultEmailMergeSamples } from "@/lib/email/merge-fields";
+import type {
+  EmailCampaignContent,
+  EmailTemplateType,
+} from "@/lib/email/types";
 
-export type AiDraftTemplateType = "structured" | "html";
-
-export const aiDraftTemplateContextSchema = z.object({
-  name: z.string(),
-  type: z.enum(["structured", "html"]),
-  description: z.string(),
-  subject: z.string(),
-  previewText: z.string(),
-  content: emailCampaignContentSchema.nullable(),
-  html: z.string().nullable(),
-});
-
-export interface AiDraftTemplateContext {
+export type AiDraftTemplateContext = {
   name: string;
-  type: AiDraftTemplateType;
+  type: EmailTemplateType;
   description: string;
   subject: string;
   previewText: string;
   content: EmailCampaignContent | null;
   html: string | null;
-}
+};
 
-export function toAiDraftTemplateContext(input: {
-  name: string;
-  type: AiDraftTemplateType;
-  description: string;
-  subject: string;
-  previewText: string;
-  content: EmailCampaignContent | null;
-  html: string | null;
-}): AiDraftTemplateContext {
+export function toAiDraftTemplateContext(
+  input: AiDraftTemplateContext,
+): AiDraftTemplateContext {
   return {
     name: input.name,
     type: input.type,
@@ -47,10 +31,9 @@ export function toAiDraftTemplateContext(input: {
 export function buildAiTemplateContext(
   template: AiDraftTemplateContext,
   mergeFields: string[],
-  defaultMergeSamples: Record<string, string>,
 ) {
   const allowedMergeFields = Array.from(
-    new Set([...Object.keys(defaultMergeSamples), ...mergeFields]),
+    new Set([...Object.keys(defaultEmailMergeSamples), ...mergeFields]),
   ).sort((a, b) => a.localeCompare(b));
   const draftSchema =
     template.type === "html"

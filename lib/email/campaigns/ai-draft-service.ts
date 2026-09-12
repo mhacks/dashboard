@@ -1,40 +1,35 @@
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { EmailCampaignError } from "@/lib/email/campaigns/config";
-import {
-  aiDraftTemplateContextSchema,
-  buildAiTemplateContext,
-} from "@/lib/email/campaigns/ai-draft-context";
+import { buildAiTemplateContext } from "@/lib/email/campaigns/ai-draft-context";
 import {
   createChatCompletion,
   openRouterFreeModel,
   OpenRouterError,
 } from "@/lib/openrouter/client";
-
-const defaultMergeSamples: Record<string, string> = {
-  email: "hacker@mhacks.org",
-  expires_in: "10 minutes",
-  first_name: "Hacker",
-  last_name: "Hacker",
-  name: "Hacker",
-  otp_code: "123456",
-  travel_reimbursement: "150.00",
-};
+import {
+  emailCampaignContentSchema,
+  emailTemplateTypeSchema,
+} from "@/lib/email/types";
 
 const generateEmailTemplateDraftSchema = z.object({
   description: z.string().trim().min(1).max(2000),
-  template: aiDraftTemplateContextSchema,
+  template: z.object({
+    name: z.string(),
+    type: emailTemplateTypeSchema,
+    description: z.string(),
+    subject: z.string(),
+    previewText: z.string(),
+    content: emailCampaignContentSchema.nullable(),
+    html: z.string().nullable(),
+  }),
   mergeFields: z.array(z.string()).default([]),
 });
 
 export async function generateEmailTemplateDraft(input: unknown) {
   await requireOrganizer();
   const body = generateEmailTemplateDraftSchema.parse(input);
-  const systemPrompt = buildAiTemplateContext(
-    body.template,
-    body.mergeFields,
-    defaultMergeSamples,
-  );
+  const systemPrompt = buildAiTemplateContext(body.template, body.mergeFields);
 
   try {
     const completion = await createChatCompletion({

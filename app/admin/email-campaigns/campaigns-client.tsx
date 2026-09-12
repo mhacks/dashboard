@@ -69,9 +69,17 @@ import {
   buildAiTemplateContext,
   toAiDraftTemplateContext,
 } from "@/lib/email/campaigns/ai-draft-context";
+import {
+  defaultEmailMergeSamples,
+  emailContentStrings,
+  extractEmailMergeFields,
+  extractMergeFieldsFromValues,
+} from "@/lib/email/merge-fields";
+import type { MasterTemplate } from "@/lib/email/templates/master-service";
 import type {
   EmailAudienceQuery,
   EmailCampaignContent,
+  EmailTemplateType,
   EmailThemeTokens,
 } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
@@ -88,25 +96,12 @@ import {
   sendDirectTestEmailsAction,
   sendOneDirectEmailAction,
 } from "./actions";
+import { parseEmailCampaignView, type EmailCampaignSurface } from "./surface";
+
+export type { EmailCampaignSurface };
 
 type PreviewMode = "desktop" | "mobile";
-export type EmailCampaignSurface = "builder" | "styles" | "send";
-type TemplateType = "structured" | "html";
 type RecipientSource = "manual" | "audience";
-
-export interface MasterTemplate {
-  id: string;
-  name: string;
-  type: TemplateType;
-  description: string;
-  subject: string;
-  previewText: string;
-  content: EmailCampaignContent | null;
-  html: string | null;
-  status: string;
-  updatedAt: string;
-  sourceTemplateId: string;
-}
 
 interface CampaignLimits {
   maxRecipients: number;
@@ -261,10 +256,10 @@ export default function EmailCampaignsClient({
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const templateSearchPopoverRef = useRef<HTMLInputElement | null>(null);
+  const previewRequestIdRef = useRef(0);
   const [surface, setSurface] = useState<EmailCampaignSurface>(initialSurface);
   const [templates, setTemplates] =
     useState<MasterTemplate[]>(initialTemplates);
-  const [campaignLimits] = useState<CampaignLimits>(initialCampaignLimits);
   const [recipientText, setRecipientText] = useState(() =>
     loadStoredSendRecipients(),
   );
@@ -347,7 +342,7 @@ export default function EmailCampaignsClient({
     });
   }, [templateSearch, templates]);
   const mergeFields = useMemo(
-    () => (selectedTemplate ? extractMergeFields(selectedTemplate) : []),
+    () => (selectedTemplate ? extractEmailMergeFields(selectedTemplate) : []),
     [selectedTemplate],
   );
   const currentTestProofKey = useMemo(
@@ -484,12 +479,10 @@ export default function EmailCampaignsClient({
 
   function updateSelectedTemplate(patch: Partial<MasterTemplate>) {
     if (!selectedTemplate) return;
-    const nextTemplate = {
+    replaceTemplate({
       ...selectedTemplate,
       ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-    replaceTemplate(nextTemplate);
+    });
   }
 
   function updateContent(patch: Partial<EmailCampaignContent>) {
@@ -627,7 +620,6 @@ export default function EmailCampaignsClient({
       const context = buildAiTemplateContext(
         toAiDraftTemplateContext(selectedTemplate),
         mergeFields,
-        defaultMergeSamples,
       );
       await window.navigator.clipboard.writeText(context);
       setNotice("AI context copied.");
@@ -704,11 +696,17 @@ export default function EmailCampaignsClient({
             mergeData: activeMergeData,
           };
 
+    const requestId = ++previewRequestIdRef.current;
+
     try {
       const rendered = await renderEmailPreviewAction(payload);
-      setPreviewHtml(rendered.html);
+      if (previewRequestIdRef.current === requestId) {
+        setPreviewHtml(rendered.html);
+      }
     } catch {
-      setPreviewHtml("");
+      if (previewRequestIdRef.current === requestId) {
+        setPreviewHtml("");
+      }
     }
   }
 
@@ -1072,7 +1070,11 @@ export default function EmailCampaignsClient({
 
   useEffect(() => {
     function handlePopState() {
-      setSurface(parseEmailCampaignSurface(window.location.search));
+      setSurface(
+        parseEmailCampaignView(
+          new URLSearchParams(window.location.search).get("view"),
+        ),
+      );
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -1145,7 +1147,7 @@ export default function EmailCampaignsClient({
             });
           });
       },
-      delayUntil(leaseExpiresAt, 250),
+      Math.max(delayUntil(leaseExpiresAt, 250), 1000),
     );
 
     return () => window.clearTimeout(timer);
@@ -1369,7 +1371,7 @@ export default function EmailCampaignsClient({
       <SendPanel
         selectedTemplate={selectedTemplate}
         mergeFields={mergeFields}
-        limits={campaignLimits}
+        limits={initialCampaignLimits}
         recipientSource={recipientSource}
         recipientText={recipientText}
         recipientResult={recipientResult}
@@ -2068,7 +2070,7 @@ function AiDraftPanel({
   onImportDraft,
 }: {
   draftText: string;
-  templateType: TemplateType;
+  templateType: EmailTemplateType;
   aiDescription: string;
   generateBusy: boolean;
   onAiDescriptionChange: (value: string) => void;
@@ -2184,31 +2186,17 @@ function AiDraftStep({
     <section
       className={cn("space-y-3", divided && "mt-6 border-t border-border pt-6")}
     >
-      <AiDraftStepHeader step={step} title={title} description={description} />
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">
+          <span className="text-muted-foreground">{step}.</span> {title}
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
       {children}
       <div className="flex flex-wrap items-center justify-end gap-2">
         {actions}
       </div>
     </section>
-  );
-}
-
-function AiDraftStepHeader({
-  step,
-  title,
-  description,
-}: {
-  step: number;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold text-foreground">
-        <span className="text-muted-foreground">{step}.</span> {title}
-      </h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
   );
 }
 
@@ -2950,16 +2938,6 @@ function isLocalDraftTemplateId(templateId: string) {
   return templateId.startsWith("local-");
 }
 
-function parseEmailCampaignSurface(search: string): EmailCampaignSurface {
-  const view = new URLSearchParams(search).get("view");
-
-  if (view === "styles" || view === "send") {
-    return view;
-  }
-
-  return "builder";
-}
-
 function parseAiTemplateDraft(
   rawDraft: string,
   template: MasterTemplate,
@@ -2968,7 +2946,7 @@ function parseAiTemplateDraft(
   const parsed = parseJsonObject(rawDraft);
   const draft = isRecord(parsed.template) ? parsed.template : parsed;
   const allowedMergeFields = new Set([
-    ...Object.keys(defaultMergeSamples),
+    ...Object.keys(defaultEmailMergeSamples),
     ...currentMergeFields,
   ]);
   const next: Partial<MasterTemplate> = {};
@@ -3024,15 +3002,18 @@ function parseJsonObject(rawDraft: string): Record<string, unknown> {
     throw new Error("Paste a JSON object from the AI draft.");
   }
 
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(withoutFence.slice(start, end + 1));
-    if (!isRecord(parsed)) {
-      throw new Error("AI draft must be a JSON object.");
-    }
-    return parsed;
+    parsed = JSON.parse(withoutFence.slice(start, end + 1));
   } catch {
     throw new Error("AI draft JSON could not be parsed.");
   }
+
+  if (!isRecord(parsed)) {
+    throw new Error("AI draft must be a JSON object.");
+  }
+
+  return parsed;
 }
 
 function parseAiContentDraft(
@@ -3099,7 +3080,7 @@ function parseAiContentDraft(
     };
   }
 
-  assertAllowedMergeFields(contentStrings(content), allowedMergeFields);
+  assertAllowedMergeFields(emailContentStrings(content), allowedMergeFields);
   return content;
 }
 
@@ -3113,21 +3094,6 @@ function assertAllowedMergeFields(
   if (unknown.length > 0) {
     throw new Error(`Unknown merge fields: ${unknown.join(", ")}`);
   }
-}
-
-function contentStrings(content: EmailCampaignContent) {
-  return [
-    content.eyebrow ?? "",
-    content.heading,
-    content.intro ?? "",
-    content.cta?.label ?? "",
-    content.cta?.url ?? "",
-    content.footerNote ?? "",
-    ...content.sections.flatMap((section) => [
-      section.title ?? "",
-      section.body,
-    ]),
-  ];
 }
 
 function assertSafeHtml(html: string) {
@@ -3209,15 +3175,8 @@ function loadStoredTheme() {
 }
 
 function storeTheme(theme: EmailThemeTokens) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(
-    themeStorageVersionKey,
-    currentThemeStorageVersion,
-  );
-  window.localStorage.setItem(themeStorageKey, JSON.stringify(theme));
+  writeStorage(themeStorageVersionKey, currentThemeStorageVersion);
+  writeJsonStorage(themeStorageKey, theme);
 }
 
 function loadStoredSendStatus() {
@@ -3238,22 +3197,11 @@ function loadStoredSendStatus() {
 }
 
 function storeSendStatus(status: DirectSendStatus) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(
-    activeSendStatusStorageKey,
-    JSON.stringify(status),
-  );
+  writeJsonStorage(activeSendStatusStorageKey, status);
 }
 
 function removeStoredSendStatus() {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.removeItem(activeSendStatusStorageKey);
+  removeStorage(activeSendStatusStorageKey);
 }
 
 function loadStoredSendRecipients() {
@@ -3265,19 +3213,11 @@ function loadStoredSendRecipients() {
 }
 
 function storeSendRecipients(recipients: string) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(activeSendRecipientsStorageKey, recipients);
+  writeStorage(activeSendRecipientsStorageKey, recipients);
 }
 
 function removeStoredSendRecipients() {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.removeItem(activeSendRecipientsStorageKey);
+  removeStorage(activeSendRecipientsStorageKey);
 }
 
 function loadStoredTestSendProof() {
@@ -3285,52 +3225,11 @@ function loadStoredTestSendProof() {
 }
 
 function storeTestSendProof(proof: TestSendProof) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(activeTestProofStorageKey, JSON.stringify(proof));
+  writeJsonStorage(activeTestProofStorageKey, proof);
 }
 
 function removeStoredTestSendProof() {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.removeItem(activeTestProofStorageKey);
-}
-
-function extractMergeFields(template: MasterTemplate) {
-  const values = [
-    template.subject,
-    template.previewText,
-    template.html ?? "",
-    template.content?.eyebrow ?? "",
-    template.content?.heading ?? "",
-    template.content?.intro ?? "",
-    template.content?.cta?.label ?? "",
-    template.content?.cta?.url ?? "",
-    template.content?.footerNote ?? "",
-    ...(template.content?.sections.flatMap((section) => [
-      section.title ?? "",
-      section.body,
-    ]) ?? []),
-  ];
-
-  return extractMergeFieldsFromValues(values);
-}
-
-function extractMergeFieldsFromValues(values: string[]) {
-  const fields = new Set<string>();
-  const pattern = /{{\s*([\w.-]+)\s*}}/g;
-
-  for (const value of values) {
-    for (const match of value.matchAll(pattern)) {
-      fields.add(match[1]);
-    }
-  }
-
-  return Array.from(fields).sort((a, b) => a.localeCompare(b));
+  removeStorage(activeTestProofStorageKey);
 }
 
 function ensureMergePreviewData(
@@ -3346,18 +3245,10 @@ function ensureMergePreviewData(
   return next;
 }
 
-const defaultMergeSamples: Record<string, string> = {
-  email: "hacker@mhacks.org",
-  expires_in: "10 minutes",
-  first_name: "Hacker",
-  last_name: "Hacker",
-  name: "Hacker",
-  otp_code: "123456",
-  travel_reimbursement: "150.00",
-};
-
 function defaultMergeValue(field: string) {
-  return defaultMergeSamples[field] ?? `Sample ${field.replaceAll("_", " ")}`;
+  return (
+    defaultEmailMergeSamples[field] ?? `Sample ${field.replaceAll("_", " ")}`
+  );
 }
 
 function buildDirectSendTemplate(
@@ -3409,7 +3300,6 @@ function buildTestSendProofKey(
 
   return JSON.stringify({
     templateId: template.id,
-    updatedAt: template.updatedAt,
     type: template.type,
     subject: template.subject,
     previewText: template.previewText,
@@ -3506,11 +3396,29 @@ function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
+function writeJsonStorage(key: string, value: unknown) {
+  writeStorage(key, JSON.stringify(value));
+}
+
+function writeStorage(key: string, value: string) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  window.localStorage.setItem(key, value);
+}
+
+function removeStorage(key: string) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  window.localStorage.removeItem(key);
+}
+
 function canUseLocalStorage() {
   return typeof window !== "undefined" && Boolean(window.localStorage);
 }
-
-const adminPanelClass = "rounded-lg border bg-card";
 
 const adminSecondaryButtonClass =
   "rounded-md border border-border bg-card px-3 text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
@@ -3520,9 +3428,6 @@ const adminPrimaryButtonClass =
 
 const adminDangerButtonClass =
   "rounded-md bg-destructive/10 px-3 text-destructive shadow-none transition-colors hover:bg-destructive/20";
-
-const adminIconButtonClass =
-  "rounded-md border border-border bg-card text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
 
 const adminMiniButtonClass =
   "rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";

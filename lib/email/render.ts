@@ -1,6 +1,7 @@
 import { render, toPlainText } from "@react-email/render";
 import { getEmailTemplate } from "@/lib/email/templates/registry";
 import { defaultEmailTheme, normalizeEmailTheme } from "@/lib/email/theme";
+import { defaultEmailMergeSamples } from "@/lib/email/merge-fields";
 import {
   emailCampaignContentSchema,
   emailRenderPreviewSchema,
@@ -64,11 +65,7 @@ export async function renderCampaignEmail({
 export async function renderEmailPreview(input: unknown) {
   const parsed = emailRenderPreviewSchema.parse(input);
   const mergeData = {
-    email: "hacker@mhacks.org",
-    expires_in: "10 minutes",
-    name: "Hacker",
-    otp_code: "123456",
-    travel_reimbursement: "150.00",
+    ...defaultEmailMergeSamples,
     ...parsed.mergeData,
   };
 

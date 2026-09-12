@@ -5,9 +5,8 @@ import {
   getSeedMasterTemplates,
   listMasterTemplates,
 } from "@/lib/email/templates/master-service";
-import EmailCampaignsClient, {
-  type EmailCampaignSurface,
-} from "./campaigns-client";
+import EmailCampaignsClient from "./campaigns-client";
+import { parseEmailCampaignView } from "./surface";
 
 export default async function EmailCampaignsPage({
   searchParams,
@@ -26,18 +25,6 @@ export default async function EmailCampaignsPage({
       initialCampaignLimits={getCampaignLimits()}
     />
   );
-}
-
-function parseEmailCampaignView(
-  value: string | string[] | undefined,
-): EmailCampaignSurface {
-  const view = Array.isArray(value) ? value[0] : value;
-
-  if (view === "styles" || view === "send") {
-    return view;
-  }
-
-  return "builder";
 }
 
 async function loadInitialEmailWorkspace() {

@@ -23,6 +23,7 @@ import {
   snapshotFromDirectTemplate,
   type SendResult,
 } from "@/lib/email/campaigns/service";
+import { extractEmailMergeFields } from "@/lib/email/merge-fields";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import {
   directBatchSendSchema,
@@ -1135,7 +1136,7 @@ function assertRequiredMergeColumns(
 ) {
   const columnSet = new Set(columns);
   const builtInFields = new Set(["email", "name"]);
-  const missing = extractDirectTemplateMergeFields(template).filter(
+  const missing = extractEmailMergeFields(template).filter(
     (field) => !builtInFields.has(field) && !columnSet.has(field),
   );
 
@@ -1147,36 +1148,6 @@ function assertRequiredMergeColumns(
       400,
     );
   }
-}
-
-function extractDirectTemplateMergeFields(template: DirectEmailTemplateInput) {
-  const values =
-    template.type === "html"
-      ? [template.subject, template.previewText, template.html]
-      : [
-          template.subject,
-          template.previewText,
-          template.content.eyebrow ?? "",
-          template.content.heading,
-          template.content.intro ?? "",
-          template.content.cta?.label ?? "",
-          template.content.cta?.url ?? "",
-          template.content.footerNote ?? "",
-          ...template.content.sections.flatMap((section) => [
-            section.title ?? "",
-            section.body,
-          ]),
-        ];
-  const fields = new Set<string>();
-  const pattern = /{{\s*([\w.-]+)\s*}}/g;
-
-  for (const value of values) {
-    for (const match of value.matchAll(pattern)) {
-      fields.add(match[1]);
-    }
-  }
-
-  return Array.from(fields).sort((left, right) => left.localeCompare(right));
 }
 
 function campaignLikeFromDirectTemplate(template: DirectEmailTemplateInput) {
