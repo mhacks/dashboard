@@ -1712,7 +1712,7 @@ function BuilderPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <EditorSection title="Template info">
         <Field label="Template name">
           <input
             className={inputClass}
@@ -1720,6 +1720,53 @@ function BuilderPanel({
             onChange={(event) => onTemplateChange({ name: event.target.value })}
           />
         </Field>
+        <Field label="Description">
+          <input
+            className={inputClass}
+            value={selectedTemplate.description}
+            onChange={(event) =>
+              onTemplateChange({ description: event.target.value })
+            }
+          />
+        </Field>
+        {selectedTemplate.type !== "html" && selectedTemplate.content ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="CTA label">
+              <input
+                className={inputClass}
+                value={selectedTemplate.content.cta?.label ?? ""}
+                onChange={(event) =>
+                  onContentChange({
+                    cta: {
+                      label: event.target.value,
+                      url:
+                        selectedTemplate.content?.cta?.url ??
+                        "https://mhacks.org",
+                    },
+                  })
+                }
+              />
+            </Field>
+            <Field label="CTA URL">
+              <input
+                className={inputClass}
+                value={selectedTemplate.content.cta?.url ?? ""}
+                onChange={(event) =>
+                  onContentChange({
+                    cta: {
+                      label:
+                        selectedTemplate.content?.cta?.label ?? "Learn more",
+                      url: event.target.value,
+                    },
+                  })
+                }
+              />
+            </Field>
+          </div>
+        ) : null}
+      </EditorSection>
+
+      <EditorSection title="Email subject">
         <Field label="Subject">
           <input
             className={inputClass}
@@ -1729,25 +1776,166 @@ function BuilderPanel({
             }
           />
         </Field>
-      </div>
-      <Field label="Preview text">
-        <input
-          className={inputClass}
-          value={selectedTemplate.previewText}
-          onChange={(event) =>
-            onTemplateChange({ previewText: event.target.value })
-          }
-        />
-      </Field>
-      <Field label="Description">
-        <input
-          className={inputClass}
-          value={selectedTemplate.description}
-          onChange={(event) =>
-            onTemplateChange({ description: event.target.value })
-          }
-        />
-      </Field>
+        <Field label="Preview text">
+          <input
+            className={inputClass}
+            value={selectedTemplate.previewText}
+            onChange={(event) =>
+              onTemplateChange({ previewText: event.target.value })
+            }
+          />
+        </Field>
+      </EditorSection>
+
+      {selectedTemplate.type === "html" ? (
+        <EditorSection title="Blocks">
+          <Field label="HTML template">
+            <textarea
+              className={`${textareaClass} text-xs`}
+              rows={18}
+              value={selectedTemplate.html ?? ""}
+              onChange={(event) =>
+                onTemplateChange({ html: event.target.value })
+              }
+            />
+          </Field>
+        </EditorSection>
+      ) : selectedTemplate.content ? (
+        <EditorSection title="Blocks">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Eyebrow">
+              <input
+                className={inputClass}
+                value={selectedTemplate.content.eyebrow ?? ""}
+                onChange={(event) =>
+                  onContentChange({ eyebrow: event.target.value })
+                }
+              />
+            </Field>
+            <Field label="Heading">
+              <input
+                className={inputClass}
+                value={selectedTemplate.content.heading}
+                onChange={(event) =>
+                  onContentChange({ heading: event.target.value })
+                }
+              />
+            </Field>
+          </div>
+          <Field label="Intro">
+            <textarea
+              className={textareaClass}
+              rows={2}
+              value={selectedTemplate.content.intro ?? ""}
+              onChange={(event) =>
+                onContentChange({ intro: event.target.value })
+              }
+            />
+          </Field>
+
+          <div className="overflow-hidden rounded-md border border-border bg-card">
+            <div className="grid lg:grid-cols-[230px_1fr]">
+              <div className="border-b p-3 lg:border-b-0 lg:border-r">
+                <div className="mb-3 flex items-center justify-end">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    className={adminIconButtonClass}
+                    onClick={onSectionAdd}
+                  >
+                    <Plus />
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {selectedTemplate.content.sections.map((section, index) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => onSectionSelect(index)}
+                      className={`w-full rounded-md border p-3 text-left text-sm transition ${
+                        selectedSectionIndex === index
+                          ? "border-primary bg-card "
+                          : "border-border bg-transparent hover:bg-card"
+                      }`}
+                    >
+                      <p className="truncate font-medium text-foreground">
+                        {section.title || `Block ${index + 1}`}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {section.body}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4">
+                {selectedSection ? (
+                  <>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold">Selected block</p>
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className={adminMiniButtonClass}
+                          onClick={() =>
+                            onSectionMove(selectedSectionIndex, -1)
+                          }
+                        >
+                          <ArrowUp />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className={adminMiniButtonClass}
+                          onClick={() => onSectionMove(selectedSectionIndex, 1)}
+                        >
+                          <ArrowDown />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className={adminMiniButtonClass}
+                          onClick={() => onSectionRemove(selectedSectionIndex)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </div>
+                    <Field label="Block title">
+                      <input
+                        className={inputClass}
+                        value={selectedSection.title ?? ""}
+                        onChange={(event) =>
+                          onSectionChange(selectedSectionIndex, {
+                            title: event.target.value,
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="Block copy">
+                      <textarea
+                        className={textareaClass}
+                        rows={7}
+                        value={selectedSection.body}
+                        onChange={(event) =>
+                          onSectionChange(selectedSectionIndex, {
+                            body: event.target.value,
+                          })
+                        }
+                      />
+                    </Field>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Select a block to edit.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </EditorSection>
+      ) : null}
 
       <MergeFieldsPanel
         fields={mergeFields}
@@ -1762,177 +1950,6 @@ function BuilderPanel({
         onDraftTextChange={onAiDraftTextChange}
         onImportDraft={onImportAiDraft}
       />
-
-      {selectedTemplate.type === "html" ? (
-        <Field label="HTML template">
-          <textarea
-            className={`${textareaClass} text-xs`}
-            rows={18}
-            value={selectedTemplate.html ?? ""}
-            onChange={(event) => onTemplateChange({ html: event.target.value })}
-          />
-        </Field>
-      ) : selectedTemplate.content ? (
-        <div className="grid gap-4 lg:grid-cols-[230px_1fr]">
-          <div className={cn(adminInsetClass, "p-3")}>
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Blocks
-              </p>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                className={adminIconButtonClass}
-                onClick={onSectionAdd}
-              >
-                <Plus />
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {selectedTemplate.content.sections.map((section, index) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => onSectionSelect(index)}
-                  className={`w-full rounded-md border p-3 text-left text-sm transition ${
-                    selectedSectionIndex === index
-                      ? "border-primary bg-card "
-                      : "border-border bg-transparent hover:bg-card"
-                  }`}
-                >
-                  <p className="truncate font-medium text-foreground">
-                    {section.title || `Block ${index + 1}`}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {section.body}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Eyebrow">
-                <input
-                  className={inputClass}
-                  value={selectedTemplate.content.eyebrow ?? ""}
-                  onChange={(event) =>
-                    onContentChange({ eyebrow: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Heading">
-                <input
-                  className={inputClass}
-                  value={selectedTemplate.content.heading}
-                  onChange={(event) =>
-                    onContentChange({ heading: event.target.value })
-                  }
-                />
-              </Field>
-            </div>
-            <Field label="Intro">
-              <textarea
-                className={textareaClass}
-                rows={2}
-                value={selectedTemplate.content.intro ?? ""}
-                onChange={(event) =>
-                  onContentChange({ intro: event.target.value })
-                }
-              />
-            </Field>
-            {selectedSection ? (
-              <div className={cn(adminInsetClass, "p-4")}>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold">Selected block</p>
-                  <div className="flex gap-1">
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className={adminMiniButtonClass}
-                      onClick={() => onSectionMove(selectedSectionIndex, -1)}
-                    >
-                      <ArrowUp />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className={adminMiniButtonClass}
-                      onClick={() => onSectionMove(selectedSectionIndex, 1)}
-                    >
-                      <ArrowDown />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className={adminMiniButtonClass}
-                      onClick={() => onSectionRemove(selectedSectionIndex)}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                </div>
-                <Field label="Block title">
-                  <input
-                    className={inputClass}
-                    value={selectedSection.title ?? ""}
-                    onChange={(event) =>
-                      onSectionChange(selectedSectionIndex, {
-                        title: event.target.value,
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="Block copy">
-                  <textarea
-                    className={textareaClass}
-                    rows={7}
-                    value={selectedSection.body}
-                    onChange={(event) =>
-                      onSectionChange(selectedSectionIndex, {
-                        body: event.target.value,
-                      })
-                    }
-                  />
-                </Field>
-              </div>
-            ) : null}
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="CTA label">
-                <input
-                  className={inputClass}
-                  value={selectedTemplate.content.cta?.label ?? ""}
-                  onChange={(event) =>
-                    onContentChange({
-                      cta: {
-                        label: event.target.value,
-                        url:
-                          selectedTemplate.content?.cta?.url ??
-                          "https://mhacks.org",
-                      },
-                    })
-                  }
-                />
-              </Field>
-              <Field label="CTA URL">
-                <input
-                  className={inputClass}
-                  value={selectedTemplate.content.cta?.url ?? ""}
-                  onChange={(event) =>
-                    onContentChange({
-                      cta: {
-                        label:
-                          selectedTemplate.content?.cta?.label ?? "Learn more",
-                        url: event.target.value,
-                      },
-                    })
-                  }
-                />
-              </Field>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -2871,6 +2888,37 @@ function PreviewButton({
     >
       {children}
     </button>
+  );
+}
+
+function EditorSection({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={cn(adminInsetClass, "p-4")}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {title}
+          </p>
+          {description ? (
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {action}
+      </div>
+      <div className="mt-4 space-y-4">{children}</div>
+    </section>
   );
 }
 
