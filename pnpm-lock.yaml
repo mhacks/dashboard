@@ -29,6 +29,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.26.0
         version: 1.26.0(supports-color@7.2.0)(zod@4.4.3)
+      '@openrouter/sdk':
+        specifier: ^1.2.117
+        version: 1.2.117
       '@posthog/mcp':
         specifier: 0.9.1
         version: 0.9.1(@modelcontextprotocol/sdk@1.26.0(supports-color@7.2.0)(zod@4.4.3))(posthog-node@5.46.0)
@@ -1315,6 +1318,9 @@ packages:
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
+
+  '@openrouter/sdk@1.2.117':
+    resolution: {integrity: sha512-ThL0JVomOfwSjSqHbhAUAccUCW+mOjDW7CX7h4V5m6shjlhy4fTbhRBR0oo4SCr9kgKr/9NVh03sQUXJpO1yow==}
 
   '@posthog/browser-common@0.2.0':
     resolution: {integrity: sha512-w+/0/Be/x48uNM7d/M37ZimSGwhuh8WBSvx61xzKzFnuoV5HqmH7GNDhaM3E3exXoBZmWNPS8hM/Ufy8zoOQSg==}
@@ -6499,6 +6505,10 @@ snapshots:
       fastq: 1.20.1
 
   '@nolyfill/is-core-module@1.0.39': {}
+
+  '@openrouter/sdk@1.2.117':
+    dependencies:
+      zod: 4.4.3
 
   '@posthog/browser-common@0.2.0':
     dependencies:

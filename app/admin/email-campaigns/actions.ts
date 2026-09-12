@@ -17,6 +17,7 @@ import {
   saveActiveTheme,
   updateMasterTemplate,
 } from "@/lib/email/templates/master-service";
+import { generateEmailTemplateDraft } from "@/lib/email/campaigns/ai-draft-service";
 import {
   emailTemplateUpsertSchema,
   emailThemeTokensSchema,
@@ -96,6 +97,10 @@ export async function sendDirectTestEmailsAction(input: unknown) {
 
 export async function sendDirectBatchAction(input: unknown) {
   return sendDirectBatch(input);
+}
+
+export async function generateEmailTemplateDraftAction(input: unknown) {
+  return generateEmailTemplateDraft(input);
 }
 
 function redactEmailAddresses(value: string | null) {

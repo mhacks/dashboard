@@ -9,7 +9,15 @@ import { useEffect, useState } from "react";
  * first client pass.
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  return useMediaQueryState(query) === true;
+}
+
+/**
+ * Like useMediaQuery, but stays `null` until the first client measurement so
+ * callers can avoid mounting the wrong layout for a frame.
+ */
+export function useMediaQueryState(query: string): boolean | null {
+  const [matches, setMatches] = useState<boolean | null>(null);
 
   useEffect(() => {
     const list = window.matchMedia(query);
