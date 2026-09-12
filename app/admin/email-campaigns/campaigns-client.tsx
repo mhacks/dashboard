@@ -38,10 +38,13 @@ import {
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -1482,7 +1485,6 @@ export default function EmailCampaignsClient({
         notice={notice}
         selectedTemplate={selectedTemplate}
         onDownloadTemplate={downloadSelectedTemplate}
-        onDeleteTemplate={deleteSelectedTemplate}
         onOpenAiDraft={() => setAiDraftOpen(true)}
         onTemplateChange={updateSelectedTemplate}
         onContentChange={updateContent}
@@ -1534,6 +1536,9 @@ export default function EmailCampaignsClient({
         activeView={surface}
         onViewChange={changeSurface}
         onSave={handleWorkspaceSave}
+        onDelete={deleteSelectedTemplate}
+        canDelete={selectedTemplate !== null}
+        templateName={selectedTemplate?.name ?? ""}
         busy={busy}
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-5">{workspaceBody}</div>
@@ -1802,16 +1807,25 @@ function EmailCampaignWorkspaceHeader({
   activeView,
   onViewChange,
   onSave,
+  onDelete,
+  canDelete,
+  templateName,
   busy,
 }: {
   activeView: EmailCampaignSurface;
   onViewChange: (view: EmailCampaignSurface) => void;
   onSave: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
+  templateName: string;
   busy: string | null;
 }) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const saveLabel = activeView === "styles" ? "Save styles" : "Save";
   const saveBusy =
     activeView === "styles" ? busy === "save-styles" : busy === "save-template";
+  const deleteBusy = busy === "delete-template";
+  const deleteLabel = templateName.trim() || "this template";
 
   return (
     <div className="flex h-14 shrink-0 flex-nowrap items-center justify-between gap-3 border-b bg-card px-4">
@@ -1819,14 +1833,46 @@ function EmailCampaignWorkspaceHeader({
         activeView={activeView}
         onViewChange={onViewChange}
       />
-      <Button
-        className={cn(adminPrimaryButtonClass, "shrink-0")}
-        onClick={onSave}
-        disabled={saveBusy}
-      >
-        <Save />
-        {saveLabel}
-      </Button>
+      <div className="flex shrink-0 items-center gap-2">
+        {canDelete ? (
+          <Button
+            className={cn(adminDangerButtonClass, "shrink-0")}
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+            disabled={deleteBusy}
+          >
+            <Trash2 />
+            Delete
+          </Button>
+        ) : null}
+        <Button
+          className={cn(adminPrimaryButtonClass, "shrink-0")}
+          onClick={onSave}
+          disabled={saveBusy}
+        >
+          <Save />
+          {saveLabel}
+        </Button>
+      </div>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+              <AlertTriangle />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Delete this template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteLabel} will be permanently removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={onDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1910,7 +1956,6 @@ function BuilderPanel({
   notice,
   selectedTemplate,
   onDownloadTemplate,
-  onDeleteTemplate,
   onOpenAiDraft,
   onTemplateChange,
   onContentChange,
@@ -1922,7 +1967,6 @@ function BuilderPanel({
   notice: string;
   selectedTemplate: MasterTemplate | null;
   onDownloadTemplate: () => void;
-  onDeleteTemplate: () => void;
   onOpenAiDraft: () => void;
   onTemplateChange: (patch: Partial<MasterTemplate>) => void;
   onContentChange: (patch: Partial<EmailCampaignContent>) => void;
@@ -1973,16 +2017,6 @@ function BuilderPanel({
             aria-label="Download template"
           >
             <Download />
-          </Button>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            className={adminMiniButtonClass}
-            onClick={onDeleteTemplate}
-            aria-label="Remove template"
-          >
-            <Trash2 />
           </Button>
         </div>
         <InlineEditableField
@@ -3765,7 +3799,7 @@ const adminPrimaryButtonClass =
   "h-8 rounded-md bg-primary px-3 text-primary-foreground shadow-none transition-colors hover:bg-primary/90";
 
 const adminDangerButtonClass =
-  "h-8 rounded-md border border-border bg-card px-3 text-muted-foreground shadow-none transition-colors hover:bg-destructive/10 hover:text-destructive";
+  "h-8 rounded-md bg-destructive/10 px-3 text-destructive shadow-none transition-colors hover:bg-destructive/20";
 
 const adminIconButtonClass =
   "rounded-md border border-border bg-card text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
