@@ -350,6 +350,14 @@ export default function EmailCampaignsClient({
     }
   }
 
+  function handleWorkspaceSave() {
+    if (surface === "styles") {
+      void saveStyles();
+    } else {
+      void saveTemplateToMaster();
+    }
+  }
+
   function createStructuredTemplate() {
     const template: MasterTemplate = {
       id: `local-template-${crypto.randomUUID()}`,
@@ -1341,7 +1349,6 @@ export default function EmailCampaignsClient({
         mergeFields={mergeFields}
         mergePreviewData={effectiveMergePreviewData}
         busy={busy}
-        onSaveTemplate={() => void saveTemplateToMaster()}
         onDownloadTemplate={downloadSelectedTemplate}
         onDeleteTemplate={deleteSelectedTemplate}
         aiDraftText={aiDraftText}
@@ -1363,12 +1370,7 @@ export default function EmailCampaignsClient({
         onSectionMove={moveSection}
       />
     ) : surface === "styles" ? (
-      <StylesPanel
-        theme={theme}
-        busy={busy}
-        onThemeChange={updateTheme}
-        onSaveStyles={() => void saveStyles()}
-      />
+      <StylesPanel theme={theme} onThemeChange={updateTheme} />
     ) : (
       <SendPanel
         selectedTemplate={selectedTemplate}
@@ -1403,6 +1405,18 @@ export default function EmailCampaignsClient({
         onResolveInterrupted={() => void resolveInterruptedDelivery()}
       />
     );
+
+  const workspaceChrome = (
+    <>
+      <EmailCampaignWorkspaceHeader
+        activeView={surface}
+        onViewChange={changeSurface}
+        onSave={handleWorkspaceSave}
+        busy={busy}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto p-5">{workspaceBody}</div>
+    </>
+  );
 
   const previewBody = (
     <>
@@ -1459,12 +1473,6 @@ export default function EmailCampaignsClient({
           title="Email Campaigns"
           description="Build reusable templates, preview merge fields, and send CSV-based emails."
           variant="workspace"
-          actions={
-            <EmailCampaignViewNav
-              activeView={surface}
-              onViewChange={changeSurface}
-            />
-          }
         />
         {panelsMounted ? (
           <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex">
@@ -1496,11 +1504,11 @@ export default function EmailCampaignsClient({
 
               <ResizablePanel
                 id="campaign-workspace"
-                minSize={320}
+                minSize={480}
                 className="min-h-0 min-w-0"
               >
-                <section className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto border-r bg-muted/30 p-5">
-                  {workspaceBody}
+                <section className="flex h-full min-h-0 min-w-[30rem] flex-col overflow-hidden border-r bg-muted/30">
+                  {workspaceChrome}
                 </section>
               </ResizablePanel>
 
@@ -1517,12 +1525,12 @@ export default function EmailCampaignsClient({
             </ResizablePanelGroup>
           </div>
         ) : (
-          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:grid lg:grid-cols-[300px_minmax(0,1fr)_420px]">
+          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:grid lg:grid-cols-[300px_minmax(30rem,1fr)_420px]">
             <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
               {templatesListBody}
             </aside>
-            <section className="flex min-h-0 min-w-0 flex-col overflow-y-auto border-r bg-muted/30 p-5">
-              {workspaceBody}
+            <section className="flex h-full min-h-0 min-w-[30rem] flex-col overflow-hidden border-r bg-muted/30">
+              {workspaceChrome}
             </section>
             <section className="flex min-h-0 min-w-0 flex-col overflow-hidden p-4">
               {previewBody}
@@ -1534,8 +1542,8 @@ export default function EmailCampaignsClient({
           <aside className="flex flex-col overflow-hidden border-b bg-card">
             {templatesListBody}
           </aside>
-          <section className="flex flex-col overflow-y-auto border-b bg-muted/30 p-5">
-            {workspaceBody}
+          <section className="flex min-w-[30rem] flex-col overflow-hidden border-b bg-muted/30">
+            {workspaceChrome}
           </section>
           <section className="flex flex-col overflow-hidden p-4">
             {previewBody}
@@ -1557,7 +1565,7 @@ function EmailCampaignViewNav({
   return (
     <nav
       aria-label="Email campaign workspace"
-      className="flex flex-wrap items-center gap-2"
+      className="flex shrink-0 flex-nowrap items-center gap-2"
     >
       {emailCampaignViews.map(({ value, label, icon: Icon }) => {
         const active = activeView === value;
@@ -1581,6 +1589,39 @@ function EmailCampaignViewNav({
   );
 }
 
+function EmailCampaignWorkspaceHeader({
+  activeView,
+  onViewChange,
+  onSave,
+  busy,
+}: {
+  activeView: EmailCampaignSurface;
+  onViewChange: (view: EmailCampaignSurface) => void;
+  onSave: () => void;
+  busy: string | null;
+}) {
+  const saveLabel = activeView === "styles" ? "Save styles" : "Save to master";
+  const saveBusy =
+    activeView === "styles" ? busy === "save-styles" : busy === "save-template";
+
+  return (
+    <div className="flex h-14 shrink-0 flex-nowrap items-center justify-between gap-3 border-b bg-card px-4">
+      <EmailCampaignViewNav
+        activeView={activeView}
+        onViewChange={onViewChange}
+      />
+      <Button
+        className={cn(adminPrimaryButtonClass, "shrink-0")}
+        onClick={onSave}
+        disabled={saveBusy}
+      >
+        <Save />
+        {saveLabel}
+      </Button>
+    </div>
+  );
+}
+
 function BuilderPanel({
   notice,
   selectedTemplate,
@@ -1589,7 +1630,6 @@ function BuilderPanel({
   mergeFields,
   mergePreviewData,
   busy,
-  onSaveTemplate,
   onDownloadTemplate,
   onDeleteTemplate,
   aiDraftText,
@@ -1612,7 +1652,6 @@ function BuilderPanel({
   mergeFields: string[];
   mergePreviewData: Record<string, string>;
   busy: string | null;
-  onSaveTemplate: () => void;
   onDownloadTemplate: () => void;
   onDeleteTemplate: () => void;
   aiDraftText: string;
@@ -1669,14 +1708,6 @@ function BuilderPanel({
           >
             <Trash2 />
             Remove
-          </Button>
-          <Button
-            className={adminPrimaryButtonClass}
-            onClick={onSaveTemplate}
-            disabled={busy === "save-template"}
-          >
-            <Save />
-            Save to master
           </Button>
         </div>
       </div>
@@ -2740,14 +2771,10 @@ function ToastSnackbar({
 
 function StylesPanel({
   theme,
-  busy,
   onThemeChange,
-  onSaveStyles,
 }: {
   theme: EmailThemeTokens;
-  busy: string | null;
   onThemeChange: (theme: EmailThemeTokens) => void;
-  onSaveStyles: () => void;
 }) {
   const colorFields: Array<[keyof EmailThemeTokens, string]> = [
     ["background", "Background"],
@@ -2772,21 +2799,11 @@ function StylesPanel({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Email styling
-          </p>
-          <h2 className="text-lg font-semibold text-foreground">Styles</h2>
-        </div>
-        <Button
-          className={adminPrimaryButtonClass}
-          onClick={onSaveStyles}
-          disabled={busy === "save-styles"}
-        >
-          <Save />
-          Save styles
-        </Button>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Email styling
+        </p>
+        <h2 className="text-lg font-semibold text-foreground">Styles</h2>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
