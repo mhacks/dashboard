@@ -1549,7 +1549,7 @@ export default function EmailCampaignsClient({
     <>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-foreground">Preview</h2>
-        <div className="inline-flex items-center gap-1 rounded-md border bg-muted p-1">
+        <div className="inline-flex items-center gap-0.5 rounded-pill border bg-muted p-0.5">
           <PreviewButton
             active={previewMode === "desktop"}
             onClick={() => setPreviewMode("desktop")}
@@ -3131,7 +3131,7 @@ function PreviewButton({
       type="button"
       title={label}
       onClick={onClick}
-      className={`flex size-8 items-center justify-center rounded-sm border border-transparent transition-colors [&_svg]:size-4 ${
+      className={`flex size-6 items-center justify-center rounded-pill border border-transparent transition-colors [&_svg]:size-3.5 ${
         active
           ? "bg-background text-foreground shadow-sm"
           : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
