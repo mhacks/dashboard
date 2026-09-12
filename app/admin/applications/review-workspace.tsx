@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMounted } from "@/hooks/use-mounted";
+import { panelLayoutStorage } from "@/hooks/panel-layout-storage";
 import type { Session } from "@supabase/supabase-js";
-import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels";
+import { useDefaultLayout } from "react-resizable-panels";
 import {
   Controller,
   useForm,
@@ -175,27 +176,6 @@ const REVIEW_SYNC_EVENT = "review_updated";
 // which throws "Application not found" once the row is gone and would leave the
 // stale entry sitting in every other organizer's list.
 const REVIEW_DELETE_EVENT = "review_deleted";
-
-const PANEL_LAYOUT_STORAGE: LayoutStorage = {
-  getItem(key) {
-    try {
-      return typeof window === "undefined"
-        ? null
-        : window.localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  setItem(key, value) {
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(key, value);
-      }
-    } catch {
-      // Ignore storage failures (private mode, quota, etc.)
-    }
-  },
-};
 
 const EFFORT_DESCRIPTIONS: Record<number, string> = {
   1: "Generic answer, unclear why they want to attend",
@@ -693,7 +673,7 @@ export default function ApplicationReviewWorkspace({
   const panelLayout = useDefaultLayout({
     id: "application-review-workspace",
     panelIds: [...REVIEW_WORKSPACE_PANEL_IDS],
-    storage: PANEL_LAYOUT_STORAGE,
+    storage: panelLayoutStorage,
   });
 
   useEffect(() => {

@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  useDefaultLayout,
-  usePanelRef,
-  type LayoutStorage,
-} from "react-resizable-panels";
+import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import {
   ArrowDown,
   ArrowUp,
@@ -69,6 +65,7 @@ import {
 } from "@/components/ui/accordion";
 import { useMediaQueryState } from "@/hooks/use-media-query";
 import { useMounted } from "@/hooks/use-mounted";
+import { panelLayoutStorage } from "@/hooks/panel-layout-storage";
 import {
   buildAiTemplateContext,
   toAiDraftTemplateContext,
@@ -186,26 +183,6 @@ const EMAIL_WORKSPACE_PANEL_IDS = [
   "preview",
 ] as const;
 const DESKTOP_LAYOUT_QUERY = "(min-width: 1024px)";
-const PANEL_LAYOUT_STORAGE: LayoutStorage = {
-  getItem(key) {
-    try {
-      return typeof window === "undefined"
-        ? null
-        : window.localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  setItem(key, value) {
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(key, value);
-      }
-    } catch {
-      // Ignore storage failures (private mode, quota, etc.)
-    }
-  },
-};
 const builtInRecipientMergeFields = new Set(["email", "name"]);
 const defaultAudienceQuery: EmailAudienceQuery = {
   decisionGroup: "all_applicants",
@@ -302,7 +279,7 @@ export default function EmailCampaignsClient({
   const panelLayout = useDefaultLayout({
     id: "email-campaign-workspace",
     panelIds: [...EMAIL_WORKSPACE_PANEL_IDS],
-    storage: PANEL_LAYOUT_STORAGE,
+    storage: panelLayoutStorage,
   });
 
   useEffect(() => {
