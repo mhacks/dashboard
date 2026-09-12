@@ -169,7 +169,7 @@ function sanitizeHtmlTemplate(html: string) {
     .replace(/url\(\s*(['"]?)javascript:[^)]+\1\s*\)/gi, "url(#)");
 }
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")

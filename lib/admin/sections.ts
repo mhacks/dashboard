@@ -5,6 +5,7 @@ import {
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
+  MegaphoneIcon,
   QrCodeIcon,
   TrophyIcon,
   UsersRoundIcon,
@@ -62,6 +63,12 @@ export const ADMIN_AREAS: AdminArea[] = [
         description:
           "Build templates, preview merge fields, and send CSV lists.",
         icon: MailIcon,
+      },
+      {
+        href: "/admin/broadcast",
+        title: "Broadcast",
+        description: "Email every hacker at once.",
+        icon: MegaphoneIcon,
       },
     ],
   },
