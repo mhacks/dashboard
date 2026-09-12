@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,28 +26,41 @@ import {
   BROADCAST_SUBJECT_LIMIT,
   broadcastErrorMessage,
 } from "@/lib/broadcast/config";
-import {
-  BROADCAST_PAUSED_NOTICE,
-  formatBroadcastOutcome,
-  formatBroadcastProgress,
-} from "@/lib/broadcast/progress";
+import { formatBroadcastOutcome } from "@/lib/broadcast/progress";
 import type {
   BroadcastSendStatus,
   BroadcastTargetSummary,
 } from "@/lib/broadcast/types";
-import { ChevronDownIcon, SendHorizontalIcon, XIcon } from "lucide-react";
-import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
+import {
+  ChevronDownIcon,
+  Loader2,
+  SendHorizontalIcon,
+  XIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  findActiveBroadcastAction,
+  listBroadcastTargetRecipientsAction,
+  startBroadcastAction,
+} from "./actions";
+import { useBroadcastSync } from "./BroadcastSyncProvider";
 import { runBroadcastLoop } from "./run-broadcast-loop";
 import { useSelectionSet } from "./use-selection-set";
+
+type RecipientPreview =
+  | { status: "loading" }
+  | { status: "ready"; emails: string[] }
+  | { status: "error"; message: string };
 
 export default function BroadcastForm({
   targets,
   channelTargetId = null,
+  onLogsInvalidated,
 }: {
   targets: BroadcastTargetSummary[];
   channelTargetId?: string | null;
+  onLogsInvalidated: () => void;
 }) {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const channelLocked = Boolean(channelTargetId);
   const defaultTargetIds = channelTargetId ? [channelTargetId] : [];
@@ -69,6 +81,8 @@ export default function BroadcastForm({
     failed: number;
   } | null>(null);
   const [isSending, startSending] = useTransition();
+  const { publishBroadcastSync, setActiveSendId, subscribeBroadcastSync } =
+    useBroadcastSync();
 
   const selectedTargets = targets.filter((target) =>
     selectedTargetIds.has(target.id),
@@ -87,53 +101,37 @@ export default function BroadcastForm({
         if (active && !active.complete) {
           setStatus(active);
           setSelectedTargetIds([active.target]);
-          setNotice(
-            formatBroadcastProgress(active, { prefix: "Resuming broadcast" }),
-          );
         }
       })
       .catch(() => undefined);
   }, [setSelectedTargetIds]);
 
+  useEffect(() => {
+    return subscribeBroadcastSync((payload) => {
+      setStatus((current) => {
+        if (!current || current.broadcastId !== payload.broadcastId) {
+          return current;
+        }
+
+        return {
+          ...current,
+          sentCount: payload.sentCount,
+          failedCount: payload.failedCount,
+          pendingCount: payload.pendingCount,
+          totalRecipients: payload.totalRecipients,
+          complete:
+            payload.status === "complete" || payload.status === "expired",
+        };
+      });
+    });
+  }, [subscribeBroadcastSync]);
+
   async function sendBroadcast(
     initialStatus: BroadcastSendStatus,
-    targetLabel?: string,
   ): Promise<BroadcastSendStatus> {
-    const finalStatus = await runBroadcastLoop(
-      initialStatus,
-      (currentStatus) => {
-        setStatus(currentStatus);
-        setNotice(
-          formatBroadcastProgress(currentStatus, { prefix: targetLabel }),
-        );
-      },
-    );
-
-    if (!finalStatus.complete) {
-      setNotice(BROADCAST_PAUSED_NOTICE);
-    }
-
-    return finalStatus;
-  }
-
-  async function resumeBroadcast() {
-    if (!status || status.complete) {
-      return;
-    }
-
-    startSending(async () => {
-      try {
-        const finalStatus = await sendBroadcast(status);
-        if (finalStatus.complete) {
-          setSuccessResult({
-            sent: finalStatus.sentCount,
-            failed: finalStatus.failedCount,
-          });
-          router.refresh();
-        }
-      } catch (error) {
-        setNotice(broadcastErrorMessage(error));
-      }
+    return runBroadcastLoop(initialStatus, (currentStatus) => {
+      setStatus(currentStatus);
+      publishBroadcastSync(currentStatus);
     });
   }
 
@@ -175,19 +173,21 @@ export default function BroadcastForm({
         let totalFailed = 0;
 
         for (const target of selectedTargets) {
-          setNotice(`Starting broadcast to ${target.label}...`);
           const started = await startBroadcastAction({
             target: target.id,
             subject: pendingDraft.subject,
             body: pendingDraft.body,
           });
-          const finalStatus = await sendBroadcast(started.status, target.label);
+          setActiveSendId(started.status.broadcastId);
+          setStatus(started.status);
+          onLogsInvalidated();
+          publishBroadcastSync(started.status);
+          const finalStatus = await sendBroadcast(started.status);
 
           if (!finalStatus.complete) {
             if (totalSent > 0 || totalFailed > 0) {
               setSuccessResult({ sent: totalSent, failed: totalFailed });
             }
-            router.refresh();
             return;
           }
 
@@ -196,9 +196,11 @@ export default function BroadcastForm({
         }
 
         setSuccessResult({ sent: totalSent, failed: totalFailed });
-        router.refresh();
       } catch (error) {
         setNotice(broadcastErrorMessage(error));
+      } finally {
+        setActiveSendId(null);
+        onLogsInvalidated();
       }
     });
   }
@@ -216,7 +218,7 @@ export default function BroadcastForm({
   const successDescription = successResult
     ? formatBroadcastOutcome(successResult.sent, successResult.failed, {
         finishedLabel: "Delivery",
-        successMessage: `Your message was delivered to ${successResult.sent} hackers.`,
+        successMessage: `Your message was delivered to ${successResult.sent} ${successResult.sent === 1 ? "person" : "people"}.`,
       })
     : "";
 
@@ -229,24 +231,6 @@ export default function BroadcastForm({
   return (
     <>
       <div className="flex flex-col gap-2">
-        {inProgress ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5">
-            <p className="text-[11px] text-muted-foreground">
-              {notice ?? (status ? formatBroadcastProgress(status) : null)}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              disabled={isSending}
-              onClick={() => void resumeBroadcast()}
-            >
-              {isSending ? "Sending..." : "Resume"}
-            </Button>
-          </div>
-        ) : null}
-
         {notice && !inProgress ? (
           <p className="px-1 text-[11px] text-muted-foreground">{notice}</p>
         ) : null}
@@ -382,16 +366,16 @@ export default function BroadcastForm({
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Send broadcast?</AlertDialogTitle>
             <AlertDialogDescription>
-              {selectedTargets.length === 1
-                ? `This will send to ${selectedTargets[0].recipientCount} recipients via ${selectedTargets[0].label}.`
-                : `This will send to ${totalRecipientCount} recipients across ${selectedTargets.length} targets: ${selectedTargets.map((target) => target.label).join(", ")}.`}{" "}
-              Are you sure?
+              This will send to {totalRecipientCount} recipient
+              {totalRecipientCount === 1 ? "" : "s"}. Expand a target to review
+              emails. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <ConfirmTargetRecipientList targets={selectedTargets} />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmSend}>Send</AlertDialogAction>
@@ -431,5 +415,132 @@ export default function BroadcastForm({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function ConfirmTargetRecipientList({
+  targets,
+}: {
+  targets: BroadcastTargetSummary[];
+}) {
+  const [expandedIds, setExpandedIds] = useState(new Set<string>());
+  const [previews, setPreviews] = useState<Record<string, RecipientPreview>>(
+    {},
+  );
+
+  function toggleTarget(targetId: string) {
+    const expanding = !expandedIds.has(targetId);
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (expanding) {
+        next.add(targetId);
+      } else {
+        next.delete(targetId);
+      }
+      return next;
+    });
+
+    const preview = previews[targetId];
+    if (
+      expanding &&
+      preview?.status !== "ready" &&
+      preview?.status !== "loading"
+    ) {
+      void loadRecipients(targetId);
+    }
+  }
+
+  async function loadRecipients(targetId: string) {
+    setPreviews((current) => ({
+      ...current,
+      [targetId]: { status: "loading" },
+    }));
+
+    try {
+      const emails = await listBroadcastTargetRecipientsAction(targetId);
+      setPreviews((current) => ({
+        ...current,
+        [targetId]: { status: "ready", emails },
+      }));
+    } catch (error) {
+      setPreviews((current) => ({
+        ...current,
+        [targetId]: {
+          status: "error",
+          message: broadcastErrorMessage(error),
+        },
+      }));
+    }
+  }
+
+  return (
+    <div className="max-h-[min(18rem,50vh)] overflow-y-auto overscroll-y-contain rounded-md border">
+      <ul aria-label="Targets">
+        {targets.map((target) => {
+          const expanded = expandedIds.has(target.id);
+          const preview = previews[target.id];
+          const panelId = `broadcast-target-recipients-${target.id.replaceAll(":", "-")}`;
+
+          return (
+            <li key={target.id} className="border-b last:border-b-0">
+              <button
+                type="button"
+                aria-expanded={expanded}
+                aria-controls={panelId}
+                onClick={() => toggleTarget(target.id)}
+                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm hover:bg-muted/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <ChevronDownIcon
+                  className={cn(
+                    "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                    expanded && "rotate-180",
+                  )}
+                />
+                <span className="min-w-0 flex-1 truncate">{target.label}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {preview?.status === "ready"
+                    ? preview.emails.length
+                    : target.recipientCount}
+                </span>
+              </button>
+              {expanded ? (
+                <div
+                  id={panelId}
+                  className="max-h-40 overflow-y-auto overscroll-y-contain border-t bg-muted/20"
+                >
+                  {!preview || preview.status === "loading" ? (
+                    <div className="flex justify-center py-3">
+                      <Loader2
+                        aria-label="Loading recipients"
+                        className="size-4 animate-spin text-muted-foreground"
+                      />
+                    </div>
+                  ) : preview.status === "error" ? (
+                    <p className="px-2.5 py-2 text-xs text-destructive">
+                      {preview.message}
+                    </p>
+                  ) : preview.emails.length === 0 ? (
+                    <p className="px-2.5 py-2 text-xs text-muted-foreground">
+                      No recipients
+                    </p>
+                  ) : (
+                    <ul aria-label={`${target.label} recipients`}>
+                      {preview.emails.map((email) => (
+                        <li
+                          key={email}
+                          className="border-b px-2.5 py-1 text-xs break-all last:border-b-0"
+                        >
+                          {email}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

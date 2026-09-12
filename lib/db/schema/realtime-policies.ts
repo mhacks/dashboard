@@ -14,6 +14,8 @@ const reviewRealtimeTopic = sql`(
 
 const inviteRealtimeTopic = sql`${realtimeTopic} = 'user-invites:dashboard'`;
 
+const broadcastRealtimeTopic = sql`${realtimeTopic} = 'broadcasts:dashboard'`;
+
 export const organizersReceiveReviewRealtime = pgPolicy(
   "organizers_receive_review_realtime",
   {
@@ -47,5 +49,23 @@ export const organizersSendInviteRealtime = pgPolicy(
     for: "insert",
     to: authenticatedRole,
     withCheck: sql`${isOrganizerFn} AND ${inviteRealtimeTopic}`,
+  },
+).link(realtimeMessages);
+
+export const organizersReceiveBroadcastRealtime = pgPolicy(
+  "organizers_receive_broadcast_realtime",
+  {
+    for: "select",
+    to: authenticatedRole,
+    using: sql`${isOrganizerFn} AND ${broadcastRealtimeTopic}`,
+  },
+).link(realtimeMessages);
+
+export const organizersSendBroadcastRealtime = pgPolicy(
+  "organizers_send_broadcast_realtime",
+  {
+    for: "insert",
+    to: authenticatedRole,
+    withCheck: sql`${isOrganizerFn} AND ${broadcastRealtimeTopic}`,
   },
 ).link(realtimeMessages);

@@ -1,3 +1,179 @@
+-- Staff users so organizer/volunteer/judge broadcast targets have recipients.
+-- Hackers come from application-review-demo.sql; this file only checks them in.
+-- Repeat the CTE per statement: supabase seed batches SQL, so temp tables do not persist.
+
+with broadcast_demo_users as (
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid as id,
+    format('organizer-%s@mhacks.test', lpad((n - 20)::text, 2, '0')) as email,
+    'organizer'::user_role as role
+  from generate_series(21, 28) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('volunteer-%s@mhacks.test', lpad((n - 200)::text, 2, '0')),
+    'volunteer'::user_role
+  from generate_series(201, 212) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('judge-%s@mhacks.test', lpad((n - 400)::text, 2, '0')),
+    'judge'::user_role
+  from generate_series(401, 408) as n
+)
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  confirmation_token,
+  email_change,
+  email_change_token_new,
+  recovery_token
+)
+select
+  '00000000-0000-0000-0000-000000000000',
+  id,
+  'authenticated',
+  'authenticated',
+  email,
+  null,
+  now(),
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now(),
+  '',
+  '',
+  '',
+  ''
+from broadcast_demo_users
+on conflict (id) do update set
+  email = excluded.email,
+  updated_at = now();
+
+with broadcast_demo_users as (
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid as id,
+    format('organizer-%s@mhacks.test', lpad((n - 20)::text, 2, '0')) as email,
+    'organizer'::user_role as role
+  from generate_series(21, 28) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('volunteer-%s@mhacks.test', lpad((n - 200)::text, 2, '0')),
+    'volunteer'::user_role
+  from generate_series(201, 212) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('judge-%s@mhacks.test', lpad((n - 400)::text, 2, '0')),
+    'judge'::user_role
+  from generate_series(401, 408) as n
+)
+insert into auth.identities (
+  id,
+  user_id,
+  provider_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+select
+  id,
+  id,
+  id::text,
+  jsonb_build_object('sub', id::text, 'email', email),
+  'email',
+  now(),
+  now(),
+  now()
+from broadcast_demo_users
+on conflict (id) do update set
+  identity_data = excluded.identity_data,
+  updated_at = now();
+
+with broadcast_demo_users as (
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid as id,
+    format('organizer-%s@mhacks.test', lpad((n - 20)::text, 2, '0')) as email,
+    'organizer'::user_role as role
+  from generate_series(21, 28) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('volunteer-%s@mhacks.test', lpad((n - 200)::text, 2, '0')),
+    'volunteer'::user_role
+  from generate_series(201, 212) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('judge-%s@mhacks.test', lpad((n - 400)::text, 2, '0')),
+    'judge'::user_role
+  from generate_series(401, 408) as n
+)
+insert into public.users (id, email, role)
+select id, email, role
+from broadcast_demo_users
+on conflict (id) do update set
+  email = excluded.email,
+  role = excluded.role;
+
+insert into public.events (
+  id,
+  slug,
+  name,
+  description,
+  location,
+  is_active,
+  created_by
+)
+values (
+  '70000000-0000-4000-8000-000000000001'::uuid,
+  'broadcast-check-in',
+  'Main check-in',
+  'Seeded event so local hacker broadcasts have checked-in recipients.',
+  'Pierpont Commons',
+  true,
+  '00000000-0000-4000-8000-000000000001'::uuid
+)
+on conflict (id) do update set
+  slug = excluded.slug,
+  name = excluded.name,
+  description = excluded.description,
+  location = excluded.location,
+  is_active = excluded.is_active;
+
+insert into public.event_checkins (
+  event_id,
+  user_id,
+  checked_in_by,
+  method
+)
+select
+  '70000000-0000-4000-8000-000000000001'::uuid,
+  ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+  '00000000-0000-4000-8000-000000000001'::uuid,
+  'manual'::checkin_method
+from generate_series(101, 104) as n
+union all
+select
+  '70000000-0000-4000-8000-000000000001'::uuid,
+  ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+  '00000000-0000-4000-8000-000000000001'::uuid,
+  'manual'::checkin_method
+from generate_series(111, 130) as n
+on conflict (event_id, user_id) do nothing;
+
 -- Demo broadcast history for local development.
 -- Seeds 60 completed messages (3 pages at 25/page) with searchable subjects and senders.
 

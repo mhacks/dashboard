@@ -50,7 +50,12 @@ export function formatBroadcastOutcome(
   return options.successMessage;
 }
 
-export function broadcastProgressPercent(status: BroadcastSendStatus) {
+export function broadcastProgressPercent(
+  status: Pick<
+    BroadcastSendStatus,
+    "sentCount" | "failedCount" | "totalRecipients"
+  >,
+) {
   if (status.totalRecipients === 0) {
     return 0;
   }

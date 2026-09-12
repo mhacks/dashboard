@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -28,6 +34,7 @@ import {
   formatBroadcastOutcome,
   formatBroadcastProgress,
 } from "@/lib/broadcast/progress";
+import type { BroadcastSyncPayload } from "@/lib/broadcast/sync";
 import type {
   BroadcastFailure,
   BroadcastSendStatus,
@@ -45,11 +52,13 @@ import {
 } from "lucide-react";
 import {
   applyBroadcastRetryResultsAction,
+  findActiveBroadcastAction,
   getBroadcastDeliveryDetailsAction,
   markBroadcastDeliveriesFailedAction,
   retryFailedBroadcastAction,
   updateBroadcastOmittedAction,
 } from "./actions";
+import { useBroadcastSync } from "./BroadcastSyncProvider";
 import { RecipientSearchField } from "./RecipientSearchField";
 import { runBroadcastLoop } from "./run-broadcast-loop";
 import { useSelectionSet } from "./use-selection-set";
@@ -529,6 +538,31 @@ function LoadingState() {
   );
 }
 
+function BroadcastProgressMeter({
+  label,
+  status,
+}: {
+  label: string;
+  status: Pick<
+    BroadcastSendStatus,
+    "sentCount" | "failedCount" | "pendingCount" | "totalRecipients"
+  >;
+}) {
+  return (
+    <div className="mb-3 shrink-0 space-y-2 rounded-lg border bg-muted/30 px-3 py-2">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="text-muted-foreground">
+          {formatBroadcastProgress(status, {
+            separator: " · ",
+          })}
+        </span>
+      </div>
+      <Meter value={broadcastProgressPercent(status)} className="h-1.5" />
+    </div>
+  );
+}
+
 export function BroadcastDeliveryDetails({
   broadcastId,
   children,
@@ -551,6 +585,17 @@ export function BroadcastDeliveryDetails({
   const [isLoading, startLoading] = useTransition();
   const [isSavingChanges, startSavingChanges] = useTransition();
   const [isRetrying, startRetrying] = useTransition();
+  const [isResuming, startResuming] = useTransition();
+  const [liveProgress, setLiveProgress] = useState<BroadcastSyncPayload | null>(
+    null,
+  );
+  const [canResume, setCanResume] = useState(false);
+  const {
+    activeSendId,
+    setActiveSendId,
+    publishBroadcastSync,
+    subscribeBroadcastSync,
+  } = useBroadcastSync();
 
   const canManageDeliveries = details?.status === "complete";
   const panelsInteractive =
@@ -584,6 +629,25 @@ export function BroadcastDeliveryDetails({
   const canRetry =
     canManageDeliveries && failedCount > 0 && !isRetrying && !isSavingChanges;
   const retryInProgress = Boolean(retryStatus && !retryStatus.complete);
+  const sendingInProgress = details?.status === "sending";
+  const sendingProgress = sendingInProgress
+    ? {
+        sentCount: liveProgress?.sentCount ?? details.sentCount,
+        failedCount: liveProgress?.failedCount ?? details.failedCount,
+        pendingCount: liveProgress?.pendingCount ?? details.pendingCount,
+        totalRecipients:
+          liveProgress?.totalRecipients ?? details.totalRecipients,
+      }
+    : null;
+  const showResume =
+    sendingInProgress &&
+    canResume &&
+    activeSendId !== broadcastId &&
+    !retryInProgress &&
+    !isResuming;
+  const busy = isRetrying || isSavingChanges || isResuming;
+  const pendingCount =
+    sendingProgress?.pendingCount ?? details?.pendingCount ?? 0;
 
   function resetDeliverySelections() {
     retrySelection.reset();
@@ -602,6 +666,65 @@ export function BroadcastDeliveryDetails({
     );
     deliveredSelection.pruneTo(result.deliveredTo);
   }
+
+  function applyLiveDeliveryDetails(result: DeliveryDetails) {
+    setDetails(result);
+    retrySelection.pruneTo(
+      result.retryFailures.map((failure) => failure.recipient),
+    );
+    omittedSelection.pruneTo(
+      result.omittedFailures.map((failure) => failure.recipient),
+    );
+    deliveredSelection.pruneTo(result.deliveredTo);
+  }
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    return subscribeBroadcastSync((payload) => {
+      if (payload.broadcastId !== broadcastId) {
+        return;
+      }
+
+      setLiveProgress(payload);
+      void getBroadcastDeliveryDetailsAction(broadcastId)
+        .then((result) => {
+          setDetails(result);
+        })
+        .catch(() => undefined);
+    });
+  }, [broadcastId, open, subscribeBroadcastSync]);
+
+  useEffect(() => {
+    if (!open || details?.status !== "sending") {
+      return;
+    }
+
+    let cancelled = false;
+    void findActiveBroadcastAction()
+      .then((active) => {
+        if (cancelled) {
+          return;
+        }
+
+        setCanResume(
+          Boolean(
+            active && active.broadcastId === broadcastId && !active.complete,
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCanResume(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [broadcastId, details?.status, open]);
 
   function saveDeliveryDetails(
     mutation: () => Promise<DeliveryDetails>,
@@ -695,11 +818,13 @@ export function BroadcastDeliveryDetails({
         const result = await getBroadcastDeliveryDetailsAction(broadcastId);
         setDetails(result);
         setActiveTab(
-          result.retryFailures.length > 0
-            ? "failed"
-            : result.omittedFailures.length > 0
-              ? "omitted"
-              : "delivered",
+          result.status === "sending"
+            ? "delivered"
+            : result.retryFailures.length > 0
+              ? "failed"
+              : result.omittedFailures.length > 0
+                ? "omitted"
+                : "delivered",
         );
         resetDeliverySelections();
       } catch (loadError) {
@@ -713,7 +838,7 @@ export function BroadcastDeliveryDetails({
   }
 
   function handleOpenChange(nextOpen: boolean) {
-    if (isRetrying || isSavingChanges) {
+    if (busy) {
       return;
     }
 
@@ -725,11 +850,51 @@ export function BroadcastDeliveryDetails({
     }
 
     setDetails(null);
+    setLiveProgress(null);
+    setCanResume(false);
     resetDeliverySelections();
     setError(null);
     setRetryNotice(null);
     setRetryStatus(null);
     setActiveTab("failed");
+  }
+
+  function resumeSending() {
+    startResuming(async () => {
+      try {
+        const active = await findActiveBroadcastAction();
+        if (!active || active.broadcastId !== broadcastId || active.complete) {
+          setCanResume(false);
+          return;
+        }
+
+        setError(null);
+        setRetryNotice(null);
+        setActiveSendId(broadcastId);
+        publishBroadcastSync(active);
+
+        const finalStatus = await runBroadcastLoop(active, (currentStatus) => {
+          publishBroadcastSync(currentStatus);
+        });
+
+        const updatedDetails =
+          await getBroadcastDeliveryDetailsAction(broadcastId);
+        applyLiveDeliveryDetails(updatedDetails);
+
+        if (!finalStatus.complete) {
+          setRetryNotice(BROADCAST_PAUSED_NOTICE);
+        }
+      } catch (resumeError) {
+        setError(
+          broadcastErrorMessage(
+            resumeError,
+            "Could not resume this broadcast.",
+          ),
+        );
+      } finally {
+        setActiveSendId(null);
+      }
+    });
   }
 
   function startRetry() {
@@ -753,11 +918,14 @@ export function BroadcastDeliveryDetails({
           recipients,
         });
         setRetryStatus(started.status);
+        setActiveSendId(started.status.broadcastId);
+        publishBroadcastSync(started.status);
 
         const finalStatus = await runBroadcastLoop(
           started.status,
           (currentStatus) => {
             setRetryStatus(currentStatus);
+            publishBroadcastSync(currentStatus);
           },
         );
 
@@ -791,6 +959,8 @@ export function BroadcastDeliveryDetails({
             "Could not retry failed deliveries.",
           ),
         );
+      } finally {
+        setActiveSendId(null);
       }
     });
   }
@@ -813,7 +983,7 @@ export function BroadcastDeliveryDetails({
 
             <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <AlertDialogCancel
-                disabled={isRetrying || isSavingChanges}
+                disabled={busy}
                 variant="ghost"
                 size="icon"
                 className="absolute top-3 right-3 z-10 size-8"
@@ -824,22 +994,15 @@ export function BroadcastDeliveryDetails({
 
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-12 pb-4">
                 {retryInProgress && retryStatus ? (
-                  <div className="mb-3 shrink-0 space-y-2 rounded-lg border bg-muted/30 px-3 py-2">
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-medium text-foreground">
-                        Retry in progress
-                      </span>
-                      <span className="text-muted-foreground">
-                        {formatBroadcastProgress(retryStatus, {
-                          separator: " · ",
-                        })}
-                      </span>
-                    </div>
-                    <Meter
-                      value={broadcastProgressPercent(retryStatus)}
-                      className="h-1.5"
-                    />
-                  </div>
+                  <BroadcastProgressMeter
+                    label="Retry in progress"
+                    status={retryStatus}
+                  />
+                ) : sendingProgress ? (
+                  <BroadcastProgressMeter
+                    label="In progress"
+                    status={sendingProgress}
+                  />
                 ) : null}
 
                 {retryNotice ? (
@@ -878,7 +1041,8 @@ export function BroadcastDeliveryDetails({
                         Omitted ({omittedCount})
                       </TabsTrigger>
                       <TabsTrigger value="delivered" className="flex-1">
-                        Delivered ({details.sentCount})
+                        Delivered (
+                        {sendingProgress?.sentCount ?? details.sentCount})
                       </TabsTrigger>
                     </TabsList>
 
@@ -929,11 +1093,10 @@ export function BroadcastDeliveryDetails({
                   </Tabs>
                 ) : null}
 
-                {details && details.pendingCount > 0 ? (
+                {details && pendingCount > 0 ? (
                   <p className="mt-3 shrink-0 text-xs text-muted-foreground">
-                    {details.pendingCount} recipient
-                    {details.pendingCount === 1 ? "" : "s"} still pending
-                    delivery.
+                    {pendingCount} recipient{pendingCount === 1 ? "" : "s"}{" "}
+                    still pending delivery.
                   </p>
                 ) : null}
               </div>
@@ -955,11 +1118,31 @@ export function BroadcastDeliveryDetails({
                             ? "Only checked recipients will be retried or omitted."
                             : `All ${retryTargetCount} failed recipients will be retried.`}
                   </p>
+                ) : sendingInProgress ? (
+                  <p className="text-xs text-muted-foreground">
+                    Delivery is still in progress. Recipients will appear here
+                    as they are sent.
+                  </p>
                 ) : (
                   <span />
                 )}
 
-                {canManageDeliveries ? (
+                {showResume ? (
+                  <Button
+                    type="button"
+                    disabled={isResuming}
+                    onClick={resumeSending}
+                  >
+                    {isResuming ? (
+                      <>
+                        <Loader2Icon className="size-4 animate-spin" />
+                        Resuming...
+                      </>
+                    ) : (
+                      "Resume"
+                    )}
+                  </Button>
+                ) : canManageDeliveries ? (
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"

@@ -1,0 +1,2 @@
+CREATE POLICY "organizers_receive_broadcast_realtime" ON "realtime"."messages" AS PERMISSIVE FOR SELECT TO "authenticated" USING (public.is_organizer() AND realtime.topic() = 'broadcasts:dashboard');--> statement-breakpoint
+CREATE POLICY "organizers_send_broadcast_realtime" ON "realtime"."messages" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK (public.is_organizer() AND realtime.topic() = 'broadcasts:dashboard');
