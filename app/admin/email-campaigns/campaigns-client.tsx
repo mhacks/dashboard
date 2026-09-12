@@ -10,7 +10,6 @@ import {
   ArrowDown,
   ArrowUp,
   AlertTriangle,
-  CheckCircle2,
   Copy,
   Database,
   Download,
@@ -159,6 +158,21 @@ interface TestSendProof {
   totalCount: number;
 }
 
+interface SendJobFailure {
+  email?: string;
+  error: string | null;
+}
+
+interface SendJobSnapshot {
+  total: number;
+  sentCount: number;
+  failedCount: number;
+  pendingCount?: number;
+  sendingCount?: number;
+  complete: boolean;
+  failures: SendJobFailure[];
+}
+
 const themeStorageKey = "mhacks-email-active-theme";
 const themeStorageVersionKey = "mhacks-email-active-theme-version";
 const currentThemeStorageVersion = "m26-single-font-config";
@@ -260,15 +274,16 @@ export default function EmailCampaignsClient({
     useState<RecipientSource>("manual");
   const [audienceQuery, setAudienceQuery] =
     useState<EmailAudienceQuery>(defaultAudienceQuery);
-  const [audienceLabel, setAudienceLabel] = useState("");
   const [sendOneEmail, setSendOneEmail] = useState("");
-  const [sendNotice, setSendNotice] = useState("");
   const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(() =>
     loadStoredSendStatus(),
   );
   const [testSendProof, setTestSendProof] = useState<TestSendProof | null>(() =>
     loadStoredTestSendProof(),
   );
+  const [testSendJob, setTestSendJob] = useState<SendJobSnapshot | null>(null);
+  const [sendOneJob, setSendOneJob] = useState<SendJobSnapshot | null>(null);
+  const sendStatusRef = useRef<DirectSendStatus | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState(
     initialTemplates[0]?.id ?? "",
   );
@@ -308,6 +323,10 @@ export default function EmailCampaignsClient({
   const [aiDescription, setAiDescription] = useState("");
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    sendStatusRef.current = sendStatus;
+  }, [sendStatus]);
 
   const selectedTemplate = useMemo(
     () =>
@@ -695,8 +714,6 @@ export default function EmailCampaignsClient({
 
   async function checkRecipientList() {
     setBusy("check-recipients");
-    setSendNotice("");
-    setAudienceLabel("");
     try {
       const template = buildDirectSendTemplate(selectedTemplate, theme);
       const [parsed, recoveredStatus] = await Promise.all([
@@ -717,14 +734,7 @@ export default function EmailCampaignsClient({
       } else {
         clearSendStatus();
       }
-      setSendNotice(
-        recoveredStatus
-          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
-          : `${parsed.emails.length} recipients ready.`,
-      );
-    } catch (error) {
-      const message = errorMessage(error);
-      setSendNotice(message);
+    } catch {
     } finally {
       setBusy(null);
     }
@@ -732,7 +742,6 @@ export default function EmailCampaignsClient({
 
   async function loadAudienceRecipients() {
     setBusy("load-audience");
-    setSendNotice("");
     try {
       const resolved = (await resolveEmailAudienceAction({
         query: audienceQuery,
@@ -740,7 +749,6 @@ export default function EmailCampaignsClient({
       setRecipientText(resolved.recipientText);
       storeSendRecipients(resolved.recipientText);
       setRecipientResult(resolved);
-      setAudienceLabel(resolved.label);
       const template = buildDirectSendTemplate(selectedTemplate, theme);
       const recoveredStatus = template
         ? await findActiveDirectSendAction({
@@ -756,14 +764,7 @@ export default function EmailCampaignsClient({
       } else {
         clearSendStatus();
       }
-      setSendNotice(
-        recoveredStatus
-          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
-          : `${resolved.emails.length} recipients loaded.`,
-      );
-    } catch (error) {
-      const message = errorMessage(error);
-      setSendNotice(message);
+    } catch {
     } finally {
       setBusy(null);
     }
@@ -771,7 +772,6 @@ export default function EmailCampaignsClient({
 
   function updateAudienceQuery(patch: Partial<EmailAudienceQuery>) {
     setAudienceQuery((current) => ({ ...current, ...patch }));
-    setAudienceLabel("");
     setRecipientResult(null);
     setRecipientText("");
     removeStoredSendRecipients();
@@ -781,7 +781,6 @@ export default function EmailCampaignsClient({
   function changeRecipientSource(source: RecipientSource) {
     setRecipientSource(source);
     setRecipientResult(null);
-    setAudienceLabel("");
     clearSendStatus();
 
     if (source === "audience") {
@@ -795,21 +794,47 @@ export default function EmailCampaignsClient({
     if (!template) return;
 
     setBusy("send-one");
-    setSendNotice("");
+    setSendOneJob({
+      total: 1,
+      sentCount: 0,
+      failedCount: 0,
+      complete: false,
+      failures: [],
+    });
     try {
       const data = await sendOneDirectEmailAction({
         template,
         email: sendOneEmail,
         mergeData: effectiveMergePreviewData,
       });
-      setSendNotice(
-        data.result.status === "sent"
-          ? "Single email sent."
-          : data.result.error || "Single email failed.",
-      );
+      const sent = data.result.status === "sent";
+      setSendOneJob({
+        total: 1,
+        sentCount: sent ? 1 : 0,
+        failedCount: sent ? 0 : 1,
+        complete: true,
+        failures: sent
+          ? []
+          : [
+              {
+                email: sendOneEmail,
+                error: data.result.error || "Send failed",
+              },
+            ],
+      });
     } catch (error) {
-      const message = errorMessage(error);
-      setSendNotice(message);
+      setSendOneJob({
+        total: 1,
+        sentCount: 0,
+        failedCount: 1,
+        complete: true,
+        failures: [
+          {
+            email: sendOneEmail,
+            error: errorMessage(error),
+          },
+        ],
+      });
     } finally {
       setBusy(null);
     }
@@ -820,16 +845,29 @@ export default function EmailCampaignsClient({
     if (!template) return;
 
     setBusy("test-send");
-    setSendNotice("Sending required test emails...");
+    setTestSendJob({
+      total: 0,
+      sentCount: 0,
+      failedCount: 0,
+      complete: false,
+      failures: [],
+    });
     try {
       const data = await sendDirectTestEmailsAction({
         template,
         mergeData: effectiveMergePreviewData,
       });
       const sent = data.results.filter((result) => result.status === "sent");
-      const firstFailure = data.results.find(
-        (result) => result.status !== "sent",
-      );
+      const failed = data.results.filter((result) => result.status !== "sent");
+      setTestSendJob({
+        total: data.results.length,
+        sentCount: sent.length,
+        failedCount: failed.length,
+        complete: true,
+        failures: failed.map((result) => ({
+          error: result.error || "Send failed",
+        })),
+      });
       if (sent.length > 0 && data.testSendToken && data.testSendExpiresAt) {
         commitTestSendProof({
           token: data.testSendToken,
@@ -841,15 +879,15 @@ export default function EmailCampaignsClient({
       } else {
         clearTestSendProof();
       }
-      setSendNotice(
-        firstFailure?.error
-          ? `${sent.length}/${data.results.length} test emails sent. ${firstFailure.error}`
-          : `${sent.length}/${data.results.length} test emails sent.`,
-      );
     } catch (error) {
-      const message = errorMessage(error);
       clearTestSendProof();
-      setSendNotice(message);
+      setTestSendJob({
+        total: 0,
+        sentCount: 0,
+        failedCount: 0,
+        complete: true,
+        failures: [{ error: errorMessage(error) }],
+      });
     } finally {
       setBusy(null);
     }
@@ -861,14 +899,10 @@ export default function EmailCampaignsClient({
     const proof = activeTestSendProof;
 
     if (!proof && !activeSendStatus) {
-      const message =
-        "Run a successful test send before starting a full list send.";
-      setSendNotice(message);
       return;
     }
 
     setBusy("start-send");
-    setSendNotice("Sending...");
     try {
       let status: DirectSendStatus | null = null;
       const runId = activeSendStatus?.runId ?? crypto.randomUUID();
@@ -920,35 +954,40 @@ export default function EmailCampaignsClient({
         }
       }
 
-      setSendNotice(
-        status
-          ? status.complete
-            ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
-            : status.interrupted
-              ? "One delivery was interrupted after it started. Verify it in SES, then resolve it without automatically resending."
-              : status.leaseActive && status.leaseExpiresAt
-                ? `Waiting for the previous send request to expire at ${formatTime(status.leaseExpiresAt)}. Recovery will refresh automatically.`
-                : "Send paused. Continue when ready."
-          : "Send complete.",
-      );
-
       if (status?.complete) {
         clearCompletedSend();
       }
     } catch (error) {
-      const message = errorMessage(error);
-      setSendNotice(message);
+      const current = sendStatusRef.current;
+      if (!current) {
+        return;
+      }
+
+      commitSendStatus({
+        ...current,
+        recentFailures: mergeSendFailures(current.recentFailures, [
+          { email: "", error: errorMessage(error) },
+        ]),
+      });
     } finally {
       setBusy(null);
     }
   }
 
   function commitSendStatus(status: DirectSendStatus) {
-    setSendStatus(status);
-    storeSendStatus(status);
+    const current = sendStatusRef.current;
+    const recentFailures =
+      current?.runId === status.runId
+        ? mergeSendFailures(current.recentFailures, status.recentFailures)
+        : status.recentFailures;
+    const next = { ...status, recentFailures };
+    sendStatusRef.current = next;
+    setSendStatus(next);
+    storeSendStatus(next);
   }
 
   function clearSendStatus() {
+    sendStatusRef.current = null;
     setSendStatus(null);
     removeStoredSendStatus();
   }
@@ -956,7 +995,6 @@ export default function EmailCampaignsClient({
   function clearCompletedSend() {
     setRecipientText("");
     setRecipientResult(null);
-    setAudienceLabel("");
     removeStoredSendRecipients();
     removeStoredSendStatus();
   }
@@ -966,14 +1004,10 @@ export default function EmailCampaignsClient({
     const status = activeSendStatus;
 
     if (!template || !status || !status.interrupted) {
-      const message =
-        "Select the original template and keep the recipient list loaded before resolving this delivery.";
-      setSendNotice(message);
       return;
     }
 
     setBusy("start-send");
-    setSendNotice("Resolving interrupted delivery...");
     try {
       const nextStatus = await sendDirectBatchAction({
         runId: status.runId,
@@ -986,17 +1020,14 @@ export default function EmailCampaignsClient({
       commitSendStatus({ ...nextStatus, proofKey: currentTestProofKey });
       if (nextStatus.complete) {
         clearCompletedSend();
-        setSendNotice(
-          `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
-        );
-      } else {
-        setSendNotice(
-          "Interrupted delivery resolved. Continue the send when ready.",
-        );
       }
     } catch (error) {
-      const message = errorMessage(error);
-      setSendNotice(message);
+      commitSendStatus({
+        ...status,
+        recentFailures: mergeSendFailures(status.recentFailures, [
+          { email: "", error: errorMessage(error) },
+        ]),
+      });
     } finally {
       setBusy(null);
     }
@@ -1016,11 +1047,15 @@ export default function EmailCampaignsClient({
     setSelectedTemplateId(templateId);
     setNotice("");
     clearSendStatus();
+    setTestSendJob(null);
+    setSendOneJob(null);
   }
 
   function updateTheme(nextTheme: EmailThemeTokens) {
     setTheme(nextTheme);
     clearSendStatus();
+    setTestSendJob(null);
+    setSendOneJob(null);
   }
 
   function changeSurface(nextSurface: EmailCampaignSurface) {
@@ -1079,36 +1114,39 @@ export default function EmailCampaignsClient({
       return;
     }
 
-    const refreshDelay = Math.max(
-      0,
-      Date.parse(leaseExpiresAt) - Date.now() + 250,
-    );
-    const timer = window.setTimeout(() => {
-      void findActiveDirectSendAction({
-        template,
-        recipients: recipientText,
-      })
-        .then((recoveredStatus) => {
-          if (!recoveredStatus) {
-            return;
-          }
-
-          const nextStatus = {
-            ...recoveredStatus,
-            proofKey: currentTestProofKey,
-          };
-          setSendStatus(nextStatus);
-          storeSendStatus(nextStatus);
-          setSendNotice(
-            recoveredStatus.interrupted
-              ? "A delivery was interrupted after it started. Verify it before resolving."
-              : "Recovery window expired. The saved send is ready to continue.",
-          );
+    const timer = window.setTimeout(
+      () => {
+        void findActiveDirectSendAction({
+          template,
+          recipients: recipientText,
         })
-        .catch((error) => {
-          setSendNotice(errorMessage(error));
-        });
-    }, refreshDelay);
+          .then((recoveredStatus) => {
+            if (!recoveredStatus) {
+              return;
+            }
+
+            const nextStatus = {
+              ...recoveredStatus,
+              proofKey: currentTestProofKey,
+            };
+            commitSendStatus(nextStatus);
+          })
+          .catch((error) => {
+            const current = sendStatusRef.current;
+            if (!current) {
+              return;
+            }
+
+            commitSendStatus({
+              ...current,
+              recentFailures: mergeSendFailures(current.recentFailures, [
+                { email: "", error: errorMessage(error) },
+              ]),
+            });
+          });
+      },
+      delayUntil(leaseExpiresAt, 250),
+    );
 
     return () => window.clearTimeout(timer);
   }, [
@@ -1336,18 +1374,17 @@ export default function EmailCampaignsClient({
         recipientText={recipientText}
         recipientResult={recipientResult}
         audienceQuery={audienceQuery}
-        audienceLabel={audienceLabel}
         sendOneEmail={sendOneEmail}
         sendStatus={activeSendStatus}
         testSendProof={activeTestSendProof}
-        notice={sendNotice}
+        testSendJob={testSendJob}
+        sendOneJob={sendOneJob}
         busy={busy}
         onRecipientSourceChange={changeRecipientSource}
         onRecipientTextChange={(value) => {
           setRecipientText(value);
           storeSendRecipients(value);
           setRecipientResult(null);
-          setAudienceLabel("");
           clearSendStatus();
         }}
         onAudienceQueryChange={updateAudienceQuery}
@@ -2235,11 +2272,11 @@ function SendPanel({
   recipientText,
   recipientResult,
   audienceQuery,
-  audienceLabel,
   sendOneEmail,
   sendStatus,
   testSendProof,
-  notice,
+  testSendJob,
+  sendOneJob,
   busy,
   onRecipientSourceChange,
   onRecipientTextChange,
@@ -2259,11 +2296,11 @@ function SendPanel({
   recipientText: string;
   recipientResult: RecipientSaveResult | null;
   audienceQuery: EmailAudienceQuery;
-  audienceLabel: string;
   sendOneEmail: string;
   sendStatus: DirectSendStatus | null;
   testSendProof: TestSendProof | null;
-  notice: string;
+  testSendJob: SendJobSnapshot | null;
+  sendOneJob: SendJobSnapshot | null;
   busy: string | null;
   onRecipientSourceChange: (source: RecipientSource) => void;
   onRecipientTextChange: (value: string) => void;
@@ -2319,9 +2356,6 @@ function SendPanel({
         <p className="mt-1.5 text-sm text-muted-foreground">
           {templateTypeLabel} · {limitsLabel}
         </p>
-        {notice ? (
-          <p className="mt-1 text-sm text-muted-foreground">{notice}</p>
-        ) : null}
       </div>
 
       {!templateCanSend ? (
@@ -2329,8 +2363,6 @@ function SendPanel({
           Select a template with content before sending.
         </p>
       ) : null}
-
-      <SendProgress busy={busy} sendStatus={sendStatus} />
 
       <EditorSection
         title="Send required organizer test"
@@ -2348,11 +2380,27 @@ function SendPanel({
           </Button>
         }
       >
-        {testSendProof ? (
-          <p className="text-sm text-muted-foreground">
-            Passed: {testSendProof.sentCount}/{testSendProof.totalCount} sent,
-            unlocked until {formatTime(testSendProof.expiresAt)}.
-          </p>
+        {testSendProof || testSendJob || busy === "test-send" ? (
+          <SendJobProgress
+            busy={busy === "test-send"}
+            job={
+              testSendJob ??
+              (testSendProof
+                ? {
+                    total: testSendProof.totalCount,
+                    sentCount: testSendProof.sentCount,
+                    failedCount: 0,
+                    complete: true,
+                    failures: [],
+                  }
+                : null)
+            }
+            detail={
+              testSendProof
+                ? `Unlocked until ${formatTime(testSendProof.expiresAt)}.`
+                : undefined
+            }
+          />
         ) : null}
       </EditorSection>
 
@@ -2376,6 +2424,7 @@ function SendPanel({
             {busy === "send-one" ? "Sending..." : "Send"}
           </Button>
         </div>
+        <SendJobProgress busy={busy === "send-one"} job={sendOneJob} />
       </EditorSection>
 
       <EditorSection
@@ -2508,7 +2557,14 @@ function SendPanel({
               : "Run the required test send before adding recipients."
           }
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          {recipientResult ? (
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+              {recipientResult.emails.length} valid,{" "}
+              {recipientResult.duplicateCount} duplicates,{" "}
+              {recipientResult.invalid.length} invalid
+            </p>
+          ) : null}
           {recipientSource === "audience" ? (
             <Button
               type="button"
@@ -2535,24 +2591,6 @@ function SendPanel({
             </Button>
           )}
         </div>
-        {audienceLabel ? (
-          <p className="text-sm text-muted-foreground">
-            Loaded: {audienceLabel}.
-          </p>
-        ) : null}
-        {recipientResult ? (
-          <div className="grid gap-2 text-sm sm:grid-cols-3">
-            <p className="rounded-md bg-muted/40 px-3 py-2">
-              {recipientResult.emails.length} valid
-            </p>
-            <p className="rounded-md bg-muted/40 px-3 py-2">
-              {recipientResult.duplicateCount} duplicates
-            </p>
-            <p className="rounded-md bg-muted/40 px-3 py-2">
-              {recipientResult.invalid.length} invalid
-            </p>
-          </div>
-        ) : null}
       </EditorSection>
 
       <EditorSection
@@ -2598,56 +2636,32 @@ function SendPanel({
           </div>
         }
       >
-        {sendStatus ? (
+        {sendStatus || busy === "start-send" ? (
           <>
-            <div className="grid gap-3 sm:grid-cols-4">
-              <Metric
-                label="Status"
-                value={
-                  sendStatus.complete
-                    ? "complete"
-                    : sendStatus.interrupted
-                      ? "interrupted"
-                      : sendStatus.leaseActive
-                        ? "recovering"
-                        : busy === "start-send"
-                          ? "sending"
-                          : "ready"
-                }
-              />
-              <Metric label="Recipients" value={sendStatus.totalRecipients} />
-              <Metric label="Sent" value={sendStatus.sentCount} />
-              <Metric label="Failed" value={sendStatus.failedCount} />
-              {sendStatus.sendingCount ? (
-                <Metric label="Sending" value={sendStatus.sendingCount} />
-              ) : null}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
-              {sendStatus.failedCount} failed
-              {sendStatus.sendingCount
-                ? `, ${sendStatus.sendingCount} sending`
-                : ""}
-              {sendStatus.leaseActive && sendStatus.leaseExpiresAt
-                ? `. Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
-                : ""}
-              {sendStatus.interrupted
-                ? ". Verify the interrupted delivery in SES before resolving it."
-                : ""}
-            </p>
-            {sendStatus.recentFailures.length ? (
-              <div className="space-y-2">
-                {sendStatus.recentFailures.map((failure) => (
-                  <p
-                    key={`${failure.email}-${failure.error}`}
-                    className="rounded-md border border-red-200/60 bg-red-50 px-3 py-2 text-sm text-red-900"
-                  >
-                    {failure.email}: {failure.error || "Send failed"}
-                  </p>
-                ))}
-              </div>
-            ) : null}
-            {sendStatus.interrupted &&
+            <SendJobProgress
+              busy={busy === "start-send"}
+              job={
+                sendStatus
+                  ? {
+                      total: sendStatus.totalRecipients,
+                      sentCount: sendStatus.sentCount,
+                      failedCount: sendStatus.failedCount,
+                      pendingCount: sendStatus.pendingCount,
+                      sendingCount: sendStatus.sendingCount,
+                      complete: sendStatus.complete,
+                      failures: sendStatus.recentFailures,
+                    }
+                  : null
+              }
+              detail={
+                sendStatus?.leaseActive && sendStatus.leaseExpiresAt
+                  ? `Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
+                  : sendStatus?.interrupted
+                    ? "Verify the interrupted delivery in SES before resolving it."
+                    : undefined
+              }
+            />
+            {sendStatus?.interrupted &&
             sendStatus.unverifiedRecipients.length ? (
               <div className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950">
                 Verify in SES before resolving:{" "}
@@ -2661,96 +2675,75 @@ function SendPanel({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-md bg-muted/40 px-3 py-2">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-sm font-medium text-foreground">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function SendProgress({
-  busy,
-  sendStatus,
+function SendJobProgress({
+  busy = false,
+  job,
+  detail,
 }: {
-  busy: string | null;
-  sendStatus: DirectSendStatus | null;
+  busy?: boolean;
+  job: SendJobSnapshot | null;
+  detail?: string;
 }) {
-  if (!busy && !sendStatus) {
+  if (!job && !busy) {
     return null;
   }
 
-  const completed =
-    sendStatus && sendStatus.totalRecipients > 0
-      ? sendStatus.sentCount + sendStatus.failedCount
-      : 0;
+  const total = job?.total ?? 0;
+  const sentCount = job?.sentCount ?? 0;
+  const failedCount = job?.failedCount ?? 0;
+  const processed = sentCount + failedCount;
   const progress =
-    sendStatus && sendStatus.totalRecipients > 0
-      ? Math.round((completed / sendStatus.totalRecipients) * 100)
-      : null;
-  const title =
-    busy === "check-recipients"
-      ? "Checking recipient list"
-      : busy === "load-audience"
-        ? "Loading recipient group"
-        : busy === "send-one"
-          ? "Sending one email"
-          : busy === "test-send"
-            ? "Sending test email"
-            : busy === "start-send"
-              ? "Sending list"
-              : sendStatus?.complete
-                ? "Send complete"
-                : sendStatus?.leaseActive
-                  ? "Waiting for recovery"
-                  : sendStatus?.interrupted
-                    ? "Interrupted delivery"
-                    : "Send progress";
-  const detail = sendStatus
-    ? `${sendStatus.sentCount} sent, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
-        sendStatus.sendingCount ? `, ${sendStatus.sendingCount} sending` : ""
-      }${
-        sendStatus.leaseActive && sendStatus.leaseExpiresAt
-          ? `; recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
-          : ""
-      }`
-    : "Working on the server...";
+    total > 0 ? Math.round((processed / total) * 100) : busy ? null : 0;
+  const sentWidth = total > 0 ? (sentCount / total) * 100 : 0;
+  const failedWidth = total > 0 ? (failedCount / total) * 100 : 0;
+  const summary = total
+    ? `${sentCount} sent, ${failedCount} failed${
+        job?.pendingCount ? `, ${job.pendingCount} pending` : ""
+      }${job?.sendingCount ? `, ${job.sendingCount} sending` : ""}`
+    : busy
+      ? "Sending..."
+      : "Send failed";
 
   return (
-    <section className="rounded-md bg-muted/40 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-3">
-          {busy ? (
-            <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
-          ) : (
-            <CheckCircle2 className="size-4 shrink-0 text-primary" />
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">
-              {title}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <p>{summary}</p>
+        {progress !== null ? <span>{progress}%</span> : null}
+      </div>
+      <div className="flex h-2 overflow-hidden rounded-md bg-muted">
+        {progress === null ? (
+          <div className="h-full w-2/3 animate-pulse rounded-md bg-primary" />
+        ) : (
+          <>
+            <div
+              className="h-full bg-primary transition-all duration-500"
+              style={{ width: `${sentWidth}%` }}
+            />
+            <div
+              className="h-full bg-destructive transition-all duration-500"
+              style={{ width: `${failedWidth}%` }}
+            />
+          </>
+        )}
+      </div>
+      {detail ? (
+        <p className="text-sm text-muted-foreground">{detail}</p>
+      ) : null}
+      {job?.failures.length ? (
+        <div className="space-y-2">
+          {job.failures.map((failure, index) => (
+            <p
+              key={`${failure.email ?? "recipient"}-${failure.error}-${index}`}
+              className="rounded-md border border-red-200/60 bg-red-50 px-3 py-2 text-sm text-red-900"
+            >
+              {failure.email
+                ? `${failure.email}: ${failure.error || "Send failed"}`
+                : failure.error || "Send failed"}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{detail}</p>
-          </div>
+          ))}
         </div>
-        {progress !== null ? (
-          <span className="text-xs font-medium text-muted-foreground">
-            {progress}%
-          </span>
-        ) : null}
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-md bg-muted">
-        <div
-          className={cn(
-            "h-full rounded-md bg-primary transition-all duration-500",
-            progress === null && "w-2/3 animate-pulse",
-          )}
-          style={progress !== null ? { width: `${progress}%` } : undefined}
-        />
-      </div>
-    </section>
+      ) : null}
+    </div>
   );
 }
 
@@ -3430,6 +3423,32 @@ function buildTestSendProofKey(
     html: template.html,
     theme,
   });
+}
+
+function delayUntil(timestamp: string, extraMs = 0) {
+  return Math.max(0, Date.parse(timestamp) - Date.now() + extraMs);
+}
+
+function mergeSendFailures(
+  current: DirectSendStatus["recentFailures"],
+  incoming: DirectSendStatus["recentFailures"],
+) {
+  const seen = new Set(
+    current.map((failure) => `${failure.email}\0${failure.error ?? ""}`),
+  );
+  const merged = [...current];
+
+  for (const failure of incoming) {
+    const key = `${failure.email}\0${failure.error ?? ""}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    merged.push(failure);
+  }
+
+  return merged;
 }
 
 function freshTestSendProof(proof: TestSendProof | null, proofKey: string) {
