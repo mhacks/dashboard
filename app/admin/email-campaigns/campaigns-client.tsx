@@ -93,7 +93,6 @@ import {
 type PreviewMode = "desktop" | "mobile";
 export type EmailCampaignSurface = "builder" | "styles" | "send";
 type TemplateType = "structured" | "html";
-type ToastTone = "loading" | "success" | "error" | "info";
 type RecipientSource = "manual" | "audience";
 
 export interface MasterTemplate {
@@ -158,13 +157,6 @@ interface TestSendProof {
   proofKey: string;
   sentCount: number;
   totalCount: number;
-}
-
-interface ToastState {
-  id: number;
-  tone: ToastTone;
-  title: string;
-  description?: string;
 }
 
 const themeStorageKey = "mhacks-email-active-theme";
@@ -255,7 +247,6 @@ export default function EmailCampaignsClient({
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const templateSearchPopoverRef = useRef<HTMLInputElement | null>(null);
-  const toastIdRef = useRef(0);
   const [surface, setSurface] = useState<EmailCampaignSurface>(initialSurface);
   const [templates, setTemplates] =
     useState<MasterTemplate[]>(initialTemplates);
@@ -317,7 +308,6 @@ export default function EmailCampaignsClient({
   const [aiDescription, setAiDescription] = useState("");
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState | null>(null);
 
   const selectedTemplate = useMemo(
     () =>
@@ -367,14 +357,8 @@ export default function EmailCampaignsClient({
       setSelectedTemplateId(saved.id);
       clearSendStatus();
       setNotice("Template saved.");
-      showToast("success", "Template saved", "Saved to the database.");
     } catch {
       setNotice("Template could not be saved to the database.");
-      showToast(
-        "error",
-        "Template save failed",
-        "The local draft is still visible, but it was not persisted.",
-      );
     } finally {
       setBusy(null);
     }
@@ -388,14 +372,8 @@ export default function EmailCampaignsClient({
       clearSendStatus();
       storeTheme(savedTheme);
       setNotice("Styles saved.");
-      showToast("success", "Styles saved", "Saved to the database.");
     } catch {
       setNotice("Styles could not be saved to the database.");
-      showToast(
-        "error",
-        "Styles save failed",
-        "The current styles are still visible locally, but were not persisted.",
-      );
     } finally {
       setBusy(null);
     }
@@ -471,18 +449,12 @@ export default function EmailCampaignsClient({
       setSelectedTemplateId(savedTemplate.id);
       clearSendStatus();
       setNotice("Template uploaded.");
-      showToast("success", "Template uploaded", "Saved to the database.");
     } catch {
       const nextTemplates = [template, ...templates];
       setTemplates(nextTemplates);
       setSelectedTemplateId(template.id);
       clearSendStatus();
       setNotice("Upload kept as a local draft. Database save failed.");
-      showToast(
-        "error",
-        "Upload save failed",
-        "The uploaded template is local only until it saves successfully.",
-      );
     } finally {
       setBusy(null);
       if (uploadRef.current) {
@@ -591,11 +563,9 @@ export default function EmailCampaignsClient({
       setSelectedTemplateId(nextTemplates[0]?.id ?? "");
       clearSendStatus();
       setNotice("");
-      showToast("success", "Template deleted");
     } catch (error) {
       const message = errorMessage(error);
       setNotice(message);
-      showToast("error", "Template delete failed", message);
     } finally {
       setBusy(null);
     }
@@ -612,7 +582,6 @@ export default function EmailCampaignsClient({
         mimeType: "text/html;charset=utf-8",
         content: selectedTemplate.html ?? "",
       });
-      showToast("success", "Template downloaded", `${baseName}.html`);
       return;
     }
 
@@ -630,7 +599,6 @@ export default function EmailCampaignsClient({
         2,
       ),
     });
-    showToast("success", "Template downloaded", `${baseName}.json`);
   }
 
   async function copyAiTemplateContext() {
@@ -644,14 +612,8 @@ export default function EmailCampaignsClient({
       );
       await window.navigator.clipboard.writeText(context);
       setNotice("AI context copied.");
-      showToast(
-        "success",
-        "AI context copied",
-        "Paste it into your local agent or ChatGPT, then import the JSON draft here.",
-      );
     } catch {
       setNotice("Could not copy AI context.");
-      showToast("error", "Could not copy AI context");
     }
   }
 
@@ -670,15 +632,9 @@ export default function EmailCampaignsClient({
       setNotice(
         `Draft generated with ${result.model}. Review the JSON below, then import it.`,
       );
-      showToast(
-        "success",
-        "Draft generated",
-        `Model: ${result.model}. Review before importing.`,
-      );
     } catch (error) {
       const message = errorMessage(error);
       setNotice(message);
-      showToast("error", "Draft generation failed", message);
     } finally {
       setBusy(null);
     }
@@ -699,15 +655,9 @@ export default function EmailCampaignsClient({
       setNotice(
         "AI draft applied to the current template. Review before saving.",
       );
-      showToast(
-        "success",
-        "AI draft applied",
-        "Review the changes, then save the template.",
-      );
     } catch (error) {
       const message = errorMessage(error);
       setNotice(message);
-      showToast("error", "AI draft rejected", message);
     }
   }
 
@@ -747,11 +697,6 @@ export default function EmailCampaignsClient({
     setBusy("check-recipients");
     setSendNotice("");
     setAudienceLabel("");
-    showToast(
-      "loading",
-      "Checking recipient list",
-      "Validating addresses and merge columns.",
-    );
     try {
       const template = buildDirectSendTemplate(selectedTemplate, theme);
       const [parsed, recoveredStatus] = await Promise.all([
@@ -777,19 +722,9 @@ export default function EmailCampaignsClient({
           ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
           : `${parsed.emails.length} recipients ready.`,
       );
-      showToast(
-        recoveredStatus ? "info" : "success",
-        recoveredStatus ? "Saved send recovered" : "Recipient list ready",
-        recoveredStatus
-          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
-          : `${parsed.emails.length} valid, ${parsed.duplicateCount} duplicate${
-              parsed.duplicateCount === 1 ? "" : "s"
-            }, ${parsed.invalid.length} invalid.`,
-      );
     } catch (error) {
       const message = errorMessage(error);
       setSendNotice(message);
-      showToast("error", "Could not check list", message);
     } finally {
       setBusy(null);
     }
@@ -798,11 +733,6 @@ export default function EmailCampaignsClient({
   async function loadAudienceRecipients() {
     setBusy("load-audience");
     setSendNotice("");
-    showToast(
-      "loading",
-      "Loading group",
-      "Resolving recipients from Supabase.",
-    );
     try {
       const resolved = (await resolveEmailAudienceAction({
         query: audienceQuery,
@@ -831,19 +761,9 @@ export default function EmailCampaignsClient({
           ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
           : `${resolved.emails.length} recipients loaded.`,
       );
-      showToast(
-        recoveredStatus ? "info" : "success",
-        recoveredStatus ? "Saved send recovered" : "Group loaded",
-        recoveredStatus
-          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
-          : `${resolved.emails.length} valid recipient${
-              resolved.emails.length === 1 ? "" : "s"
-            } from ${resolved.label}.`,
-      );
     } catch (error) {
       const message = errorMessage(error);
       setSendNotice(message);
-      showToast("error", "Could not load group", message);
     } finally {
       setBusy(null);
     }
@@ -876,7 +796,6 @@ export default function EmailCampaignsClient({
 
     setBusy("send-one");
     setSendNotice("");
-    showToast("loading", "Sending email", `Sending to ${sendOneEmail}.`);
     try {
       const data = await sendOneDirectEmailAction({
         template,
@@ -888,19 +807,9 @@ export default function EmailCampaignsClient({
           ? "Single email sent."
           : data.result.error || "Single email failed.",
       );
-      if (data.result.status === "sent") {
-        showToast("success", "Email sent", `Sent to ${sendOneEmail}.`);
-      } else {
-        showToast(
-          "error",
-          "Email failed",
-          data.result.error || "Single email failed.",
-        );
-      }
     } catch (error) {
       const message = errorMessage(error);
       setSendNotice(message);
-      showToast("error", "Email failed", message);
     } finally {
       setBusy(null);
     }
@@ -912,11 +821,6 @@ export default function EmailCampaignsClient({
 
     setBusy("test-send");
     setSendNotice("Sending required test emails...");
-    showToast(
-      "loading",
-      "Sending test email",
-      "Required server-managed test addresses queued.",
-    );
     try {
       const data = await sendDirectTestEmailsAction({
         template,
@@ -942,19 +846,10 @@ export default function EmailCampaignsClient({
           ? `${sent.length}/${data.results.length} test emails sent. ${firstFailure.error}`
           : `${sent.length}/${data.results.length} test emails sent.`,
       );
-      showToast(
-        firstFailure ? "error" : "success",
-        firstFailure ? "Test send finished with errors" : "Test email sent",
-        firstFailure?.error ??
-          `${sent.length}/${data.results.length} test email${
-            data.results.length === 1 ? "" : "s"
-          } sent.`,
-      );
     } catch (error) {
       const message = errorMessage(error);
       clearTestSendProof();
       setSendNotice(message);
-      showToast("error", "Test send failed", message);
     } finally {
       setBusy(null);
     }
@@ -969,19 +864,11 @@ export default function EmailCampaignsClient({
       const message =
         "Run a successful test send before starting a full list send.";
       setSendNotice(message);
-      showToast("error", "Test send required", message);
       return;
     }
 
     setBusy("start-send");
     setSendNotice("Sending...");
-    showToast(
-      "loading",
-      "Sending list",
-      activeSendStatus
-        ? "Resuming from the last durable recipient checkpoint."
-        : "Starting the first server-throttled send window.",
-    );
     try {
       let status: DirectSendStatus | null = null;
       const runId = activeSendStatus?.runId ?? crypto.randomUUID();
@@ -1018,13 +905,6 @@ export default function EmailCampaignsClient({
           cursor,
         });
         commitSendStatus({ ...status, proofKey: currentTestProofKey });
-        showToast(
-          "loading",
-          "Sending list",
-          `${status.sentCount} sent, ${status.failedCount} failed, ${status.pendingCount} pending${
-            status.sendingCount ? `, ${status.sendingCount} sending` : ""
-          }.`,
-        );
         cursor = status.nextCursor;
 
         if (status.complete) {
@@ -1051,23 +931,6 @@ export default function EmailCampaignsClient({
                 : "Send paused. Continue when ready."
           : "Send complete.",
       );
-      showToast(
-        status?.complete && !status.failedCount
-          ? "success"
-          : status?.interrupted
-            ? "error"
-            : "info",
-        status?.complete ? "List send complete" : "List send paused",
-        status
-          ? status.complete
-            ? `${status.sentCount} sent, ${status.failedCount} failed.`
-            : status.interrupted
-              ? "Verify the interrupted delivery in SES before resolving it."
-              : status.leaseActive && status.leaseExpiresAt
-                ? `Recovery becomes available at ${formatTime(status.leaseExpiresAt)}.`
-                : "The saved send is ready to continue."
-          : "Send complete.",
-      );
 
       if (status?.complete) {
         clearCompletedSend();
@@ -1075,7 +938,6 @@ export default function EmailCampaignsClient({
     } catch (error) {
       const message = errorMessage(error);
       setSendNotice(message);
-      showToast("error", "List send failed", message);
     } finally {
       setBusy(null);
     }
@@ -1107,7 +969,6 @@ export default function EmailCampaignsClient({
       const message =
         "Select the original template and keep the recipient list loaded before resolving this delivery.";
       setSendNotice(message);
-      showToast("error", "Cannot resolve delivery", message);
       return;
     }
 
@@ -1128,21 +989,14 @@ export default function EmailCampaignsClient({
         setSendNotice(
           `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
         );
-        showToast(
-          nextStatus.failedCount ? "error" : "success",
-          "List send complete",
-          `${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
-        );
       } else {
         setSendNotice(
           "Interrupted delivery resolved. Continue the send when ready.",
         );
-        showToast("info", "Delivery resolved", "The run can continue now.");
       }
     } catch (error) {
       const message = errorMessage(error);
       setSendNotice(message);
-      showToast("error", "Resolve failed", message);
     } finally {
       setBusy(null);
     }
@@ -1181,16 +1035,6 @@ export default function EmailCampaignsClient({
     window.history.pushState(null, "", `${url.pathname}${url.search}`);
   }
 
-  function showToast(tone: ToastTone, title: string, description?: string) {
-    toastIdRef.current += 1;
-    setToast({
-      id: toastIdRef.current,
-      tone,
-      title,
-      description,
-    });
-  }
-
   useEffect(() => {
     function handlePopState() {
       setSurface(parseEmailCampaignSurface(window.location.search));
@@ -1221,15 +1065,6 @@ export default function EmailCampaignsClient({
 
     return () => window.clearTimeout(timer);
   }, [selectedTemplate, theme, effectiveMergePreviewData]);
-
-  useEffect(() => {
-    if (!toast || toast.tone === "loading") {
-      return;
-    }
-
-    const timer = window.setTimeout(() => setToast(null), 6500);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   useEffect(() => {
     const leaseExpiresAt = activeSendStatus?.leaseExpiresAt;
@@ -1724,7 +1559,6 @@ export default function EmailCampaignsClient({
             </PopoverContent>
           </Popover>
         ) : null}
-        <ToastSnackbar toast={toast} onDismiss={() => setToast(null)} />
         <AlertDialog open={aiDraftOpen} onOpenChange={setAiDraftOpen}>
           <AlertDialogContent className="!flex z-50 h-auto max-h-[calc(100dvh-2rem)] w-[min(72rem,calc(100vw-2rem))] !max-w-none flex-col gap-0 overflow-hidden p-0">
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
@@ -2917,79 +2751,6 @@ function SendProgress({
         />
       </div>
     </section>
-  );
-}
-
-function ToastSnackbar({
-  toast,
-  onDismiss,
-}: {
-  toast: ToastState | null;
-  onDismiss: () => void;
-}) {
-  if (!toast) {
-    return null;
-  }
-
-  const Icon =
-    toast.tone === "loading"
-      ? Loader2
-      : toast.tone === "success"
-        ? CheckCircle2
-        : toast.tone === "error"
-          ? AlertTriangle
-          : Send;
-  const toneClass =
-    toast.tone === "error"
-      ? "border-red-500 bg-red-600 text-primary-foreground "
-      : toast.tone === "success"
-        ? "border-primary/40 bg-muted/40 text-foreground"
-        : "border-border bg-card text-foreground";
-
-  return (
-    <div
-      className={cn(
-        "fixed inset-x-4 bottom-4 z-50 mx-auto max-w-lg rounded-lg border-2 p-4   md:left-auto md:right-5 md:mx-0",
-        toneClass,
-      )}
-      role="status"
-      aria-live="polite"
-    >
-      <div className="flex items-start gap-3">
-        <Icon
-          className={cn(
-            "mt-0.5 size-5 shrink-0",
-            toast.tone === "loading" && "animate-spin",
-          )}
-        />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{toast.title}</p>
-          {toast.description ? (
-            <p
-              className={cn(
-                "mt-1 text-sm leading-5",
-                toast.tone !== "error" && "opacity-75",
-              )}
-            >
-              {toast.description}
-            </p>
-          ) : null}
-          {toast.tone === "loading" ? (
-            <div className="mt-3 h-1.5 overflow-hidden rounded-md bg-muted">
-              <div className="h-full w-2/3 animate-pulse rounded-md bg-current opacity-70" />
-            </div>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          className="rounded-md p-1 opacity-75 transition hover:bg-muted hover:opacity-100"
-          aria-label="Dismiss notification"
-          onClick={onDismiss}
-        >
-          <X className="size-4" />
-        </button>
-      </div>
-    </div>
   );
 }
 
