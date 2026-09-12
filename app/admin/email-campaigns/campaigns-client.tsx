@@ -22,6 +22,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Palette,
+  Pencil,
   Play,
   Plus,
   Save,
@@ -37,6 +38,12 @@ import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMounted } from "@/hooks/use-mounted";
 import {
@@ -1364,9 +1371,6 @@ export default function EmailCampaignsClient({
       <BuilderPanel
         notice={notice}
         selectedTemplate={selectedTemplate}
-        mergeFields={mergeFields}
-        mergePreviewData={effectiveMergePreviewData}
-        busy={busy}
         onDownloadTemplate={downloadSelectedTemplate}
         onDeleteTemplate={deleteSelectedTemplate}
         aiDraftText={aiDraftText}
@@ -1377,12 +1381,6 @@ export default function EmailCampaignsClient({
         onCopyAiContext={() => void copyAiTemplateContext()}
         onGenerateAiDraft={() => void generateAiTemplateDraft()}
         onImportAiDraft={importAiTemplateDraft}
-        onMergePreviewDataChange={(field, value) =>
-          setMergePreviewData((current) => ({
-            ...current,
-            [field]: value,
-          }))
-        }
         onTemplateChange={updateSelectedTemplate}
         onContentChange={updateContent}
         onSectionChange={updateSection}
@@ -1442,12 +1440,7 @@ export default function EmailCampaignsClient({
   const previewBody = (
     <>
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Preview</h2>
-          <p className="text-xs text-muted-foreground">
-            Live desktop/mobile preview.
-          </p>
-        </div>
+        <h2 className="text-base font-semibold text-foreground">Preview</h2>
         <div className="inline-flex items-center gap-1 rounded-md border bg-muted p-1">
           <PreviewButton
             active={previewMode === "desktop"}
@@ -1465,7 +1458,17 @@ export default function EmailCampaignsClient({
           </PreviewButton>
         </div>
       </div>
-      <div className="mt-4 min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/30 p-4">
+      <PreviewMergePanel
+        fields={mergeFields}
+        values={effectiveMergePreviewData}
+        onChange={(field, value) =>
+          setMergePreviewData((current) => ({
+            ...current,
+            [field]: value,
+          }))
+        }
+      />
+      <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/30 p-4">
         <div
           className="mx-auto overflow-hidden rounded-md bg-card "
           style={{ width: previewWidth, maxWidth: "100%" }}
@@ -1661,16 +1664,16 @@ function BodyBlockCard({
   const blockLabel = section.title?.trim() || `Block ${index + 1}`;
 
   return (
-    <div className="rounded-md border border-border bg-card p-4">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Block {index + 1} of {total}
-          </p>
-          <p className="truncate text-sm font-semibold text-foreground">
-            {blockLabel}
-          </p>
-        </div>
+    <div className="rounded-md bg-muted/40 p-3">
+      <div className="flex items-center gap-2">
+        <InlineEditableField
+          className="text-sm font-medium text-foreground"
+          wrapperClassName="min-w-0 flex-1"
+          value={section.title ?? ""}
+          onChange={(event) => onChange({ title: event.target.value })}
+          placeholder={`Block ${index + 1}`}
+          aria-label={`Title for block ${index + 1}`}
+        />
         <div className="flex shrink-0 gap-1">
           <Button
             type="button"
@@ -1706,24 +1709,14 @@ function BodyBlockCard({
           </Button>
         </div>
       </div>
-      <div className="space-y-4">
-        <Field label="Title">
-          <input
-            className={inputClass}
-            value={section.title ?? ""}
-            onChange={(event) => onChange({ title: event.target.value })}
-            placeholder={`Block ${index + 1}`}
-          />
-        </Field>
-        <Field label="Copy">
-          <textarea
-            className={textareaClass}
-            rows={6}
-            value={section.body}
-            onChange={(event) => onChange({ body: event.target.value })}
-          />
-        </Field>
-      </div>
+      <textarea
+        className={`${textareaClass} mt-3`}
+        rows={6}
+        value={section.body}
+        onChange={(event) => onChange({ body: event.target.value })}
+        placeholder="Body copy"
+        aria-label={`Body copy for ${blockLabel}`}
+      />
     </div>
   );
 }
@@ -1731,9 +1724,6 @@ function BodyBlockCard({
 function BuilderPanel({
   notice,
   selectedTemplate,
-  mergeFields,
-  mergePreviewData,
-  busy,
   onDownloadTemplate,
   onDeleteTemplate,
   aiDraftText,
@@ -1744,7 +1734,6 @@ function BuilderPanel({
   onCopyAiContext,
   onGenerateAiDraft,
   onImportAiDraft,
-  onMergePreviewDataChange,
   onTemplateChange,
   onContentChange,
   onSectionChange,
@@ -1754,9 +1743,6 @@ function BuilderPanel({
 }: {
   notice: string;
   selectedTemplate: MasterTemplate | null;
-  mergeFields: string[];
-  mergePreviewData: Record<string, string>;
-  busy: string | null;
   onDownloadTemplate: () => void;
   onDeleteTemplate: () => void;
   aiDraftText: string;
@@ -1767,7 +1753,6 @@ function BuilderPanel({
   onCopyAiContext: () => void;
   onGenerateAiDraft: () => void;
   onImportAiDraft: () => void;
-  onMergePreviewDataChange: (field: string, value: string) => void;
   onTemplateChange: (patch: Partial<MasterTemplate>) => void;
   onContentChange: (patch: Partial<EmailCampaignContent>) => void;
   onSectionChange: (
@@ -1787,59 +1772,55 @@ function BuilderPanel({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Template editor
-          </p>
-          <h2 className="text-lg font-semibold text-foreground">
-            {selectedTemplate.name}
-          </h2>
-          {notice ? (
-            <p className="mt-1 text-sm text-muted-foreground">{notice}</p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            className={adminSecondaryButtonClass}
-            onClick={onDownloadTemplate}
-          >
-            <Download />
-            Download
-          </Button>
-          <Button
-            variant="ghost"
-            className={adminDangerButtonClass}
-            onClick={onDeleteTemplate}
-          >
-            <Trash2 />
-            Remove
-          </Button>
-        </div>
-      </div>
-
-      <EditorSection title="Template info">
-        <Field label="Template name">
-          <input
-            className={inputClass}
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2">
+          <InlineEditableField
+            className="text-lg font-semibold text-foreground"
+            wrapperClassName="min-w-0 flex-1"
             value={selectedTemplate.name}
             onChange={(event) => onTemplateChange({ name: event.target.value })}
+            placeholder="Template name"
+            aria-label="Template name"
           />
-        </Field>
-        <Field label="Description">
-          <input
-            className={inputClass}
-            value={selectedTemplate.description}
-            onChange={(event) =>
-              onTemplateChange({ description: event.target.value })
-            }
-          />
-        </Field>
-      </EditorSection>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className={adminMiniButtonClass}
+            onClick={onDownloadTemplate}
+            aria-label="Download template"
+          >
+            <Download />
+          </Button>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className={adminMiniButtonClass}
+            onClick={onDeleteTemplate}
+            aria-label="Remove template"
+          >
+            <Trash2 />
+          </Button>
+        </div>
+        <InlineEditableField
+          className="text-sm text-muted-foreground"
+          wrapperClassName="mt-1.5 max-w-full"
+          value={selectedTemplate.description}
+          onChange={(event) =>
+            onTemplateChange({ description: event.target.value })
+          }
+          placeholder="Description"
+          aria-label="Description"
+        />
+      </div>
 
-      <EditorSection title="Email subject">
+      {notice ? (
+        <p className="text-sm text-muted-foreground">{notice}</p>
+      ) : null}
+
+      <div className="space-y-3">
         <Field label="Subject">
           <input
             className={inputClass}
@@ -1858,31 +1839,21 @@ function BuilderPanel({
             }
           />
         </Field>
-      </EditorSection>
+      </div>
 
       {selectedTemplate.type === "html" ? (
-        <EditorSection
-          title="HTML body"
-          description="Raw HTML rendered for this template."
-        >
-          <Field label="HTML">
-            <textarea
-              className={`${textareaClass} text-xs`}
-              rows={18}
-              value={selectedTemplate.html ?? ""}
-              onChange={(event) =>
-                onTemplateChange({ html: event.target.value })
-              }
-            />
-          </Field>
+        <EditorSection title="HTML body">
+          <textarea
+            className={`${textareaClass} text-xs`}
+            rows={18}
+            value={selectedTemplate.html ?? ""}
+            onChange={(event) => onTemplateChange({ html: event.target.value })}
+          />
         </EditorSection>
       ) : selectedTemplate.content ? (
         <>
-          <EditorSection
-            title="Header"
-            description="The top of the email, shown before any body blocks."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
+          <EditorSection title="Header">
+            <div className="grid gap-3 md:grid-cols-2">
               <Field label="Eyebrow">
                 <input
                   className={inputClass}
@@ -1916,11 +1887,11 @@ function BuilderPanel({
 
           <EditorSection
             title="Body blocks"
-            description="Optional sections between the header and footer. Leave empty for a short email."
             action={
               <Button
                 type="button"
                 variant="ghost"
+                size="sm"
                 className={adminSecondaryButtonClass}
                 onClick={onSectionAdd}
               >
@@ -1930,14 +1901,11 @@ function BuilderPanel({
             }
           >
             {selectedTemplate.content.sections.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border bg-card/50 px-4 py-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No body blocks yet. The email will show the header, footer,
-                  and optional button only.
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                No body blocks yet.
+              </p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {selectedTemplate.content.sections.map((section, index) => (
                   <BodyBlockCard
                     key={section.id}
@@ -1953,11 +1921,8 @@ function BuilderPanel({
             )}
           </EditorSection>
 
-          <EditorSection
-            title="Footer"
-            description="Optional call-to-action button and closing note."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
+          <EditorSection title="Footer">
+            <div className="grid gap-3 md:grid-cols-2">
               <Field label="Button label">
                 <input
                   className={inputClass}
@@ -2007,23 +1972,30 @@ function BuilderPanel({
         </>
       ) : null}
 
-      <MergeFieldsPanel
-        fields={mergeFields}
-        values={mergePreviewData}
-        onChange={onMergePreviewDataChange}
-      />
-
-      <AiDraftPanel
-        draftText={aiDraftText}
-        templateType={selectedTemplate.type}
-        aiDescription={aiDescription}
-        generateBusy={generateBusy}
-        onAiDescriptionChange={onAiDescriptionChange}
-        onCopyAiContext={onCopyAiContext}
-        onDraftTextChange={onAiDraftTextChange}
-        onGenerateDraft={onGenerateAiDraft}
-        onImportDraft={onImportAiDraft}
-      />
+      <Accordion
+        type="single"
+        collapsible
+        className="border-t border-border pt-1"
+      >
+        <AccordionItem value="ai">
+          <AccordionTrigger className="py-3 text-sm font-medium hover:no-underline">
+            AI drafting
+          </AccordionTrigger>
+          <AccordionContent className="pb-4">
+            <AiDraftPanel
+              draftText={aiDraftText}
+              templateType={selectedTemplate.type}
+              aiDescription={aiDescription}
+              generateBusy={generateBusy}
+              onAiDescriptionChange={onAiDescriptionChange}
+              onCopyAiContext={onCopyAiContext}
+              onDraftTextChange={onAiDraftTextChange}
+              onGenerateDraft={onGenerateAiDraft}
+              onImportDraft={onImportAiDraft}
+            />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }
@@ -2050,19 +2022,8 @@ function AiDraftPanel({
   onImportDraft: () => void;
 }) {
   return (
-    <section className={cn(adminInsetClass, "p-4")}>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          AI drafting
-        </p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Describe the email you want to generate, or copy the strict template
-          prompt for an external agent. Review the JSON below before importing
-          it into the current template.
-        </p>
-      </div>
-
-      <Tabs defaultValue="generate" className="mt-4">
+    <div>
+      <Tabs defaultValue="generate">
         <TabsList variant="line">
           <TabsTrigger value="generate">Generate</TabsTrigger>
           <TabsTrigger value="manual">Manual prompt</TabsTrigger>
@@ -2078,11 +2039,7 @@ function AiDraftPanel({
               placeholder="Example: A short RSVP reminder for accepted hackers. Friendly tone, mention the Friday deadline, and link to the dashboard."
             />
           </Field>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Uses OpenRouter&apos;s free router (openrouter/free). Generated
-              JSON appears below for review.
-            </p>
+          <div className="flex justify-end">
             <Button
               type="button"
               className={adminPrimaryButtonClass}
@@ -2096,10 +2053,6 @@ function AiDraftPanel({
         </TabsContent>
 
         <TabsContent value="manual" className="mt-4 space-y-3">
-          <p className="text-sm leading-6 text-muted-foreground">
-            Copy the full drafting prompt and current template context, then
-            paste the model&apos;s JSON response into the draft box below.
-          </p>
           <Button
             type="button"
             variant="ghost"
@@ -2135,11 +2088,7 @@ function AiDraftPanel({
           />
         </div>
       </Field>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          Importing updates the current template locally. It does not save or
-          send.
-        </p>
+      <div className="mt-3 flex justify-end">
         <Button
           type="button"
           className={adminPrimaryButtonClass}
@@ -2147,14 +2096,14 @@ function AiDraftPanel({
           onClick={onImportDraft}
         >
           <Sparkles />
-          Import AI draft
+          Import draft
         </Button>
       </div>
-    </section>
+    </div>
   );
 }
 
-function MergeFieldsPanel({
+function PreviewMergePanel({
   fields,
   values,
   onChange,
@@ -2163,83 +2112,40 @@ function MergeFieldsPanel({
   values: Record<string, string>;
   onChange: (field: string, value: string) => void;
 }) {
+  if (fields.length === 0) {
+    return null;
+  }
+
   return (
-    <section className={cn(adminInsetClass, "p-4")}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Recipient data
-          </p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Merge fields are recipient-list columns, not values to enter one by
-            one. A future audience import should provide one row per recipient
-            and one column for each field used here.
-          </p>
-        </div>
-        <span className="rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          {fields.length} required {fields.length === 1 ? "column" : "columns"}
-        </span>
-      </div>
-
-      {fields.length > 0 ? (
-        <div className="mt-4 space-y-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Required mailing list columns
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {fields.map((field) => (
-                <code key={field} className={codeClass}>
-                  {field}
-                </code>
-              ))}
-            </div>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              For a 2000 person list, this is handled once at import/send time:
-              each CSV/database row supplies its own values for these columns.
-            </p>
+    <Accordion type="single" collapsible className="mt-3">
+      <AccordionItem
+        value="merge"
+        className="rounded-md border border-border px-3"
+      >
+        <AccordionTrigger className="py-2.5 text-sm font-medium hover:no-underline">
+          Sample recipient
+          <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+            · {fields.length} {fields.length === 1 ? "field" : "fields"}
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="pb-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {fields.map((field) => (
+              <label key={field} className="block space-y-1">
+                <span className="text-xs text-muted-foreground">{field}</span>
+                <input
+                  aria-label={`Sample value for ${field}`}
+                  className={inputClass}
+                  value={values[field] ?? ""}
+                  placeholder={defaultMergeValue(field)}
+                  onChange={(event) => onChange(field, event.target.value)}
+                />
+              </label>
+            ))}
           </div>
-
-          <div className="rounded-md border border-border bg-card p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Sample preview row
-                </span>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Used only to render the preview on the right.
-                </p>
-              </div>
-              <span className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground">
-                1 recipient
-              </span>
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {fields.map((field) => (
-                <label key={field} className="block space-y-2">
-                  <span className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                    <span className="truncate">{field}</span>
-                    <code className={codeClass}>{`{{${field}}}`}</code>
-                  </span>
-                  <input
-                    aria-label={`Sample value for ${field}`}
-                    className={inputClass}
-                    value={values[field] ?? ""}
-                    placeholder={defaultMergeValue(field)}
-                    onChange={(event) => onChange(field, event.target.value)}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <p className="mt-3 rounded-md border border-dashed border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-          This template does not require extra recipient columns yet.
-        </p>
-      )}
-    </section>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }
 
@@ -3020,33 +2926,49 @@ function PreviewButton({
   );
 }
 
+function InlineEditableField({
+  className,
+  wrapperClassName,
+  ...props
+}: React.ComponentProps<"input"> & { wrapperClassName?: string }) {
+  return (
+    <div
+      className={cn(
+        "group/editable inline-flex max-w-full items-center gap-1",
+        wrapperClassName,
+      )}
+    >
+      <input
+        className={cn(
+          "min-w-[4ch] max-w-full border-0 border-b border-dotted border-transparent bg-transparent p-0 outline-none transition-[border-color] focus-visible:ring-0 placeholder:text-muted-foreground group-hover/editable:border-border/60 group-focus-within/editable:border-border/60 [field-sizing:content]",
+          className,
+        )}
+        {...props}
+      />
+      <Pencil
+        className="size-3 shrink-0 text-muted-foreground/35 transition-opacity group-hover/editable:text-muted-foreground/55 group-focus-within/editable:text-muted-foreground/55"
+        aria-hidden
+      />
+    </div>
+  );
+}
+
 function EditorSection({
   title,
-  description,
   action,
   children,
 }: {
   title: string;
-  description?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn(adminInsetClass, "p-4")}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {title}
-          </p>
-          {description ? (
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
+    <section className="border-t border-border pt-5 first:border-t-0 first:pt-0">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-medium text-foreground">{title}</h3>
         {action}
       </div>
-      <div className="mt-4 space-y-4">{children}</div>
+      <div className="space-y-3">{children}</div>
     </section>
   );
 }
@@ -3059,10 +2981,8 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
+    <label className="block space-y-1.5">
+      <span className="text-sm text-muted-foreground">{label}</span>
       {children}
     </label>
   );
