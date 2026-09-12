@@ -199,8 +199,6 @@ const PANEL_LAYOUT_STORAGE: LayoutStorage = {
   },
 };
 const builtInRecipientMergeFields = new Set(["email", "name"]);
-const serverManagedTestListLabel =
-  "Server-managed required organizer test list";
 const defaultAudienceQuery: EmailAudienceQuery = {
   decisionGroup: "all_applicants",
   travelAward: "any",
@@ -273,7 +271,6 @@ export default function EmailCampaignsClient({
     useState<EmailAudienceQuery>(defaultAudienceQuery);
   const [audienceLabel, setAudienceLabel] = useState("");
   const [sendOneEmail, setSendOneEmail] = useState("");
-  const testEmails = serverManagedTestListLabel;
   const [sendNotice, setSendNotice] = useState("");
   const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(() =>
     loadStoredSendStatus(),
@@ -1506,7 +1503,6 @@ export default function EmailCampaignsClient({
         audienceQuery={audienceQuery}
         audienceLabel={audienceLabel}
         sendOneEmail={sendOneEmail}
-        testEmails={testEmails}
         sendStatus={activeSendStatus}
         testSendProof={activeTestSendProof}
         notice={sendNotice}
@@ -2407,7 +2403,6 @@ function SendPanel({
   audienceQuery,
   audienceLabel,
   sendOneEmail,
-  testEmails,
   sendStatus,
   testSendProof,
   notice,
@@ -2432,7 +2427,6 @@ function SendPanel({
   audienceQuery: EmailAudienceQuery;
   audienceLabel: string;
   sendOneEmail: string;
-  testEmails: string;
   sendStatus: DirectSendStatus | null;
   testSendProof: TestSendProof | null;
   notice: string;
@@ -2453,7 +2447,6 @@ function SendPanel({
     selectedTemplate &&
     (selectedTemplate.type === "html" || selectedTemplate.content),
   );
-  const validatedRecipients = recipientResult?.emails.length ?? 0;
   const requiredRecipientColumns = mergeFields.filter(
     (field) => !builtInRecipientMergeFields.has(field),
   );
@@ -2506,12 +2499,59 @@ function SendPanel({
       <SendProgress busy={busy} sendStatus={sendStatus} />
 
       <EditorSection
-        title="Recipients"
+        title="Send required organizer test"
         action={
-          <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={adminSecondaryButtonClass}
+            disabled={!templateCanSend || Boolean(busy)}
+            onClick={onTestSend}
+          >
+            <ListChecks />
+            {busy === "test-send" ? "Sending..." : "Test"}
+          </Button>
+        }
+      >
+        {testSendProof ? (
+          <p className="text-sm text-muted-foreground">
+            Passed: {testSendProof.sentCount}/{testSendProof.totalCount} sent,
+            unlocked until {formatTime(testSendProof.expiresAt)}.
+          </p>
+        ) : null}
+      </EditorSection>
+
+      <EditorSection title="Send one">
+        <div className="flex items-center gap-2">
+          <input
+            className={inputClass}
+            type="email"
+            value={sendOneEmail}
+            onChange={(event) => onSendOneEmailChange(event.target.value)}
+            placeholder="one@email.com"
+          />
+          <Button
+            type="button"
+            size="sm"
+            className={adminPrimaryButtonClass}
+            disabled={!templateCanSend || !sendOneEmail || Boolean(busy)}
+            onClick={onSendOne}
+          >
+            <Send />
+            {busy === "send-one" ? "Sending..." : "Send"}
+          </Button>
+        </div>
+      </EditorSection>
+
+      <EditorSection
+        title="Load a recipient group"
+        action={
+          <div className="flex flex-wrap gap-1">
             <Button
               type="button"
               variant={recipientSource === "manual" ? "default" : "ghost"}
+              size="sm"
               className={
                 recipientSource === "manual"
                   ? adminPrimaryButtonClass
@@ -2526,6 +2566,7 @@ function SendPanel({
             <Button
               type="button"
               variant={recipientSource === "audience" ? "default" : "ghost"}
+              size="sm"
               className={
                 recipientSource === "audience"
                   ? adminPrimaryButtonClass
@@ -2540,121 +2581,83 @@ function SendPanel({
           </div>
         }
       >
-        <p className="text-sm text-muted-foreground">
-          Paste a list manually or load a Supabase group as CSV. Group rows
-          include <code className={codeClass}>email</code>,{" "}
-          <code className={codeClass}>first_name</code>, decision, RSVP, and
-          travel reimbursement columns.
-        </p>
         {recipientSource === "audience" ? (
-          <>
-            <div className="grid gap-3 lg:grid-cols-3">
-              <Field label="Decision group">
-                <select
-                  className={inputClass}
-                  value={audienceQuery.decisionGroup}
-                  disabled={Boolean(busy)}
-                  onChange={(event) => {
-                    const decisionGroup = event.target
-                      .value as EmailAudienceQuery["decisionGroup"];
+          <div className="grid gap-3 lg:grid-cols-3">
+            <Field label="Decision group">
+              <select
+                className={inputClass}
+                value={audienceQuery.decisionGroup}
+                disabled={Boolean(busy)}
+                onChange={(event) => {
+                  const decisionGroup = event.target
+                    .value as EmailAudienceQuery["decisionGroup"];
 
-                    onAudienceQueryChange(
-                      decisionGroup === "draft" || decisionGroup === "umich"
-                        ? {
-                            decisionGroup,
-                            travelAward: "any",
-                            rsvpTravelPlan: "any",
-                          }
-                        : { decisionGroup },
-                    );
-                  }}
-                >
-                  {audienceDecisionOptions.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Travel award">
-                <select
-                  className={inputClass}
-                  value={audienceQuery.travelAward}
-                  disabled={
-                    Boolean(busy) ||
-                    audienceQuery.decisionGroup === "draft" ||
-                    audienceQuery.decisionGroup === "umich"
-                  }
-                  onChange={(event) =>
-                    onAudienceQueryChange({
-                      travelAward: event.target
-                        .value as EmailAudienceQuery["travelAward"],
-                    })
-                  }
-                >
-                  {audienceTravelAwardOptions.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="RSVP travel plan">
-                <select
-                  className={inputClass}
-                  value={audienceQuery.rsvpTravelPlan}
-                  disabled={
-                    Boolean(busy) ||
-                    audienceQuery.decisionGroup === "draft" ||
-                    audienceQuery.decisionGroup === "umich"
-                  }
-                  onChange={(event) =>
-                    onAudienceQueryChange({
-                      rsvpTravelPlan: event.target
-                        .value as EmailAudienceQuery["rsvpTravelPlan"],
-                    })
-                  }
-                >
-                  {audienceRsvpTravelPlanOptions.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                {fullSendUnlocked
-                  ? audienceLabel
-                    ? `Loaded: ${audienceLabel}.`
-                    : "Load the group to snapshot its current recipients into the list below."
-                  : "Run the required test send before loading a group."}
-              </p>
-              <Button
-                variant="ghost"
-                className={adminSecondaryButtonClass}
-                disabled={!fullSendUnlocked || Boolean(busy)}
-                onClick={onLoadAudience}
+                  onAudienceQueryChange(
+                    decisionGroup === "draft" || decisionGroup === "umich"
+                      ? {
+                          decisionGroup,
+                          travelAward: "any",
+                          rsvpTravelPlan: "any",
+                        }
+                      : { decisionGroup },
+                  );
+                }}
               >
-                <Database />
-                {busy === "load-audience" ? "Loading..." : "Load group"}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="flex justify-end">
-            <Button
-              variant="ghost"
-              className={adminSecondaryButtonClass}
-              disabled={recipientInputDisabled || !recipientText.trim()}
-              onClick={onCheckRecipients}
-            >
-              <Users />
-              {busy === "check-recipients" ? "Checking..." : "Check list"}
-            </Button>
+                {audienceDecisionOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Travel award">
+              <select
+                className={inputClass}
+                value={audienceQuery.travelAward}
+                disabled={
+                  Boolean(busy) ||
+                  audienceQuery.decisionGroup === "draft" ||
+                  audienceQuery.decisionGroup === "umich"
+                }
+                onChange={(event) =>
+                  onAudienceQueryChange({
+                    travelAward: event.target
+                      .value as EmailAudienceQuery["travelAward"],
+                  })
+                }
+              >
+                {audienceTravelAwardOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="RSVP travel plan">
+              <select
+                className={inputClass}
+                value={audienceQuery.rsvpTravelPlan}
+                disabled={
+                  Boolean(busy) ||
+                  audienceQuery.decisionGroup === "draft" ||
+                  audienceQuery.decisionGroup === "umich"
+                }
+                onChange={(event) =>
+                  onAudienceQueryChange({
+                    rsvpTravelPlan: event.target
+                      .value as EmailAudienceQuery["rsvpTravelPlan"],
+                  })
+                }
+              >
+                {audienceRsvpTravelPlanOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
-        )}
+        ) : null}
         <textarea
           className={cn(
             textareaClass,
@@ -2671,6 +2674,38 @@ function SendPanel({
               : "Run the required test send before adding recipients."
           }
         />
+        <div className="flex justify-end">
+          {recipientSource === "audience" ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={adminSecondaryButtonClass}
+              disabled={!fullSendUnlocked || Boolean(busy)}
+              onClick={onLoadAudience}
+            >
+              <Database />
+              {busy === "load-audience" ? "Loading..." : "Load group"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={adminSecondaryButtonClass}
+              disabled={recipientInputDisabled || !recipientText.trim()}
+              onClick={onCheckRecipients}
+            >
+              <Users />
+              {busy === "check-recipients" ? "Checking..." : "Check list"}
+            </Button>
+          )}
+        </div>
+        {audienceLabel ? (
+          <p className="text-sm text-muted-foreground">
+            Loaded: {audienceLabel}.
+          </p>
+        ) : null}
         {recipientResult ? (
           <div className="grid gap-2 text-sm sm:grid-cols-3">
             <p className="rounded-md bg-muted/40 px-3 py-2">
@@ -2686,62 +2721,15 @@ function SendPanel({
         ) : null}
       </EditorSection>
 
-      <EditorSection title="Send">
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="space-y-1.5">
-            <span className="text-sm text-muted-foreground">Send one</span>
-            <div className="flex gap-2">
-              <input
-                className={inputClass}
-                type="email"
-                value={sendOneEmail}
-                onChange={(event) => onSendOneEmailChange(event.target.value)}
-                placeholder="one@email.com"
-              />
-              <Button
-                type="button"
-                className={adminPrimaryButtonClass}
-                disabled={!templateCanSend || !sendOneEmail || Boolean(busy)}
-                onClick={onSendOne}
-              >
-                <Send />
-                {busy === "send-one" ? "Sending..." : "Send"}
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <span className="text-sm text-muted-foreground">Test send</span>
-            <div className="flex gap-2">
-              <input
-                className={cn(
-                  inputClass,
-                  "cursor-not-allowed bg-muted/40 text-muted-foreground",
-                )}
-                value={testEmails}
-                readOnly
-                placeholder={serverManagedTestListLabel}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                className={adminSecondaryButtonClass}
-                disabled={!templateCanSend || Boolean(busy)}
-                onClick={onTestSend}
-              >
-                <ListChecks />
-                {busy === "test-send" ? "Sending..." : "Test"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </EditorSection>
-
       <EditorSection
-        title="Full list"
+        title="Send to all loaded recipients"
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1">
             <Button
-              className={adminPrimaryButtonClass}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={adminSecondaryButtonClass}
               disabled={
                 !fullSendReady ||
                 Boolean(busy) ||
@@ -2758,11 +2746,13 @@ function SendPanel({
                   ? "Complete"
                   : sendStatus?.leaseActive
                     ? "Waiting for recovery"
-                    : "Start send"}
+                    : "Send all"}
             </Button>
             {sendStatus?.interrupted ? (
               <Button
+                type="button"
                 variant="ghost"
+                size="sm"
                 className={adminSecondaryButtonClass}
                 disabled={Boolean(busy)}
                 onClick={onResolveInterrupted}
@@ -2774,89 +2764,63 @@ function SendPanel({
           </div>
         }
       >
-        <p className="text-sm text-muted-foreground">
-          Unsent recipients are checkpointed for recovery; completed recipient
-          rows are removed immediately. If the server or tab closes, check the
-          same list to safely resume.
-        </p>
         {sendStatus ? (
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Metric
-              label="Status"
-              value={
-                sendStatus.complete
-                  ? "complete"
-                  : sendStatus.interrupted
-                    ? "interrupted"
-                    : sendStatus.leaseActive
-                      ? "recovering"
-                      : busy === "start-send"
-                        ? "sending"
-                        : "ready"
-              }
-            />
-            <Metric label="Recipients" value={sendStatus.totalRecipients} />
-            <Metric label="Sent" value={sendStatus.sentCount} />
-            <Metric label="Failed" value={sendStatus.failedCount} />
-            {sendStatus.sendingCount ? (
-              <Metric label="Sending" value={sendStatus.sendingCount} />
+          <>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Metric
+                label="Status"
+                value={
+                  sendStatus.complete
+                    ? "complete"
+                    : sendStatus.interrupted
+                      ? "interrupted"
+                      : sendStatus.leaseActive
+                        ? "recovering"
+                        : busy === "start-send"
+                          ? "sending"
+                          : "ready"
+                }
+              />
+              <Metric label="Recipients" value={sendStatus.totalRecipients} />
+              <Metric label="Sent" value={sendStatus.sentCount} />
+              <Metric label="Failed" value={sendStatus.failedCount} />
+              {sendStatus.sendingCount ? (
+                <Metric label="Sending" value={sendStatus.sendingCount} />
+              ) : null}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
+              {sendStatus.failedCount} failed
+              {sendStatus.sendingCount
+                ? `, ${sendStatus.sendingCount} sending`
+                : ""}
+              {sendStatus.leaseActive && sendStatus.leaseExpiresAt
+                ? `. Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
+                : ""}
+              {sendStatus.interrupted
+                ? ". Verify the interrupted delivery in SES before resolving it."
+                : ""}
+            </p>
+            {sendStatus.recentFailures.length ? (
+              <div className="space-y-2">
+                {sendStatus.recentFailures.map((failure) => (
+                  <p
+                    key={`${failure.email}-${failure.error}`}
+                    className="rounded-md border border-red-200/60 bg-red-50 px-3 py-2 text-sm text-red-900"
+                  >
+                    {failure.email}: {failure.error || "Send failed"}
+                  </p>
+                ))}
+              </div>
             ) : null}
-          </div>
-        ) : null}
-        {sendStatus ? (
-          <p className="text-sm text-muted-foreground">
-            {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
-            {sendStatus.failedCount} failed
-            {sendStatus.sendingCount
-              ? `, ${sendStatus.sendingCount} sending`
-              : ""}
-            {sendStatus.leaseActive && sendStatus.leaseExpiresAt
-              ? `. Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
-              : ""}
-            {sendStatus.interrupted
-              ? ". Verify the interrupted delivery in SES before resolving it."
-              : ""}
-          </p>
-        ) : testSendProof ? (
-          <p className="text-sm text-muted-foreground">
-            Test passed: {testSendProof.sentCount}/{testSendProof.totalCount}{" "}
-            sent. Full send unlocked until {formatTime(testSendProof.expiresAt)}
-            .{" "}
-            {recipientResult
-              ? recipientResult.invalid.length > 0
-                ? "Fix invalid recipients before sending."
-                : missingRecipientColumns.length > 0
-                  ? `Missing columns: ${missingRecipientColumns.join(", ")}.`
-                  : "Checked recipient list ready."
-              : "Check the recipient list to enable full send."}
-          </p>
-        ) : validatedRecipients > 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {validatedRecipients} checked recipients ready. Run a successful
-            test send to unlock full send.
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Run a successful test send before sending the full list.
-          </p>
-        )}
-        {sendStatus?.recentFailures.length ? (
-          <div className="space-y-2">
-            {sendStatus.recentFailures.map((failure) => (
-              <p
-                key={`${failure.email}-${failure.error}`}
-                className="rounded-md border border-red-200/60 bg-red-50 px-3 py-2 text-sm text-red-900"
-              >
-                {failure.email}: {failure.error || "Send failed"}
-              </p>
-            ))}
-          </div>
-        ) : null}
-        {sendStatus?.interrupted && sendStatus.unverifiedRecipients.length ? (
-          <div className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            Verify in SES before resolving:{" "}
-            {sendStatus.unverifiedRecipients.join(", ")}
-          </div>
+            {sendStatus.interrupted &&
+            sendStatus.unverifiedRecipients.length ? (
+              <div className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                Verify in SES before resolving:{" "}
+                {sendStatus.unverifiedRecipients.join(", ")}
+              </div>
+            ) : null}
+          </>
         ) : null}
       </EditorSection>
     </div>
@@ -3176,15 +3140,22 @@ function EditorSection({
 }: {
   title: string;
   action?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <section className="border-t border-border pt-5 first:border-t-0 first:pt-0">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium text-foreground">{title}</h3>
+      <div
+        className={cn(
+          "flex items-center justify-between gap-3",
+          children ? "mb-3" : null,
+        )}
+      >
+        <h3 className="min-w-0 flex-1 text-sm font-medium text-foreground">
+          {title}
+        </h3>
         {action}
       </div>
-      <div className="space-y-3">{children}</div>
+      {children ? <div className="space-y-3">{children}</div> : null}
     </section>
   );
 }
@@ -3768,22 +3739,19 @@ function canUseLocalStorage() {
 const adminPanelClass = "rounded-lg border bg-card";
 
 const adminSecondaryButtonClass =
-  "h-8 rounded-md border border-border bg-card px-3 text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
+  "rounded-md border border-border bg-card px-3 text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
 
 const adminPrimaryButtonClass =
-  "h-8 rounded-md bg-primary px-3 text-primary-foreground shadow-none transition-colors hover:bg-primary/90";
+  "rounded-md bg-primary px-3 text-primary-foreground shadow-none transition-colors hover:bg-primary/90";
 
 const adminDangerButtonClass =
-  "h-8 rounded-md bg-destructive/10 px-3 text-destructive shadow-none transition-colors hover:bg-destructive/20";
+  "rounded-md bg-destructive/10 px-3 text-destructive shadow-none transition-colors hover:bg-destructive/20";
 
 const adminIconButtonClass =
   "rounded-md border border-border bg-card text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
 
 const adminMiniButtonClass =
   "rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
-
-const codeClass =
-  "font-red-hat rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground";
 
 const inputClass =
   "font-red-hat h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:font-red-hat placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
