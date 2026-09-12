@@ -33,6 +33,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { z } from "zod";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import {
   AlertDialog,
@@ -79,11 +80,13 @@ import {
   extractMergeFieldsFromValues,
 } from "@/lib/email/merge-fields";
 import type { MasterTemplate } from "@/lib/email/templates/master-service";
-import type {
-  EmailAudienceQuery,
-  EmailCampaignContent,
-  EmailTemplateType,
-  EmailThemeTokens,
+import {
+  emailCampaignContentSchema,
+  emailTemplateUpsertSchema,
+  type EmailAudienceQuery,
+  type EmailCampaignContent,
+  type EmailTemplateType,
+  type EmailThemeTokens,
 } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
 import {
@@ -2928,21 +2931,28 @@ function parseAiTemplateDraft(
     ...currentMergeFields,
   ]);
   const next: Partial<MasterTemplate> = {};
+  const upsertFields = emailTemplateUpsertSchema.shape;
 
-  if (hasString(draft, "name")) {
-    next.name = boundedString(draft.name, "Template name", 120);
+  if (hasString(draft, "name") && draft.name.trim()) {
+    next.name = parseWithSchema(upsertFields.name, draft.name.trim());
   }
 
   if (hasString(draft, "description")) {
-    next.description = boundedString(draft.description, "Description", 240);
+    next.description = parseWithSchema(
+      upsertFields.description,
+      draft.description.trim(),
+    );
   }
 
   if (hasString(draft, "subject")) {
-    next.subject = boundedString(draft.subject, "Subject", 180, true);
+    next.subject = parseWithSchema(upsertFields.subject, draft.subject.trim());
   }
 
   if (hasString(draft, "previewText")) {
-    next.previewText = boundedString(draft.previewText, "Preview text", 220);
+    next.previewText = parseWithSchema(
+      upsertFields.previewText,
+      draft.previewText.trim(),
+    );
   }
 
   if (template.type === "html") {
@@ -2950,9 +2960,13 @@ function parseAiTemplateDraft(
       throw new Error("AI draft must include html for this template.");
     }
 
-    assertSafeHtml(draft.html);
-    assertAllowedMergeFields([draft.html], allowedMergeFields);
-    next.html = draft.html;
+    const html = parseWithSchema(upsertFields.html, draft.html);
+    if (!html) {
+      throw new Error("AI draft must include html for this template.");
+    }
+    assertSafeHtml(html);
+    assertAllowedMergeFields([html], allowedMergeFields);
+    next.html = html;
     next.content = null;
     return next;
   }
@@ -2961,8 +2975,7 @@ function parseAiTemplateDraft(
     throw new Error("AI draft must include content for this template.");
   }
 
-  const content = parseAiContentDraft(draft.content, allowedMergeFields);
-  next.content = content;
+  next.content = parseAiContentDraft(draft.content, allowedMergeFields);
   next.html = null;
   return next;
 }
@@ -2998,68 +3011,47 @@ function parseAiContentDraft(
   draft: Record<string, unknown>,
   allowedMergeFields: Set<string>,
 ): EmailCampaignContent {
-  if (!hasString(draft, "heading")) {
-    throw new Error("AI draft content must include a heading.");
-  }
+  const sections = Array.isArray(draft.sections)
+    ? draft.sections.map((section) => {
+        if (!isRecord(section)) {
+          return section;
+        }
 
-  if (!Array.isArray(draft.sections)) {
-    throw new Error("AI draft content must include a sections array.");
-  }
+        return {
+          ...section,
+          id: hasString(section, "id") ? section.id : crypto.randomUUID(),
+          kind:
+            section.kind === "code" || section.kind === "text"
+              ? section.kind
+              : undefined,
+        };
+      })
+    : draft.sections;
 
-  const sections = draft.sections.map((section, index) => {
-    if (!isRecord(section) || !hasString(section, "body")) {
-      throw new Error(`Section ${index + 1} must include body text.`);
-    }
+  const cta = isRecord(draft.cta)
+    ? {
+        ...draft.cta,
+        url: hasString(draft.cta, "url")
+          ? normalizeDraftUrl(draft.cta.url)
+          : draft.cta.url,
+      }
+    : undefined;
 
-    const kind: EmailCampaignContent["sections"][number]["kind"] =
-      section.kind === "code" || section.kind === "text"
-        ? section.kind
-        : undefined;
-
-    return {
-      id: hasString(section, "id") ? section.id : crypto.randomUUID(),
-      kind,
-      title: hasString(section, "title") ? section.title : undefined,
-      body: boundedString(
-        section.body,
-        `Section ${index + 1} body`,
-        4000,
-        true,
-      ),
-    };
-  });
-
-  const content: EmailCampaignContent = {
-    eyebrow: hasString(draft, "eyebrow")
-      ? boundedString(draft.eyebrow, "Eyebrow", 80)
-      : undefined,
-    heading: boundedString(draft.heading, "Heading", 160, true),
-    intro: hasString(draft, "intro")
-      ? boundedString(draft.intro, "Intro", 1000)
-      : undefined,
+  const content = parseWithSchema(emailCampaignContentSchema, {
+    ...draft,
     sections,
-    footerNote: hasString(draft, "footerNote")
-      ? boundedString(draft.footerNote, "Footer note", 1000)
-      : undefined,
-  };
-
-  if (isRecord(draft.cta)) {
-    if (!hasString(draft.cta, "label") || !hasString(draft.cta, "url")) {
-      throw new Error("CTA must include label and url.");
-    }
-
-    const ctaUrl = normalizeDraftUrl(
-      boundedString(draft.cta.url, "CTA URL", 500, true),
-    );
-    assertEmailLinkUrl(ctaUrl);
-    content.cta = {
-      label: boundedString(draft.cta.label, "CTA label", 80, true),
-      url: ctaUrl,
-    };
-  }
-
+    cta,
+  });
   assertAllowedMergeFields(emailContentStrings(content), allowedMergeFields);
   return content;
+}
+
+function parseWithSchema<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new Error(result.error.issues[0]?.message || "Invalid AI draft.");
+  }
+  return result.data;
 }
 
 function assertAllowedMergeFields(
@@ -3087,42 +3079,6 @@ function assertSafeHtml(html: string) {
 function normalizeDraftUrl(value: string) {
   const markdownLink = value.match(/^\[[^\]]+]\(([^)]+)\)$/);
   return markdownLink ? markdownLink[1].trim() : value;
-}
-
-function assertEmailLinkUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (
-      parsed.protocol === "http:" ||
-      parsed.protocol === "https:" ||
-      parsed.protocol === "mailto:"
-    ) {
-      return;
-    }
-  } catch {
-    // handled below
-  }
-
-  throw new Error("CTA URL must use http, https, or mailto.");
-}
-
-function boundedString(
-  value: string,
-  label: string,
-  maxLength: number,
-  required = false,
-) {
-  const next = value.trim();
-
-  if (required && !next) {
-    throw new Error(`${label} is required.`);
-  }
-
-  if (next.length > maxLength) {
-    throw new Error(`${label} must be ${maxLength} characters or fewer.`);
-  }
-
-  return next;
 }
 
 function hasString(
