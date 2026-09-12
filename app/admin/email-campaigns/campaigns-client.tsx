@@ -64,6 +64,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useMediaQueryState } from "@/hooks/use-media-query";
 import { useMounted } from "@/hooks/use-mounted";
 import {
   buildAiTemplateContext,
@@ -179,6 +180,7 @@ const EMAIL_WORKSPACE_PANEL_IDS = [
   "campaign-workspace",
   "preview",
 ] as const;
+const DESKTOP_LAYOUT_QUERY = "(min-width: 1024px)";
 const PANEL_LAYOUT_STORAGE: LayoutStorage = {
   getItem(key) {
     try {
@@ -290,6 +292,7 @@ export default function EmailCampaignsClient({
     left: 0,
   });
   const panelsMounted = useMounted();
+  const isDesktopLayout = useMediaQueryState(DESKTOP_LAYOUT_QUERY);
   const templatesPanelRef = usePanelRef();
   const panelLayout = useDefaultLayout({
     id: "email-campaign-workspace",
@@ -298,14 +301,14 @@ export default function EmailCampaignsClient({
   });
 
   useEffect(() => {
-    if (!panelsMounted) {
+    if (!panelsMounted || isDesktopLayout !== true) {
       return;
     }
 
     setTemplatesPanelCollapsed(
       templatesPanelRef.current?.isCollapsed() ?? false,
     );
-  }, [panelsMounted, templatesPanelRef]);
+  }, [isDesktopLayout, panelsMounted, templatesPanelRef]);
 
   const [theme, setTheme] = useState<EmailThemeTokens>(initialTheme);
   const [mergePreviewData, setMergePreviewData] = useState<
@@ -1161,7 +1164,8 @@ export default function EmailCampaignsClient({
   ]);
 
   const previewWidth = previewMode === "desktop" ? 720 : 390;
-  const showTemplatesRail = panelsMounted && templatesPanelCollapsed;
+  const showTemplatesRail =
+    isDesktopLayout === true && panelsMounted && templatesPanelCollapsed;
 
   const templatesUploadInput = (
     <input
@@ -1476,85 +1480,89 @@ export default function EmailCampaignsClient({
           description="Build reusable templates, preview merge fields, and send CSV-based emails."
           variant="workspace"
         />
-        {panelsMounted ? (
-          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex">
-            <ResizablePanelGroup
-              id="email-campaign-workspace"
-              orientation="horizontal"
-              defaultLayout={panelLayout.defaultLayout}
-              onLayoutChanged={panelLayout.onLayoutChanged}
-              resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
-              className="min-h-0 flex-1 overflow-hidden"
-            >
-              <ResizablePanel
-                id="templates-list"
-                defaultSize={300}
-                minSize={220}
-                maxSize={480}
-                collapsible
-                collapsedSize="40px"
-                panelRef={templatesPanelRef}
-                onResize={(size) => {
-                  const collapsed = size.inPixels <= 48;
-                  setTemplatesPanelCollapsed(collapsed);
-                  if (!collapsed) {
-                    setTemplateSearchOpen(false);
-                  }
-                }}
-                className="min-h-0 min-w-0"
+        {isDesktopLayout === null ? (
+          <div className="min-h-0 flex-1 border-t bg-card" />
+        ) : isDesktopLayout ? (
+          panelsMounted ? (
+            <div className="flex min-h-0 flex-1 overflow-hidden border-t bg-card">
+              <ResizablePanelGroup
+                id="email-campaign-workspace"
+                orientation="horizontal"
+                defaultLayout={panelLayout.defaultLayout}
+                onLayoutChanged={panelLayout.onLayoutChanged}
+                resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
+                className="min-h-0 flex-1 overflow-hidden"
               >
-                <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
-                  {templatesListBody}
-                </aside>
-              </ResizablePanel>
+                <ResizablePanel
+                  id="templates-list"
+                  defaultSize={300}
+                  minSize={220}
+                  maxSize={480}
+                  collapsible
+                  collapsedSize="40px"
+                  panelRef={templatesPanelRef}
+                  onResize={(size) => {
+                    const collapsed = size.inPixels <= 48;
+                    setTemplatesPanelCollapsed(collapsed);
+                    if (!collapsed) {
+                      setTemplateSearchOpen(false);
+                    }
+                  }}
+                  className="min-h-0 min-w-0"
+                >
+                  <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+                    {templatesListBody}
+                  </aside>
+                </ResizablePanel>
 
-              <ResizablePanel
-                id="campaign-workspace"
-                minSize={480}
-                className="min-h-0 min-w-0"
-              >
-                <section className="flex h-full min-h-0 min-w-[30rem] flex-col overflow-hidden border-r bg-muted/30">
-                  {workspaceChrome}
-                </section>
-              </ResizablePanel>
+                <ResizablePanel
+                  id="campaign-workspace"
+                  minSize={480}
+                  className="min-h-0 min-w-0"
+                >
+                  <section className="flex h-full min-h-0 min-w-[30rem] flex-col overflow-hidden border-r bg-muted/30">
+                    {workspaceChrome}
+                  </section>
+                </ResizablePanel>
 
-              <ResizablePanel
-                id="preview"
-                defaultSize={420}
-                minSize={300}
-                className="min-h-0 min-w-0"
-              >
-                <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden p-4">
-                  {previewBody}
-                </section>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </div>
+                <ResizablePanel
+                  id="preview"
+                  defaultSize={420}
+                  minSize={300}
+                  className="min-h-0 min-w-0"
+                >
+                  <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden p-4">
+                    {previewBody}
+                  </section>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+          ) : (
+            <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(30rem,1fr)_420px] overflow-hidden border-t bg-card">
+              <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+                {templatesListBody}
+              </aside>
+              <section className="flex h-full min-h-0 min-w-[30rem] flex-col overflow-hidden border-r bg-muted/30">
+                {workspaceChrome}
+              </section>
+              <section className="flex min-h-0 min-w-0 flex-col overflow-hidden p-4">
+                {previewBody}
+              </section>
+            </div>
+          )
         ) : (
-          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:grid lg:grid-cols-[300px_minmax(30rem,1fr)_420px]">
-            <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+          <div className="min-h-0 flex-1 overflow-y-auto border-t bg-card">
+            <aside className="flex flex-col overflow-hidden border-b bg-card">
               {templatesListBody}
             </aside>
-            <section className="flex h-full min-h-0 min-w-[30rem] flex-col overflow-hidden border-r bg-muted/30">
+            <section className="flex min-w-[30rem] flex-col overflow-hidden border-b bg-muted/30">
               {workspaceChrome}
             </section>
-            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden p-4">
+            <section className="flex flex-col overflow-hidden p-4">
               {previewBody}
             </section>
           </div>
         )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto border-t bg-card lg:hidden">
-          <aside className="flex flex-col overflow-hidden border-b bg-card">
-            {templatesListBody}
-          </aside>
-          <section className="flex min-w-[30rem] flex-col overflow-hidden border-b bg-muted/30">
-            {workspaceChrome}
-          </section>
-          <section className="flex flex-col overflow-hidden p-4">
-            {previewBody}
-          </section>
-        </div>
         {showTemplatesRail ? (
           <Popover
             open={templateSearchOpen}
