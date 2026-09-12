@@ -1484,16 +1484,8 @@ export default function EmailCampaignsClient({
       <BuilderPanel
         notice={notice}
         selectedTemplate={selectedTemplate}
-        mergeFields={mergeFields}
-        mergePreviewData={effectiveMergePreviewData}
         onDownloadTemplate={downloadSelectedTemplate}
         onOpenAiDraft={() => setAiDraftOpen(true)}
-        onMergePreviewDataChange={(field, value) =>
-          setMergePreviewData((current) => ({
-            ...current,
-            [field]: value,
-          }))
-        }
         onTemplateChange={updateSelectedTemplate}
         onContentChange={updateContent}
         onSectionChange={updateSection}
@@ -1962,11 +1954,8 @@ function BodyBlockCard({
 function BuilderPanel({
   notice,
   selectedTemplate,
-  mergeFields,
-  mergePreviewData,
   onDownloadTemplate,
   onOpenAiDraft,
-  onMergePreviewDataChange,
   onTemplateChange,
   onContentChange,
   onSectionChange,
@@ -1976,11 +1965,8 @@ function BuilderPanel({
 }: {
   notice: string;
   selectedTemplate: MasterTemplate | null;
-  mergeFields: string[];
-  mergePreviewData: Record<string, string>;
   onDownloadTemplate: () => void;
   onOpenAiDraft: () => void;
-  onMergePreviewDataChange: (field: string, value: string) => void;
   onTemplateChange: (patch: Partial<MasterTemplate>) => void;
   onContentChange: (patch: Partial<EmailCampaignContent>) => void;
   onSectionChange: (
@@ -2199,12 +2185,6 @@ function BuilderPanel({
           </EditorSection>
         </>
       ) : null}
-
-      <MergeFieldsPanel
-        fields={mergeFields}
-        values={mergePreviewData}
-        onChange={onMergePreviewDataChange}
-      />
     </div>
   );
 }
@@ -2365,57 +2345,6 @@ function AiDraftStepHeader({
   );
 }
 
-function MergeFieldsPanel({
-  fields,
-  values,
-  onChange,
-}: {
-  fields: string[];
-  values: Record<string, string>;
-  onChange: (field: string, value: string) => void;
-}) {
-  return (
-    <EditorSection title="Recipient data">
-      <p className="text-sm text-muted-foreground">
-        Merge fields are mailing-list columns, filled at send time. They are not
-        values to type one by one.
-      </p>
-      {fields.length > 0 ? (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {fields.map((field) => (
-              <code key={field} className={codeClass}>
-                {`{{${field}}}`}
-              </code>
-            ))}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {fields.map((field) => (
-              <label key={field} className="block space-y-1.5">
-                <span className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-                  <span className="truncate">{field}</span>
-                  <code className={codeClass}>{`{{${field}}}`}</code>
-                </span>
-                <input
-                  aria-label={`Sample value for ${field}`}
-                  className={inputClass}
-                  value={values[field] ?? ""}
-                  placeholder={defaultMergeValue(field)}
-                  onChange={(event) => onChange(field, event.target.value)}
-                />
-              </label>
-            ))}
-          </div>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          This template does not require extra recipient columns yet.
-        </p>
-      )}
-    </EditorSection>
-  );
-}
-
 function PreviewMergePanel({
   fields,
   values,
@@ -2433,29 +2362,35 @@ function PreviewMergePanel({
     <Accordion type="single" collapsible className="mt-3">
       <AccordionItem
         value="merge"
-        className="rounded-md border border-border px-3"
+        className="overflow-hidden rounded-lg border border-border bg-card"
       >
-        <AccordionTrigger className="py-2.5 text-sm font-medium hover:no-underline">
-          Sample recipient
-          <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-            · {fields.length} {fields.length === 1 ? "field" : "fields"}
+        <AccordionTrigger className="items-center px-3 py-2 text-sm font-medium hover:no-underline">
+          <span className="flex min-w-0 items-center gap-2">
+            Sample recipient
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-normal tabular-nums text-muted-foreground">
+              {fields.length}
+            </span>
           </span>
         </AccordionTrigger>
-        <AccordionContent className="pb-3">
-          <div className="grid gap-2 sm:grid-cols-2">
+        <AccordionContent className="px-0 pb-0">
+          <ul className="divide-y divide-border/70 border-t border-border/70">
             {fields.map((field) => (
-              <label key={field} className="block space-y-1">
-                <span className="text-xs text-muted-foreground">{field}</span>
-                <input
-                  aria-label={`Sample value for ${field}`}
-                  className={inputClass}
-                  value={values[field] ?? ""}
-                  placeholder={defaultMergeValue(field)}
-                  onChange={(event) => onChange(field, event.target.value)}
-                />
-              </label>
+              <li key={field}>
+                <label className="flex items-center gap-3 px-3 py-1.5 hover:bg-muted/40">
+                  <code className="w-36 shrink-0 truncate font-mono text-[11px] text-muted-foreground">
+                    {`{{${field}}}`}
+                  </code>
+                  <input
+                    aria-label={`Sample value for ${field}`}
+                    className={cn(inputClass, "h-8 min-w-0 flex-1")}
+                    value={values[field] ?? ""}
+                    placeholder={defaultMergeValue(field)}
+                    onChange={(event) => onChange(field, event.target.value)}
+                  />
+                </label>
+              </li>
             ))}
-          </div>
+          </ul>
         </AccordionContent>
       </AccordionItem>
     </Accordion>
