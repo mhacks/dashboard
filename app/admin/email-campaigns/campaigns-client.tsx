@@ -15,7 +15,6 @@ import {
   Database,
   Download,
   FileText,
-  Filter,
   Laptop,
   ListChecks,
   Loader2,
@@ -1485,8 +1484,16 @@ export default function EmailCampaignsClient({
       <BuilderPanel
         notice={notice}
         selectedTemplate={selectedTemplate}
+        mergeFields={mergeFields}
+        mergePreviewData={effectiveMergePreviewData}
         onDownloadTemplate={downloadSelectedTemplate}
         onOpenAiDraft={() => setAiDraftOpen(true)}
+        onMergePreviewDataChange={(field, value) =>
+          setMergePreviewData((current) => ({
+            ...current,
+            [field]: value,
+          }))
+        }
         onTemplateChange={updateSelectedTemplate}
         onContentChange={updateContent}
         onSectionChange={updateSection}
@@ -1822,7 +1829,6 @@ function EmailCampaignWorkspaceHeader({
   busy: string | null;
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const saveLabel = activeView === "styles" ? "Save styles" : "Save";
   const saveBusy =
     activeView === "styles" ? busy === "save-styles" : busy === "save-template";
   const deleteBusy = busy === "delete-template";
@@ -1852,7 +1858,7 @@ function EmailCampaignWorkspaceHeader({
           disabled={saveBusy}
         >
           <Save />
-          {saveLabel}
+          Save
         </Button>
       </div>
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -1956,8 +1962,11 @@ function BodyBlockCard({
 function BuilderPanel({
   notice,
   selectedTemplate,
+  mergeFields,
+  mergePreviewData,
   onDownloadTemplate,
   onOpenAiDraft,
+  onMergePreviewDataChange,
   onTemplateChange,
   onContentChange,
   onSectionChange,
@@ -1967,8 +1976,11 @@ function BuilderPanel({
 }: {
   notice: string;
   selectedTemplate: MasterTemplate | null;
+  mergeFields: string[];
+  mergePreviewData: Record<string, string>;
   onDownloadTemplate: () => void;
   onOpenAiDraft: () => void;
+  onMergePreviewDataChange: (field: string, value: string) => void;
   onTemplateChange: (patch: Partial<MasterTemplate>) => void;
   onContentChange: (patch: Partial<EmailCampaignContent>) => void;
   onSectionChange: (
@@ -2187,6 +2199,12 @@ function BuilderPanel({
           </EditorSection>
         </>
       ) : null}
+
+      <MergeFieldsPanel
+        fields={mergeFields}
+        values={mergePreviewData}
+        onChange={onMergePreviewDataChange}
+      />
     </div>
   );
 }
@@ -2347,6 +2365,57 @@ function AiDraftStepHeader({
   );
 }
 
+function MergeFieldsPanel({
+  fields,
+  values,
+  onChange,
+}: {
+  fields: string[];
+  values: Record<string, string>;
+  onChange: (field: string, value: string) => void;
+}) {
+  return (
+    <EditorSection title="Recipient data">
+      <p className="text-sm text-muted-foreground">
+        Merge fields are mailing-list columns, filled at send time. They are not
+        values to type one by one.
+      </p>
+      {fields.length > 0 ? (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {fields.map((field) => (
+              <code key={field} className={codeClass}>
+                {`{{${field}}}`}
+              </code>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {fields.map((field) => (
+              <label key={field} className="block space-y-1.5">
+                <span className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                  <span className="truncate">{field}</span>
+                  <code className={codeClass}>{`{{${field}}}`}</code>
+                </span>
+                <input
+                  aria-label={`Sample value for ${field}`}
+                  className={inputClass}
+                  value={values[field] ?? ""}
+                  placeholder={defaultMergeValue(field)}
+                  onChange={(event) => onChange(field, event.target.value)}
+                />
+              </label>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          This template does not require extra recipient columns yet.
+        </p>
+      )}
+    </EditorSection>
+  );
+}
+
 function PreviewMergePanel({
   fields,
   values,
@@ -2470,98 +2539,40 @@ function SendPanel({
     missingRecipientColumns.length === 0,
   );
 
+  const templateTypeLabel = selectedTemplate
+    ? selectedTemplate.type === "html"
+      ? "HTML template"
+      : "Structured template"
+    : "Select a template to send.";
+  const limitsLabel = `${limits.maxRecipients} max recipients, ${limits.batchSize}/batch, about ${sendRate}/sec${
+    limits.maxSendRatePerSecond ? ` max ${limits.maxSendRatePerSecond}/sec` : ""
+  }`;
+
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Direct send
-          </p>
-          <h2 className="text-lg font-semibold text-foreground">Send email</h2>
-          {notice ? (
-            <p className="mt-1 text-sm text-muted-foreground">{notice}</p>
-          ) : null}
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">
+          {selectedTemplate?.name ?? "Send"}
+        </h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {templateTypeLabel} · {limitsLabel}
+        </p>
+        {notice ? (
+          <p className="mt-1 text-sm text-muted-foreground">{notice}</p>
+        ) : null}
       </div>
 
       {!templateCanSend ? (
-        <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Select a template with content before sending.
         </p>
       ) : null}
 
       <SendProgress busy={busy} sendStatus={sendStatus} />
 
-      <section className={cn(adminInsetClass, "p-4")}>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Selected template
-            </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {selectedTemplate?.name ?? "No template selected"}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {selectedTemplate?.type === "html"
-                ? "HTML template"
-                : "Structured template"}
-            </p>
-          </div>
-          <div className="rounded-md border border-border bg-card px-3 py-2 text-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Server limits
-            </p>
-            <p className="mt-1 text-foreground">
-              {limits.maxRecipients} max recipients
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {limits.batchSize}/batch, about {sendRate}/sec
-              {limits.maxSendRatePerSecond
-                ? ` max ${limits.maxSendRatePerSecond}/sec`
-                : ""}
-            </p>
-          </div>
-        </div>
-
-        {sendStatus ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
-            <Metric
-              label="Status"
-              value={
-                sendStatus.complete
-                  ? "complete"
-                  : sendStatus.interrupted
-                    ? "interrupted"
-                    : sendStatus.leaseActive
-                      ? "recovering"
-                      : busy === "start-send"
-                        ? "sending"
-                        : "ready"
-              }
-            />
-            <Metric label="Recipients" value={sendStatus.totalRecipients} />
-            <Metric label="Sent" value={sendStatus.sentCount} />
-            <Metric label="Failed" value={sendStatus.failedCount} />
-            {sendStatus.sendingCount ? (
-              <Metric label="Sending" value={sendStatus.sendingCount} />
-            ) : null}
-          </div>
-        ) : null}
-      </section>
-
-      <section className={cn(adminInsetClass, "p-4")}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Recipients
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Paste a list manually or load a Supabase group as CSV. Group rows
-              include <code className={codeClass}>email</code>,{" "}
-              <code className={codeClass}>first_name</code>, decision, RSVP, and
-              travel reimbursement columns.
-            </p>
-          </div>
+      <EditorSection
+        title="Recipients"
+        action={
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -2592,26 +2603,16 @@ function SendPanel({
               Groups
             </Button>
           </div>
-        </div>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          Paste a list manually or load a Supabase group as CSV. Group rows
+          include <code className={codeClass}>email</code>,{" "}
+          <code className={codeClass}>first_name</code>, decision, RSVP, and
+          travel reimbursement columns.
+        </p>
         {recipientSource === "audience" ? (
-          <div className="mt-4 rounded-md border border-border bg-card p-3">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <Filter className="size-4 text-muted-foreground" />
-                <p className="text-sm font-semibold text-foreground">
-                  Audience query
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                className={adminSecondaryButtonClass}
-                disabled={!fullSendUnlocked || Boolean(busy)}
-                onClick={onLoadAudience}
-              >
-                <Database />
-                {busy === "load-audience" ? "Loading..." : "Load group"}
-              </Button>
-            </div>
+          <>
             <div className="grid gap-3 lg:grid-cols-3">
               <Field label="Decision group">
                 <select
@@ -2687,16 +2688,27 @@ function SendPanel({
                 </select>
               </Field>
             </div>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              {fullSendUnlocked
-                ? audienceLabel
-                  ? `Loaded: ${audienceLabel}.`
-                  : "Load the group to snapshot its current recipients into the list below."
-                : "Run the required test send before loading a group."}
-            </p>
-          </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                {fullSendUnlocked
+                  ? audienceLabel
+                    ? `Loaded: ${audienceLabel}.`
+                    : "Load the group to snapshot its current recipients into the list below."
+                  : "Run the required test send before loading a group."}
+              </p>
+              <Button
+                variant="ghost"
+                className={adminSecondaryButtonClass}
+                disabled={!fullSendUnlocked || Boolean(busy)}
+                onClick={onLoadAudience}
+              >
+                <Database />
+                {busy === "load-audience" ? "Loading..." : "Load group"}
+              </Button>
+            </div>
+          </>
         ) : (
-          <div className="mt-4 flex justify-end">
+          <div className="flex justify-end">
             <Button
               variant="ghost"
               className={adminSecondaryButtonClass}
@@ -2711,7 +2723,7 @@ function SendPanel({
         <textarea
           className={cn(
             textareaClass,
-            "mt-3 min-h-36 text-xs disabled:cursor-not-allowed disabled:opacity-60",
+            "min-h-36 text-xs disabled:cursor-not-allowed disabled:opacity-60",
           )}
           value={recipientText}
           disabled={recipientInputDisabled}
@@ -2725,27 +2737,25 @@ function SendPanel({
           }
         />
         {recipientResult ? (
-          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-            <p className="rounded-md border border-border bg-card px-3 py-2">
+          <div className="grid gap-2 text-sm sm:grid-cols-3">
+            <p className="rounded-md bg-muted/40 px-3 py-2">
               {recipientResult.emails.length} valid
             </p>
-            <p className="rounded-md border border-border bg-card px-3 py-2">
+            <p className="rounded-md bg-muted/40 px-3 py-2">
               {recipientResult.duplicateCount} duplicates
             </p>
-            <p className="rounded-md border border-border bg-card px-3 py-2">
+            <p className="rounded-md bg-muted/40 px-3 py-2">
               {recipientResult.invalid.length} invalid
             </p>
           </div>
         ) : null}
-      </section>
+      </EditorSection>
 
-      <section className={cn(adminInsetClass, "p-4")}>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Send one
-            </p>
-            <div className="mt-2 flex gap-2">
+      <EditorSection title="Send">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="space-y-1.5">
+            <span className="text-sm text-muted-foreground">Send one</span>
+            <div className="flex gap-2">
               <input
                 className={inputClass}
                 type="email"
@@ -2754,6 +2764,7 @@ function SendPanel({
                 placeholder="one@email.com"
               />
               <Button
+                type="button"
                 className={adminPrimaryButtonClass}
                 disabled={!templateCanSend || !sendOneEmail || Boolean(busy)}
                 onClick={onSendOne}
@@ -2763,11 +2774,9 @@ function SendPanel({
               </Button>
             </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Test send
-            </p>
-            <div className="mt-2 flex gap-2">
+          <div className="space-y-1.5">
+            <span className="text-sm text-muted-foreground">Test send</span>
+            <div className="flex gap-2">
               <input
                 className={cn(
                   inputClass,
@@ -2778,6 +2787,7 @@ function SendPanel({
                 placeholder={serverManagedTestListLabel}
               />
               <Button
+                type="button"
                 variant="ghost"
                 className={adminSecondaryButtonClass}
                 disabled={!templateCanSend || Boolean(busy)}
@@ -2789,57 +2799,11 @@ function SendPanel({
             </div>
           </div>
         </div>
-      </section>
+      </EditorSection>
 
-      <section className={cn(adminInsetClass, "p-4")}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Full list
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Unsent recipients are checkpointed for recovery; completed
-              recipient rows are removed immediately. If the server or tab
-              closes, check the same list to safely resume.
-            </p>
-            {sendStatus ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
-                {sendStatus.failedCount} failed
-                {sendStatus.sendingCount
-                  ? `, ${sendStatus.sendingCount} sending`
-                  : ""}
-                {sendStatus.leaseActive && sendStatus.leaseExpiresAt
-                  ? `. Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
-                  : ""}
-                {sendStatus.interrupted
-                  ? ". Verify the interrupted delivery in SES before resolving it."
-                  : ""}
-              </p>
-            ) : testSendProof ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Test passed: {testSendProof.sentCount}/
-                {testSendProof.totalCount} sent. Full send unlocked until{" "}
-                {formatTime(testSendProof.expiresAt)}.{" "}
-                {recipientResult
-                  ? recipientResult.invalid.length > 0
-                    ? "Fix invalid recipients before sending."
-                    : missingRecipientColumns.length > 0
-                      ? `Missing columns: ${missingRecipientColumns.join(", ")}.`
-                      : "Checked recipient list ready."
-                  : "Check the recipient list to enable full send."}
-              </p>
-            ) : validatedRecipients > 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {validatedRecipients} checked recipients ready. Run a successful
-                test send to unlock full send.
-              </p>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Run a successful test send before sending the full list.
-              </p>
-            )}
-          </div>
+      <EditorSection
+        title="Full list"
+        action={
           <div className="flex flex-wrap gap-2">
             <Button
               className={adminPrimaryButtonClass}
@@ -2873,9 +2837,76 @@ function SendPanel({
               </Button>
             ) : null}
           </div>
-        </div>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          Unsent recipients are checkpointed for recovery; completed recipient
+          rows are removed immediately. If the server or tab closes, check the
+          same list to safely resume.
+        </p>
+        {sendStatus ? (
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Metric
+              label="Status"
+              value={
+                sendStatus.complete
+                  ? "complete"
+                  : sendStatus.interrupted
+                    ? "interrupted"
+                    : sendStatus.leaseActive
+                      ? "recovering"
+                      : busy === "start-send"
+                        ? "sending"
+                        : "ready"
+              }
+            />
+            <Metric label="Recipients" value={sendStatus.totalRecipients} />
+            <Metric label="Sent" value={sendStatus.sentCount} />
+            <Metric label="Failed" value={sendStatus.failedCount} />
+            {sendStatus.sendingCount ? (
+              <Metric label="Sending" value={sendStatus.sendingCount} />
+            ) : null}
+          </div>
+        ) : null}
+        {sendStatus ? (
+          <p className="text-sm text-muted-foreground">
+            {sendStatus.pendingCount} pending, {sendStatus.sentCount} sent,{" "}
+            {sendStatus.failedCount} failed
+            {sendStatus.sendingCount
+              ? `, ${sendStatus.sendingCount} sending`
+              : ""}
+            {sendStatus.leaseActive && sendStatus.leaseExpiresAt
+              ? `. Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
+              : ""}
+            {sendStatus.interrupted
+              ? ". Verify the interrupted delivery in SES before resolving it."
+              : ""}
+          </p>
+        ) : testSendProof ? (
+          <p className="text-sm text-muted-foreground">
+            Test passed: {testSendProof.sentCount}/{testSendProof.totalCount}{" "}
+            sent. Full send unlocked until {formatTime(testSendProof.expiresAt)}
+            .{" "}
+            {recipientResult
+              ? recipientResult.invalid.length > 0
+                ? "Fix invalid recipients before sending."
+                : missingRecipientColumns.length > 0
+                  ? `Missing columns: ${missingRecipientColumns.join(", ")}.`
+                  : "Checked recipient list ready."
+              : "Check the recipient list to enable full send."}
+          </p>
+        ) : validatedRecipients > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {validatedRecipients} checked recipients ready. Run a successful
+            test send to unlock full send.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Run a successful test send before sending the full list.
+          </p>
+        )}
         {sendStatus?.recentFailures.length ? (
-          <div className="mt-4 space-y-2">
+          <div className="space-y-2">
             {sendStatus.recentFailures.map((failure) => (
               <p
                 key={`${failure.email}-${failure.error}`}
@@ -2887,23 +2918,21 @@ function SendPanel({
           </div>
         ) : null}
         {sendStatus?.interrupted && sendStatus.unverifiedRecipients.length ? (
-          <div className="mt-4 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          <div className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950">
             Verify in SES before resolving:{" "}
             {sendStatus.unverifiedRecipients.join(", ")}
           </div>
         ) : null}
-      </section>
+      </EditorSection>
     </div>
   );
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-md border border-border bg-card px-3 py-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 truncate text-sm font-semibold text-foreground">
+    <div className="rounded-md bg-muted/40 px-3 py-2">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-medium text-foreground">
         {value}
       </p>
     </div>
@@ -2958,7 +2987,7 @@ function SendProgress({
     : "Working on the server...";
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-muted/40 p-4 ">
+    <section className="rounded-md bg-muted/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           {busy ? (
@@ -2974,7 +3003,7 @@ function SendProgress({
           </div>
         </div>
         {progress !== null ? (
-          <span className="rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          <span className="text-xs font-medium text-muted-foreground">
             {progress}%
           </span>
         ) : null}
@@ -3094,51 +3123,54 @@ function StylesPanel({
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Email styling
-        </p>
         <h2 className="text-lg font-semibold text-foreground">Styles</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Theme tokens used by structured emails.
+        </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {colorFields.map(([key, label]) => (
-          <label
-            key={key}
-            className="flex items-center gap-3 rounded-lg border border-border bg-card p-3  transition hover:border-primary/50"
-          >
-            <input
-              type="color"
-              value={String(theme[key])}
-              onChange={(event) =>
-                onThemeChange({ ...theme, [key]: event.target.value })
-              }
-              className="size-10 rounded-md border border-border bg-transparent"
-            />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">{label}</span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {String(theme[key])}
+      <EditorSection title="Colors">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {colorFields.map(([key, label]) => (
+            <label key={key} className="flex items-center gap-3">
+              <input
+                type="color"
+                value={String(theme[key])}
+                onChange={(event) =>
+                  onThemeChange({ ...theme, [key]: event.target.value })
+                }
+                className="size-9 rounded-md border border-border bg-transparent"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm text-muted-foreground">
+                  {label}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {String(theme[key])}
+                </span>
               </span>
-            </span>
-          </label>
-        ))}
-      </div>
+            </label>
+          ))}
+        </div>
+      </EditorSection>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {sizeFields.map(([key, label]) => (
-          <Field key={key} label={label}>
-            <input
-              className={inputClass}
-              value={String(theme[key])}
-              onChange={(event) =>
-                onThemeChange({ ...theme, [key]: event.target.value })
-              }
-            />
-          </Field>
-        ))}
-      </div>
+      <EditorSection title="Sizes">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {sizeFields.map(([key, label]) => (
+            <Field key={key} label={label}>
+              <input
+                className={inputClass}
+                value={String(theme[key])}
+                onChange={(event) =>
+                  onThemeChange({ ...theme, [key]: event.target.value })
+                }
+              />
+            </Field>
+          ))}
+        </div>
+      </EditorSection>
     </div>
   );
 }
@@ -3794,8 +3826,6 @@ function canUseLocalStorage() {
 }
 
 const adminPanelClass = "rounded-lg border bg-card";
-
-const adminInsetClass = "rounded-lg border bg-muted/30";
 
 const adminSecondaryButtonClass =
   "h-8 rounded-md border border-border bg-card px-3 text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
