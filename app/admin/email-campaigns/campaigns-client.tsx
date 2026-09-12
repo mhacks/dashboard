@@ -2612,13 +2612,7 @@ function SendPanel({
               onClick={onStartSend}
             >
               <Play />
-              {busy === "start-send"
-                ? "Sending..."
-                : sendStatus?.complete
-                  ? "Complete"
-                  : sendStatus?.leaseActive
-                    ? "Waiting for recovery"
-                    : "Send all"}
+              {busy === "start-send" ? "Sending..." : "Send all"}
             </Button>
             {sendStatus?.interrupted ? (
               <Button
@@ -2656,16 +2650,14 @@ function SendPanel({
               detail={
                 sendStatus?.leaseActive && sendStatus.leaseExpiresAt
                   ? `Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
-                  : sendStatus?.interrupted
-                    ? "Verify the interrupted delivery in SES before resolving it."
-                    : undefined
+                  : undefined
               }
             />
-            {sendStatus?.interrupted &&
-            sendStatus.unverifiedRecipients.length ? (
+            {sendStatus?.interrupted ? (
               <div className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                Verify in SES before resolving:{" "}
-                {sendStatus.unverifiedRecipients.join(", ")}
+                {sendStatus.unverifiedRecipients.length
+                  ? `Verify in SES before resolving: ${sendStatus.unverifiedRecipients.join(", ")}`
+                  : "Verify the interrupted delivery in SES before resolving it."}
               </div>
             ) : null}
           </>
@@ -2701,15 +2693,17 @@ function SendJobProgress({
         job?.pendingCount ? `, ${job.pendingCount} pending` : ""
       }${job?.sendingCount ? `, ${job.sendingCount} sending` : ""}`
     : busy
-      ? "Sending..."
+      ? null
       : "Send failed";
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <p>{summary}</p>
-        {progress !== null ? <span>{progress}%</span> : null}
-      </div>
+      {summary || progress !== null ? (
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          {summary ? <p>{summary}</p> : null}
+          {progress !== null ? <span>{progress}%</span> : null}
+        </div>
+      ) : null}
       <div className="flex h-2 overflow-hidden rounded-md bg-muted">
         {progress === null ? (
           <div className="h-full w-2/3 animate-pulse rounded-md bg-primary" />
