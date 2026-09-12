@@ -1,25 +1,26 @@
 -- Staff users so organizer/volunteer/judge broadcast targets have recipients.
 -- Hackers come from application-review-demo.sql; this file only checks them in.
+-- Repeat the CTE per statement: supabase seed batches SQL, so temp tables do not persist.
 
-create temporary table broadcast_demo_users as
-select
-  ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid as id,
-  format('organizer-%s@mhacks.test', lpad((n - 20)::text, 2, '0')) as email,
-  'organizer'::user_role as role
-from generate_series(21, 28) as n
-union all
-select
-  ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
-  format('volunteer-%s@mhacks.test', lpad((n - 200)::text, 2, '0')),
-  'volunteer'::user_role
-from generate_series(201, 212) as n
-union all
-select
-  ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
-  format('judge-%s@mhacks.test', lpad((n - 400)::text, 2, '0')),
-  'judge'::user_role
-from generate_series(401, 408) as n;
-
+with broadcast_demo_users as (
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid as id,
+    format('organizer-%s@mhacks.test', lpad((n - 20)::text, 2, '0')) as email,
+    'organizer'::user_role as role
+  from generate_series(21, 28) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('volunteer-%s@mhacks.test', lpad((n - 200)::text, 2, '0')),
+    'volunteer'::user_role
+  from generate_series(201, 212) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('judge-%s@mhacks.test', lpad((n - 400)::text, 2, '0')),
+    'judge'::user_role
+  from generate_series(401, 408) as n
+)
 insert into auth.users (
   instance_id,
   id,
@@ -58,6 +59,25 @@ on conflict (id) do update set
   email = excluded.email,
   updated_at = now();
 
+with broadcast_demo_users as (
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid as id,
+    format('organizer-%s@mhacks.test', lpad((n - 20)::text, 2, '0')) as email,
+    'organizer'::user_role as role
+  from generate_series(21, 28) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('volunteer-%s@mhacks.test', lpad((n - 200)::text, 2, '0')),
+    'volunteer'::user_role
+  from generate_series(201, 212) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('judge-%s@mhacks.test', lpad((n - 400)::text, 2, '0')),
+    'judge'::user_role
+  from generate_series(401, 408) as n
+)
 insert into auth.identities (
   id,
   user_id,
@@ -82,6 +102,25 @@ on conflict (id) do update set
   identity_data = excluded.identity_data,
   updated_at = now();
 
+with broadcast_demo_users as (
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid as id,
+    format('organizer-%s@mhacks.test', lpad((n - 20)::text, 2, '0')) as email,
+    'organizer'::user_role as role
+  from generate_series(21, 28) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('volunteer-%s@mhacks.test', lpad((n - 200)::text, 2, '0')),
+    'volunteer'::user_role
+  from generate_series(201, 212) as n
+  union all
+  select
+    ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+    format('judge-%s@mhacks.test', lpad((n - 400)::text, 2, '0')),
+    'judge'::user_role
+  from generate_series(401, 408) as n
+)
 insert into public.users (id, email, role)
 select id, email, role
 from broadcast_demo_users
