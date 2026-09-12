@@ -1694,7 +1694,7 @@ function EmailCampaignWorkspaceHeader({
   onSave: () => void;
   busy: string | null;
 }) {
-  const saveLabel = activeView === "styles" ? "Save styles" : "Save to master";
+  const saveLabel = activeView === "styles" ? "Save styles" : "Save";
   const saveBusy =
     activeView === "styles" ? busy === "save-styles" : busy === "save-template";
 
