@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  useDefaultLayout,
+  usePanelRef,
+  type LayoutStorage,
+} from "react-resizable-panels";
+import {
   ArrowDown,
   ArrowUp,
   AlertTriangle,
@@ -31,6 +36,8 @@ import {
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useMounted } from "@/hooks/use-mounted";
 import type {
   EmailAudienceQuery,
   EmailCampaignContent,
@@ -133,8 +140,31 @@ const currentThemeStorageVersion = "m26-single-font-config";
 const activeSendStatusStorageKey = "mhacks-email-active-send-status";
 const activeSendRecipientsStorageKey = "mhacks-email-active-send-recipients";
 const activeTestProofStorageKey = "mhacks-email-active-test-proof";
-const templatesPanelCollapsedStorageKey =
-  "mhacks-email-templates-panel-collapsed";
+const EMAIL_WORKSPACE_PANEL_IDS = [
+  "templates-list",
+  "campaign-workspace",
+  "preview",
+] as const;
+const PANEL_LAYOUT_STORAGE: LayoutStorage = {
+  getItem(key) {
+    try {
+      return typeof window === "undefined"
+        ? null
+        : window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(key, value);
+      }
+    } catch {
+      // Ignore storage failures (private mode, quota, etc.)
+    }
+  },
+};
 const builtInRecipientMergeFields = new Set(["email", "name"]);
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
@@ -221,9 +251,25 @@ export default function EmailCampaignsClient({
     initialTemplates[0]?.id ?? "",
   );
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
-  const [templatesPanelCollapsed, setTemplatesPanelCollapsed] = useState(() =>
-    loadTemplatesPanelCollapsed(),
-  );
+  const [templatesPanelCollapsed, setTemplatesPanelCollapsed] = useState(false);
+  const panelsMounted = useMounted();
+  const templatesPanelRef = usePanelRef();
+  const panelLayout = useDefaultLayout({
+    id: "email-campaign-workspace",
+    panelIds: [...EMAIL_WORKSPACE_PANEL_IDS],
+    storage: PANEL_LAYOUT_STORAGE,
+  });
+
+  useEffect(() => {
+    if (!panelsMounted) {
+      return;
+    }
+
+    setTemplatesPanelCollapsed(
+      templatesPanelRef.current?.isCollapsed() ?? false,
+    );
+  }, [panelsMounted, templatesPanelRef]);
+
   const [theme, setTheme] = useState<EmailThemeTokens>(initialTheme);
   const [mergePreviewData, setMergePreviewData] = useState<
     Record<string, string>
@@ -1166,6 +1212,245 @@ export default function EmailCampaignsClient({
   const selectedSection =
     selectedTemplate?.content?.sections[selectedSectionIndex] ?? null;
   const previewWidth = previewMode === "desktop" ? 720 : 390;
+  const showTemplatesRail = panelsMounted && templatesPanelCollapsed;
+
+  const templatesListBody = showTemplatesRail ? (
+    <div className="flex h-full flex-col items-center py-3">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        title="Expand templates panel"
+        aria-label="Expand templates panel"
+        onClick={() => {
+          setTemplatesPanelCollapsed(false);
+          templatesPanelRef.current?.expand();
+        }}
+      >
+        <PanelLeftOpen />
+      </Button>
+      <FileText className="mt-3 size-4 text-moss dark:text-sage" />
+    </div>
+  ) : (
+    <>
+      <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          {panelsMounted ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0"
+              title="Collapse templates panel"
+              aria-label="Collapse templates panel"
+              onClick={() => {
+                setTemplatesPanelCollapsed(true);
+                templatesPanelRef.current?.collapse();
+              }}
+            >
+              <PanelLeftClose />
+            </Button>
+          ) : null}
+          <FileText className="size-4 shrink-0 text-moss dark:text-sage" />
+          <h2 className="truncate text-sm font-semibold">Templates</h2>
+        </div>
+        <Badge variant="outline">{templates.length}</Badge>
+      </div>
+      <div className="shrink-0 space-y-2 border-b p-3">
+        <input
+          ref={uploadRef}
+          type="file"
+          accept=".html,text/html"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void uploadHtmlTemplate(file);
+          }}
+        />
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            title="New template"
+            onClick={createStructuredTemplate}
+          >
+            <Plus />
+            New
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={() => uploadRef.current?.click()}
+            disabled={busy === "upload"}
+          >
+            <Upload />
+            Upload
+          </Button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {templates.length === 0 ? (
+          <div className="p-6 text-sm text-muted-foreground">
+            No templates yet.
+          </div>
+        ) : (
+          <div className="divide-y">
+            {templates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => {
+                  selectTemplate(template.id);
+                }}
+                className={cn(
+                  "block w-full px-4 py-3 text-left transition-colors hover:bg-muted/60",
+                  selectedTemplateId === template.id &&
+                    "bg-muted hover:bg-muted",
+                )}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-semibold">
+                    {template.name}
+                  </p>
+                  <Badge variant="outline" className="shrink-0 uppercase">
+                    {template.type}
+                  </Badge>
+                </div>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                  {template.description || template.subject}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  const workspaceBody =
+    surface === "builder" ? (
+      <BuilderPanel
+        notice={notice}
+        selectedTemplate={selectedTemplate}
+        selectedSection={selectedSection}
+        selectedSectionIndex={selectedSectionIndex}
+        mergeFields={mergeFields}
+        mergePreviewData={effectiveMergePreviewData}
+        busy={busy}
+        onSaveTemplate={() => void saveTemplateToMaster()}
+        onDownloadTemplate={downloadSelectedTemplate}
+        onDeleteTemplate={deleteSelectedTemplate}
+        aiDraftText={aiDraftText}
+        onAiDraftTextChange={setAiDraftText}
+        onCopyAiContext={() => void copyAiTemplateContext()}
+        onImportAiDraft={importAiTemplateDraft}
+        onMergePreviewDataChange={(field, value) =>
+          setMergePreviewData((current) => ({
+            ...current,
+            [field]: value,
+          }))
+        }
+        onTemplateChange={updateSelectedTemplate}
+        onContentChange={updateContent}
+        onSectionChange={updateSection}
+        onSectionSelect={setSelectedSectionIndex}
+        onSectionAdd={addSection}
+        onSectionRemove={removeSection}
+        onSectionMove={moveSection}
+      />
+    ) : surface === "styles" ? (
+      <StylesPanel
+        theme={theme}
+        busy={busy}
+        onThemeChange={updateTheme}
+        onSaveStyles={() => void saveStyles()}
+      />
+    ) : (
+      <SendPanel
+        selectedTemplate={selectedTemplate}
+        mergeFields={mergeFields}
+        limits={campaignLimits}
+        recipientSource={recipientSource}
+        recipientText={recipientText}
+        recipientResult={recipientResult}
+        audienceQuery={audienceQuery}
+        audienceLabel={audienceLabel}
+        sendOneEmail={sendOneEmail}
+        testEmails={testEmails}
+        sendStatus={activeSendStatus}
+        testSendProof={activeTestSendProof}
+        notice={sendNotice}
+        busy={busy}
+        onRecipientSourceChange={changeRecipientSource}
+        onRecipientTextChange={(value) => {
+          setRecipientText(value);
+          storeSendRecipients(value);
+          setRecipientResult(null);
+          setAudienceLabel("");
+          clearSendStatus();
+        }}
+        onAudienceQueryChange={updateAudienceQuery}
+        onLoadAudience={() => void loadAudienceRecipients()}
+        onCheckRecipients={() => void checkRecipientList()}
+        onSendOneEmailChange={setSendOneEmail}
+        onSendOne={() => void sendOneRecipient()}
+        onTestSend={() => void sendTestEmails()}
+        onStartSend={() => void startFullSend()}
+        onResolveInterrupted={() => void resolveInterruptedDelivery()}
+      />
+    );
+
+  const previewBody = (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Preview</h2>
+          <p className="text-xs text-muted-foreground">
+            Live desktop/mobile preview.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-1 rounded-md border bg-muted p-1">
+          <PreviewButton
+            active={previewMode === "desktop"}
+            onClick={() => setPreviewMode("desktop")}
+            label="Desktop"
+          >
+            <Laptop />
+          </PreviewButton>
+          <PreviewButton
+            active={previewMode === "mobile"}
+            onClick={() => setPreviewMode("mobile")}
+            label="Mobile"
+          >
+            <Smartphone />
+          </PreviewButton>
+        </div>
+      </div>
+      <div className="mt-4 min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/30 p-4">
+        <div
+          className="mx-auto overflow-hidden rounded-md bg-card "
+          style={{ width: previewWidth, maxWidth: "100%" }}
+        >
+          {previewHtml ? (
+            <iframe
+              title="Email preview"
+              srcDoc={previewHtml}
+              sandbox=""
+              className="h-[760px] w-full border-0"
+            />
+          ) : (
+            <div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">
+              Select a template to preview.
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <main className="h-dvh overflow-hidden bg-background text-foreground">
@@ -1181,254 +1466,80 @@ export default function EmailCampaignsClient({
             />
           }
         />
-        <div className="min-h-0 flex-1 overflow-hidden border-t bg-card">
-          <div className="flex h-full min-h-0">
-            {templatesPanelCollapsed ? (
-              <div className="flex w-10 shrink-0 flex-col items-center border-r bg-card py-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Expand templates panel"
-                  aria-label="Expand templates panel"
-                  onClick={() => {
-                    setTemplatesPanelCollapsed(false);
-                    storeTemplatesPanelCollapsed(false);
-                  }}
-                >
-                  <PanelLeftOpen />
-                </Button>
-                <FileText className="mt-3 size-4 text-moss dark:text-sage" />
-              </div>
-            ) : (
-              <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden border-r bg-card">
-                <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="shrink-0"
-                      title="Collapse templates panel"
-                      aria-label="Collapse templates panel"
-                      onClick={() => {
-                        setTemplatesPanelCollapsed(true);
-                        storeTemplatesPanelCollapsed(true);
-                      }}
-                    >
-                      <PanelLeftClose />
-                    </Button>
-                    <FileText className="size-4 shrink-0 text-moss dark:text-sage" />
-                    <h2 className="truncate text-sm font-semibold">
-                      Templates
-                    </h2>
-                  </div>
-                  <Badge variant="outline">{templates.length}</Badge>
-                </div>
-                <div className="shrink-0 space-y-2 border-b p-3">
-                  <input
-                    ref={uploadRef}
-                    type="file"
-                    accept=".html,text/html"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void uploadHtmlTemplate(file);
-                    }}
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      title="New template"
-                      onClick={createStructuredTemplate}
-                    >
-                      <Plus />
-                      New
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => uploadRef.current?.click()}
-                      disabled={busy === "upload"}
-                    >
-                      <Upload />
-                      Upload
-                    </Button>
-                  </div>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  {templates.length === 0 ? (
-                    <div className="p-6 text-sm text-muted-foreground">
-                      No templates yet.
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-                      {templates.map((template) => (
-                        <button
-                          key={template.id}
-                          type="button"
-                          onClick={() => {
-                            selectTemplate(template.id);
-                          }}
-                          className={cn(
-                            "block w-full px-4 py-3 text-left transition-colors hover:bg-muted/60",
-                            selectedTemplateId === template.id &&
-                              "bg-muted hover:bg-muted",
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="truncate text-sm font-semibold">
-                              {template.name}
-                            </p>
-                            <Badge
-                              variant="outline"
-                              className="shrink-0 uppercase"
-                            >
-                              {template.type}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                            {template.description || template.subject}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </aside>
-            )}
+        {panelsMounted ? (
+          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:flex">
+            <ResizablePanelGroup
+              id="email-campaign-workspace"
+              orientation="horizontal"
+              defaultLayout={panelLayout.defaultLayout}
+              onLayoutChanged={panelLayout.onLayoutChanged}
+              resizeTargetMinimumSize={{ coarse: 32, fine: 16 }}
+              className="min-h-0 flex-1 overflow-hidden"
+            >
+              <ResizablePanel
+                id="templates-list"
+                defaultSize={300}
+                minSize={220}
+                maxSize={480}
+                collapsible
+                collapsedSize="40px"
+                panelRef={templatesPanelRef}
+                onResize={(size) => {
+                  setTemplatesPanelCollapsed(size.inPixels <= 48);
+                }}
+                className="min-h-0 min-w-0"
+              >
+                <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+                  {templatesListBody}
+                </aside>
+              </ResizablePanel>
 
-            <div className="grid h-full min-h-0 min-w-0 flex-1 md:grid-rows-[minmax(0,1fr)_auto] 2xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)] 2xl:grid-rows-1">
-              <section className="flex min-h-0 min-w-0 flex-col overflow-y-auto border-r bg-muted/30 p-5">
-                {surface === "builder" ? (
-                  <BuilderPanel
-                    notice={notice}
-                    selectedTemplate={selectedTemplate}
-                    selectedSection={selectedSection}
-                    selectedSectionIndex={selectedSectionIndex}
-                    mergeFields={mergeFields}
-                    mergePreviewData={effectiveMergePreviewData}
-                    busy={busy}
-                    onSaveTemplate={() => void saveTemplateToMaster()}
-                    onDownloadTemplate={downloadSelectedTemplate}
-                    onDeleteTemplate={deleteSelectedTemplate}
-                    aiDraftText={aiDraftText}
-                    onAiDraftTextChange={setAiDraftText}
-                    onCopyAiContext={() => void copyAiTemplateContext()}
-                    onImportAiDraft={importAiTemplateDraft}
-                    onMergePreviewDataChange={(field, value) =>
-                      setMergePreviewData((current) => ({
-                        ...current,
-                        [field]: value,
-                      }))
-                    }
-                    onTemplateChange={updateSelectedTemplate}
-                    onContentChange={updateContent}
-                    onSectionChange={updateSection}
-                    onSectionSelect={setSelectedSectionIndex}
-                    onSectionAdd={addSection}
-                    onSectionRemove={removeSection}
-                    onSectionMove={moveSection}
-                  />
-                ) : surface === "styles" ? (
-                  <StylesPanel
-                    theme={theme}
-                    busy={busy}
-                    onThemeChange={updateTheme}
-                    onSaveStyles={() => void saveStyles()}
-                  />
-                ) : (
-                  <SendPanel
-                    selectedTemplate={selectedTemplate}
-                    mergeFields={mergeFields}
-                    limits={campaignLimits}
-                    recipientSource={recipientSource}
-                    recipientText={recipientText}
-                    recipientResult={recipientResult}
-                    audienceQuery={audienceQuery}
-                    audienceLabel={audienceLabel}
-                    sendOneEmail={sendOneEmail}
-                    testEmails={testEmails}
-                    sendStatus={activeSendStatus}
-                    testSendProof={activeTestSendProof}
-                    notice={sendNotice}
-                    busy={busy}
-                    onRecipientSourceChange={changeRecipientSource}
-                    onRecipientTextChange={(value) => {
-                      setRecipientText(value);
-                      storeSendRecipients(value);
-                      setRecipientResult(null);
-                      setAudienceLabel("");
-                      clearSendStatus();
-                    }}
-                    onAudienceQueryChange={updateAudienceQuery}
-                    onLoadAudience={() => void loadAudienceRecipients()}
-                    onCheckRecipients={() => void checkRecipientList()}
-                    onSendOneEmailChange={setSendOneEmail}
-                    onSendOne={() => void sendOneRecipient()}
-                    onTestSend={() => void sendTestEmails()}
-                    onStartSend={() => void startFullSend()}
-                    onResolveInterrupted={() =>
-                      void resolveInterruptedDelivery()
-                    }
-                  />
-                )}
-              </section>
+              <ResizablePanel
+                id="campaign-workspace"
+                minSize={320}
+                className="min-h-0 min-w-0"
+              >
+                <section className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto border-r bg-muted/30 p-5">
+                  {workspaceBody}
+                </section>
+              </ResizablePanel>
 
-              <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-t p-4 2xl:border-t-0">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">
-                      Preview
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      Live desktop/mobile preview.
-                    </p>
-                  </div>
-                  <div className="inline-flex items-center gap-1 rounded-md border bg-muted p-1">
-                    <PreviewButton
-                      active={previewMode === "desktop"}
-                      onClick={() => setPreviewMode("desktop")}
-                      label="Desktop"
-                    >
-                      <Laptop />
-                    </PreviewButton>
-                    <PreviewButton
-                      active={previewMode === "mobile"}
-                      onClick={() => setPreviewMode("mobile")}
-                      label="Mobile"
-                    >
-                      <Smartphone />
-                    </PreviewButton>
-                  </div>
-                </div>
-                <div className="mt-4 overflow-auto rounded-lg border border-border bg-muted/30 p-4">
-                  <div
-                    className="mx-auto overflow-hidden rounded-md bg-card "
-                    style={{ width: previewWidth, maxWidth: "100%" }}
-                  >
-                    {previewHtml ? (
-                      <iframe
-                        title="Email preview"
-                        srcDoc={previewHtml}
-                        sandbox=""
-                        className="h-[760px] w-full border-0"
-                      />
-                    ) : (
-                      <div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">
-                        Select a template to preview.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
-            </div>
+              <ResizablePanel
+                id="preview"
+                defaultSize={420}
+                minSize={300}
+                className="min-h-0 min-w-0"
+              >
+                <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden p-4">
+                  {previewBody}
+                </section>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </div>
+        ) : (
+          <div className="hidden min-h-0 flex-1 overflow-hidden border-t bg-card lg:grid lg:grid-cols-[300px_minmax(0,1fr)_420px]">
+            <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-card">
+              {templatesListBody}
+            </aside>
+            <section className="flex min-h-0 min-w-0 flex-col overflow-y-auto border-r bg-muted/30 p-5">
+              {workspaceBody}
+            </section>
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden p-4">
+              {previewBody}
+            </section>
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto border-t bg-card lg:hidden">
+          <aside className="flex flex-col overflow-hidden border-b bg-card">
+            {templatesListBody}
+          </aside>
+          <section className="flex flex-col overflow-y-auto border-b bg-muted/30 p-5">
+            {workspaceBody}
+          </section>
+          <section className="flex flex-col overflow-hidden p-4">
+            {previewBody}
+          </section>
         </div>
         <ToastSnackbar toast={toast} onDismiss={() => setToast(null)} />
       </div>
@@ -3382,21 +3493,6 @@ function downloadTextFile({
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
-}
-
-function loadTemplatesPanelCollapsed() {
-  return readStorage(templatesPanelCollapsedStorageKey, false);
-}
-
-function storeTemplatesPanelCollapsed(collapsed: boolean) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(
-    templatesPanelCollapsedStorageKey,
-    JSON.stringify(collapsed),
-  );
 }
 
 function readStorage<T>(key: string, fallback: T): T {
