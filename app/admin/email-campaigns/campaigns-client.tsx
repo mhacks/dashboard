@@ -50,6 +50,7 @@ import type {
   EmailThemeTokens,
 } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   deleteEmailTemplateAction,
   findActiveDirectSendAction,
@@ -183,7 +184,6 @@ export default function EmailCampaignsClient({
   >({});
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
-  const [notice, setNotice] = useState("");
   const [aiDraftText, setAiDraftText] = useState("");
   const [aiDescription, setAiDescription] = useState("");
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
@@ -240,9 +240,8 @@ export default function EmailCampaignsClient({
       replaceTemplate(saved, previousTemplateId);
       setSelectedTemplateId(saved.id);
       clearSendStatus();
-      setNotice("Template saved.");
     } catch {
-      setNotice("Template could not be saved to the database.");
+      toast.error("Template could not be saved to the database.");
     } finally {
       setBusy(null);
     }
@@ -255,9 +254,8 @@ export default function EmailCampaignsClient({
       setTheme(savedTheme);
       clearSendStatus();
       storeTheme(savedTheme);
-      setNotice("Styles saved.");
     } catch {
-      setNotice("Styles could not be saved to the database.");
+      toast.error("Styles could not be saved to the database.");
     } finally {
       setBusy(null);
     }
@@ -306,7 +304,6 @@ export default function EmailCampaignsClient({
     setTemplates(nextTemplates);
     setSelectedTemplateId(template.id);
     clearSendStatus();
-    setNotice("Template created.");
   }
 
   async function uploadHtmlTemplate(file: File) {
@@ -332,13 +329,12 @@ export default function EmailCampaignsClient({
       setTemplates(nextTemplates);
       setSelectedTemplateId(savedTemplate.id);
       clearSendStatus();
-      setNotice("Template uploaded.");
     } catch {
       const nextTemplates = [template, ...templates];
       setTemplates(nextTemplates);
       setSelectedTemplateId(template.id);
       clearSendStatus();
-      setNotice("Upload kept as a local draft. Database save failed.");
+      toast.error("Upload kept as a local draft. Database save failed.");
     } finally {
       setBusy(null);
       if (uploadRef.current) {
@@ -444,10 +440,8 @@ export default function EmailCampaignsClient({
       setTemplates(nextTemplates);
       setSelectedTemplateId(nextTemplates[0]?.id ?? "");
       clearSendStatus();
-      setNotice("");
     } catch (error) {
-      const message = errorMessage(error);
-      setNotice(message);
+      toast.error(errorMessage(error));
     } finally {
       setBusy(null);
     }
@@ -492,9 +486,8 @@ export default function EmailCampaignsClient({
         mergeFields,
       );
       await window.navigator.clipboard.writeText(context);
-      setNotice("AI context copied.");
     } catch {
-      setNotice("Could not copy AI context.");
+      toast.error("Could not copy AI context.");
     }
   }
 
@@ -510,12 +503,8 @@ export default function EmailCampaignsClient({
         mergeFields,
       });
       setAiDraftText(result.draftText);
-      setNotice(
-        `Draft generated with ${result.model}. Review the JSON below, then import it.`,
-      );
     } catch (error) {
-      const message = errorMessage(error);
-      setNotice(message);
+      toast.error(errorMessage(error));
     } finally {
       setBusy(null);
     }
@@ -533,12 +522,8 @@ export default function EmailCampaignsClient({
       updateSelectedTemplate(draft);
       clearSendStatus();
       setAiDraftText("");
-      setNotice(
-        "AI draft applied to the current template. Review before saving.",
-      );
     } catch (error) {
-      const message = errorMessage(error);
-      setNotice(message);
+      toast.error(errorMessage(error));
     }
   }
 
@@ -594,7 +579,6 @@ export default function EmailCampaignsClient({
           : Promise.resolve(null),
       ]);
       setRecipientResult(parsed);
-      setNotice("");
       if (recoveredStatus) {
         commitSendStatus({
           ...recoveredStatus,
@@ -604,7 +588,7 @@ export default function EmailCampaignsClient({
         clearSendStatus();
       }
     } catch (error) {
-      setNotice(errorMessage(error));
+      toast.error(errorMessage(error));
     } finally {
       setBusy(null);
     }
@@ -619,7 +603,6 @@ export default function EmailCampaignsClient({
       setRecipientText(resolved.recipientText);
       storeSendRecipients(resolved.recipientText);
       setRecipientResult(resolved);
-      setNotice("");
       const template = buildDirectSendTemplate(selectedTemplate, theme);
       const recoveredStatus = template
         ? await findActiveDirectSendAction({
@@ -636,7 +619,7 @@ export default function EmailCampaignsClient({
         clearSendStatus();
       }
     } catch (error) {
-      setNotice(errorMessage(error));
+      toast.error(errorMessage(error));
     } finally {
       setBusy(null);
     }
@@ -917,7 +900,6 @@ export default function EmailCampaignsClient({
 
   function selectTemplate(templateId: string) {
     setSelectedTemplateId(templateId);
-    setNotice("");
     clearSendStatus();
     setTestSendJob(null);
     setSendOneJob(null);
@@ -1229,7 +1211,6 @@ export default function EmailCampaignsClient({
   const workspaceBody =
     surface === "builder" ? (
       <BuilderPanel
-        notice={notice}
         selectedTemplate={selectedTemplate}
         onDownloadTemplate={downloadSelectedTemplate}
         onOpenAiDraft={() => setAiDraftOpen(true)}
@@ -1256,7 +1237,6 @@ export default function EmailCampaignsClient({
         testSendProof={activeTestSendProof}
         testSendJob={testSendJob}
         sendOneJob={sendOneJob}
-        notice={notice}
         busy={busy}
         onRecipientSourceChange={changeRecipientSource}
         onRecipientTextChange={(value) => {

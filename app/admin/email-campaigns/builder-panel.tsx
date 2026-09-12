@@ -88,7 +88,6 @@ export function BodyBlockCard({
 }
 
 export function BuilderPanel({
-  notice,
   selectedTemplate,
   onDownloadTemplate,
   onOpenAiDraft,
@@ -99,7 +98,6 @@ export function BuilderPanel({
   onSectionRemove,
   onSectionMove,
 }: {
-  notice: string;
   selectedTemplate: MasterTemplate | null;
   onDownloadTemplate: () => void;
   onOpenAiDraft: () => void;
@@ -163,10 +161,6 @@ export function BuilderPanel({
           aria-label="Description"
         />
       </div>
-
-      {notice ? (
-        <p className="text-sm text-muted-foreground">{notice}</p>
-      ) : null}
 
       <div className="space-y-3">
         <Field label="Subject">

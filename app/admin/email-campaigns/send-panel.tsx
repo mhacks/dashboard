@@ -34,7 +34,6 @@ export function SendPanel({
   testSendProof,
   testSendJob,
   sendOneJob,
-  notice,
   busy,
   onRecipientSourceChange,
   onRecipientTextChange,
@@ -59,7 +58,6 @@ export function SendPanel({
   testSendProof: TestSendProof | null;
   testSendJob: SendJobSnapshot | null;
   sendOneJob: SendJobSnapshot | null;
-  notice: string;
   busy: string | null;
   onRecipientSourceChange: (source: RecipientSource) => void;
   onRecipientTextChange: (value: string) => void;
@@ -116,10 +114,6 @@ export function SendPanel({
           {templateTypeLabel} · {limitsLabel}
         </p>
       </div>
-
-      {notice ? (
-        <p className="text-sm text-muted-foreground">{notice}</p>
-      ) : null}
 
       {!templateCanSend ? (
         <p className="text-sm text-muted-foreground">
