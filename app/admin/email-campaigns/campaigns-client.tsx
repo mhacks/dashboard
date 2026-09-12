@@ -36,6 +36,14 @@ import {
   X,
 } from "lucide-react";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,7 +59,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMounted } from "@/hooks/use-mounted";
 import {
   buildAiTemplateContext,
@@ -299,6 +306,7 @@ export default function EmailCampaignsClient({
   const [notice, setNotice] = useState("");
   const [aiDraftText, setAiDraftText] = useState("");
   const [aiDescription, setAiDescription] = useState("");
+  const [aiDraftOpen, setAiDraftOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -1407,14 +1415,7 @@ export default function EmailCampaignsClient({
         selectedTemplate={selectedTemplate}
         onDownloadTemplate={downloadSelectedTemplate}
         onDeleteTemplate={deleteSelectedTemplate}
-        aiDraftText={aiDraftText}
-        aiDescription={aiDescription}
-        generateBusy={busy === "generate-ai-draft"}
-        onAiDraftTextChange={setAiDraftText}
-        onAiDescriptionChange={setAiDescription}
-        onCopyAiContext={() => void copyAiTemplateContext()}
-        onGenerateAiDraft={() => void generateAiTemplateDraft()}
-        onImportAiDraft={importAiTemplateDraft}
+        onOpenAiDraft={() => setAiDraftOpen(true)}
         onTemplateChange={updateSelectedTemplate}
         onContentChange={updateContent}
         onSectionChange={updateSection}
@@ -1608,6 +1609,41 @@ export default function EmailCampaignsClient({
           </section>
         </div>
         <ToastSnackbar toast={toast} onDismiss={() => setToast(null)} />
+        <AlertDialog open={aiDraftOpen} onOpenChange={setAiDraftOpen}>
+          <AlertDialogContent className="!flex z-50 h-auto max-h-[calc(100dvh-2rem)] w-[min(72rem,calc(100vw-2rem))] !max-w-none flex-col gap-0 overflow-hidden p-0">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <AlertDialogHeader className="gap-1 p-0 place-items-start text-left">
+                <AlertDialogTitle>AI drafting</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Draft with AI, then apply the result to this template.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogCancel
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+              >
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </AlertDialogCancel>
+            </div>
+            <div className="min-h-0 overflow-y-auto px-4 py-4">
+              {selectedTemplate ? (
+                <AiDraftPanel
+                  draftText={aiDraftText}
+                  templateType={selectedTemplate.type}
+                  aiDescription={aiDescription}
+                  generateBusy={busy === "generate-ai-draft"}
+                  onAiDescriptionChange={setAiDescription}
+                  onCopyAiContext={() => void copyAiTemplateContext()}
+                  onDraftTextChange={setAiDraftText}
+                  onGenerateDraft={() => void generateAiTemplateDraft()}
+                  onImportDraft={importAiTemplateDraft}
+                />
+              ) : null}
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </main>
   );
@@ -1760,14 +1796,7 @@ function BuilderPanel({
   selectedTemplate,
   onDownloadTemplate,
   onDeleteTemplate,
-  aiDraftText,
-  aiDescription,
-  generateBusy,
-  onAiDraftTextChange,
-  onAiDescriptionChange,
-  onCopyAiContext,
-  onGenerateAiDraft,
-  onImportAiDraft,
+  onOpenAiDraft,
   onTemplateChange,
   onContentChange,
   onSectionChange,
@@ -1779,14 +1808,7 @@ function BuilderPanel({
   selectedTemplate: MasterTemplate | null;
   onDownloadTemplate: () => void;
   onDeleteTemplate: () => void;
-  aiDraftText: string;
-  aiDescription: string;
-  generateBusy: boolean;
-  onAiDraftTextChange: (value: string) => void;
-  onAiDescriptionChange: (value: string) => void;
-  onCopyAiContext: () => void;
-  onGenerateAiDraft: () => void;
-  onImportAiDraft: () => void;
+  onOpenAiDraft: () => void;
   onTemplateChange: (patch: Partial<MasterTemplate>) => void;
   onContentChange: (patch: Partial<EmailCampaignContent>) => void;
   onSectionChange: (
@@ -1817,6 +1839,16 @@ function BuilderPanel({
             placeholder="Template name"
             aria-label="Template name"
           />
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className={adminMiniButtonClass}
+            onClick={onOpenAiDraft}
+            aria-label="AI drafting"
+          >
+            <Sparkles />
+          </Button>
           <Button
             type="button"
             size="icon-sm"
@@ -2005,31 +2037,6 @@ function BuilderPanel({
           </EditorSection>
         </>
       ) : null}
-
-      <Accordion
-        type="single"
-        collapsible
-        className="border-t border-border pt-1"
-      >
-        <AccordionItem value="ai">
-          <AccordionTrigger className="py-3 text-sm font-medium hover:no-underline">
-            AI drafting
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <AiDraftPanel
-              draftText={aiDraftText}
-              templateType={selectedTemplate.type}
-              aiDescription={aiDescription}
-              generateBusy={generateBusy}
-              onAiDescriptionChange={onAiDescriptionChange}
-              onCopyAiContext={onCopyAiContext}
-              onDraftTextChange={onAiDraftTextChange}
-              onGenerateDraft={onGenerateAiDraft}
-              onImportDraft={onImportAiDraft}
-            />
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
     </div>
   );
 }
@@ -2055,51 +2062,71 @@ function AiDraftPanel({
   onGenerateDraft: () => void;
   onImportDraft: () => void;
 }) {
+  const draftPlaceholder =
+    templateType === "html"
+      ? '{ "subject": "...", "previewText": "...", "html": "<p>...</p>" }'
+      : '{ "subject": "...", "previewText": "...", "content": { "heading": "...", "sections": [...] } }';
+
   return (
     <div>
-      <Tabs defaultValue="generate">
-        <TabsList variant="line">
-          <TabsTrigger value="generate">Generate</TabsTrigger>
-          <TabsTrigger value="manual">Manual prompt</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="generate" className="mt-4 space-y-3">
-          <Field label="What to generate">
-            <textarea
-              className={textareaClass}
-              rows={4}
-              value={aiDescription}
-              onChange={(event) => onAiDescriptionChange(event.target.value)}
-              placeholder="Example: A short RSVP reminder for accepted hackers. Friendly tone, mention the Friday deadline, and link to the dashboard."
-            />
-          </Field>
-          <div className="flex justify-end">
+      <AiDraftStep
+        step={1}
+        title="Create a draft"
+        description="Describe the email, then generate here or copy context for your own agent."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              className={adminSecondaryButtonClass}
+              disabled={generateBusy}
+              onClick={onCopyAiContext}
+            >
+              <Copy />
+              Copy for agent
+            </Button>
             <Button
               type="button"
               className={adminPrimaryButtonClass}
               disabled={generateBusy || !aiDescription.trim()}
               onClick={onGenerateDraft}
             >
-              <Sparkles />
-              Generate draft
+              {generateBusy ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Sparkles />
+              )}
+              {generateBusy ? "Generating…" : "Generate"}
             </Button>
-          </div>
-        </TabsContent>
+          </>
+        }
+      >
+        <textarea
+          className={textareaClass}
+          rows={4}
+          value={aiDescription}
+          disabled={generateBusy}
+          onChange={(event) => onAiDescriptionChange(event.target.value)}
+          placeholder="RSVP reminder for accepted hackers. Friendly tone, Friday deadline."
+        />
+      </AiDraftStep>
 
-        <TabsContent value="manual" className="mt-4 space-y-3">
+      <AiDraftStep
+        step={2}
+        title="Import JSON"
+        description="Paste the draft JSON below and apply it to this template."
+        divided
+        actions={
           <Button
             type="button"
-            variant="ghost"
-            className={adminSecondaryButtonClass}
-            onClick={onCopyAiContext}
+            className={adminPrimaryButtonClass}
+            disabled={generateBusy || !draftText.trim()}
+            onClick={onImportDraft}
           >
-            <Copy />
-            Copy AI context
+            Import
           </Button>
-        </TabsContent>
-      </Tabs>
-
-      <Field label="Draft JSON">
+        }
+      >
         <div className="relative">
           {generateBusy ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md border border-border bg-background/85">
@@ -2110,29 +2137,62 @@ function AiDraftPanel({
             </div>
           ) : null}
           <textarea
-            className={cn(textareaClass, "min-h-32 text-xs")}
+            className={cn(textareaClass, "font-mono text-xs")}
+            rows={4}
             value={draftText}
             disabled={generateBusy}
             onChange={(event) => onDraftTextChange(event.target.value)}
-            placeholder={
-              templateType === "html"
-                ? '{ "subject": "...", "previewText": "...", "html": "<p>...</p>" }'
-                : '{ "subject": "...", "previewText": "...", "content": { "heading": "...", "sections": [...] } }'
-            }
+            placeholder={draftPlaceholder}
           />
         </div>
-      </Field>
-      <div className="mt-3 flex justify-end">
-        <Button
-          type="button"
-          className={adminPrimaryButtonClass}
-          disabled={!draftText.trim()}
-          onClick={onImportDraft}
-        >
-          <Sparkles />
-          Import draft
-        </Button>
+      </AiDraftStep>
+    </div>
+  );
+}
+
+function AiDraftStep({
+  step,
+  title,
+  description,
+  divided = false,
+  actions,
+  children,
+}: {
+  step: number;
+  title: string;
+  description: string;
+  divided?: boolean;
+  actions: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={cn("space-y-3", divided && "mt-6 border-t border-border pt-6")}
+    >
+      <AiDraftStepHeader step={step} title={title} description={description} />
+      {children}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {actions}
       </div>
+    </section>
+  );
+}
+
+function AiDraftStepHeader({
+  step,
+  title,
+  description,
+}: {
+  step: number;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-foreground">
+        <span className="text-muted-foreground">{step}.</span> {title}
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }
