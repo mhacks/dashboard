@@ -727,6 +727,7 @@ export default function EmailCampaignsClient({
           : Promise.resolve(null),
       ]);
       setRecipientResult(parsed);
+      setNotice("");
       if (recoveredStatus) {
         commitSendStatus({
           ...recoveredStatus,
@@ -735,7 +736,8 @@ export default function EmailCampaignsClient({
       } else {
         clearSendStatus();
       }
-    } catch {
+    } catch (error) {
+      setNotice(errorMessage(error));
     } finally {
       setBusy(null);
     }
@@ -750,6 +752,7 @@ export default function EmailCampaignsClient({
       setRecipientText(resolved.recipientText);
       storeSendRecipients(resolved.recipientText);
       setRecipientResult(resolved);
+      setNotice("");
       const template = buildDirectSendTemplate(selectedTemplate, theme);
       const recoveredStatus = template
         ? await findActiveDirectSendAction({
@@ -765,7 +768,8 @@ export default function EmailCampaignsClient({
       } else {
         clearSendStatus();
       }
-    } catch {
+    } catch (error) {
+      setNotice(errorMessage(error));
     } finally {
       setBusy(null);
     }
@@ -1385,6 +1389,7 @@ export default function EmailCampaignsClient({
         testSendProof={activeTestSendProof}
         testSendJob={testSendJob}
         sendOneJob={sendOneJob}
+        notice={notice}
         busy={busy}
         onRecipientSourceChange={changeRecipientSource}
         onRecipientTextChange={(value) => {
@@ -2273,6 +2278,7 @@ function SendPanel({
   testSendProof,
   testSendJob,
   sendOneJob,
+  notice,
   busy,
   onRecipientSourceChange,
   onRecipientTextChange,
@@ -2297,6 +2303,7 @@ function SendPanel({
   testSendProof: TestSendProof | null;
   testSendJob: SendJobSnapshot | null;
   sendOneJob: SendJobSnapshot | null;
+  notice: string;
   busy: string | null;
   onRecipientSourceChange: (source: RecipientSource) => void;
   onRecipientTextChange: (value: string) => void;
@@ -2353,6 +2360,10 @@ function SendPanel({
           {templateTypeLabel} · {limitsLabel}
         </p>
       </div>
+
+      {notice ? (
+        <p className="text-sm text-muted-foreground">{notice}</p>
+      ) : null}
 
       {!templateCanSend ? (
         <p className="text-sm text-muted-foreground">
