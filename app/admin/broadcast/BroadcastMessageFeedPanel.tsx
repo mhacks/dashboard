@@ -14,6 +14,7 @@ type BroadcastMessageFeedPanelProps = {
   searchQuery: string;
   targetLabels: Record<string, string>;
   emptyMessage: string;
+  isLoading?: boolean;
 };
 
 export function BroadcastMessageFeedPanel({
@@ -23,6 +24,7 @@ export function BroadcastMessageFeedPanel({
   searchQuery,
   targetLabels,
   emptyMessage,
+  isLoading = false,
 }: BroadcastMessageFeedPanelProps) {
   const [olderLogs, setOlderLogs] = useState<BroadcastLogListItem[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -158,28 +160,37 @@ export function BroadcastMessageFeedPanel({
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-      <div className="flex min-h-full flex-col justify-end">
-        <div className="flex flex-col gap-3 px-2 pb-4">
-          <div
-            ref={topSentinelRef}
-            className="h-px shrink-0"
-            aria-hidden="true"
-          />
-          {isLoadingMore ? (
-            <div className="flex justify-center py-2">
-              <Loader2
-                aria-hidden="true"
-                className="size-4 animate-spin text-muted-foreground"
-              />
-            </div>
-          ) : null}
-          <BroadcastMessageFeed
-            logs={logs}
-            targetLabels={targetLabels}
-            emptyMessage={emptyMessage}
+      {isLoading ? (
+        <div className="flex min-h-full items-center justify-center">
+          <Loader2
+            aria-label="Loading messages"
+            className="size-5 animate-spin text-muted-foreground"
           />
         </div>
-      </div>
+      ) : (
+        <div className="flex min-h-full flex-col justify-end">
+          <div className="flex flex-col gap-3 px-2 pb-4">
+            <div
+              ref={topSentinelRef}
+              className="h-px shrink-0"
+              aria-hidden="true"
+            />
+            {isLoadingMore ? (
+              <div className="flex justify-center py-2">
+                <Loader2
+                  aria-hidden="true"
+                  className="size-4 animate-spin text-muted-foreground"
+                />
+              </div>
+            ) : null}
+            <BroadcastMessageFeed
+              logs={logs}
+              targetLabels={targetLabels}
+              emptyMessage={emptyMessage}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

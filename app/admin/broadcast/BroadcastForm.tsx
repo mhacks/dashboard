@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,19 +35,35 @@ import type {
   BroadcastSendStatus,
   BroadcastTargetSummary,
 } from "@/lib/broadcast/types";
-import { ChevronDownIcon, SendHorizontalIcon, XIcon } from "lucide-react";
-import { findActiveBroadcastAction, startBroadcastAction } from "./actions";
+import {
+  ChevronDownIcon,
+  Loader2,
+  SendHorizontalIcon,
+  XIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  findActiveBroadcastAction,
+  listBroadcastTargetRecipientsAction,
+  startBroadcastAction,
+} from "./actions";
 import { runBroadcastLoop } from "./run-broadcast-loop";
 import { useSelectionSet } from "./use-selection-set";
+
+type RecipientPreview =
+  | { status: "loading" }
+  | { status: "ready"; emails: string[] }
+  | { status: "error"; message: string };
 
 export default function BroadcastForm({
   targets,
   channelTargetId = null,
+  onLogsInvalidated,
 }: {
   targets: BroadcastTargetSummary[];
   channelTargetId?: string | null;
+  onLogsInvalidated: () => void;
 }) {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const channelLocked = Boolean(channelTargetId);
   const defaultTargetIds = channelTargetId ? [channelTargetId] : [];
@@ -129,10 +144,11 @@ export default function BroadcastForm({
             sent: finalStatus.sentCount,
             failed: finalStatus.failedCount,
           });
-          router.refresh();
         }
       } catch (error) {
         setNotice(broadcastErrorMessage(error));
+      } finally {
+        onLogsInvalidated();
       }
     });
   }
@@ -187,7 +203,6 @@ export default function BroadcastForm({
             if (totalSent > 0 || totalFailed > 0) {
               setSuccessResult({ sent: totalSent, failed: totalFailed });
             }
-            router.refresh();
             return;
           }
 
@@ -196,9 +211,10 @@ export default function BroadcastForm({
         }
 
         setSuccessResult({ sent: totalSent, failed: totalFailed });
-        router.refresh();
       } catch (error) {
         setNotice(broadcastErrorMessage(error));
+      } finally {
+        onLogsInvalidated();
       }
     });
   }
@@ -216,7 +232,7 @@ export default function BroadcastForm({
   const successDescription = successResult
     ? formatBroadcastOutcome(successResult.sent, successResult.failed, {
         finishedLabel: "Delivery",
-        successMessage: `Your message was delivered to ${successResult.sent} hackers.`,
+        successMessage: `Your message was delivered to ${successResult.sent} ${successResult.sent === 1 ? "person" : "people"}.`,
       })
     : "";
 
@@ -382,16 +398,16 @@ export default function BroadcastForm({
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Send broadcast?</AlertDialogTitle>
             <AlertDialogDescription>
-              {selectedTargets.length === 1
-                ? `This will send to ${selectedTargets[0].recipientCount} recipients via ${selectedTargets[0].label}.`
-                : `This will send to ${totalRecipientCount} recipients across ${selectedTargets.length} targets: ${selectedTargets.map((target) => target.label).join(", ")}.`}{" "}
-              Are you sure?
+              This will send to {totalRecipientCount} recipient
+              {totalRecipientCount === 1 ? "" : "s"}. Expand a target to review
+              emails. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <ConfirmTargetRecipientList targets={selectedTargets} />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmSend}>Send</AlertDialogAction>
@@ -431,5 +447,132 @@ export default function BroadcastForm({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function ConfirmTargetRecipientList({
+  targets,
+}: {
+  targets: BroadcastTargetSummary[];
+}) {
+  const [expandedIds, setExpandedIds] = useState(new Set<string>());
+  const [previews, setPreviews] = useState<Record<string, RecipientPreview>>(
+    {},
+  );
+
+  function toggleTarget(targetId: string) {
+    const expanding = !expandedIds.has(targetId);
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (expanding) {
+        next.add(targetId);
+      } else {
+        next.delete(targetId);
+      }
+      return next;
+    });
+
+    const preview = previews[targetId];
+    if (
+      expanding &&
+      preview?.status !== "ready" &&
+      preview?.status !== "loading"
+    ) {
+      void loadRecipients(targetId);
+    }
+  }
+
+  async function loadRecipients(targetId: string) {
+    setPreviews((current) => ({
+      ...current,
+      [targetId]: { status: "loading" },
+    }));
+
+    try {
+      const emails = await listBroadcastTargetRecipientsAction(targetId);
+      setPreviews((current) => ({
+        ...current,
+        [targetId]: { status: "ready", emails },
+      }));
+    } catch (error) {
+      setPreviews((current) => ({
+        ...current,
+        [targetId]: {
+          status: "error",
+          message: broadcastErrorMessage(error),
+        },
+      }));
+    }
+  }
+
+  return (
+    <div className="max-h-[min(18rem,50vh)] overflow-y-auto overscroll-y-contain rounded-md border">
+      <ul aria-label="Targets">
+        {targets.map((target) => {
+          const expanded = expandedIds.has(target.id);
+          const preview = previews[target.id];
+          const panelId = `broadcast-target-recipients-${target.id.replaceAll(":", "-")}`;
+
+          return (
+            <li key={target.id} className="border-b last:border-b-0">
+              <button
+                type="button"
+                aria-expanded={expanded}
+                aria-controls={panelId}
+                onClick={() => toggleTarget(target.id)}
+                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm hover:bg-muted/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <ChevronDownIcon
+                  className={cn(
+                    "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                    expanded && "rotate-180",
+                  )}
+                />
+                <span className="min-w-0 flex-1 truncate">{target.label}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {preview?.status === "ready"
+                    ? preview.emails.length
+                    : target.recipientCount}
+                </span>
+              </button>
+              {expanded ? (
+                <div
+                  id={panelId}
+                  className="max-h-40 overflow-y-auto overscroll-y-contain border-t bg-muted/20"
+                >
+                  {!preview || preview.status === "loading" ? (
+                    <div className="flex justify-center py-3">
+                      <Loader2
+                        aria-label="Loading recipients"
+                        className="size-4 animate-spin text-muted-foreground"
+                      />
+                    </div>
+                  ) : preview.status === "error" ? (
+                    <p className="px-2.5 py-2 text-xs text-destructive">
+                      {preview.message}
+                    </p>
+                  ) : preview.emails.length === 0 ? (
+                    <p className="px-2.5 py-2 text-xs text-muted-foreground">
+                      No recipients
+                    </p>
+                  ) : (
+                    <ul aria-label={`${target.label} recipients`}>
+                      {preview.emails.map((email) => (
+                        <li
+                          key={email}
+                          className="border-b px-2.5 py-1 text-xs break-all last:border-b-0"
+                        >
+                          {email}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

@@ -68,19 +68,18 @@ const broadcastRetryResultsSchema = z.object({
   retryBroadcastId: z.string().uuid(),
 });
 
+export async function listBroadcastTargetRecipients(targetId: unknown) {
+  await requireOrganizer();
+  const target = getBroadcastTarget(z.string().trim().min(1).parse(targetId));
+  const recipients = await target.resolveRecipients();
+  return [...new Set(recipients)].sort();
+}
+
 export async function startBroadcast(input: unknown) {
   const organizer = await requireOrganizer();
   const body = broadcastStartSchema.parse(input);
   const target = getBroadcastTarget(body.target);
   const recipients = await target.resolveRecipients();
-
-  if (recipients.length === 0) {
-    throw new EmailCampaignError(
-      `No recipients found for ${target.label}`,
-      400,
-    );
-  }
-
   const broadcast = await createSendingBroadcast({
     target: target.id,
     subject: body.subject,
@@ -774,6 +773,7 @@ async function createSendingBroadcast(input: {
 
   try {
     return await db.transaction(async (tx) => {
+      const empty = recipients.length === 0;
       const [broadcast] = await tx
         .insert(broadcastLogs)
         .values({
@@ -781,14 +781,14 @@ async function createSendingBroadcast(input: {
           subject: input.subject,
           body: input.body,
           sentBy: input.sentBy,
-          status: "sending",
+          status: empty ? "complete" : "sending",
           totalRecipients: recipients.length,
           sentCount: 0,
           failedCount: 0,
           retryFailedCount: 0,
           nextCursor: 0,
           parentBroadcastId: input.parentBroadcastId,
-          leaseExpiresAt: broadcastLeaseExpiry(),
+          leaseExpiresAt: empty ? null : broadcastLeaseExpiry(),
         })
         .returning();
 
@@ -796,14 +796,16 @@ async function createSendingBroadcast(input: {
         throw new EmailCampaignError("Could not create broadcast", 500);
       }
 
-      await tx.insert(broadcastDeliveries).values(
-        recipients.map((recipient, position) => ({
-          broadcastId: broadcast.id,
-          recipient,
-          position,
-          status: "pending",
-        })),
-      );
+      if (!empty) {
+        await tx.insert(broadcastDeliveries).values(
+          recipients.map((recipient, position) => ({
+            broadcastId: broadcast.id,
+            recipient,
+            position,
+            status: "pending",
+          })),
+        );
+      }
 
       return broadcast;
     });

@@ -4,6 +4,7 @@ import {
   applyBroadcastRetryResults,
   findActiveBroadcast,
   getBroadcastDeliveryDetails,
+  listBroadcastTargetRecipients,
   markBroadcastDeliveriesFailed,
   retryFailedBroadcast,
   sendBroadcastBatch,
@@ -15,6 +16,10 @@ import { listBroadcastLogs } from "@/lib/queries/broadcast-logs";
 
 export async function startBroadcastAction(input: unknown) {
   return startBroadcast(input);
+}
+
+export async function listBroadcastTargetRecipientsAction(targetId: string) {
+  return listBroadcastTargetRecipients(targetId);
 }
 
 export async function sendBroadcastBatchAction(input: unknown) {
