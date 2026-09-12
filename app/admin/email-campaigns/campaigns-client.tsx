@@ -46,6 +46,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1309,13 +1311,13 @@ export default function EmailCampaignsClient({
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
+            <Input
               type="search"
               value={templateSearch}
               onChange={(event) => setTemplateSearch(event.target.value)}
               placeholder="Search templates"
               aria-label="Search templates"
-              className={cn(inputClass, "pl-9")}
+              className="pl-9"
             />
           </div>
           {templatesAddMenu("icon-lg", "outline")}
@@ -1594,14 +1596,14 @@ export default function EmailCampaignsClient({
               <div className="border-b p-3">
                 <div className="relative">
                   <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
+                  <Input
                     ref={templateSearchPopoverRef}
                     type="search"
                     value={templateSearch}
                     onChange={(event) => setTemplateSearch(event.target.value)}
                     placeholder="Search templates"
                     aria-label="Search templates"
-                    className={cn(inputClass, "pl-9")}
+                    className="pl-9"
                   />
                 </div>
               </div>
@@ -1717,7 +1719,7 @@ function EmailCampaignWorkspaceHeader({
       <div className="flex shrink-0 items-center gap-2">
         {canDelete ? (
           <Button
-            className={cn(adminDangerButtonClass, "shrink-0")}
+            className="shrink-0"
             variant="destructive"
             onClick={() => setDeleteOpen(true)}
             disabled={deleteBusy}
@@ -1726,11 +1728,7 @@ function EmailCampaignWorkspaceHeader({
             Delete
           </Button>
         ) : null}
-        <Button
-          className={cn(adminPrimaryButtonClass, "shrink-0")}
-          onClick={onSave}
-          disabled={saveBusy}
-        >
+        <Button className="shrink-0" onClick={onSave} disabled={saveBusy}>
           <Save />
           Save
         </Button>
@@ -1791,7 +1789,6 @@ function BodyBlockCard({
             type="button"
             size="icon-sm"
             variant="ghost"
-            className={adminMiniButtonClass}
             onClick={() => onMove(-1)}
             disabled={index === 0}
             aria-label={`Move ${blockLabel} up`}
@@ -1802,7 +1799,6 @@ function BodyBlockCard({
             type="button"
             size="icon-sm"
             variant="ghost"
-            className={adminMiniButtonClass}
             onClick={() => onMove(1)}
             disabled={index === total - 1}
             aria-label={`Move ${blockLabel} down`}
@@ -1813,7 +1809,6 @@ function BodyBlockCard({
             type="button"
             size="icon-sm"
             variant="ghost"
-            className={adminMiniButtonClass}
             onClick={onRemove}
             aria-label={`Remove ${blockLabel}`}
           >
@@ -1821,8 +1816,8 @@ function BodyBlockCard({
           </Button>
         </div>
       </div>
-      <textarea
-        className={`${textareaClass} mt-3`}
+      <Textarea
+        className="mt-3"
         rows={6}
         value={section.body}
         onChange={(event) => onChange({ body: event.target.value })}
@@ -1883,7 +1878,6 @@ function BuilderPanel({
             type="button"
             size="icon-sm"
             variant="ghost"
-            className={adminMiniButtonClass}
             onClick={onOpenAiDraft}
             aria-label="AI drafting"
           >
@@ -1893,7 +1887,6 @@ function BuilderPanel({
             type="button"
             size="icon-sm"
             variant="ghost"
-            className={adminMiniButtonClass}
             onClick={onDownloadTemplate}
             aria-label="Download template"
           >
@@ -1918,8 +1911,7 @@ function BuilderPanel({
 
       <div className="space-y-3">
         <Field label="Subject">
-          <input
-            className={inputClass}
+          <Input
             value={selectedTemplate.subject}
             onChange={(event) =>
               onTemplateChange({ subject: event.target.value })
@@ -1927,8 +1919,7 @@ function BuilderPanel({
           />
         </Field>
         <Field label="Preview text">
-          <input
-            className={inputClass}
+          <Input
             value={selectedTemplate.previewText}
             onChange={(event) =>
               onTemplateChange({ previewText: event.target.value })
@@ -1939,8 +1930,8 @@ function BuilderPanel({
 
       {selectedTemplate.type === "html" ? (
         <EditorSection title="HTML body">
-          <textarea
-            className={`${textareaClass} text-xs`}
+          <Textarea
+            className="text-xs"
             rows={18}
             value={selectedTemplate.html ?? ""}
             onChange={(event) => onTemplateChange({ html: event.target.value })}
@@ -1951,8 +1942,7 @@ function BuilderPanel({
           <EditorSection title="Header">
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Eyebrow">
-                <input
-                  className={inputClass}
+                <Input
                   value={selectedTemplate.content.eyebrow ?? ""}
                   onChange={(event) =>
                     onContentChange({ eyebrow: event.target.value })
@@ -1960,8 +1950,7 @@ function BuilderPanel({
                 />
               </Field>
               <Field label="Heading">
-                <input
-                  className={inputClass}
+                <Input
                   value={selectedTemplate.content.heading}
                   onChange={(event) =>
                     onContentChange({ heading: event.target.value })
@@ -1970,8 +1959,7 @@ function BuilderPanel({
               </Field>
             </div>
             <Field label="Intro">
-              <textarea
-                className={textareaClass}
+              <Textarea
                 rows={2}
                 value={selectedTemplate.content.intro ?? ""}
                 onChange={(event) =>
@@ -1986,9 +1974,8 @@ function BuilderPanel({
             action={
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className={adminSecondaryButtonClass}
                 onClick={onSectionAdd}
               >
                 <Plus />
@@ -2020,8 +2007,7 @@ function BuilderPanel({
           <EditorSection title="Footer">
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Button label">
-                <input
-                  className={inputClass}
+                <Input
                   value={selectedTemplate.content.cta?.label ?? ""}
                   onChange={(event) =>
                     onContentChange({
@@ -2037,8 +2023,7 @@ function BuilderPanel({
                 />
               </Field>
               <Field label="Button URL">
-                <input
-                  className={inputClass}
+                <Input
                   value={selectedTemplate.content.cta?.url ?? ""}
                   onChange={(event) =>
                     onContentChange({
@@ -2054,8 +2039,7 @@ function BuilderPanel({
               </Field>
             </div>
             <Field label="Footer note">
-              <textarea
-                className={textareaClass}
+              <Textarea
                 rows={2}
                 value={selectedTemplate.content.footerNote ?? ""}
                 onChange={(event) =>
@@ -2107,8 +2091,7 @@ function AiDraftPanel({
           <>
             <Button
               type="button"
-              variant="ghost"
-              className={adminSecondaryButtonClass}
+              variant="outline"
               disabled={generateBusy}
               onClick={onCopyAiContext}
             >
@@ -2117,7 +2100,6 @@ function AiDraftPanel({
             </Button>
             <Button
               type="button"
-              className={adminPrimaryButtonClass}
               disabled={generateBusy || !aiDescription.trim()}
               onClick={onGenerateDraft}
             >
@@ -2131,8 +2113,7 @@ function AiDraftPanel({
           </>
         }
       >
-        <textarea
-          className={textareaClass}
+        <Textarea
           rows={4}
           value={aiDescription}
           disabled={generateBusy}
@@ -2149,7 +2130,6 @@ function AiDraftPanel({
         actions={
           <Button
             type="button"
-            className={adminPrimaryButtonClass}
             disabled={generateBusy || !draftText.trim()}
             onClick={onImportDraft}
           >
@@ -2166,8 +2146,8 @@ function AiDraftPanel({
               </div>
             </div>
           ) : null}
-          <textarea
-            className={cn(textareaClass, "font-mono text-xs")}
+          <Textarea
+            className="font-mono text-xs"
             rows={4}
             value={draftText}
             disabled={generateBusy}
@@ -2248,9 +2228,9 @@ function PreviewMergePanel({
                   <code className="w-36 shrink-0 truncate font-mono text-[11px] text-muted-foreground">
                     {`{{${field}}}`}
                   </code>
-                  <input
+                  <Input
                     aria-label={`Sample value for ${field}`}
-                    className={cn(inputClass, "h-8 min-w-0 flex-1")}
+                    className="min-w-0 flex-1"
                     value={values[field] ?? ""}
                     placeholder={defaultMergeValue(field)}
                     onChange={(event) => onChange(field, event.target.value)}
@@ -2376,9 +2356,8 @@ function SendPanel({
         action={
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className={adminSecondaryButtonClass}
             disabled={!templateCanSend || Boolean(busy)}
             onClick={onTestSend}
           >
@@ -2413,8 +2392,7 @@ function SendPanel({
 
       <EditorSection title="Send one">
         <div className="flex items-center gap-2">
-          <input
-            className={inputClass}
+          <Input
             type="email"
             value={sendOneEmail}
             onChange={(event) => onSendOneEmailChange(event.target.value)}
@@ -2423,7 +2401,6 @@ function SendPanel({
           <Button
             type="button"
             size="sm"
-            className={adminPrimaryButtonClass}
             disabled={!templateCanSend || !sendOneEmail || Boolean(busy)}
             onClick={onSendOne}
           >
@@ -2440,13 +2417,8 @@ function SendPanel({
           <div className="flex flex-wrap gap-1">
             <Button
               type="button"
-              variant={recipientSource === "manual" ? "default" : "ghost"}
+              variant={recipientSource === "manual" ? "default" : "outline"}
               size="sm"
-              className={
-                recipientSource === "manual"
-                  ? adminPrimaryButtonClass
-                  : adminSecondaryButtonClass
-              }
               onClick={() => onRecipientSourceChange("manual")}
               disabled={Boolean(busy)}
             >
@@ -2455,13 +2427,8 @@ function SendPanel({
             </Button>
             <Button
               type="button"
-              variant={recipientSource === "audience" ? "default" : "ghost"}
+              variant={recipientSource === "audience" ? "default" : "outline"}
               size="sm"
-              className={
-                recipientSource === "audience"
-                  ? adminPrimaryButtonClass
-                  : adminSecondaryButtonClass
-              }
               onClick={() => onRecipientSourceChange("audience")}
               disabled={Boolean(busy)}
             >
@@ -2475,7 +2442,7 @@ function SendPanel({
           <div className="grid gap-3 lg:grid-cols-3">
             <Field label="Decision group">
               <select
-                className={inputClass}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
                 value={audienceQuery.decisionGroup}
                 disabled={Boolean(busy)}
                 onChange={(event) => {
@@ -2502,7 +2469,7 @@ function SendPanel({
             </Field>
             <Field label="Travel award">
               <select
-                className={inputClass}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
                 value={audienceQuery.travelAward}
                 disabled={
                   Boolean(busy) ||
@@ -2525,7 +2492,7 @@ function SendPanel({
             </Field>
             <Field label="RSVP travel plan">
               <select
-                className={inputClass}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
                 value={audienceQuery.rsvpTravelPlan}
                 disabled={
                   Boolean(busy) ||
@@ -2548,11 +2515,8 @@ function SendPanel({
             </Field>
           </div>
         ) : null}
-        <textarea
-          className={cn(
-            textareaClass,
-            "min-h-36 text-xs disabled:cursor-not-allowed disabled:opacity-60",
-          )}
+        <Textarea
+          className="min-h-36 text-xs disabled:cursor-not-allowed disabled:opacity-60"
           value={recipientText}
           disabled={recipientInputDisabled}
           onChange={(event) => onRecipientTextChange(event.target.value)}
@@ -2575,9 +2539,8 @@ function SendPanel({
           {recipientSource === "audience" ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className={adminSecondaryButtonClass}
               disabled={!fullSendUnlocked || Boolean(busy)}
               onClick={onLoadAudience}
             >
@@ -2587,9 +2550,8 @@ function SendPanel({
           ) : (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className={adminSecondaryButtonClass}
               disabled={recipientInputDisabled || !recipientText.trim()}
               onClick={onCheckRecipients}
             >
@@ -2606,9 +2568,8 @@ function SendPanel({
           <div className="flex flex-wrap gap-1">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className={adminSecondaryButtonClass}
               disabled={
                 !fullSendReady ||
                 Boolean(busy) ||
@@ -2624,9 +2585,8 @@ function SendPanel({
             {sendStatus?.interrupted ? (
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className={adminSecondaryButtonClass}
                 disabled={Boolean(busy)}
                 onClick={onResolveInterrupted}
               >
@@ -2819,8 +2779,7 @@ function StylesPanel({
         <div className="grid gap-3 sm:grid-cols-2">
           {sizeFields.map(([key, label]) => (
             <Field key={key} label={label}>
-              <input
-                className={inputClass}
+              <Input
                 value={String(theme[key])}
                 onChange={(event) =>
                   onThemeChange({ ...theme, [key]: event.target.value })
@@ -3438,21 +3397,3 @@ function removeStorage(key: string) {
 function canUseLocalStorage() {
   return typeof window !== "undefined" && Boolean(window.localStorage);
 }
-
-const adminSecondaryButtonClass =
-  "rounded-md border border-border bg-card px-3 text-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground";
-
-const adminPrimaryButtonClass =
-  "rounded-md bg-primary px-3 text-primary-foreground shadow-none transition-colors hover:bg-primary/90";
-
-const adminDangerButtonClass =
-  "rounded-md bg-destructive/10 px-3 text-destructive shadow-none transition-colors hover:bg-destructive/20";
-
-const adminMiniButtonClass =
-  "rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
-
-const inputClass =
-  "font-red-hat h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:font-red-hat placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
-
-const textareaClass =
-  "font-red-hat w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 text-foreground outline-none transition-colors placeholder:font-red-hat placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
