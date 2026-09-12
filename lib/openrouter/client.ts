@@ -1,16 +1,8 @@
-const defaultBaseUrl = "https://openrouter.ai/api/v1";
+import { OpenRouter } from "@openrouter/sdk";
+import { OpenRouterError } from "@openrouter/sdk/models/errors";
 
 export const openRouterFreeModel = "openrouter/free";
-
-export class OpenRouterError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number,
-  ) {
-    super(message);
-    this.name = "OpenRouterError";
-  }
-}
+export { OpenRouterError };
 
 export async function createChatCompletion(input: {
   model: string;
@@ -18,86 +10,58 @@ export async function createChatCompletion(input: {
   temperature?: number;
 }) {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const baseUrl = process.env.OPENROUTER_BASE_URL ?? defaultBaseUrl;
-
   if (!apiKey) {
-    throw new OpenRouterError(
+    throw new Error(
       "OpenRouter is not configured. Add OPENROUTER_API_KEY to the server environment.",
     );
   }
 
-  const response = await fetch(
-    `${baseUrl.replace(/\/$/, "")}/chat/completions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: input.model,
-        messages: input.messages,
-        temperature: input.temperature ?? 0.4,
-      }),
+  const openRouter = new OpenRouter({
+    apiKey,
+    serverURL: process.env.OPENROUTER_BASE_URL,
+  });
+
+  const completion = await openRouter.chat.send({
+    chatRequest: {
+      model: input.model,
+      messages: input.messages,
+      temperature: input.temperature ?? 0.4,
     },
-  );
+  });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new OpenRouterError(
-      formatOpenRouterFailure(response.status, body),
-      response.status,
-    );
+  if (completion instanceof ReadableStream) {
+    throw new Error("OpenRouter returned a streaming response.");
   }
 
-  const payload: unknown = await response.json();
-  if (!isRecord(payload)) {
-    throw new OpenRouterError("OpenRouter returned an invalid response.");
-  }
-
-  const choices = payload.choices;
-  if (!Array.isArray(choices) || choices.length === 0) {
-    throw new OpenRouterError("OpenRouter returned no completion choices.");
-  }
-
-  const message = choices[0];
-  if (!isRecord(message) || !isRecord(message.message)) {
-    throw new OpenRouterError("OpenRouter returned an invalid completion.");
-  }
-
-  const content = message.message.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new OpenRouterError("OpenRouter returned an empty draft.");
+  const content = textFromContent(completion.choices[0]?.message.content);
+  if (!content) {
+    throw new Error("OpenRouter returned an empty draft.");
   }
 
   return {
-    content: content.trim(),
-    model: typeof payload.model === "string" ? payload.model : input.model,
+    content,
+    model: completion.model,
   };
 }
 
-function formatOpenRouterFailure(status: number, body: string) {
-  const trimmed = body.trim();
-
-  if (!trimmed) {
-    return `OpenRouter request failed (${status}).`;
+function textFromContent(content: unknown) {
+  if (typeof content === "string") {
+    return content.trim();
   }
 
-  try {
-    const parsed: unknown = JSON.parse(trimmed);
-    if (isRecord(parsed) && typeof parsed.error === "object" && parsed.error) {
-      const error = parsed.error;
-      if (isRecord(error) && typeof error.message === "string") {
-        return error.message;
-      }
-    }
-  } catch {
-    // fall through to raw body
+  if (!Array.isArray(content)) {
+    return "";
   }
 
-  return trimmed.length > 240 ? `${trimmed.slice(0, 240)}…` : trimmed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return content
+    .map((part) =>
+      typeof part === "object" &&
+      part !== null &&
+      "text" in part &&
+      typeof part.text === "string"
+        ? part.text
+        : "",
+    )
+    .join("")
+    .trim();
 }

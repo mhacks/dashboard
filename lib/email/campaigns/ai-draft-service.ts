@@ -55,7 +55,11 @@ export async function generateEmailTemplateDraft(input: unknown) {
     };
   } catch (error) {
     if (error instanceof OpenRouterError) {
-      throw new EmailCampaignError(error.message, error.status ?? 502);
+      throw new EmailCampaignError(error.message, error.statusCode);
+    }
+
+    if (error instanceof Error) {
+      throw new EmailCampaignError(error.message, 502);
     }
 
     throw error;
