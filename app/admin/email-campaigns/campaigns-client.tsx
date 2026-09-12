@@ -52,6 +52,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   Accordion,
@@ -250,6 +255,7 @@ export default function EmailCampaignsClient({
   initialCampaignLimits: CampaignLimits;
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
+  const templateSearchPopoverRef = useRef<HTMLInputElement | null>(null);
   const toastIdRef = useRef(0);
   const [surface, setSurface] = useState<EmailCampaignSurface>(initialSurface);
   const [templates, setTemplates] =
@@ -279,6 +285,11 @@ export default function EmailCampaignsClient({
   );
   const [templatesPanelCollapsed, setTemplatesPanelCollapsed] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
+  const [templateSearchOpen, setTemplateSearchOpen] = useState(false);
+  const [templateSearchAnchor, setTemplateSearchAnchor] = useState({
+    top: 0,
+    left: 0,
+  });
   const panelsMounted = useMounted();
   const templatesPanelRef = usePanelRef();
   const panelLayout = useDefaultLayout({
@@ -1278,8 +1289,85 @@ export default function EmailCampaignsClient({
   const previewWidth = previewMode === "desktop" ? 720 : 390;
   const showTemplatesRail = panelsMounted && templatesPanelCollapsed;
 
+  const templatesUploadInput = (
+    <input
+      ref={uploadRef}
+      type="file"
+      accept=".html,text/html"
+      className="hidden"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        if (file) void uploadHtmlTemplate(file);
+      }}
+    />
+  );
+
+  const collapsedTemplateSearchResults =
+    templates.length === 0 ? (
+      <div className="p-4 text-sm text-muted-foreground">No templates yet.</div>
+    ) : filteredTemplates.length === 0 ? (
+      <div className="p-4 text-sm text-muted-foreground">
+        No templates match your search.
+      </div>
+    ) : (
+      <div className="divide-y">
+        {filteredTemplates.map((template) => (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => {
+              selectTemplate(template.id);
+              setTemplateSearchOpen(false);
+            }}
+            className={cn(
+              "block w-full px-4 py-3 text-left transition-colors hover:bg-muted/60",
+              selectedTemplateId === template.id && "bg-muted hover:bg-muted",
+            )}
+          >
+            <p className="truncate text-sm font-semibold">{template.name}</p>
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+              {template.description || template.subject}
+            </p>
+          </button>
+        ))}
+      </div>
+    );
+
+  const templatesAddMenu = (
+    triggerSize: "icon-sm" | "icon-lg",
+    triggerVariant: "ghost" | "outline",
+  ) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant={triggerVariant}
+          size={triggerSize}
+          className="shrink-0"
+          title="Add template"
+          aria-label="Add template"
+        >
+          <Plus />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40 w-auto">
+        <DropdownMenuItem onSelect={createStructuredTemplate}>
+          <Plus />
+          New template
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={busy === "upload"}
+          onSelect={() => uploadRef.current?.click()}
+        >
+          <Upload />
+          Upload HTML
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   const templatesListBody = showTemplatesRail ? (
-    <div className="flex h-full flex-col items-center py-3">
+    <div className="flex h-full flex-col items-center gap-1 py-3">
       <Button
         type="button"
         variant="ghost"
@@ -1287,12 +1375,31 @@ export default function EmailCampaignsClient({
         title="Expand templates panel"
         aria-label="Expand templates panel"
         onClick={() => {
+          setTemplateSearchOpen(false);
           setTemplatesPanelCollapsed(false);
           templatesPanelRef.current?.expand();
         }}
       >
         <PanelLeftOpen />
       </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        title="Search templates"
+        aria-label="Search templates"
+        aria-expanded={templateSearchOpen}
+        aria-haspopup="dialog"
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          setTemplateSearchAnchor({ top: rect.top, left: rect.left });
+          setTemplateSearchOpen((open) => !open);
+        }}
+      >
+        <Search />
+      </Button>
+      {templatesAddMenu("icon-sm", "ghost")}
+      {templatesUploadInput}
     </div>
   ) : (
     <>
@@ -1319,16 +1426,7 @@ export default function EmailCampaignsClient({
             {filteredTemplates.length}
           </Badge>
         </div>
-        <input
-          ref={uploadRef}
-          type="file"
-          accept=".html,text/html"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void uploadHtmlTemplate(file);
-          }}
-        />
+        {templatesUploadInput}
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1341,33 +1439,7 @@ export default function EmailCampaignsClient({
               className={cn(inputClass, "pl-9")}
             />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-lg"
-                className="shrink-0"
-                title="Add template"
-                aria-label="Add template"
-              >
-                <Plus />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-40 w-auto">
-              <DropdownMenuItem onSelect={createStructuredTemplate}>
-                <Plus />
-                New template
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={busy === "upload"}
-                onSelect={() => uploadRef.current?.click()}
-              >
-                <Upload />
-                Upload HTML
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {templatesAddMenu("icon-lg", "outline")}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1552,7 +1624,11 @@ export default function EmailCampaignsClient({
                 collapsedSize="40px"
                 panelRef={templatesPanelRef}
                 onResize={(size) => {
-                  setTemplatesPanelCollapsed(size.inPixels <= 48);
+                  const collapsed = size.inPixels <= 48;
+                  setTemplatesPanelCollapsed(collapsed);
+                  if (!collapsed) {
+                    setTemplateSearchOpen(false);
+                  }
                 }}
                 className="min-h-0 min-w-0"
               >
@@ -1608,6 +1684,49 @@ export default function EmailCampaignsClient({
             {previewBody}
           </section>
         </div>
+        {showTemplatesRail ? (
+          <Popover
+            open={templateSearchOpen}
+            onOpenChange={setTemplateSearchOpen}
+          >
+            <PopoverAnchor
+              className="pointer-events-none fixed size-px"
+              style={{
+                top: templateSearchAnchor.top,
+                left: templateSearchAnchor.left,
+              }}
+            />
+            <PopoverContent
+              side="right"
+              align="start"
+              sideOffset={0}
+              avoidCollisions={false}
+              className="font-red-hat w-72 gap-0 p-0"
+              onOpenAutoFocus={(event) => {
+                event.preventDefault();
+                templateSearchPopoverRef.current?.focus();
+              }}
+            >
+              <div className="border-b p-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    ref={templateSearchPopoverRef}
+                    type="search"
+                    value={templateSearch}
+                    onChange={(event) => setTemplateSearch(event.target.value)}
+                    placeholder="Search templates"
+                    aria-label="Search templates"
+                    className={cn(inputClass, "pl-9")}
+                  />
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {collapsedTemplateSearchResults}
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : null}
         <ToastSnackbar toast={toast} onDismiss={() => setToast(null)} />
         <AlertDialog open={aiDraftOpen} onOpenChange={setAiDraftOpen}>
           <AlertDialogContent className="!flex z-50 h-auto max-h-[calc(100dvh-2rem)] w-[min(72rem,calc(100vw-2rem))] !max-w-none flex-col gap-0 overflow-hidden p-0">
