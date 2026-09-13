@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth/session";
 import { getAuthorizationDetails } from "@/lib/actions/oauth-consent.actions";
 import { ConsentScreen } from "./consent-screen";
 
@@ -14,10 +14,7 @@ export default async function OAuthConsentPage({
   const { authorization_id } = await searchParams;
   if (!authorization_id) redirect("/");
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   if (!user) {
     redirect(
