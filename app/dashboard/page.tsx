@@ -17,7 +17,7 @@ import {
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
 import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
-import { isApplicationOpen } from "@/lib/applications/deadline";
+import { getApplicationAccessForUser } from "@/lib/applications/access";
 
 /**
  * Stage is derived, never stored. `applied` is the enum's "submitted, no
@@ -34,9 +34,10 @@ export default async function DashboardPage() {
   const { id: userId, role } = await requireSessionUser();
 
   // Independent of each other, so they overlap rather than queue.
-  const [application, canCheckIn] = await Promise.all([
+  const [application, canCheckIn, applicationAccess] = await Promise.all([
     getApplicantDecision(userId),
     getAttendeeQrEligibility(userId),
+    getApplicationAccessForUser({ userId }),
   ]);
 
   // Only meaningful before submitting — submitting deletes the draft row. Note
@@ -66,7 +67,7 @@ export default async function DashboardPage() {
         stage: stageFor(application),
         sectionsComplete: draftSteps,
         sectionsTotal: APPLICATION_STEPS.length,
-        applicationsOpen: isApplicationOpen(),
+        applicationsOpen: applicationAccess.open,
         submittedAt: application
           ? format(new Date(application.createdAt), "MMMM d, yyyy")
           : undefined,
