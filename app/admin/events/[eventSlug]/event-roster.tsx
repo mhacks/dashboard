@@ -67,6 +67,9 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
             <Badge variant={event.isActive ? "default" : "secondary"}>
               {event.isActive ? "Open" : "Closed"}
             </Badge>
+            <Badge variant="outline">
+              {event.requiresRsvp ? "Confirmed RSVPs" : "Any account"}
+            </Badge>
           </CardTitle>
           <CardDescription>
             {event.location ? `${event.location} · ` : ""}

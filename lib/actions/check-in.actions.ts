@@ -3,7 +3,7 @@
 // server actions, and directly exercisable by a script or a test without an
 // HTTP session. Same split as application-form.actions.ts.
 
-import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
@@ -121,7 +121,12 @@ export async function checkInAttendee(
 
   return db.transaction(async (tx) => {
     const eventRows = await tx
-      .select({ id: events.id, name: events.name, isActive: events.isActive })
+      .select({
+        id: events.id,
+        name: events.name,
+        isActive: events.isActive,
+        requiresRsvp: events.requiresRsvp,
+      })
       .from(events)
       .where(eq(events.slug, slug))
       .limit(1);
@@ -208,29 +213,32 @@ export async function checkInAttendee(
       university: row.university,
     };
 
-    // Two separate questions, because the volunteer needs to tell them apart:
-    // someone who was never offered a spot is a different conversation from
-    // someone who was offered one and never replied.
-    // A null decision means no application row at all, which is the same
-    // answer as a rejected one: they have no spot here.
-    if (
-      row.decision === null ||
-      !(RSVP_ELIGIBLE_DECISIONS as readonly string[]).includes(row.decision)
-    ) {
-      await finish("not-accepted", row.userId);
-      return failure("not-accepted", { attendee, event: scannedEvent });
-    }
+    // Normal weekend events remain acceptance + RSVP gated. Qualifying and
+    // outreach events explicitly turn this off because attendance there is
+    // what organizers use to decide whom to admit; a public.users row is all
+    // those events require.
+    if (event.requiresRsvp) {
+      // Two separate questions, because the volunteer needs to tell them apart:
+      // someone who was never offered a spot is a different conversation from
+      // someone who was offered one and never replied.
+      if (
+        row.decision === null ||
+        !(RSVP_ELIGIBLE_DECISIONS as readonly string[]).includes(row.decision)
+      ) {
+        await finish("not-accepted", row.userId);
+        return failure("not-accepted", { attendee, event: scannedEvent });
+      }
 
-    // An RSVP is the submitted row *and* the confirmed decision written beside
-    // it. Either one missing means they never actually took the spot, and being
-    // accepted alone does not get anyone through a door.
-    const confirmed =
-      row.rsvpId !== null &&
-      (RSVP_CONFIRMED_DECISIONS as readonly string[]).includes(row.decision);
+      // An RSVP is the submitted row *and* the confirmed decision written
+      // beside it. Either one missing means they never actually took the spot.
+      const confirmed =
+        row.rsvpId !== null &&
+        (RSVP_CONFIRMED_DECISIONS as readonly string[]).includes(row.decision);
 
-    if (!confirmed) {
-      await finish("no-rsvp", row.userId);
-      return failure("no-rsvp", { attendee, event: scannedEvent });
+      if (!confirmed) {
+        await finish("no-rsvp", row.userId);
+        return failure("no-rsvp", { attendee, event: scannedEvent });
+      }
     }
 
     // The unique constraint is the arbiter, not a prior SELECT: two volunteers
@@ -387,9 +395,9 @@ const searchSchema = z.strictObject({
 const MAX_SEARCH_RESULTS = 8;
 
 /**
- * Name/email lookup for the manual fallback. Caller enforces staff access — a dead camera, or a hacker who
- * left their phone in the venue. Only ever returns people who could actually be
- * checked in, so a volunteer can't manually admit someone who never RSVPed.
+ * Name/email lookup for the manual fallback. Caller enforces staff access — a
+ * dead camera, or a hacker who left their phone in the venue. The event's own
+ * admission mode decides whether this includes confirmed RSVPs or all accounts.
  */
 export async function searchAttendees(
   input: unknown,
@@ -400,7 +408,7 @@ export async function searchAttendees(
   const { slug, query } = parsed.data;
 
   const eventRows = await db
-    .select({ id: events.id })
+    .select({ id: events.id, requiresRsvp: events.requiresRsvp })
     .from(events)
     .where(eq(events.slug, slug))
     .limit(1);
@@ -411,6 +419,13 @@ export async function searchAttendees(
   // Escape LIKE wildcards so a searched "%" doesn't match everybody.
   const term = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
+  const eligibility = event.requiresRsvp
+    ? and(
+        isNotNull(hackerRsvps.id),
+        inArray(hackerApplicants.decision, RSVP_CONFIRMED_DECISIONS),
+      )
+    : undefined;
+
   return db
     .select({
       userId: users.id,
@@ -419,19 +434,19 @@ export async function searchAttendees(
       university: hackerApplicants.university,
       checkedIn: sql<boolean>`${eventCheckins.id} is not null`,
     })
-    .from(hackerApplicants)
-    .innerJoin(users, eq(users.id, hackerApplicants.userId))
-    .innerJoin(hackerRsvps, eq(hackerRsvps.userId, hackerApplicants.userId))
+    .from(users)
+    .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
+    .leftJoin(hackerRsvps, eq(hackerRsvps.userId, users.id))
     .leftJoin(
       eventCheckins,
       and(
-        eq(eventCheckins.userId, hackerApplicants.userId),
+        eq(eventCheckins.userId, users.id),
         eq(eventCheckins.eventId, event.id),
       ),
     )
     .where(
       and(
-        inArray(hackerApplicants.decision, RSVP_CONFIRMED_DECISIONS),
+        eligibility,
         or(
           ilike(hackerApplicants.firstName, term),
           ilike(hackerApplicants.lastName, term),
@@ -443,6 +458,6 @@ export async function searchAttendees(
         ),
       ),
     )
-    .orderBy(hackerApplicants.firstName, hackerApplicants.lastName)
+    .orderBy(hackerApplicants.firstName, hackerApplicants.lastName, users.email)
     .limit(MAX_SEARCH_RESULTS);
 }

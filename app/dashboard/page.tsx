@@ -16,7 +16,6 @@ import {
   getApplicantDecision,
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
-import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
 import { isApplicationOpen } from "@/lib/applications/deadline";
 
 /**
@@ -33,11 +32,7 @@ function stageFor(application: ApplicantDecisionRow | null): ApplicantStage {
 export default async function DashboardPage() {
   const { id: userId, role } = await requireSessionUser();
 
-  // Independent of each other, so they overlap rather than queue.
-  const [application, canCheckIn] = await Promise.all([
-    getApplicantDecision(userId),
-    getAttendeeQrEligibility(userId),
-  ]);
+  const application = await getApplicantDecision(userId);
 
   // Only meaningful before submitting — submitting deletes the draft row. Note
   // /apply writes an empty draft on first visit, so progress is measured from
@@ -60,7 +55,6 @@ export default async function DashboardPage() {
     <ApplicantDashboard
       role={role}
       userId={userId}
-      canCheckIn={canCheckIn}
       firstName={application?.firstName ?? null}
       data={{
         stage: stageFor(application),

@@ -44,15 +44,12 @@ export function ApplicantDashboard({
   role,
   firstName,
   userId,
-  canCheckIn,
 }: {
   data: ApplicantDashboardData;
   role: UserRole;
   firstName: string | null;
-  /** Encoded into the check-in QR. Only read when `canCheckIn` is true. */
+  /** Encoded into the check-in QR. */
   userId: string;
-  /** Accepted and RSVPed — the people who can actually be scanned in. */
-  canCheckIn: boolean;
 }) {
   return (
     <div className="font-red-hat">
@@ -63,11 +60,9 @@ export function ApplicantDashboard({
             trailing={<SignOutButton />}
           />
 
-          {/* Above the application panels, because it outranks them: anyone
-              who can see this has already been accepted and RSVPed, so their
-              decision is settled news and the code is the thing they came to
-              the dashboard to find. */}
-          {canCheckIn ? <CheckInPanel userId={userId} /> : null}
+          {/* Every account gets an identity code. Individual events decide
+              whether they accept every account or require a confirmed RSVP. */}
+          <CheckInPanel userId={userId} />
 
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
@@ -236,7 +231,7 @@ function DecisionReadyPanel() {
 function CheckInPanel({ userId }: { userId: string }) {
   return (
     <Panel eyebrow="CHECK-IN" status="Ready">
-      <PanelHeading lede="This is your check-in code for the weekend. Organizers will scan this for attendance and meals.">
+      <PanelHeading lede="This code identifies your account at MHacks events. Event staff will scan it when you check in.">
         Your check-in code
       </PanelHeading>
 

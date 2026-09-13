@@ -114,6 +114,7 @@ const eventFieldsSchema = z.object({
   location: optionalText,
   startsAt: optionalTimestamp,
   endsAt: optionalTimestamp,
+  requiresRsvp: z.boolean(),
 });
 
 const createEventSchema = eventFieldsSchema.extend({
@@ -188,7 +189,8 @@ export async function createEventAction(
     };
   }
 
-  const { slug, name, description, location, startsAt, endsAt } = parsed.data;
+  const { slug, name, description, location, startsAt, endsAt, requiresRsvp } =
+    parsed.data;
 
   if (endsBeforeStart(startsAt, endsAt)) {
     return { ok: false, message: "The end time is before the start time." };
@@ -229,6 +231,7 @@ export async function createEventAction(
       location,
       startsAt,
       endsAt,
+      requiresRsvp,
       createdBy: organizer.id,
     });
   } catch (error) {
@@ -266,6 +269,35 @@ export async function setEventActiveAction(
 
   revalidatePath("/admin/events");
   revalidatePath("/checkin");
+  return { ok: true, slug: updated[0].slug };
+}
+
+const setRequiresRsvpSchema = z.strictObject({
+  slug: eventSlugSchema,
+  requiresRsvp: z.boolean(),
+});
+
+/** Chooses whether this event is for confirmed RSVPs or every account holder. */
+export async function setEventRequiresRsvpAction(
+  input: unknown,
+): Promise<EventActionResult> {
+  await requireOrganizer();
+
+  const parsed = setRequiresRsvpSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  const updated = await db
+    .update(events)
+    .set({ requiresRsvp: parsed.data.requiresRsvp })
+    .where(eq(events.slug, parsed.data.slug))
+    .returning({ slug: events.slug });
+
+  if (!updated[0])
+    return { ok: false, message: "That event no longer exists." };
+
+  revalidatePath("/admin/events");
+  revalidatePath("/checkin");
+  revalidatePath(`/checkin/${updated[0].slug}`);
   return { ok: true, slug: updated[0].slug };
 }
 

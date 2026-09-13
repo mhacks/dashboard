@@ -22,6 +22,7 @@ export type AdminEventSummary = {
   startsAt: string | null;
   endsAt: string | null;
   isActive: boolean;
+  requiresRsvp: boolean;
   checkinCount: number;
 };
 
@@ -48,6 +49,7 @@ export async function listEventsForAdmin(): Promise<AdminEventSummary[]> {
       startsAt: events.startsAt,
       endsAt: events.endsAt,
       isActive: events.isActive,
+      requiresRsvp: events.requiresRsvp,
       checkinCount: checkinCountSql,
     })
     .from(events)
@@ -60,6 +62,7 @@ export type StaffEventOption = {
   name: string;
   location: string | null;
   startsAt: string | null;
+  requiresRsvp: boolean;
   checkinCount: number;
 };
 
@@ -78,6 +81,7 @@ export async function getOpenEventsForStaff(): Promise<StaffEventOption[]> {
       name: events.name,
       location: events.location,
       startsAt: events.startsAt,
+      requiresRsvp: events.requiresRsvp,
       checkinCount: checkinCountSql,
     })
     .from(events)
@@ -91,6 +95,7 @@ export type StaffEvent = {
   name: string;
   location: string | null;
   isActive: boolean;
+  requiresRsvp: boolean;
 };
 
 /** The event a scanner is scanning for. Staff-readable, including closed ones
@@ -107,6 +112,7 @@ export async function getEventForStaff(
       name: events.name,
       location: events.location,
       isActive: events.isActive,
+      requiresRsvp: events.requiresRsvp,
     })
     .from(events)
     .where(eq(events.slug, slug))
@@ -151,6 +157,7 @@ export async function getEventRoster(
       startsAt: events.startsAt,
       endsAt: events.endsAt,
       isActive: events.isActive,
+      requiresRsvp: events.requiresRsvp,
       checkinCount: checkinCountSql,
     })
     .from(events)

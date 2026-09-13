@@ -48,6 +48,7 @@ export default async function CheckInScannerPage({
             <CheckInScanner
               slug={event.slug}
               eventName={event.name}
+              requiresRsvp={event.requiresRsvp}
               initialCheckedInCount={checkedInCount}
             />
           </Panel>

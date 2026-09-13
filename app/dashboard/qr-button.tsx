@@ -50,7 +50,7 @@ export function QrDrawerButton({ children }: { children: ReactNode }) {
               Check-in code
             </DrawerTitle>
             <DrawerDescription className="mt-1.5 text-[13px] leading-[1.5] text-ui-ink-soft">
-              Show this to an organizer at the door and at meals. Turn your
+              Show this when event staff ask for your check-in code. Turn your
               brightness up so it scans cleanly.
             </DrawerDescription>
           </div>
