@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { destinationForRole } from "@/lib/auth/redirects";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUserFromClaims } from "@/lib/auth/session";
 
 function redirectWithSessionCookies(
   url: URL | string,
@@ -19,7 +19,52 @@ function redirectWithSessionCookies(
   return redirectResponse;
 }
 
+function isPathOrChild(pathname: string, base: string) {
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
+
+function isPublicPath(pathname: string) {
+  return (
+    pathname === "/" ||
+    isPathOrChild(pathname, "/login") ||
+    // MCP endpoints authenticate via bearer token (withMcpAuth), not cookies —
+    // they must return their own 401 + WWW-Authenticate challenge instead of
+    // this middleware's redirect, or OAuth discovery can never start.
+    isPathOrChild(pathname, "/mcp") ||
+    isPathOrChild(pathname, "/.well-known") ||
+    // /oauth/consent does its own auth check and redirects to /login with the
+    // full query string (authorization_id) preserved; the redirect below only
+    // forwards `pathname`, which would drop it.
+    isPathOrChild(pathname, "/oauth/consent") ||
+    // Public docs page explaining how to connect an AI agent to the MCP
+    // server — needs to be readable before/without logging in.
+    isPathOrChild(pathname, "/how-to-mcp")
+  );
+}
+
+function hasSupabaseAuthCookie(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.includes("-auth-token"));
+}
+
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const publicPath = isPublicPath(pathname);
+
+  // Anonymous traffic (health checks, the marketing page, crawlers) has
+  // nothing to refresh. Creating a client and calling getClaims() still
+  // reads/parses storage; skip it when no session cookie is present.
+  if (!hasSupabaseAuthCookie(request)) {
+    if (publicPath) {
+      return NextResponse.next({ request });
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -59,29 +104,8 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
 
   const user = data?.claims;
-  const { pathname } = request.nextUrl;
-  // Exact match or a real path segment underneath — plain `.startsWith`
-  // would also match unintended siblings like `/mcp-evil` or
-  // `/loginx` if such a route ever gets added.
-  const isPathOrChild = (base: string) =>
-    pathname === base || pathname.startsWith(`${base}/`);
-  const isPublicPath =
-    pathname === "/" ||
-    isPathOrChild("/login") ||
-    // MCP endpoints authenticate via bearer token (withMcpAuth), not cookies —
-    // they must return their own 401 + WWW-Authenticate challenge instead of
-    // this middleware's redirect, or OAuth discovery can never start.
-    isPathOrChild("/mcp") ||
-    isPathOrChild("/.well-known") ||
-    // /oauth/consent does its own auth check and redirects to /login with the
-    // full query string (authorization_id) preserved; the redirect below only
-    // forwards `pathname`, which would drop it.
-    isPathOrChild("/oauth/consent") ||
-    // Public docs page explaining how to connect an AI agent to the MCP
-    // server — needs to be readable before/without logging in.
-    isPathOrChild("/how-to-mcp");
 
-  if (!user && !isPublicPath) {
+  if (!user && !publicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
@@ -90,7 +114,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && pathname.startsWith("/login")) {
     const next = request.nextUrl.searchParams.get("next");
-    const sessionUser = await getSessionUser();
+    const sessionUser = await getSessionUserFromClaims(user);
     const destination = destinationForRole(sessionUser?.role ?? "hacker", next);
     return redirectWithSessionCookies(
       new URL(destination, request.url),
@@ -99,7 +123,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && pathname.startsWith("/admin")) {
-    const sessionUser = await getSessionUser();
+    const sessionUser = await getSessionUserFromClaims(user);
     if (sessionUser?.role !== "organizer") {
       return redirectWithSessionCookies(
         new URL("/dashboard", request.url),
