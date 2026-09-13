@@ -29,10 +29,8 @@ import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { getApplicationRound } from "@/lib/types/application-reviews";
-import {
-  APPLICATION_CLOSE_ISO,
-  isApplicationOpen,
-} from "@/lib/applications/deadline";
+import { APPLICATION_CLOSE_ISO } from "@/lib/applications/deadline";
+import { getApplicationAccessForUser } from "@/lib/applications/access";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -356,7 +354,7 @@ const baseHandler = createMcpHandler(
           );
         }
         await assertSessionActive(extra as ToolExtra);
-        if (!isApplicationOpen()) {
+        if (!(await getApplicationAccessForUser({ userId })).open) {
           return errorText("Applications are closed");
         }
         const existingDraft = await getDraftForUser(userId);
@@ -405,7 +403,7 @@ const baseHandler = createMcpHandler(
               "You have already submitted an application. Applications cannot be edited, withdrawn, or resubmitted from this tool.",
           });
         }
-        if (!isApplicationOpen()) {
+        if (!(await getApplicationAccessForUser({ userId })).open) {
           return errorText("Applications are closed");
         }
         for (const [field, label] of CONSENT_FIELDS) {
@@ -496,12 +494,14 @@ const baseHandler = createMcpHandler(
         }
         await assertSessionActive(extra as ToolExtra);
         const row = await getApplicationStatusForUser(userId);
-        const applicationsOpen = isApplicationOpen();
+        const applicationAccess = await getApplicationAccessForUser({ userId });
+        const applicationsOpen = applicationAccess.open;
+        const closesAt = applicationAccess.closesAt ?? APPLICATION_CLOSE_ISO;
         if (!row) {
           return jsonText({
             hasApplication: false,
             applicationsOpen,
-            closesAt: APPLICATION_CLOSE_ISO,
+            closesAt,
           });
         }
         const application =
@@ -511,7 +511,7 @@ const baseHandler = createMcpHandler(
         return jsonText({
           hasApplication: true,
           applicationsOpen,
-          closesAt: APPLICATION_CLOSE_ISO,
+          closesAt,
           status: row.status,
           application,
         });
@@ -542,7 +542,7 @@ const baseHandler = createMcpHandler(
           );
         }
         await assertSessionActive(extra as ToolExtra);
-        if (!isApplicationOpen()) {
+        if (!(await getApplicationAccessForUser({ userId })).open) {
           return errorText("Applications are closed");
         }
         const { uploadUrl, key } = await getResumeUploadUrl(

@@ -1,18 +1,18 @@
 "use client";
 
-import { FormEvent, useMemo, useState, useTransition } from "react";
+import { type FormEvent, useMemo, useState, useTransition } from "react";
 import { Clock3Icon, PlusIcon, RotateCcwIcon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  createRsvpExceptionAction,
-  revokeRsvpExceptionAction,
-} from "@/lib/actions/rsvp-exceptions.server.actions";
-import type {
-  AdminRsvpException,
-  RsvpExceptionStatus,
-} from "@/lib/types/rsvp-exceptions";
-import { RSVP_EXCEPTION_MAX_DURATION_HOURS } from "@/lib/types/rsvp-exceptions";
+  createApplicationInvitationAction,
+  revokeApplicationInvitationAction,
+} from "@/lib/actions/application-invitations.server.actions";
+import {
+  APPLICATION_INVITATION_MAX_DURATION_HOURS,
+  type AdminApplicationInvitation,
+  type ApplicationInvitationStatus,
+} from "@/lib/types/application-invitations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,51 +50,51 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function statusBadge(status: RsvpExceptionStatus) {
+function statusBadge(status: ApplicationInvitationStatus) {
   if (status === "active") return <Badge>Active</Badge>;
+  if (status === "applied") return <Badge variant="secondary">Applied</Badge>;
   if (status === "expired") return <Badge variant="secondary">Expired</Badge>;
   return <Badge variant="outline">Revoked</Badge>;
 }
 
-function searchableText(exception: AdminRsvpException) {
+function searchableText(invitation: AdminApplicationInvitation) {
   return [
-    exception.applicationName,
-    exception.accountEmail,
-    exception.note ?? "",
-    exception.createdByEmail ?? "",
+    invitation.email,
+    invitation.applicationName ?? "",
+    invitation.note ?? "",
+    invitation.createdByEmail ?? "",
   ]
     .join(" ")
     .toLowerCase();
 }
 
-export function BackdoorControls({
-  initialExceptions,
+export function HackerInviteControls({
+  initialInvitations,
 }: {
-  initialExceptions: AdminRsvpException[];
+  initialInvitations: AdminApplicationInvitation[];
 }) {
-  const [exceptions, setExceptions] = useState(initialExceptions);
+  const [invitations, setInvitations] = useState(initialInvitations);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [durationHours, setDurationHours] = useState("24");
+  const [durationHours, setDurationHours] = useState("168");
   const [note, setNote] = useState("");
   const [search, setSearch] = useState("");
   const [isCreating, startCreateTransition] = useTransition();
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [isRevoking, startRevokeTransition] = useTransition();
 
-  const filteredExceptions = useMemo(() => {
+  const filteredInvitations = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return exceptions;
-    return exceptions.filter((exception) =>
-      searchableText(exception).includes(query),
+    if (!query) return invitations;
+    return invitations.filter((invitation) =>
+      searchableText(invitation).includes(query),
     );
-  }, [exceptions, search]);
+  }, [invitations, search]);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     startCreateTransition(async () => {
-      const result = await createRsvpExceptionAction({
+      const result = await createApplicationInvitationAction({
         email,
         durationHours,
         note,
@@ -105,28 +105,30 @@ export function BackdoorControls({
         return;
       }
 
-      setExceptions((current) => [
-        result.exception,
-        ...current.filter(
-          (exception) =>
-            exception.id !== result.exception.id &&
-            exception.userId !== result.exception.userId,
-        ),
+      setInvitations((current) => [
+        result.invitation,
+        ...current.filter((item) => item.id !== result.invitation.id),
       ]);
       setEmail("");
-      setDurationHours("24");
+      setDurationHours("168");
       setNote("");
       setOpen(false);
-      toast.success(
-        `RSVP exception granted for ${result.exception.applicationName}.`,
-      );
+      if (result.emailSent) {
+        toast.success(`Application invite sent to ${result.invitation.email}.`);
+      } else {
+        toast.warning(
+          `Access was granted to ${result.invitation.email}, but the email could not be sent.`,
+        );
+      }
     });
   }
 
-  function revokeException(exception: AdminRsvpException) {
-    setRevokingId(exception.id);
+  function revokeInvitation(invitation: AdminApplicationInvitation) {
+    setRevokingId(invitation.id);
     startRevokeTransition(async () => {
-      const result = await revokeRsvpExceptionAction({ id: exception.id });
+      const result = await revokeApplicationInvitationAction({
+        id: invitation.id,
+      });
       setRevokingId(null);
 
       if (!result.ok) {
@@ -135,14 +137,14 @@ export function BackdoorControls({
       }
 
       const now = new Date().toISOString();
-      setExceptions((current) =>
+      setInvitations((current) =>
         current.map((item) =>
-          item.id === exception.id
+          item.id === invitation.id
             ? { ...item, revokedAt: now, updatedAt: now, status: "revoked" }
             : item,
         ),
       );
-      toast.success(`RSVP exception revoked for ${exception.applicationName}.`);
+      toast.success(`Application invite revoked for ${invitation.email}.`);
     });
   }
 
@@ -150,32 +152,34 @@ export function BackdoorControls({
     <Card>
       <CardHeader className="gap-3 sm:grid-cols-[1fr_auto]">
         <div>
-          <CardTitle>RSVP Exceptions</CardTitle>
+          <CardTitle>Hacker Invites</CardTitle>
           <CardDescription>
-            Grant an accepted applicant a private RSVP window by email.
+            Invite someone who did not apply to use a private application window
+            after applications close.
           </CardDescription>
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button type="button">
               <PlusIcon data-icon="inline-start" />
-              Grant Exception
+              Invite Hacker
             </Button>
           </SheetTrigger>
           <SheetContent className="w-full sm:max-w-md">
             <form className="flex min-h-full flex-col" onSubmit={onSubmit}>
               <SheetHeader>
-                <SheetTitle>Grant RSVP Exception</SheetTitle>
+                <SheetTitle>Invite Hacker</SheetTitle>
                 <SheetDescription>
-                  This extends RSVP access for one accepted applicant.
+                  This emails a private sign-in link and opens applications for
+                  one address.
                 </SheetDescription>
               </SheetHeader>
 
               <div className="grid gap-4 px-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="exception-email">Applicant email</Label>
+                  <Label htmlFor="hacker-invite-email">Hacker email</Label>
                   <Input
-                    id="exception-email"
+                    id="hacker-invite-email"
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
@@ -185,13 +189,15 @@ export function BackdoorControls({
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="exception-hours">RSVP window</Label>
+                  <Label htmlFor="hacker-invite-hours">
+                    Application window
+                  </Label>
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     <Input
-                      id="exception-hours"
+                      id="hacker-invite-hours"
                       type="number"
                       min={1}
-                      max={RSVP_EXCEPTION_MAX_DURATION_HOURS}
+                      max={APPLICATION_INVITATION_MAX_DURATION_HOURS}
                       value={durationHours}
                       onChange={(event) => setDurationHours(event.target.value)}
                       required
@@ -203,9 +209,9 @@ export function BackdoorControls({
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="exception-note">Internal note</Label>
+                  <Label htmlFor="hacker-invite-note">Internal note</Label>
                   <Textarea
-                    id="exception-note"
+                    id="hacker-invite-note"
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
                     placeholder="Reason, owner, or context"
@@ -217,7 +223,7 @@ export function BackdoorControls({
               <SheetFooter>
                 <Button type="submit" disabled={isCreating}>
                   <Clock3Icon data-icon="inline-start" />
-                  {isCreating ? "Granting..." : "Grant RSVP Window"}
+                  {isCreating ? "Sending..." : "Send Application Invite"}
                 </Button>
               </SheetFooter>
             </form>
@@ -232,8 +238,8 @@ export function BackdoorControls({
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search exceptions"
-              aria-label="Search RSVP exceptions"
+              placeholder="Search hacker invites"
+              aria-label="Search hacker application invitations"
               className="pl-9"
             />
           </div>
@@ -242,37 +248,44 @@ export function BackdoorControls({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Applicant</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Hacker</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Expires</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead>Invited by</TableHead>
               <TableHead>Note</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredExceptions.length === 0 ? (
+            {filteredInvitations.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}
                   className="h-28 text-center text-muted-foreground"
                 >
-                  No RSVP exceptions match this view.
+                  No hacker invites match this view.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredExceptions.map((exception) => (
-                <TableRow key={exception.id}>
-                  <TableCell className="font-medium">
-                    {exception.applicationName}
+              filteredInvitations.map((invitation) => (
+                <TableRow key={invitation.id}>
+                  <TableCell>
+                    <div className="font-medium">
+                      {invitation.applicationName ?? invitation.email}
+                    </div>
+                    {invitation.applicationName ? (
+                      <div className="text-xs text-muted-foreground">
+                        {invitation.email}
+                      </div>
+                    ) : null}
                   </TableCell>
-                  <TableCell>{exception.accountEmail}</TableCell>
-                  <TableCell>{statusBadge(exception.status)}</TableCell>
-                  <TableCell>{formatDateTime(exception.expiresAt)}</TableCell>
-                  <TableCell>{formatDateTime(exception.createdAt)}</TableCell>
+                  <TableCell>{statusBadge(invitation.status)}</TableCell>
+                  <TableCell>{formatDateTime(invitation.expiresAt)}</TableCell>
+                  <TableCell>{formatDateTime(invitation.createdAt)}</TableCell>
+                  <TableCell>{invitation.createdByEmail ?? "—"}</TableCell>
                   <TableCell className="max-w-72 truncate">
-                    {exception.note || "—"}
+                    {invitation.note || "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -280,10 +293,10 @@ export function BackdoorControls({
                       variant="outline"
                       size="sm"
                       disabled={
-                        exception.status !== "active" ||
-                        (isRevoking && revokingId === exception.id)
+                        invitation.status !== "active" ||
+                        (isRevoking && revokingId === invitation.id)
                       }
-                      onClick={() => revokeException(exception)}
+                      onClick={() => revokeInvitation(invitation)}
                     >
                       <RotateCcwIcon data-icon="inline-start" />
                       Revoke

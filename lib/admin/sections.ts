@@ -86,7 +86,7 @@ export const ADMIN_AREAS: AdminArea[] = [
       {
         href: "/admin/backdoor",
         title: "Backdoor",
-        description: "Grant custom late RSVP windows for accepted applicants.",
+        description: "Invite late applicants and grant custom RSVP windows.",
         icon: KeyRoundIcon,
       },
     ],
