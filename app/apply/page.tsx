@@ -10,9 +10,16 @@ import {
 } from "@/lib/db/schema/applications";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
 import { getApplicationRound } from "@/lib/types/application-reviews";
+import {
+  APPLICATION_CLOSE_ISO,
+  isApplicationOpen,
+} from "@/lib/applications/deadline";
+
+export const dynamic = "force-dynamic";
 
 export default async function ApplicationFormPage() {
   const { id: userId } = await requireSessionUser();
+  const applicationsOpen = isApplicationOpen();
 
   let existingApp = null;
   try {
@@ -46,19 +53,25 @@ export default async function ApplicationFormPage() {
           showTravelReimbursementQuestions={
             getApplicationRound(existingApp.createdAt) === "early"
           }
+          applicationsCloseAt={APPLICATION_CLOSE_ISO}
+          initialApplicationsOpen={applicationsOpen}
         />
       </Suspense>
     );
   }
 
-  // Create a draft row if one doesn't exist yet, then load it
+  // Create a draft row if one doesn't exist yet while applications are open,
+  // then load it. After the cutoff, only read an existing draft so visiting
+  // the closed form cannot create new application data.
   let draftData: Record<string, unknown> = {};
   let resumeUrl: string | null = null;
   try {
-    await db
-      .insert(hackerApplicationDrafts)
-      .values({ userId, data: {} })
-      .onConflictDoNothing();
+    if (applicationsOpen) {
+      await db
+        .insert(hackerApplicationDrafts)
+        .values({ userId, data: {} })
+        .onConflictDoNothing();
+    }
 
     const draft = await db
       .select()
@@ -90,6 +103,8 @@ export default async function ApplicationFormPage() {
         showTravelReimbursementQuestions={
           getApplicationRound(new Date().toISOString()) === "early"
         }
+        applicationsCloseAt={APPLICATION_CLOSE_ISO}
+        initialApplicationsOpen={applicationsOpen}
       />
     </Suspense>
   );
