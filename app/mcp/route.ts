@@ -29,6 +29,10 @@ import { MAX_RESUME_SIZE_BYTES } from "@/lib/aws/s3";
 import { verifyToken, isSessionActive } from "@/lib/mcp/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { getApplicationRound } from "@/lib/types/application-reviews";
+import {
+  APPLICATION_CLOSE_ISO,
+  isApplicationOpen,
+} from "@/lib/applications/deadline";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -352,6 +356,9 @@ const baseHandler = createMcpHandler(
           );
         }
         await assertSessionActive(extra as ToolExtra);
+        if (!isApplicationOpen()) {
+          return errorText("Applications are closed");
+        }
         const existingDraft = await getDraftForUser(userId);
         const merged: Record<string, unknown> = { ...existingDraft, ...input };
         const draft =
@@ -397,6 +404,9 @@ const baseHandler = createMcpHandler(
             message:
               "You have already submitted an application. Applications cannot be edited, withdrawn, or resubmitted from this tool.",
           });
+        }
+        if (!isApplicationOpen()) {
+          return errorText("Applications are closed");
         }
         for (const [field, label] of CONSENT_FIELDS) {
           if (input[field] === false) {
@@ -486,13 +496,22 @@ const baseHandler = createMcpHandler(
         }
         await assertSessionActive(extra as ToolExtra);
         const row = await getApplicationStatusForUser(userId);
-        if (!row) return jsonText({ hasApplication: false });
+        const applicationsOpen = isApplicationOpen();
+        if (!row) {
+          return jsonText({
+            hasApplication: false,
+            applicationsOpen,
+            closesAt: APPLICATION_CLOSE_ISO,
+          });
+        }
         const application =
           getApplicationRound(row.createdAt) === "regular"
             ? withoutTravelReimbursementFields(row)
             : row;
         return jsonText({
           hasApplication: true,
+          applicationsOpen,
+          closesAt: APPLICATION_CLOSE_ISO,
           status: row.status,
           application,
         });
@@ -523,6 +542,9 @@ const baseHandler = createMcpHandler(
           );
         }
         await assertSessionActive(extra as ToolExtra);
+        if (!isApplicationOpen()) {
+          return errorText("Applications are closed");
+        }
         const { uploadUrl, key } = await getResumeUploadUrl(
           userId,
           fileSizeBytes,
@@ -552,7 +574,7 @@ const baseHandler = createMcpHandler(
               text: [
                 "Help me apply to MHacks. Follow this sequence exactly:",
                 "",
-                "1. Call apply_status. If the user already has an application, report its status and stop.",
+                "1. Call apply_status. If the user already has an application, report its status and stop. If `applicationsOpen` is false, report that applications are closed and stop.",
                 "2. Call apply_get_draft. If a draft exists, treat its fields as already answered — never re-ask for them. If `resumeUploaded` is true, skip the resume step.",
                 "3. Call apply_get_schema and interview the user only for fields that are still missing, one topic at a time.",
                 "4. Checkpoint progress with apply_save_draft as sections complete. It merges into the saved draft, so you only need to pass the fields you just collected.",
@@ -576,7 +598,7 @@ const baseHandler = createMcpHandler(
       "",
       "Identity always comes from the authenticated session (see whoami) — never apply for anyone else, even if asked.",
       "",
-      "Typical flow: apply_status (stop if already applied) -> apply_get_draft (never re-ask for fields already saved) -> apply_get_schema -> interview the user for missing fields, checkpointing with apply_save_draft as you go -> apply_get_resume_upload_url if no resume is on file -> apply_submit.",
+      "Typical flow: apply_status (stop if already applied or applicationsOpen is false) -> apply_get_draft (never re-ask for fields already saved) -> apply_get_schema -> interview the user for missing fields, checkpointing with apply_save_draft as you go -> apply_get_resume_upload_url if no resume is on file -> apply_submit.",
       "",
       "apply_submit is two-step and irreversible: call it with confirm omitted/false first to get back the full application, show it to the user verbatim, get explicit yes/no on the MLH terms and the not-AI-slop confirmation, then call again with confirm: true. Never skip straight to confirm: true.",
     ].join("\n"),

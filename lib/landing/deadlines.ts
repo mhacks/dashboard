@@ -1,5 +1,7 @@
+import { APPLICATION_DEADLINE_ISO } from "@/lib/applications/deadline";
+
 /**
- * Application timeline — single source of truth for the hero countdown.
+ * Public application timeline — single source of truth for the hero countdown.
  *
  * ENGINEERING HANDOFF NOTES
  * - To drive this from a backend, replace the DEADLINES constant with fetched
@@ -8,6 +10,8 @@
  * - Dates are ISO 8601 with an explicit Eastern offset (-04:00 = EDT), i.e.
  *   deadlines land at end-of-day Ann Arbor time. Adjust if the real deadline
  *   time differs.
+ * - The final application date comes from lib/applications/deadline.ts, which
+ *   also owns the server-enforced grace period and effective close time.
  * - `countdownLabel` is the phrasing shown in the hero pill while this
  *   deadline is the next one upcoming.
  */
@@ -45,7 +49,7 @@ export const DEADLINES: Deadline[] = [
     id: "regular-apps-due",
     label: "Regular applications due",
     countdownLabel: "Applications close",
-    date: "2026-09-12T23:59:59-04:00",
+    date: APPLICATION_DEADLINE_ISO,
   },
   {
     id: "regular-decisions",

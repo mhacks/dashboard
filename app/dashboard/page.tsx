@@ -17,6 +17,7 @@ import {
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
 import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
+import { isApplicationOpen } from "@/lib/applications/deadline";
 
 /**
  * Stage is derived, never stored. `applied` is the enum's "submitted, no
@@ -65,6 +66,7 @@ export default async function DashboardPage() {
         stage: stageFor(application),
         sectionsComplete: draftSteps,
         sectionsTotal: APPLICATION_STEPS.length,
+        applicationsOpen: isApplicationOpen(),
         submittedAt: application
           ? format(new Date(application.createdAt), "MMMM d, yyyy")
           : undefined,
