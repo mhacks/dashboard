@@ -1,9 +1,145 @@
 {
-  "id": "db771150-d110-4043-8fc2-9359f65562ff",
-  "prevId": "4fd6958c-6d71-4b96-a70c-908acdd0be35",
+  "id": "73462b2d-ffc4-445d-8594-d0cb150fd24c",
+  "prevId": "0e733dcf-e62a-4a01-bf81-599fb6a9ba9a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.hacker_application_invitations": {
+      "name": "hacker_application_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invited_by_user_id": {
+          "name": "invited_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hacker_application_invitations_expires_at_idx": {
+          "name": "hacker_application_invitations_expires_at_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "hacker_application_invitations_invited_by_user_id_users_id_fk": {
+          "name": "hacker_application_invitations_invited_by_user_id_users_id_fk",
+          "tableFrom": "hacker_application_invitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "invited_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "hacker_application_invitations_email_unique": {
+          "name": "hacker_application_invitations_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {
+        "hacker_application_invitations_organizer_select": {
+          "name": "hacker_application_invitations_organizer_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        },
+        "hacker_application_invitations_organizer_insert": {
+          "name": "hacker_application_invitations_organizer_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(select public.is_organizer())"
+        },
+        "hacker_application_invitations_organizer_update": {
+          "name": "hacker_application_invitations_organizer_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "hacker_application_invitations_email_normalized": {
+          "name": "hacker_application_invitations_email_normalized",
+          "value": "\"hacker_application_invitations\".\"email\" = lower(btrim(\"hacker_application_invitations\".\"email\"))"
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.hacker_applicants": {
       "name": "hacker_applicants",
       "schema": "",

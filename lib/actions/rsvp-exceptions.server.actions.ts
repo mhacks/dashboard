@@ -50,7 +50,7 @@ export async function createRsvpExceptionAction(
     return {
       ok: false,
       message:
-        "That account does not have a submitted application. Non-applicant backdoor support is still a later flow.",
+        "That account has not applied yet. Send a Hacker Invite first, then accept their application before opening RSVP.",
     };
   }
   if (decisionOutcome(target.decision) !== "accepted") {

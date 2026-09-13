@@ -164,8 +164,8 @@ export default function ApplyPage({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // A form already open in a browser becomes read-only at the same instant as
-  // the landing-page countdown. The server-side guards remain authoritative
+  // A form already open in a browser becomes read-only when its global or
+  // private application window ends. Server-side guards remain authoritative
   // if a client clock is wrong or JavaScript is paused.
   useEffect(() => {
     if (submitted || !initialApplicationsOpen) return;

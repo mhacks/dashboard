@@ -9,17 +9,18 @@ import {
   hackerApplicationDrafts,
 } from "@/lib/db/schema/applications";
 import { getResumeDownloadUrl } from "@/lib/actions/resume.server.actions";
+import { getApplicationAccessForUser } from "@/lib/applications/access";
 import { getApplicationRound } from "@/lib/types/application-reviews";
-import {
-  APPLICATION_CLOSE_ISO,
-  isApplicationOpen,
-} from "@/lib/applications/deadline";
+import { APPLICATION_CLOSE_ISO } from "@/lib/applications/deadline";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplicationFormPage() {
   const { id: userId } = await requireSessionUser();
-  const applicationsOpen = isApplicationOpen();
+  const applicationAccess = await getApplicationAccessForUser({ userId });
+  const applicationsOpen = applicationAccess.open;
+  const applicationsCloseAt =
+    applicationAccess.closesAt ?? APPLICATION_CLOSE_ISO;
 
   let existingApp = null;
   try {
@@ -53,7 +54,7 @@ export default async function ApplicationFormPage() {
           showTravelReimbursementQuestions={
             getApplicationRound(existingApp.createdAt) === "early"
           }
-          applicationsCloseAt={APPLICATION_CLOSE_ISO}
+          applicationsCloseAt={applicationsCloseAt}
           initialApplicationsOpen={applicationsOpen}
         />
       </Suspense>
@@ -103,7 +104,7 @@ export default async function ApplicationFormPage() {
         showTravelReimbursementQuestions={
           getApplicationRound(new Date().toISOString()) === "early"
         }
-        applicationsCloseAt={APPLICATION_CLOSE_ISO}
+        applicationsCloseAt={applicationsCloseAt}
         initialApplicationsOpen={applicationsOpen}
       />
     </Suspense>
