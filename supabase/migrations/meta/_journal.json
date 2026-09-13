@@ -162,6 +162,13 @@
       "when": 1789319491246,
       "tag": "20260913171131_hacker_application_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789320684644,
+      "tag": "20260913173124_event_account_checkin",
+      "breakpoints": true
     }
   ]
 }

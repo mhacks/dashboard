@@ -70,6 +70,7 @@ export default async function CheckInPickerPage() {
                                 "EEE d MMM, h:mm a",
                               )
                             : null,
+                          event.requiresRsvp ? null : "Any account",
                         ]
                           .filter(Boolean)
                           .join(" · ") || "No time set"}
