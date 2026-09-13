@@ -15,10 +15,14 @@ import {
 } from "@/lib/db/schema/reimbursements";
 import { hackerRsvps } from "@/lib/db/schema/rsvps";
 import { users } from "@/lib/db/schema/users";
+import { getResumeObjectFingerprints } from "@/lib/resume";
 import {
   type AnalyticsBucket,
   type ApplicationAnalyticsData,
   type BlacklistAnalytics,
+  getApplicationRound,
+  type PossibleReapplicationMatch,
+  type PossibleReapplicationSignal,
   type ReimbursementAnalytics,
   type ReviewAuditEventRecord,
   type ReviewCounts,
@@ -257,6 +261,39 @@ function applicantName(firstName: string | null, lastName: string | null) {
   return name || "Unnamed applicant";
 }
 
+function normalizeIdentityText(value: string) {
+  return value
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/\s+/gu, " ");
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/gu, "");
+}
+
+function normalizeProfileUrl(value: string | null) {
+  if (!value?.trim()) return "";
+
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname
+      .toLocaleLowerCase("en-US")
+      .replace(/^www\./u, "");
+    const pathname = url.pathname
+      .replace(/\/+$/u, "")
+      .toLocaleLowerCase("en-US");
+    return `${hostname}${pathname}`;
+  } catch {
+    return normalizeIdentityText(value).replace(/\/+$/u, "");
+  }
+}
+
+function sameNonEmpty(left: string, right: string) {
+  return left.length > 0 && left === right;
+}
+
 export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceData> {
   await requireOrganizer();
 
@@ -266,10 +303,16 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
       slug: applicationSlug,
       userId: hackerApplicants.userId,
       status: hackerApplicants.status,
+      decision: hackerApplicants.decision,
       firstName: hackerApplicants.firstName,
       lastName: hackerApplicants.lastName,
+      phoneNumber: hackerApplicants.phoneNumber,
       university: hackerApplicants.university,
       major: hackerApplicants.major,
+      graduationYear: hackerApplicants.graduationYear,
+      resume: hackerApplicants.resume,
+      github: hackerApplicants.github,
+      linkedin: hackerApplicants.linkedin,
       whyMhacks: hackerApplicants.whyMhacks,
       country: hackerApplicants.country,
       comingFrom: hackerApplicants.comingFrom,
@@ -308,6 +351,121 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
     ]),
   );
 
+  const earlyRejectedApplications = applications.filter(
+    (application) => application.decision === "early_rejected",
+  );
+  const regularApplications = applications.filter(
+    (application) => getApplicationRound(application.createdAt) === "regular",
+  );
+  const resumeKeys =
+    earlyRejectedApplications.length === 0 || regularApplications.length === 0
+      ? []
+      : [...earlyRejectedApplications, ...regularApplications].flatMap(
+          (application) => (application.resume ? [application.resume] : []),
+        );
+
+  let resumeFingerprints = new Map<string, string>();
+  try {
+    resumeFingerprints = await getResumeObjectFingerprints(resumeKeys);
+  } catch (error) {
+    // Resume matching is an additional signal, not a reason to take the
+    // organizer dashboard down when object listing is temporarily unavailable.
+    console.error("Unable to compare application resumes:", error);
+  }
+
+  const possibleReapplicationsByApplicationId = new Map<
+    string,
+    PossibleReapplicationMatch[]
+  >();
+
+  for (const application of regularApplications) {
+    const matches: PossibleReapplicationMatch[] = [];
+    const normalizedName = normalizeIdentityText(
+      `${application.firstName} ${application.lastName}`,
+    );
+    const normalizedUniversity = normalizeIdentityText(application.university);
+    const normalizedPhoneNumber = normalizePhone(application.phoneNumber);
+    const normalizedGithub = normalizeProfileUrl(application.github);
+    const normalizedLinkedin = normalizeProfileUrl(application.linkedin);
+    const resumeFingerprint = application.resume
+      ? resumeFingerprints.get(application.resume)
+      : undefined;
+
+    for (const earlyApplication of earlyRejectedApplications) {
+      if (earlyApplication.userId === application.userId) continue;
+
+      const signals: PossibleReapplicationSignal[] = [];
+      const earlyName = normalizeIdentityText(
+        `${earlyApplication.firstName} ${earlyApplication.lastName}`,
+      );
+
+      if (
+        sameNonEmpty(
+          normalizedPhoneNumber,
+          normalizePhone(earlyApplication.phoneNumber),
+        )
+      ) {
+        signals.push("phone");
+      }
+
+      const earlyResumeFingerprint = earlyApplication.resume
+        ? resumeFingerprints.get(earlyApplication.resume)
+        : undefined;
+      if (
+        resumeFingerprint &&
+        earlyResumeFingerprint &&
+        resumeFingerprint === earlyResumeFingerprint
+      ) {
+        signals.push("resume");
+      }
+
+      if (
+        sameNonEmpty(
+          normalizedGithub,
+          normalizeProfileUrl(earlyApplication.github),
+        )
+      ) {
+        signals.push("github");
+      }
+
+      if (
+        sameNonEmpty(
+          normalizedLinkedin,
+          normalizeProfileUrl(earlyApplication.linkedin),
+        )
+      ) {
+        signals.push("linkedin");
+      }
+
+      if (
+        sameNonEmpty(normalizedName, earlyName) &&
+        sameNonEmpty(
+          normalizedUniversity,
+          normalizeIdentityText(earlyApplication.university),
+        ) &&
+        application.graduationYear === earlyApplication.graduationYear
+      ) {
+        signals.push("name_university_graduation_year");
+      }
+
+      if (signals.length > 0) {
+        matches.push({
+          applicationId: earlyApplication.id,
+          slug: earlyApplication.slug,
+          applicantName: applicantName(
+            earlyApplication.firstName,
+            earlyApplication.lastName,
+          ),
+          applicantEmail: earlyApplication.applicantEmail,
+          signals,
+        });
+      }
+    }
+
+    matches.sort((left, right) => right.signals.length - left.signals.length);
+    possibleReapplicationsByApplicationId.set(application.id, matches);
+  }
+
   const items: ReviewListSummaryItem[] = applications.map((application) => {
     const trimmed = application.whyMhacks.trim();
     const whyMhacksPreview =
@@ -335,6 +493,8 @@ export async function getApplicationReviewDashboard(): Promise<ReviewWorkspaceDa
         createdAt: application.createdAt,
       },
       review: reviewsByApplicationId.get(application.id) ?? null,
+      possibleReapplications:
+        possibleReapplicationsByApplicationId.get(application.id) ?? [],
     };
   });
 
