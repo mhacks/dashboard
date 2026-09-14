@@ -17,6 +17,12 @@ schemas = ["public"]
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://127.0.0.1:3000/**"]
 
+# Enforced on token refresh (see proxy.ts getClaims), not proactively.
+# Requires Pro on hosted Supabase.
+[auth.sessions]
+single_per_user = true
+inactivity_timeout = "8h"
+
 [auth.rate_limit]
 # Shared local + production limits (merged on `pnpm supabase config push`).
 # Project-wide OTP/email sends per hour.
@@ -33,6 +39,9 @@ verify_enabled = true
 [auth.email]
 enable_confirmations = true
 max_frequency = "30s"
+# Keep in sync with lib/auth/otp.ts (OTP_LENGTH).
+otp_length = 8
+otp_expiry = 300
 
 # Local Mailpit — required so auth.rate_limit.email_sent applies in dev.
 # Auth runs in Docker; reach Mailpit via the inbucket service on its internal
