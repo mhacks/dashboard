@@ -1,26 +1,17 @@
 import { DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
-import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
+import {
+  isS3NotFound,
+  parseTotalBytesFromContentRange,
+  s3,
+  UPLOADS_BUCKET,
+} from "@/lib/aws/s3";
 import {
   assertValidRsvpReceipt,
   isRsvpReceiptContentType,
   rsvpReceiptKeyBelongsToUser,
   type RsvpReceiptContentType,
 } from "@/lib/rsvp/receipt";
-
-function parseTotalBytes(contentRange: string | undefined): number | undefined {
-  const match = contentRange?.match(/\/(\d+)$/u);
-  return match ? Number(match[1]) : undefined;
-}
-
-export function isS3NotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "name" in error &&
-    (error.name === "NoSuchKey" || error.name === "NotFound")
-  );
-}
 
 export async function validateRsvpReceiptInS3({
   key,
@@ -44,7 +35,7 @@ export async function validateRsvpReceiptInS3({
   try {
     object = await s3.send(
       new GetObjectCommand({
-        Bucket: RESUMES_BUCKET,
+        Bucket: UPLOADS_BUCKET,
         Key: key,
         Range: "bytes=0-15",
       }),
@@ -57,7 +48,7 @@ export async function validateRsvpReceiptInS3({
   }
 
   const leadingBytes = await object.Body?.transformToByteArray();
-  const sizeBytes = parseTotalBytes(object.ContentRange);
+  const sizeBytes = parseTotalBytesFromContentRange(object.ContentRange);
   const contentType = object.ContentType;
   if (!leadingBytes || sizeBytes === undefined || !contentType) {
     throw new Error("Receipt could not be verified");
@@ -88,7 +79,7 @@ export async function validateRsvpReceiptInS3({
 export async function deleteRsvpReceipt(key: string): Promise<void> {
   await s3.send(
     new DeleteObjectCommand({
-      Bucket: RESUMES_BUCKET,
+      Bucket: UPLOADS_BUCKET,
       Key: key,
     }),
   );

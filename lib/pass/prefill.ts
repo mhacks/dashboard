@@ -212,7 +212,7 @@ export function prefillTicket(applicant: PassApplicant): TicketState {
     backdrop: DEFAULT_BACKDROP,
     font: DEFAULT_FONT,
     bouquet: DEFAULT_BOUQUET,
-    bouquetUpload: null,
+    bouquetUploads: [],
     name: passengerName(applicant.firstName, applicant.lastName),
     city: departureCity(applicant.comingFrom),
     year: passYear(applicant.degree, applicant.graduationYear),

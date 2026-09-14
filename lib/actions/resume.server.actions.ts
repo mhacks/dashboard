@@ -3,7 +3,7 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
-  RESUMES_BUCKET,
+  UPLOADS_BUCKET,
   s3,
   resumeKeyBelongsToUser,
   MAX_RESUME_SIZE_BYTES,
@@ -11,6 +11,7 @@ import {
 import { requireSessionUser } from "@/lib/auth/guards";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { isPdfBuffer, resumeKeyForUser } from "@/lib/resume";
+import { assertApplicationOpenForUser } from "@/lib/applications/access";
 
 const RESUME_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;
 
@@ -33,6 +34,7 @@ export async function getResumeUploadUrl(
   userId: string,
   fileSizeBytes: number,
 ): Promise<{ uploadUrl: string; key: string }> {
+  await assertApplicationOpenForUser(userId);
   if (!Number.isInteger(fileSizeBytes) || fileSizeBytes <= 0) {
     throw new Error("fileSizeBytes must be a positive integer");
   }
@@ -45,7 +47,7 @@ export async function getResumeUploadUrl(
   const key = resumeKeyForUser(userId);
 
   const command = new PutObjectCommand({
-    Bucket: RESUMES_BUCKET,
+    Bucket: UPLOADS_BUCKET,
     Key: key,
     ContentType: "application/pdf",
     ContentLength: fileSizeBytes,
@@ -65,6 +67,7 @@ export async function uploadResume(
   formData: FormData,
 ): Promise<{ error: string } | { key: string }> {
   const { id: userId } = await requireSessionUser();
+  await assertApplicationOpenForUser(userId);
   const file = formData.get("file");
 
   if (!(file instanceof File)) {
@@ -88,7 +91,7 @@ export async function uploadResume(
 
   await s3.send(
     new PutObjectCommand({
-      Bucket: RESUMES_BUCKET,
+      Bucket: UPLOADS_BUCKET,
       Key: key,
       Body: buffer,
       ContentType: "application/pdf",
@@ -133,7 +136,7 @@ export async function getResumeDownloadUrl(
   }
 
   const command = new GetObjectCommand({
-    Bucket: RESUMES_BUCKET,
+    Bucket: UPLOADS_BUCKET,
     Key: key,
     ResponseContentDisposition:
       disposition === "attachment"

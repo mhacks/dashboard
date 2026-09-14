@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { QrCode } from "@/components/checkin/qr-code";
 import { ButtonLink } from "@/components/console/button";
 import { Panel, PanelHeading } from "@/components/console/panel";
 import { ProgressMeter, StatusLine } from "@/components/console/progress";
@@ -12,7 +13,9 @@ import {
 } from "@/components/console/shell";
 import { ToolCard, ToolGrid } from "@/components/console/tool-card";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
+import { QrDrawerButton } from "@/app/dashboard/qr-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
+import { isEventStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
 
 /**
@@ -30,6 +33,8 @@ export type ApplicantDashboardData = {
   /** Sections finished in a saved draft. 0 once submitted. */
   sectionsComplete: number;
   sectionsTotal: number;
+  /** Whether an unsubmitted application can still be edited or submitted. */
+  applicationsOpen: boolean;
   /** Pre-formatted, e.g. "12 August 2026". Absent before submitting. */
   submittedAt?: string;
 };
@@ -38,10 +43,13 @@ export function ApplicantDashboard({
   data,
   role,
   firstName,
+  userId,
 }: {
   data: ApplicantDashboardData;
   role: UserRole;
   firstName: string | null;
+  /** Encoded into the check-in QR. */
+  userId: string;
 }) {
   return (
     <div className="font-red-hat">
@@ -52,10 +60,15 @@ export function ApplicantDashboard({
             trailing={<SignOutButton />}
           />
 
+          {/* Every account gets an identity code. Individual events decide
+              whether they accept every account or require a confirmed RSVP. */}
+          <CheckInPanel userId={userId} />
+
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
 
+          {isEventStaff(role) ? <StaffTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
 
           <ConsoleFooterRule />
@@ -86,6 +99,30 @@ function ViewApplicationLink() {
  */
 function ApplyingPanel({ data }: { data: ApplicantDashboardData }) {
   const started = data.sectionsComplete > 0;
+
+  if (!data.applicationsOpen) {
+    return (
+      <Panel eyebrow="YOUR APPLICATION" status="Closed">
+        <PanelHeading
+          lede={
+            started
+              ? "The application deadline has passed. Your saved draft is still available to view, but it can no longer be changed or submitted."
+              : "The application deadline for MHacks 2026 has passed."
+          }
+        >
+          Applications are closed
+        </PanelHeading>
+
+        {started ? (
+          <div className="flex flex-wrap items-center gap-3.5">
+            <ButtonLink href="/apply" external={false}>
+              View your saved draft
+            </ButtonLink>
+          </div>
+        ) : null}
+      </Panel>
+    );
+  }
 
   return (
     <Panel eyebrow="YOUR APPLICATION">
@@ -173,6 +210,71 @@ function DecisionReadyPanel() {
 
       <ViewApplicationLink />
     </Panel>
+  );
+}
+
+/* ——— check-in ————————————————————————————————————————————————— */
+
+/**
+ * A panel of its own rather than a line inside the decision panel: by the time
+ * this matters the decision is old news, and the code is the thing being looked
+ * for in a queue.
+ *
+ * The QR is rendered here, on the server, and passed into the drawer as
+ * children, so the encoded code travels with the page rather than being
+ * fetched when the sheet opens.
+ *
+ * /dashboard/qr renders the same code full screen and needs no JavaScript at
+ * all. It is no longer linked from here, but it stays reachable by URL — it is
+ * the fallback to send someone to if this sheet won't open on their phone.
+ */
+function CheckInPanel({ userId }: { userId: string }) {
+  return (
+    <Panel eyebrow="CHECK-IN" status="Ready">
+      <PanelHeading lede="This code identifies your account at MHacks events. Event staff will scan it when you check in.">
+        Your check-in code
+      </PanelHeading>
+
+      <div className="flex flex-wrap items-center gap-3.5">
+        <QrDrawerButton>
+          <QrCode
+            value={userId}
+            label="Your MHacks check-in code"
+            className="w-[min(78vw,340px)]"
+          />
+        </QrDrawerButton>
+      </div>
+    </Panel>
+  );
+}
+
+/* ——— event staff ——————————————————————————————————————————————— */
+
+/**
+ * The scanner, surfaced for volunteers as well as organizers.
+ *
+ * It needs its own block because ADMIN_AREAS only renders for organizers, and a
+ * volunteer would otherwise have no way to find the one tool they have — the
+ * link exists, but nothing on any screen would point at it.
+ */
+function StaffTools() {
+  return (
+    <div className="flex flex-col gap-3.5">
+      <Rail
+        label="EVENT STAFF"
+        ramp={false}
+        trailing={<RailNote>Organizers and volunteers</RailNote>}
+      />
+
+      <ToolGrid>
+        <ToolCard
+          eyebrow="CHECK-IN"
+          name="Scanner"
+          description="Scan attendee codes at the door and at meals."
+          href="/checkin"
+        />
+      </ToolGrid>
+    </div>
   );
 }
 

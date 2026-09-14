@@ -156,9 +156,29 @@ export type ReviewApplicationSummary = {
   createdAt: string;
 };
 
+export type PossibleReapplicationSignal =
+  | "phone"
+  | "resume"
+  | "github"
+  | "linkedin"
+  | "name_university_graduation_year";
+
+export type PossibleReapplicationMatch = {
+  applicationId: string;
+  slug: string;
+  applicantName: string;
+  applicantEmail: string | null;
+  signals: PossibleReapplicationSignal[];
+};
+
 export type ReviewListSummaryItem = {
   application: ReviewApplicationSummary;
   review: ReviewRecord | null;
+  /**
+   * Derived at dashboard-read time. Nothing is persisted on either
+   * application or its review when a possible reapplication is found.
+   */
+  possibleReapplications: PossibleReapplicationMatch[];
 };
 
 export type ApplicationRound = "early" | "regular";
@@ -234,7 +254,11 @@ export type ReimbursementAnalytics = {
   // hacker_reimbursements is unique per user_id, so an award count is also a
   // user count — "approved" is the reimbursed population.
   reimbursedUsers: number;
+  // Approved awards whose early-round hackers submitted an RSVP selecting the
+  // reimbursement travel plan. This is the expected actual payout.
+  actualReimbursedUsers: number;
   spentCents: number;
+  actualSpentCents: number;
   deniedRequests: number;
   // What denied awards would have added to `spentCents` had they been approved.
   deniedCents: number;

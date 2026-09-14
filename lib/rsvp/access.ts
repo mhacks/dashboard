@@ -1,14 +1,18 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 
-import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
+import {
+  decisionOutcome,
+  decisionRound,
+  type ApplicationDecision,
+} from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import {
   hackerReimbursements,
   reimbursementRegions,
 } from "@/lib/db/schema/reimbursements";
-import { hackerRsvps } from "@/lib/db/schema/rsvps";
-import { assertRsvpOpen } from "@/lib/rsvp/deadline";
+import { hackerRsvpExceptions, hackerRsvps } from "@/lib/db/schema/rsvps";
+import { RSVP_DEADLINE_MS } from "@/lib/rsvp/deadline";
 import {
   hasApprovedTravelAward,
   type RsvpTravelEligibilitySource,
@@ -18,6 +22,12 @@ export type RsvpTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
 >[0];
 
+export type RsvpAccess = {
+  open: boolean;
+  closesAt: string | null;
+  source: "global" | "exception" | null;
+};
+
 export function assertAcceptedRsvpDecision(
   decision: ApplicationDecision,
 ): void {
@@ -26,11 +36,129 @@ export function assertAcceptedRsvpDecision(
   }
 }
 
+function activeExceptionFilter(userId: string, now: Date) {
+  return and(
+    eq(hackerRsvpExceptions.userId, userId),
+    isNull(hackerRsvpExceptions.revokedAt),
+    gt(hackerRsvpExceptions.expiresAt, now.toISOString()),
+  );
+}
+
+function rsvpAccessFromException(
+  decision: ApplicationDecision | null | undefined,
+  exception: { expiresAt: string } | null | undefined,
+  nowMs: number,
+): RsvpAccess {
+  const round = decision ? decisionRound(decision) : null;
+  const eligible = decision && decisionOutcome(decision) === "accepted";
+  if (!eligible || !round) {
+    return { open: false, closesAt: null, source: null };
+  }
+
+  const roundClosesAtMs = RSVP_DEADLINE_MS[round];
+  const globalClosesAtMs = nowMs <= roundClosesAtMs ? roundClosesAtMs : null;
+  const exceptionClosesAtMs = exception
+    ? Date.parse(exception.expiresAt)
+    : null;
+  const closesAtMs = Math.max(
+    globalClosesAtMs ?? Number.NEGATIVE_INFINITY,
+    exceptionClosesAtMs ?? Number.NEGATIVE_INFINITY,
+  );
+
+  if (!Number.isFinite(closesAtMs)) {
+    return { open: false, closesAt: null, source: null };
+  }
+
+  return {
+    open: true,
+    closesAt: new Date(closesAtMs).toISOString(),
+    source: closesAtMs === exceptionClosesAtMs ? "exception" : "global",
+  };
+}
+
+export async function getRsvpAccessForUser({
+  userId,
+  nowMs = Date.now(),
+}: {
+  userId: string;
+  nowMs?: number;
+}): Promise<RsvpAccess> {
+  const now = new Date(nowMs);
+  const [[application], [exception]] = await Promise.all([
+    db
+      .select({ decision: hackerApplicants.decision })
+      .from(hackerApplicants)
+      .where(eq(hackerApplicants.userId, userId))
+      .limit(1),
+    db
+      .select({ expiresAt: hackerRsvpExceptions.expiresAt })
+      .from(hackerRsvpExceptions)
+      .where(activeExceptionFilter(userId, now))
+      .orderBy(desc(hackerRsvpExceptions.expiresAt))
+      .limit(1),
+  ]);
+
+  return rsvpAccessFromException(application?.decision, exception, nowMs);
+}
+
+export async function assertRsvpOpenForUser(
+  userId: string,
+  nowMs = Date.now(),
+): Promise<RsvpAccess> {
+  const access = await getRsvpAccessForUser({ userId, nowMs });
+  if (!access.open) {
+    throw new Error("RSVPs are closed");
+  }
+  return access;
+}
+
+export async function assertRsvpOpenForUserInTransaction(
+  tx: RsvpTransaction,
+  userId: string,
+  nowMs = Date.now(),
+): Promise<RsvpAccess> {
+  const [application] = await tx
+    .select({ decision: hackerApplicants.decision })
+    .from(hackerApplicants)
+    .where(eq(hackerApplicants.userId, userId))
+    .limit(1);
+  const round = application ? decisionRound(application.decision) : null;
+  const eligible =
+    application && decisionOutcome(application.decision) === "accepted";
+  const roundClosesAtMs = round ? RSVP_DEADLINE_MS[round] : null;
+
+  if (eligible && roundClosesAtMs !== null && nowMs <= roundClosesAtMs) {
+    return {
+      open: true,
+      closesAt: new Date(roundClosesAtMs).toISOString(),
+      source: "global",
+    };
+  }
+
+  const now = new Date(nowMs);
+  const [exception] = await tx
+    .select({ expiresAt: hackerRsvpExceptions.expiresAt })
+    .from(hackerRsvpExceptions)
+    .where(activeExceptionFilter(userId, now))
+    .orderBy(desc(hackerRsvpExceptions.expiresAt))
+    .limit(1);
+  const access = rsvpAccessFromException(
+    application?.decision,
+    exception,
+    nowMs,
+  );
+
+  if (!access.open) {
+    throw new Error("RSVPs are closed");
+  }
+  return access;
+}
+
 export async function lockWritableRsvpApplicant(
   tx: RsvpTransaction,
   userId: string,
 ): Promise<RsvpTravelEligibilitySource> {
-  assertRsvpOpen();
+  await assertRsvpOpenForUserInTransaction(tx, userId);
 
   const [application] = await tx
     .select({
@@ -75,7 +203,7 @@ export async function lockWritableRsvpApplicant(
     )
     .limit(1);
 
-  assertRsvpOpen();
+  await assertRsvpOpenForUserInTransaction(tx, userId);
   return {
     transportationType: application.transportationType,
     comingFrom: application.comingFrom,

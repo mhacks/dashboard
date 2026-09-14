@@ -15,6 +15,14 @@ export const NAME_MAX = 22;
 
 export const CITY_MAX = 20;
 
+/**
+ * How long a name for a bouquet designed in the mini-game can be. Its only
+ * home is a tile in the pass's sticker picker, four to a row, so anything
+ * longer is ellipsised there rather than shown — the cap keeps what a hacker
+ * types and what they get back recognisably the same thing.
+ */
+export const BOUQUET_NAME_MAX = 24;
+
 /** How many areas of study can be worn at once. Double majors are common. */
 export const STUDY_MAX = 2;
 

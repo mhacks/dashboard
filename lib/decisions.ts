@@ -40,6 +40,37 @@ export function decisionRound(
   return decision.startsWith("early_") ? "early" : "regular";
 }
 
+/**
+ * The decisions that mean "this person is coming": accepted, whether or not
+ * they have RSVPed yet. Shared by the admin RSVP tooling and by check-in, so
+ * the set of people who may hold a check-in code can never drift from the set
+ * the RSVP screens consider eligible.
+ */
+export const RSVP_ELIGIBLE_DECISIONS = [
+  "early_accepted",
+  "early_rsvped",
+  "regular_accepted",
+  "regular_rsvped",
+] as const satisfies readonly ApplicationDecision[];
+
+/**
+ * The decisions that mean "this person confirmed they are coming". Narrower
+ * than RSVP_ELIGIBLE_DECISIONS, which also covers people who were accepted and
+ * never replied.
+ *
+ * This is the check-in gate: being offered a spot is not the same as taking
+ * one, and only someone who took it gets a code or gets through a door. The
+ * SQL-friendly counterpart to `hasRsvped` below.
+ *
+ * Derived from `hasRsvped` rather than listed out, because it is also spelled
+ * in SQL — public.has_confirmed_rsvp(), the function behind the event_checkins
+ * insert policy. That one matches on the `_rsvped` suffix for the same reason,
+ * so a round added to APPLICATION_DECISIONS reaches both at once instead of
+ * relying on someone remembering to edit a list in two languages.
+ */
+export const RSVP_CONFIRMED_DECISIONS: readonly ApplicationDecision[] =
+  APPLICATION_DECISIONS.filter(hasRsvped);
+
 export function hasRsvped(decision: ApplicationDecision) {
   return decision.endsWith("_rsvped");
 }

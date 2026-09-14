@@ -81,7 +81,10 @@ const SECTION_OF_FIELD: Partial<
 // before collapsing the rest into "and N more".
 const MAX_SECTIONS_SHOWN = 3;
 
-function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
+function rowToFormData(
+  row: HackerApplicantRow,
+  showTravelReimbursementQuestions: boolean,
+): HackerApplicationFormData {
   return {
     firstName: row.firstName,
     lastName: row.lastName,
@@ -104,9 +107,12 @@ function rowToFormData(row: HackerApplicantRow): HackerApplicationFormData {
     airportCode: row.airportCode ?? "",
     shirtSize: row.shirtSize,
     allergiesDescription: row.allergiesDescription ?? "",
-    needsTravelReimbursement: row.needsTravelReimbursement,
-    wouldAttendWithoutReimbursement:
-      row.wouldAttendWithoutReimbursement ?? undefined,
+    needsTravelReimbursement: showTravelReimbursementQuestions
+      ? row.needsTravelReimbursement
+      : false,
+    wouldAttendWithoutReimbursement: showTravelReimbursementQuestions
+      ? (row.wouldAttendWithoutReimbursement ?? undefined)
+      : undefined,
     github: row.github ?? "",
     linkedin: row.linkedin ?? "",
     personalSite: row.personalSite ?? "",
@@ -130,12 +136,22 @@ export default function ApplyPage({
   existingData,
   draftData,
   resumeUrl,
+  showTravelReimbursementQuestions,
+  applicationsCloseAt,
+  initialApplicationsOpen,
 }: {
   existingData: HackerApplicantRow | null;
   draftData: Record<string, unknown> | null;
   resumeUrl: string | null;
+  showTravelReimbursementQuestions: boolean;
+  applicationsCloseAt: string;
+  initialApplicationsOpen: boolean;
 }) {
-  const readOnly = existingData !== null;
+  const submitted = existingData !== null;
+  const [applicationsOpen, setApplicationsOpen] = useState(
+    initialApplicationsOpen,
+  );
+  const readOnly = submitted || !applicationsOpen;
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,6 +163,32 @@ export default function ApplyPage({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A form already open in a browser becomes read-only when its global or
+  // private application window ends. Server-side guards remain authoritative
+  // if a client clock is wrong or JavaScript is paused.
+  useEffect(() => {
+    if (submitted || !initialApplicationsOpen) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const closeAtMs = Date.parse(applicationsCloseAt);
+    const scheduleClose = () => {
+      const remainingMs = closeAtMs - Date.now();
+      if (remainingMs < 0) {
+        setApplicationsOpen(false);
+        return;
+      }
+      timer = setTimeout(
+        scheduleClose,
+        Math.min(remainingMs + 1, 2_147_483_647),
+      );
+    };
+
+    scheduleClose();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [applicationsCloseAt, initialApplicationsOpen, submitted]);
 
   const draft = (draftData ?? {}) as Partial<HackerApplicationFormData>;
 
@@ -162,7 +204,7 @@ export default function ApplyPage({
     resolver: zodResolver(hackerApplicationSchema),
     mode: "onChange",
     defaultValues: existingData
-      ? rowToFormData(existingData)
+      ? rowToFormData(existingData, showTravelReimbursementQuestions)
       : {
           firstName: draft.firstName ?? "",
           lastName: draft.lastName ?? "",
@@ -187,9 +229,12 @@ export default function ApplyPage({
           airportCode: draft.airportCode ?? "",
           shirtSize: draft.shirtSize ?? "",
           allergiesDescription: draft.allergiesDescription ?? "",
-          needsTravelReimbursement: draft.needsTravelReimbursement ?? false,
-          wouldAttendWithoutReimbursement:
-            draft.wouldAttendWithoutReimbursement ?? undefined,
+          needsTravelReimbursement: showTravelReimbursementQuestions
+            ? (draft.needsTravelReimbursement ?? false)
+            : false,
+          wouldAttendWithoutReimbursement: showTravelReimbursementQuestions
+            ? (draft.wouldAttendWithoutReimbursement ?? undefined)
+            : undefined,
           github: draft.github ?? "",
           linkedin: draft.linkedin ?? "",
           personalSite: draft.personalSite ?? "",
@@ -213,7 +258,11 @@ export default function ApplyPage({
           await saveDraft(data);
           setSaveStatus("saved");
           savedTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
-        } catch {
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("closed")) {
+            setApplicationsOpen(false);
+            return;
+          }
           setSaveStatus("error");
         }
       }, 1500);
@@ -300,6 +349,9 @@ export default function ApplyPage({
         setSubmitSuccess(true);
       }
     } catch (error) {
+      if (error instanceof Error && error.message.includes("closed")) {
+        setApplicationsOpen(false);
+      }
       posthog.captureException(error);
       console.error("Submission error:", error);
     } finally {
@@ -542,13 +594,15 @@ export default function ApplyPage({
                     className="opacity-30 rotate-[-18deg] pointer-events-none select-none shrink-0"
                   />
                 </div>
-                <Link
-                  href="/how-to-mcp"
-                  className="flex shrink-0 items-center gap-1.5 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white whitespace-nowrap rounded-full bg-moss px-4 py-2 transition-opacity hover:opacity-80"
-                >
-                  <Bot className="h-3.5 w-3.5" />
-                  Apply with an agent →
-                </Link>
+                {!readOnly && (
+                  <Link
+                    href="/how-to-mcp"
+                    className="flex shrink-0 items-center gap-1.5 font-red-hat text-[11px] font-semibold uppercase tracking-widest text-white whitespace-nowrap rounded-full bg-moss px-4 py-2 transition-opacity hover:opacity-80"
+                  >
+                    <Bot className="h-3.5 w-3.5" />
+                    Apply with an agent →
+                  </Link>
+                )}
               </div>
             </div>
             <FormStepProgress
@@ -569,14 +623,16 @@ export default function ApplyPage({
                 transition={{ duration: 0.4, ease: EASE }}
                 className="mb-5 rounded-xl px-4 py-3 font-red-hat text-[13px] font-medium bg-moss/7 text-moss border border-moss/13"
               >
-                Your application has been submitted and is under review. No
-                further changes can be made.
+                {submitted
+                  ? "Your application has been submitted and is under review. No further changes can be made."
+                  : "Applications are closed. Your saved draft is shown below, but it can no longer be changed or submitted."}
               </motion.div>
             )}
 
             <form onSubmit={(e) => e.preventDefault()}>
               <AnimatePresence mode="wait" custom={direction}>
-                <motion.div
+                <motion.fieldset
+                  disabled={readOnly}
                   key={step}
                   custom={direction}
                   variants={stepVariants}
@@ -615,6 +671,9 @@ export default function ApplyPage({
                       register={register}
                       errors={errors}
                       control={control}
+                      showTravelReimbursementQuestions={
+                        showTravelReimbursementQuestions
+                      }
                     />
                   )}
                   {step === 4 && (
@@ -626,7 +685,7 @@ export default function ApplyPage({
                   {step === 5 && (
                     <Agreements control={control} errors={errors} />
                   )}
-                </motion.div>
+                </motion.fieldset>
               </AnimatePresence>
 
               {/* Navigation */}

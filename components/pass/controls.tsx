@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { TicketState } from "@/lib/pass/types";
 import { FONTS } from "@/lib/pass/fonts";
@@ -12,6 +12,13 @@ import {
   BOUQUET_GAME_URL,
 } from "@/components/pass/bouquets";
 import {
+  BOUQUET_HANDOFF_STORAGE_KEY,
+  clearBouquetHandoff,
+  parseBouquetHandoff,
+  readBouquetHandoff,
+  type BouquetHandoff,
+} from "@/lib/pass/handoff";
+import {
   EXPERIENCES,
   STUDIES,
   STUDY_MAX,
@@ -22,7 +29,9 @@ import type { StudyId } from "@/lib/pass/types";
 import { ticketTheme } from "@/lib/pass/themes";
 import { CITY_MAX, NAME_MAX } from "@/components/pass/ticket-parts";
 
-type Patch = (patch: Partial<TicketState>) => void;
+type Patch = (
+  patch: Partial<TicketState> | ((prev: TicketState) => Partial<TicketState>),
+) => void;
 
 /* ——— console primitives ——— */
 
@@ -374,18 +383,38 @@ export function BouquetPicker({
   state: TicketState;
   onChange: Patch;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    function apply({ name, dataUrl }: BouquetHandoff) {
+      // Each hand-off is a new design, not a replacement — it joins the list
+      // so an earlier one stays reachable, and gets its own id to select by.
+      // The name is only a label: designs are still told apart by id, so two
+      // called the same thing are still two designs.
+      const id = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      onChange((prev) => ({
+        bouquet: id,
+        bouquetUploads: [...prev.bouquetUploads, { id, name, dataUrl }],
+      }));
+      clearBouquetHandoff();
+    }
 
-  function pickFile(file: File | undefined) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange({ bouquet: "upload", bouquetUpload: String(reader.result) });
-    };
-    // A data URL rather than an object URL: it is already inline, so the
-    // uploaded bouquet survives the PNG export without a fetch.
-    reader.readAsDataURL(file);
-  }
+    // Same-tab return from the bouquet game, or reopening the pass later —
+    // pick up whatever is waiting the moment this control mounts.
+    const pending = readBouquetHandoff();
+    if (pending) apply(pending);
+
+    // The bouquet game opens in its own tab so this tab's in-progress pass
+    // survives (see the link below); `storage` fires here the instant that
+    // other tab sends its bouquet over, so the tile updates live without
+    // switching back first.
+    function onStorage(event: StorageEvent) {
+      if (event.key === BOUQUET_HANDOFF_STORAGE_KEY && event.newValue) {
+        const handoff = parseBouquetHandoff(event.newValue);
+        if (handoff) apply(handoff);
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [onChange]);
 
   return (
     <div>
@@ -442,14 +471,101 @@ export function BouquetPicker({
           );
         })}
 
+        {/*
+          Every bouquet handed off from the game gets its own tile, same as a
+          built-in one — picking it again just reselects it. Previously there
+          was one slot that a fresh hand-off silently overwrote, and clicking
+          it while a design already sat there reopened the (blank) game
+          instead of reusing what was already made. Splitting "a design" from
+          "go make a design" fixes both: the tiles below are the reusable
+          list, and the launcher after them is the only thing that opens the
+          game.
+        */}
+        {state.bouquetUploads.map((upload, i) => {
+          const selected = state.bouquet === upload.id;
+          // Naming is optional in the game, so an unnamed design keeps the
+          // numbered label it always had.
+          const label =
+            upload.name ||
+            (state.bouquetUploads.length > 1 ? `Design ${i + 1}` : "Design");
+          return (
+            <button
+              key={upload.id}
+              type="button"
+              aria-pressed={selected}
+              title={label}
+              onClick={() =>
+                onChange({ bouquet: selected ? "none" : upload.id })
+              }
+              style={{ ...cellStyle(selected), padding: "10px 6px 8px" }}
+            >
+              <span
+                aria-hidden
+                className="mx-auto block"
+                style={{ width: 34, height: 34 }}
+              >
+                {/* A PNG handed off from the bouquet game — composited
+                    entirely from MHacks' own flower and vase art, never an
+                    arbitrary file — so there is nothing for next/image to
+                    optimize. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={upload.dataUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
+                />
+              </span>
+              <span
+                className="inline-flex items-center"
+                style={{
+                  gap: 5,
+                  marginTop: 7,
+                  maxWidth: "100%",
+                  fontFamily: "var(--mh-ui-mono)",
+                  fontSize: 10,
+                  color: "var(--ui-ink)",
+                }}
+              >
+                <Mark on={selected} />
+                {/* A tile is a quarter of the panel, so even a name inside
+                    BOUQUET_NAME_MAX can outrun it — it ellipsises here and
+                    the button's `title` carries the whole thing. */}
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+
         <button
           type="button"
-          aria-pressed={state.bouquet === "upload"}
-          onClick={() => fileInput.current?.click()}
+          // A same-tab navigation here would throw away every other field on
+          // the pass, since none of it is persisted — see the note on
+          // ExportPanel's "MHacks ticket" link for why the bouquet game opens
+          // in its own tab instead, and the effect above for how its result
+          // finds its way back.
+          //
+          // No "noopener"/"noreferrer": both sever `window.opener`, and
+          // ExportPanel's "switch back to that tab" needs it to focus this
+          // exact tab rather than opening yet another one. Safe to skip here
+          // specifically because the opened page is our own /dashboard/bouquet
+          // route, not third-party content.
+          onClick={() => window.open(BOUQUET_GAME_URL, "_blank")}
           style={{
-            ...cellStyle(state.bouquet === "upload"),
+            ...cellStyle(false),
             padding: "10px 6px 8px",
-            borderStyle: state.bouquet === "upload" ? "solid" : "dashed",
+            borderStyle: "dashed",
           }}
         >
           <span
@@ -457,58 +573,33 @@ export function BouquetPicker({
             className="mx-auto block"
             style={{ width: 34, height: 34 }}
           >
-            {state.bouquetUpload ? (
-              // A data URL from the hacker's own file picker, held in memory —
-              // there is nothing for next/image to optimize.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={state.bouquetUpload}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "contain" }}
-              />
-            ) : (
-              <span
-                className="mh-glyph"
-                style={{
-                  display: "grid",
-                  placeItems: "center",
-                  width: "100%",
-                  height: "100%",
-                  fontSize: 17,
-                  color: "var(--ui-ink-soft)",
-                }}
-              >
-                {"[+]"}
-              </span>
-            )}
+            <span
+              className="mh-glyph"
+              style={{
+                display: "grid",
+                placeItems: "center",
+                width: "100%",
+                height: "100%",
+                fontSize: 17,
+                color: "var(--ui-ink-soft)",
+              }}
+            >
+              {"[+]"}
+            </span>
           </span>
           <span
-            className="inline-flex items-center"
             style={{
-              gap: 5,
+              display: "block",
               marginTop: 7,
               fontFamily: "var(--mh-ui-mono)",
               fontSize: 10,
               color: "var(--ui-ink)",
             }}
           >
-            <Mark on={state.bouquet === "upload"} />
-            Upload
+            {state.bouquetUploads.length ? "New design" : "Design"}
           </span>
         </button>
       </div>
-
-      <input
-        ref={fileInput}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-        hidden
-        onChange={(e) => {
-          pickFile(e.target.files?.[0]);
-          // Reset so re-picking the same file still fires a change.
-          e.target.value = "";
-        }}
-      />
 
       {/*
         The whole line is gated on the URL, not just the anchor. The standalone
@@ -519,10 +610,12 @@ export function BouquetPicker({
       {BOUQUET_GAME_URL && (
         <p style={helpStyle}>
           {BOUQUET_FINE_PRINT_PREFIX}
+          {/* No rel="noreferrer": it also severs window.opener, which
+              ExportPanel's "switch back to that tab" relies on. Fine to skip
+              here — the link only ever points at our own bouquet route. */}
           <a
             href={BOUQUET_GAME_URL}
             target="_blank"
-            rel="noreferrer"
             style={{ color: "var(--ui-ink)", textDecoration: "underline" }}
           >
             {BOUQUET_FINE_PRINT_LINK}

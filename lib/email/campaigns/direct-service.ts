@@ -1,11 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
-  emailSendBatches,
+  emailSendDeliveries,
   emailSendRuns,
-  type EmailSendBatchRow,
+  type EmailSendDeliveryRow,
+  type EmailSendFailure,
+  type EmailSendRunRow,
 } from "@/lib/db/schema/email";
 import {
   EmailCampaignError,
@@ -32,16 +34,14 @@ import {
 } from "@/lib/email/types";
 
 const successfulTestProofWindowMs = 30 * 60 * 1000;
+const activeSendRecoveryWindowMs = 7 * 24 * 60 * 60 * 1000;
+const compactRunRetentionMs = 30 * 24 * 60 * 60 * 1000;
+const expiredTestProofRetentionMs = 60 * 60 * 1000;
 
 interface ApprovedTestSend {
   templateFingerprint: string;
   testSendToken: string;
   testSendExpiresAt: string;
-}
-
-interface RecentFailure {
-  email: string;
-  error: string | null;
 }
 
 export async function parseDirectRecipients(input: unknown) {
@@ -66,6 +66,7 @@ export async function sendOneDirectEmail(input: unknown) {
 
 export async function sendDirectTestEmails(input: unknown) {
   const organizer = await requireOrganizer();
+  await pruneExpiredSendData();
   const body = directTestSendSchema.parse(input);
   const templateFingerprint = fingerprintDirectTemplate(body.template);
   const recipients = requiredEmailCampaignTestRecipients;
@@ -116,6 +117,7 @@ export async function sendDirectTestEmails(input: unknown) {
 
 export async function sendDirectBatch(input: unknown) {
   const organizer = await requireOrganizer();
+  await pruneExpiredSendData();
   const body = directBatchSendSchema.parse(input);
   const parsed = parseRecipientText(body.recipients);
   const limits = getCampaignLimits();
@@ -139,86 +141,106 @@ export async function sendDirectBatch(input: unknown) {
 
   assertRequiredMergeColumns(body.template, parsed.columns);
 
-  if (body.resolveStaleBatch) {
-    await resolveStaleSendBatch({
-      runId: body.runId,
-      organizerId: organizer.id,
-      templateFingerprint,
-      recipientListHash,
-      totalRecipients: parsed.recipients.length,
-      cursor: body.resolveStaleBatch.cursor,
-      parsed,
-    });
-
-    return sendRunStatus(body.runId, parsed);
-  }
-
-  await assertSuccessfulTestSend({
-    organizer,
-    template: body.template,
-    testSendToken: body.testSendToken,
-  });
-
   const recipients = parsed.recipients.map((recipient) => ({
     email: recipient.email,
     mergeData: buildMergeData(recipient.email, recipient.mergeData),
   }));
-  const campaign = campaignLikeFromDirectTemplate(body.template);
-  const batchRecipients = recipients.slice(
-    body.cursor,
-    body.cursor + limits.batchSize,
-  );
-  const claim = await claimSendBatch({
-    runId: body.runId,
-    organizerId: organizer.id,
+  const run = await resolveOrCreateSendRun({
+    requestedRunId: body.runId,
+    organizer,
+    template: body.template,
     templateFingerprint,
     recipientListHash,
-    totalRecipients: parsed.recipients.length,
-    cursor: body.cursor,
-    endCursor: body.cursor + batchRecipients.length,
-    parsed,
+    recipients,
+    testSendToken: body.testSendToken,
   });
 
-  if (claim.status) {
-    return claim.status;
+  if (body.resolveInterrupted) {
+    await resolveInterruptedDeliveries({
+      run,
+      organizerId: organizer.id,
+      templateFingerprint,
+      recipientListHash,
+      totalRecipients: parsed.recipients.length,
+    });
+    return sendRunStatus(run.id, parsed);
   }
 
-  const results: SendResult[] = [];
+  const campaign = campaignLikeFromDirectTemplate(
+    run.templateSnapshot ?? body.template,
+  );
+  const lease = await claimSendLease({
+    runId: run.id,
+    cursor: body.cursor,
+    parsed,
+    batchSize: limits.batchSize,
+  });
 
-  for (const recipient of batchRecipients) {
+  if (lease.status) {
+    return lease.status;
+  }
+
+  for (const delivery of lease.deliveries) {
+    const claimed = await markDeliverySending({
+      runId: run.id,
+      leaseToken: lease.leaseToken,
+      recipientIndex: delivery.recipientIndex,
+    });
+
+    if (!claimed) {
+      continue;
+    }
+
     const result = await sendSnapshotToEmail(
       campaign,
-      recipient.email,
-      recipient.mergeData,
+      delivery.email,
+      delivery.mergeData,
     );
-    results.push(result);
-    await updateSendBatchProgress({
-      runId: body.runId,
-      cursor: body.cursor,
-      results,
+    await recordDeliveryResult({
+      runId: run.id,
+      leaseToken: lease.leaseToken,
+      recipientIndex: delivery.recipientIndex,
+      result,
     });
     await sleep(limits.sendDelayMs);
   }
 
-  const sentCount = results.filter((result) => result.status === "sent").length;
-  const failedResults = results.filter((result) => result.status === "failed");
-  const failedCount = failedResults.length;
-  const recentFailures = [
-    ...failedResults.map((result) => ({
-      email: result.email,
-      error: result.error,
-    })),
-  ].slice(-10);
-
-  await completeSendBatch({
-    runId: body.runId,
-    cursor: body.cursor,
-    sentCount,
-    failedCount,
-    recentFailures,
+  await releaseSendLease({
+    runId: run.id,
+    leaseToken: lease.leaseToken,
   });
 
-  return sendRunStatus(body.runId, parsed);
+  return sendRunStatus(run.id, parsed);
+}
+
+export async function findActiveDirectSend(input: unknown) {
+  const organizer = await requireOrganizer();
+  await pruneExpiredSendData();
+  const body = directBatchSendSchema
+    .pick({ template: true, recipients: true })
+    .parse(input);
+  const parsed = parseRecipientText(body.recipients);
+
+  if (parsed.emails.length === 0 || parsed.invalid.length > 0) {
+    return null;
+  }
+
+  const templateFingerprint = fingerprintDirectTemplate(body.template);
+  const recipientListHash = fingerprintRecipients(parsed.recipients);
+  const [run] = await db
+    .select()
+    .from(emailSendRuns)
+    .where(
+      and(
+        eq(emailSendRuns.organizerId, organizer.id),
+        eq(emailSendRuns.templateFingerprint, templateFingerprint),
+        eq(emailSendRuns.recipientListHash, recipientListHash),
+        eq(emailSendRuns.status, "sending"),
+      ),
+    )
+    .limit(1);
+
+  return run ? sendRunStatus(run.id, parsed) : null;
 }
 
 function enforceRecipientLimit(count: number) {
@@ -232,24 +254,184 @@ function enforceRecipientLimit(count: number) {
   }
 }
 
-async function claimSendBatch({
-  runId,
-  organizerId,
+async function resolveOrCreateSendRun({
+  requestedRunId,
+  organizer,
+  template,
   templateFingerprint,
   recipientListHash,
-  totalRecipients,
-  cursor,
-  endCursor,
-  parsed,
+  recipients,
+  testSendToken,
 }: {
-  runId: string;
-  organizerId: string;
+  requestedRunId: string;
+  organizer: Awaited<ReturnType<typeof requireOrganizer>>;
+  template: DirectEmailTemplateInput;
   templateFingerprint: string;
   recipientListHash: string;
-  totalRecipients: number;
+  recipients: Array<{ email: string; mergeData: Record<string, string> }>;
+  testSendToken: string | undefined;
+}) {
+  return db.transaction(async (tx) => {
+    const [requestedRun] = await tx
+      .select()
+      .from(emailSendRuns)
+      .where(eq(emailSendRuns.id, requestedRunId))
+      .limit(1)
+      .for("update");
+
+    if (requestedRun) {
+      assertRunIdentity(requestedRun, {
+        organizerId: organizer.id,
+        templateFingerprint,
+        recipientListHash,
+        totalRecipients: recipients.length,
+      });
+
+      if (requestedRun.status !== "sending") {
+        throw new EmailCampaignError(
+          "This send run is already finished. Start a new send.",
+          409,
+        );
+      }
+
+      return requestedRun;
+    }
+
+    const [activeRun] = await tx
+      .select()
+      .from(emailSendRuns)
+      .where(
+        and(
+          eq(emailSendRuns.organizerId, organizer.id),
+          eq(emailSendRuns.templateFingerprint, templateFingerprint),
+          eq(emailSendRuns.recipientListHash, recipientListHash),
+          eq(emailSendRuns.status, "sending"),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (activeRun) {
+      return activeRun;
+    }
+
+    const [unrecoverableRun] = await tx
+      .select()
+      .from(emailSendRuns)
+      .where(
+        and(
+          eq(emailSendRuns.organizerId, organizer.id),
+          eq(emailSendRuns.templateFingerprint, templateFingerprint),
+          eq(emailSendRuns.recipientListHash, recipientListHash),
+          inArray(emailSendRuns.status, ["expired", "superseded"]),
+        ),
+      )
+      .orderBy(desc(emailSendRuns.createdAt))
+      .limit(1);
+
+    if (unrecoverableRun) {
+      throw new EmailCampaignError(
+        "A previous interrupted send with this exact template and recipient list can no longer be resumed safely. Review it before starting another send.",
+        409,
+      );
+    }
+
+    await assertSuccessfulTestSend({
+      organizer,
+      template,
+      testSendToken,
+      tx,
+    });
+
+    const now = new Date().toISOString();
+    const [createdRun] = await tx
+      .insert(emailSendRuns)
+      .values({
+        id: requestedRunId,
+        organizerId: organizer.id,
+        templateFingerprint,
+        recipientListHash,
+        totalRecipients: recipients.length,
+        templateSnapshot: template,
+        status: "sending",
+        sentCount: 0,
+        failedCount: 0,
+        nextCursor: 0,
+        recentFailures: [],
+        recoveryExpiresAt: recoveryExpiry(),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (createdRun) {
+      await tx.insert(emailSendDeliveries).values(
+        recipients.map((recipient, recipientIndex) => ({
+          runId: createdRun.id,
+          recipientIndex,
+          email: recipient.email,
+          mergeData: recipient.mergeData,
+          status: "pending",
+          createdAt: now,
+        })),
+      );
+      return createdRun;
+    }
+
+    const [racedRun] = await tx
+      .select()
+      .from(emailSendRuns)
+      .where(
+        and(
+          eq(emailSendRuns.organizerId, organizer.id),
+          eq(emailSendRuns.templateFingerprint, templateFingerprint),
+          eq(emailSendRuns.recipientListHash, recipientListHash),
+          eq(emailSendRuns.status, "sending"),
+        ),
+      )
+      .limit(1);
+
+    if (!racedRun) {
+      throw new EmailCampaignError("Could not create the send run", 409);
+    }
+
+    return racedRun;
+  });
+}
+
+function assertRunIdentity(
+  run: typeof emailSendRuns.$inferSelect,
+  expected: {
+    organizerId: string;
+    templateFingerprint: string;
+    recipientListHash: string;
+    totalRecipients: number;
+  },
+) {
+  if (
+    run.organizerId !== expected.organizerId ||
+    run.templateFingerprint !== expected.templateFingerprint ||
+    run.recipientListHash !== expected.recipientListHash ||
+    run.totalRecipients !== expected.totalRecipients
+  ) {
+    throw new EmailCampaignError(
+      "This send run does not match the current template or recipient list. Start a new send.",
+      409,
+    );
+  }
+}
+
+async function claimSendLease({
+  runId,
+  cursor,
+  parsed,
+  batchSize,
+}: {
+  runId: string;
   cursor: number;
-  endCursor: number;
   parsed: ReturnType<typeof parseRecipientText>;
+  batchSize: number;
 }) {
   return db.transaction(async (tx) => {
     const [run] = await tx
@@ -258,253 +440,347 @@ async function claimSendBatch({
       .where(eq(emailSendRuns.id, runId))
       .limit(1)
       .for("update");
-    const now = new Date().toISOString();
 
-    if (run) {
-      if (
-        run.organizerId !== organizerId ||
-        run.templateFingerprint !== templateFingerprint ||
-        run.recipientListHash !== recipientListHash ||
-        run.totalRecipients !== totalRecipients
-      ) {
-        throw new EmailCampaignError(
-          "This send run does not match the current template or recipient list. Start a new send.",
-          409,
-        );
-      }
-    } else {
-      await tx.insert(emailSendRuns).values({
-        id: runId,
-        organizerId,
-        templateFingerprint,
-        recipientListHash,
-        totalRecipients,
-        status: "sending",
-        createdAt: now,
-        updatedAt: now,
-      });
+    if (!run) {
+      throw new EmailCampaignError("Send run not found", 404);
     }
 
-    if (cursor > totalRecipients) {
+    if (run.status !== "sending") {
+      return {
+        status: buildSendRunStatus(run, [], parsed),
+        leaseToken: null,
+        deliveries: [],
+      };
+    }
+
+    if (cursor > run.totalRecipients) {
       throw new EmailCampaignError("Invalid send cursor", 400);
     }
 
-    if (cursor === totalRecipients) {
-      return { status: await sendRunStatus(runId, parsed, tx) };
-    }
-
-    const currentStatus = await sendRunStatus(runId, parsed, tx);
+    const deliveries = await tx
+      .select()
+      .from(emailSendDeliveries)
+      .where(eq(emailSendDeliveries.runId, runId))
+      .orderBy(asc(emailSendDeliveries.recipientIndex));
+    const currentStatus = buildSendRunStatus(run, deliveries, parsed);
 
     if (cursor !== currentStatus.nextCursor) {
-      return { status: currentStatus };
+      return { status: currentStatus, leaseToken: null, deliveries: [] };
     }
 
-    const [existingBatch] = await tx
-      .select()
-      .from(emailSendBatches)
-      .where(
-        and(
-          eq(emailSendBatches.runId, runId),
-          eq(emailSendBatches.cursor, cursor),
-        ),
+    if (currentStatus.interrupted || leaseIsActive(run)) {
+      return { status: currentStatus, leaseToken: null, deliveries: [] };
+    }
+
+    const pendingDeliveries = deliveries
+      .filter(
+        (delivery) =>
+          delivery.status === "pending" &&
+          delivery.recipientIndex >= currentStatus.nextCursor,
       )
-      .limit(1);
+      .slice(0, batchSize);
 
-    if (existingBatch) {
-      if (existingBatch.status === "complete") {
-        return { status: await sendRunStatus(runId, parsed, tx) };
-      }
-
-      if (batchIsStale(existingBatch)) {
-        return {
-          status: {
-            ...(await sendRunStatus(runId, parsed, tx)),
-            staleBatchCursor: cursor,
-          },
-        };
-      }
-
-      return { status: await sendRunStatus(runId, parsed, tx) };
+    if (pendingDeliveries.length === 0) {
+      const completedRun = await finalizeRun(tx, run, deliveries);
+      return {
+        status: buildSendRunStatus(completedRun, [], parsed),
+        leaseToken: null,
+        deliveries: [],
+      };
     }
 
-    await tx.insert(emailSendBatches).values({
-      runId,
-      cursor,
-      endCursor,
-      status: "sending",
-      sentCount: 0,
-      failedCount: 0,
-      recentFailures: [],
-      createdAt: now,
-      updatedAt: now,
-    });
+    const leaseToken = randomUUID();
+    const now = new Date().toISOString();
+    await tx
+      .update(emailSendRuns)
+      .set({
+        leaseToken,
+        leaseExpiresAt: leaseExpiry(),
+        recoveryExpiresAt: recoveryExpiry(),
+        updatedAt: now,
+      })
+      .where(eq(emailSendRuns.id, runId));
 
-    return { status: null };
+    return { status: null, leaseToken, deliveries: pendingDeliveries };
   });
 }
 
-async function completeSendBatch({
+async function markDeliverySending({
   runId,
-  cursor,
-  sentCount,
-  failedCount,
-  recentFailures,
+  leaseToken,
+  recipientIndex,
 }: {
   runId: string;
-  cursor: number;
-  sentCount: number;
-  failedCount: number;
-  recentFailures: RecentFailure[];
+  leaseToken: string;
+  recipientIndex: number;
 }) {
-  const now = new Date().toISOString();
+  return db.transaction(async (tx) => {
+    const [run] = await tx
+      .select()
+      .from(emailSendRuns)
+      .where(eq(emailSendRuns.id, runId))
+      .limit(1)
+      .for("update");
 
-  await db
-    .update(emailSendBatches)
-    .set({
-      status: "complete",
-      sentCount,
-      failedCount,
-      recentFailures,
-      updatedAt: now,
-      completedAt: now,
-    })
-    .where(
-      and(
-        eq(emailSendBatches.runId, runId),
-        eq(emailSendBatches.cursor, cursor),
-      ),
-    );
+    if (!run || run.status !== "sending" || run.leaseToken !== leaseToken) {
+      return false;
+    }
+
+    const [delivery] = await tx
+      .select()
+      .from(emailSendDeliveries)
+      .where(
+        and(
+          eq(emailSendDeliveries.runId, runId),
+          eq(emailSendDeliveries.recipientIndex, recipientIndex),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!delivery || delivery.status !== "pending") {
+      return false;
+    }
+
+    const now = new Date().toISOString();
+    await tx
+      .update(emailSendDeliveries)
+      .set({ status: "sending", startedAt: now })
+      .where(eq(emailSendDeliveries.id, delivery.id));
+    await tx
+      .update(emailSendRuns)
+      .set({
+        leaseExpiresAt: leaseExpiry(),
+        recoveryExpiresAt: recoveryExpiry(),
+        updatedAt: now,
+      })
+      .where(eq(emailSendRuns.id, run.id));
+
+    return true;
+  });
 }
 
-async function updateSendBatchProgress({
+async function recordDeliveryResult({
   runId,
-  cursor,
-  results,
+  leaseToken,
+  recipientIndex,
+  result,
 }: {
   runId: string;
-  cursor: number;
-  results: SendResult[];
+  leaseToken: string;
+  recipientIndex: number;
+  result: SendResult;
 }) {
-  const now = new Date().toISOString();
-  const failedResults = results.filter((result) => result.status === "failed");
+  await db.transaction(async (tx) => {
+    const [run] = await tx
+      .select()
+      .from(emailSendRuns)
+      .where(eq(emailSendRuns.id, runId))
+      .limit(1)
+      .for("update");
 
-  await db
-    .update(emailSendBatches)
-    .set({
-      sentCount: results.filter((result) => result.status === "sent").length,
-      failedCount: failedResults.length,
-      recentFailures: failedResults
-        .map((result) => ({
-          email: result.email,
-          error: result.error,
-        }))
-        .slice(-10),
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(emailSendBatches.runId, runId),
-        eq(emailSendBatches.cursor, cursor),
-      ),
-    );
+    if (!run || run.leaseToken !== leaseToken) {
+      throw new EmailCampaignError("Send lease was lost", 409);
+    }
+
+    const [delivery] = await tx
+      .select()
+      .from(emailSendDeliveries)
+      .where(
+        and(
+          eq(emailSendDeliveries.runId, runId),
+          eq(emailSendDeliveries.recipientIndex, recipientIndex),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!delivery || delivery.status !== "sending") {
+      throw new EmailCampaignError("Active delivery not found", 409);
+    }
+
+    const now = new Date().toISOString();
+    await tx
+      .delete(emailSendDeliveries)
+      .where(eq(emailSendDeliveries.id, delivery.id));
+
+    const failure: EmailSendFailure = {
+      email: delivery.email,
+      error: result.error,
+    };
+    const [updatedRun] = await tx
+      .update(emailSendRuns)
+      .set({
+        sentCount: result.status === "sent" ? run.sentCount + 1 : run.sentCount,
+        failedCount:
+          result.status === "failed" ? run.failedCount + 1 : run.failedCount,
+        nextCursor: Math.max(run.nextCursor, recipientIndex + 1),
+        recentFailures:
+          result.status === "failed"
+            ? [...run.recentFailures, failure].slice(-10)
+            : run.recentFailures,
+        leaseExpiresAt: leaseExpiry(),
+        recoveryExpiresAt: recoveryExpiry(),
+        updatedAt: now,
+      })
+      .where(eq(emailSendRuns.id, run.id))
+      .returning();
+
+    if (
+      updatedRun &&
+      updatedRun.sentCount + updatedRun.failedCount ===
+        updatedRun.totalRecipients
+    ) {
+      await finalizeRun(tx, updatedRun, []);
+    }
+  });
 }
 
-async function resolveStaleSendBatch({
+async function releaseSendLease({
   runId,
+  leaseToken,
+}: {
+  runId: string;
+  leaseToken: string;
+}) {
+  await db.transaction(async (tx) => {
+    const [run] = await tx
+      .select()
+      .from(emailSendRuns)
+      .where(eq(emailSendRuns.id, runId))
+      .limit(1)
+      .for("update");
+
+    if (!run || run.leaseToken !== leaseToken) {
+      return;
+    }
+
+    const deliveries = await tx
+      .select()
+      .from(emailSendDeliveries)
+      .where(eq(emailSendDeliveries.runId, runId))
+      .orderBy(asc(emailSendDeliveries.recipientIndex));
+
+    if (deliveries.length === 0) {
+      await finalizeRun(tx, run, deliveries);
+      return;
+    }
+
+    await tx
+      .update(emailSendRuns)
+      .set({
+        leaseToken: null,
+        leaseExpiresAt: null,
+        recoveryExpiresAt: recoveryExpiry(),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(emailSendRuns.id, run.id));
+  });
+}
+
+async function resolveInterruptedDeliveries({
+  run,
   organizerId,
   templateFingerprint,
   recipientListHash,
   totalRecipients,
-  cursor,
-  parsed,
 }: {
-  runId: string;
+  run: EmailSendRunRow;
   organizerId: string;
   templateFingerprint: string;
   recipientListHash: string;
   totalRecipients: number;
-  cursor: number;
-  parsed: ReturnType<typeof parseRecipientText>;
 }) {
   await db.transaction(async (tx) => {
-    await assertSendRunMatches({
-      tx,
-      runId,
+    assertRunIdentity(run, {
       organizerId,
       templateFingerprint,
       recipientListHash,
       totalRecipients,
     });
 
-    const [batch] = await tx
+    const [lockedRun] = await tx
       .select()
-      .from(emailSendBatches)
-      .where(
-        and(
-          eq(emailSendBatches.runId, runId),
-          eq(emailSendBatches.cursor, cursor),
-        ),
-      )
+      .from(emailSendRuns)
+      .where(eq(emailSendRuns.id, run.id))
       .limit(1)
       .for("update");
 
-    if (!batch) {
-      throw new EmailCampaignError("Stale batch not found", 404);
+    if (!lockedRun || lockedRun.status !== "sending") {
+      throw new EmailCampaignError("Active send run not found", 404);
     }
 
-    if (batch.status === "complete") {
-      return;
-    }
-
-    if (!batchIsStale(batch)) {
+    if (leaseIsActive(lockedRun)) {
       throw new EmailCampaignError(
-        "Wait for the active batch to finish before resolving it.",
+        "Wait for the active delivery to finish before resolving it.",
         409,
       );
     }
 
-    const batchSize = Math.max(0, batch.endCursor - batch.cursor);
-    const recordedCount = batch.sentCount + batch.failedCount;
-    const unverifiedCount = Math.max(0, batchSize - recordedCount);
-    const unverifiedFailures = parsed.recipients
-      .slice(batch.cursor + recordedCount, batch.endCursor)
-      .map((recipient) => ({
-        email: recipient.email,
-        error:
-          "Batch was manually resolved after SES verification. Recipient was not retried automatically.",
-      }));
+    const interrupted = await tx
+      .select()
+      .from(emailSendDeliveries)
+      .where(
+        and(
+          eq(emailSendDeliveries.runId, run.id),
+          eq(emailSendDeliveries.status, "sending"),
+        ),
+      )
+      .orderBy(asc(emailSendDeliveries.recipientIndex))
+      .for("update");
+
+    if (interrupted.length === 0) {
+      throw new EmailCampaignError("No interrupted deliveries found", 409);
+    }
+
     const now = new Date().toISOString();
+    const error =
+      "Delivery became unverified during a server interruption and was not retried automatically.";
+    const failures = interrupted.map((delivery) => ({
+      email: delivery.email,
+      error,
+    }));
 
     await tx
-      .update(emailSendBatches)
-      .set({
-        status: "complete",
-        failedCount: batch.failedCount + unverifiedCount,
-        recentFailures: [...batch.recentFailures, ...unverifiedFailures].slice(
-          -10,
+      .delete(emailSendDeliveries)
+      .where(
+        and(
+          eq(emailSendDeliveries.runId, run.id),
+          eq(emailSendDeliveries.status, "sending"),
         ),
+      );
+    const [updatedRun] = await tx
+      .update(emailSendRuns)
+      .set({
+        failedCount: lockedRun.failedCount + interrupted.length,
+        nextCursor: Math.max(
+          lockedRun.nextCursor,
+          ...interrupted.map((delivery) => delivery.recipientIndex + 1),
+        ),
+        recentFailures: [...lockedRun.recentFailures, ...failures].slice(-10),
+        leaseToken: null,
+        leaseExpiresAt: null,
+        recoveryExpiresAt: recoveryExpiry(),
         updatedAt: now,
-        completedAt: now,
       })
-      .where(eq(emailSendBatches.id, batch.id));
+      .where(eq(emailSendRuns.id, run.id))
+      .returning();
+
+    if (
+      updatedRun &&
+      updatedRun.sentCount + updatedRun.failedCount ===
+        updatedRun.totalRecipients
+    ) {
+      await finalizeRun(tx, updatedRun, []);
+    }
   });
 }
 
-async function assertSendRunMatches({
-  tx,
-  runId,
-  organizerId,
-  templateFingerprint,
-  recipientListHash,
-  totalRecipients,
-}: {
-  tx: Pick<typeof db, "select">;
-  runId: string;
-  organizerId: string;
-  templateFingerprint: string;
-  recipientListHash: string;
-  totalRecipients: number;
-}) {
+async function sendRunStatus(
+  runId: string,
+  parsed: ReturnType<typeof parseRecipientText>,
+  tx: Pick<typeof db, "select"> = db,
+) {
   const [run] = await tx
     .select()
     .from(emailSendRuns)
@@ -515,108 +791,203 @@ async function assertSendRunMatches({
     throw new EmailCampaignError("Send run not found", 404);
   }
 
-  if (
-    run.organizerId !== organizerId ||
-    run.templateFingerprint !== templateFingerprint ||
-    run.recipientListHash !== recipientListHash ||
-    run.totalRecipients !== totalRecipients
-  ) {
-    throw new EmailCampaignError(
-      "This send run does not match the current template or recipient list. Start a new send.",
-      409,
-    );
-  }
+  const deliveries = await tx
+    .select()
+    .from(emailSendDeliveries)
+    .where(eq(emailSendDeliveries.runId, runId))
+    .orderBy(asc(emailSendDeliveries.recipientIndex));
+
+  return buildSendRunStatus(run, deliveries, parsed);
 }
 
-async function sendRunStatus(
-  runId: string,
+function buildSendRunStatus(
+  run: EmailSendRunRow,
+  deliveries: EmailSendDeliveryRow[],
   parsed: ReturnType<typeof parseRecipientText>,
-  tx: Pick<typeof db, "select" | "update"> = db,
 ) {
-  const batches = await tx
-    .select()
-    .from(emailSendBatches)
-    .where(eq(emailSendBatches.runId, runId))
-    .orderBy(asc(emailSendBatches.cursor));
-  const completedBatches = batches.filter(
-    (batch) => batch.status === "complete",
+  const complete = run.status === "sent" || run.status === "failed";
+  const activeLease = !complete && leaseIsActive(run);
+  const activelySending = deliveries.filter(
+    (delivery) => delivery.status === "sending",
   );
-  const sentCount = completedBatches.reduce(
-    (total, batch) => total + batch.sentCount,
-    0,
-  );
-  const failedCount = completedBatches.reduce(
-    (total, batch) => total + batch.failedCount,
-    0,
-  );
-  let nextCursor = 0;
+  const remainingCount = complete
+    ? 0
+    : Math.max(0, run.totalRecipients - run.sentCount - run.failedCount);
+  const sendingCount = complete
+    ? 0
+    : Math.min(remainingCount, activelySending.length);
+  const pendingCount = Math.max(0, remainingCount - sendingCount);
+  const nextCursor = complete ? run.totalRecipients : run.nextCursor;
 
-  for (const batch of completedBatches.sort(
-    (left, right) => left.cursor - right.cursor,
-  )) {
-    if (batch.cursor !== nextCursor) {
-      break;
-    }
-
-    nextCursor = batch.endCursor;
-  }
-
-  const activeBatch = batches.find(
-    (batch) => batch.status === "sending" && batch.cursor === nextCursor,
-  );
-  const sendingCount = activeBatch
-    ? Math.max(0, activeBatch.endCursor - activeBatch.cursor)
-    : 0;
-  const pendingCount = Math.max(
-    0,
-    parsed.recipients.length - nextCursor - sendingCount,
-  );
-  const complete =
-    pendingCount === 0 && sendingCount === 0 && parsed.recipients.length > 0;
-  const now = new Date().toISOString();
-
-  await tx
-    .update(emailSendRuns)
-    .set({
-      status: complete ? (failedCount > 0 ? "failed" : "sent") : "sending",
-      updatedAt: now,
-      completedAt: complete ? now : null,
-    })
-    .where(eq(emailSendRuns.id, runId));
+  const interruptedRecipients =
+    !activeLease && activelySending.length > 0
+      ? activelySending.map((delivery) => delivery.email)
+      : [];
 
   return {
-    runId,
-    totalRecipients: parsed.recipients.length,
-    sentCount,
-    failedCount,
+    runId: run.id,
+    totalRecipients: run.totalRecipients,
+    sentCount: run.sentCount,
+    failedCount: run.failedCount,
     pendingCount,
     sendingCount,
+    leaseActive: activeLease,
+    leaseExpiresAt: activeLease ? run.leaseExpiresAt : null,
     nextCursor,
     complete,
+    interrupted: interruptedRecipients.length > 0,
     invalid: parsed.invalid,
     duplicateCount: parsed.duplicateCount,
     columns: parsed.columns,
-    recentFailures: completedBatches
-      .flatMap((batch) => batch.recentFailures)
-      .slice(-10),
+    unverifiedRecipients: interruptedRecipients,
+    recentFailures: run.recentFailures,
   };
 }
 
-function batchIsStale(batch: EmailSendBatchRow) {
+async function finalizeRun(
+  tx: Pick<typeof db, "update" | "delete">,
+  run: EmailSendRunRow,
+  deliveries: EmailSendDeliveryRow[],
+) {
+  if (
+    deliveries.length !== 0 ||
+    run.sentCount + run.failedCount !== run.totalRecipients
+  ) {
+    throw new EmailCampaignError(
+      "Send recovery data is incomplete; refusing to finalize the run",
+      409,
+    );
+  }
+
+  const sentCount = run.sentCount;
+  const failedCount = run.failedCount;
+  const now = new Date().toISOString();
+  const [completedRun] = await tx
+    .update(emailSendRuns)
+    .set({
+      status: failedCount > 0 ? "failed" : "sent",
+      sentCount,
+      failedCount,
+      nextCursor: run.totalRecipients,
+      recentFailures: [],
+      templateSnapshot: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      recoveryExpiresAt: null,
+      updatedAt: now,
+      completedAt: now,
+    })
+    .where(eq(emailSendRuns.id, run.id))
+    .returning();
+
+  await tx
+    .delete(emailSendDeliveries)
+    .where(eq(emailSendDeliveries.runId, run.id));
+
   return (
-    Date.now() - Date.parse(batch.updatedAt) >
-    getCampaignLimits().staleSendingLeaseMs
+    completedRun ?? {
+      ...run,
+      status: failedCount > 0 ? "failed" : "sent",
+      sentCount,
+      failedCount,
+      nextCursor: run.totalRecipients,
+      recentFailures: [],
+      templateSnapshot: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      recoveryExpiresAt: null,
+      updatedAt: now,
+      completedAt: now,
+    }
   );
+}
+
+function leaseIsActive(run: EmailSendRunRow) {
+  return Boolean(
+    run.leaseToken &&
+    run.leaseExpiresAt &&
+    Date.parse(run.leaseExpiresAt) > Date.now(),
+  );
+}
+
+function leaseExpiry() {
+  return new Date(
+    Date.now() + getCampaignLimits().staleSendingLeaseMs,
+  ).toISOString();
+}
+
+function recoveryExpiry() {
+  return new Date(Date.now() + activeSendRecoveryWindowMs).toISOString();
+}
+
+async function pruneExpiredSendData() {
+  const now = new Date().toISOString();
+  const testProofCutoff = new Date(
+    Date.now() - expiredTestProofRetentionMs,
+  ).toISOString();
+  const compactRunCutoff = new Date(
+    Date.now() - compactRunRetentionMs,
+  ).toISOString();
+
+  await db.transaction(async (tx) => {
+    const expiredRuns = await tx
+      .select({ id: emailSendRuns.id })
+      .from(emailSendRuns)
+      .where(
+        and(
+          eq(emailSendRuns.status, "sending"),
+          lt(emailSendRuns.recoveryExpiresAt, now),
+        ),
+      );
+    const expiredRunIds = expiredRuns.map((run) => run.id);
+
+    if (expiredRunIds.length > 0) {
+      await tx
+        .delete(emailSendDeliveries)
+        .where(inArray(emailSendDeliveries.runId, expiredRunIds));
+      await tx
+        .update(emailSendRuns)
+        .set({
+          status: "expired",
+          templateSnapshot: null,
+          recentFailures: [],
+          leaseToken: null,
+          leaseExpiresAt: null,
+          recoveryExpiresAt: null,
+          updatedAt: now,
+          completedAt: now,
+        })
+        .where(inArray(emailSendRuns.id, expiredRunIds));
+    }
+
+    await tx
+      .delete(emailSendRuns)
+      .where(
+        or(
+          and(
+            eq(emailSendRuns.status, "test_sent"),
+            lt(emailSendRuns.createdAt, testProofCutoff),
+          ),
+          and(
+            ne(emailSendRuns.status, "sending"),
+            ne(emailSendRuns.status, "test_sent"),
+            lt(emailSendRuns.completedAt, compactRunCutoff),
+          ),
+        ),
+      );
+  });
 }
 
 async function findSuccessfulTestSend({
   organizer,
   template,
   testSendToken,
+  tx = db,
 }: {
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
   testSendToken: string | undefined;
+  tx?: Pick<typeof db, "select">;
 }): Promise<ApprovedTestSend | null> {
   if (!testSendToken) {
     return null;
@@ -624,7 +995,7 @@ async function findSuccessfulTestSend({
 
   const expectedFingerprint = fingerprintDirectTemplate(template);
   const now = Date.now();
-  const [proof] = await db
+  const [proof] = await tx
     .select()
     .from(emailSendRuns)
     .where(eq(emailSendRuns.id, testSendToken))
@@ -658,15 +1029,18 @@ async function assertSuccessfulTestSend({
   organizer,
   template,
   testSendToken,
+  tx = db,
 }: {
   organizer: Awaited<ReturnType<typeof requireOrganizer>>;
   template: DirectEmailTemplateInput;
   testSendToken: string | undefined;
+  tx?: Pick<typeof db, "select">;
 }): Promise<ApprovedTestSend> {
   const matchingProof = await findSuccessfulTestSend({
     organizer,
     template,
     testSendToken,
+    tx,
   });
 
   if (!matchingProof) {
