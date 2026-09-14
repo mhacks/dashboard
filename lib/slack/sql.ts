@@ -242,10 +242,25 @@ function tokenizeSql(sql: string): Token[] {
   return tokens;
 }
 
+function isWord(
+  token: Token | undefined,
+): token is Extract<Token, { type: "word" }> {
+  return token?.type === "word";
+}
+
+function isPunct(
+  token: Token | undefined,
+  value?: string,
+): token is Extract<Token, { type: "punct" }> {
+  return (
+    token?.type === "punct" && (value === undefined || token.value === value)
+  );
+}
+
 function checkForbidden(tokens: Token[]): void {
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-    if (token.type !== "word") continue;
+    if (!isWord(token)) continue;
 
     if (FORBIDDEN_WORDS.has(token.value)) {
       throw new Error("Query contains a forbidden keyword");
@@ -258,43 +273,45 @@ function checkForbidden(tokens: Token[]): void {
       }
     }
 
-    if (
-      FORBIDDEN_FUNCS.has(token.value) &&
-      tokens[i + 1]?.type === "punct" &&
-      tokens[i + 1].value === "("
-    ) {
+    if (FORBIDDEN_FUNCS.has(token.value) && isPunct(tokens[i + 1], "(")) {
       throw new Error("Query contains a forbidden function");
     }
   }
 }
 
+function wordAt(tokens: Token[], i: number): string | undefined {
+  const token = tokens[i];
+  return isWord(token) ? token.value : undefined;
+}
+
 function nextWord(tokens: Token[], start: number): string | undefined {
   for (let i = start; i < tokens.length; i++) {
-    if (tokens[i].type === "word") return tokens[i].value;
+    const value = wordAt(tokens, i);
+    if (value) return value;
   }
   return undefined;
 }
 
 function extractCteNames(tokens: Token[]): Set<string> {
   const names = new Set<string>();
-  if (tokens[0]?.type !== "word" || tokens[0].value !== "with") return names;
+  if (wordAt(tokens, 0) !== "with") return names;
 
   let i = 1;
-  if (tokens[i]?.type === "word" && tokens[i].value === "recursive") i++;
+  if (wordAt(tokens, i) === "recursive") i++;
 
   while (i < tokens.length) {
-    if (tokens[i]?.type !== "word") break;
-    const name = tokens[i].value;
+    const name = wordAt(tokens, i);
+    if (!name) break;
     i++;
-    if (tokens[i]?.type === "punct" && tokens[i].value === "(") {
+    if (isPunct(tokens[i], "(")) {
       i = skipParens(tokens, i);
     }
-    if (tokens[i]?.type !== "word" || tokens[i].value !== "as") break;
+    if (wordAt(tokens, i) !== "as") break;
     i++;
-    if (tokens[i]?.type !== "punct" || tokens[i].value !== "(") break;
+    if (!isPunct(tokens[i], "(")) break;
     i = skipParens(tokens, i);
     names.add(name);
-    if (tokens[i]?.type === "punct" && tokens[i].value === ",") {
+    if (isPunct(tokens[i], ",")) {
       i++;
       continue;
     }
@@ -317,14 +334,11 @@ function extractTableNames(tokens: Token[]): string[] {
 
     const fromList = token.value === "from";
     i++;
-    while (
-      tokens[i]?.type === "word" &&
-      ["only", "lateral"].includes(tokens[i].value)
-    ) {
+    while (["only", "lateral"].includes(wordAt(tokens, i) ?? "")) {
       i++;
     }
 
-    if (tokens[i]?.type === "punct" && tokens[i].value === "(") {
+    if (isPunct(tokens[i], "(")) {
       i = skipParens(tokens, i) - 1;
       i = skipAlias(tokens, i + 1) - 1;
       if (fromList && isComma(tokens[i + 1])) {
@@ -351,48 +365,50 @@ function parseQualifiedName(
   if (tokens[i]?.type === "quoted") {
     throw new Error("Quoted identifiers are not allowed");
   }
-  if (tokens[i]?.type !== "word") return null;
+  const table = tokens[i];
+  if (!isWord(table)) return null;
 
-  const first = tokens[i].value;
+  const first = table.value;
+  const second = tokens[i + 2];
   if (
-    tokens[i + 1]?.type === "punct" &&
-    tokens[i + 1].value === "." &&
-    (tokens[i + 2]?.type === "word" || tokens[i + 2]?.type === "quoted")
+    isPunct(tokens[i + 1], ".") &&
+    (isWord(second) || second?.type === "quoted")
   ) {
-    if (tokens[i + 2].type === "quoted") {
+    if (second.type === "quoted") {
       throw new Error("Quoted identifiers are not allowed");
     }
     if (first !== "public") {
       throw new Error(`Schema "${first}" is not allowed`);
     }
-    return { name: tokens[i + 2].value, next: i + 3 };
+    return { name: second.value, next: i + 3 };
   }
 
   return { name: first, next: i + 1 };
 }
 
 function skipAlias(tokens: Token[], i: number): number {
-  if (tokens[i]?.type === "word" && tokens[i].value === "as") {
+  if (wordAt(tokens, i) === "as") {
     if (tokens[i + 1]?.type === "quoted") {
       throw new Error("Quoted identifiers are not allowed");
     }
-    if (tokens[i + 1]?.type === "word") return i + 2;
+    if (isWord(tokens[i + 1])) return i + 2;
     return i + 1;
   }
-  if (tokens[i]?.type === "word" && !TABLE_FOLLOWERS.has(tokens[i].value)) {
+  const alias = wordAt(tokens, i);
+  if (alias && !TABLE_FOLLOWERS.has(alias)) {
     return i + 1;
   }
   return i;
 }
 
 function skipParens(tokens: Token[], i: number): number {
-  if (tokens[i]?.type !== "punct" || tokens[i].value !== "(") {
+  if (!isPunct(tokens[i], "(")) {
     throw new Error("Unbalanced parentheses");
   }
   let depth = 0;
   for (; i < tokens.length; i++) {
     const token = tokens[i];
-    if (token.type !== "punct") continue;
+    if (!isPunct(token)) continue;
     if (token.value === "(") depth++;
     else if (token.value === ")") {
       depth--;
@@ -403,7 +419,7 @@ function skipParens(tokens: Token[], i: number): number {
 }
 
 function isComma(token: Token | undefined): boolean {
-  return token?.type === "punct" && token.value === ",";
+  return isPunct(token, ",");
 }
 
 function serializeValue(value: unknown): unknown {
