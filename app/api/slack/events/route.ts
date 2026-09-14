@@ -42,10 +42,6 @@ export async function POST(request: Request) {
     retry: request.headers.get("x-slack-retry-num"),
   });
 
-  if (request.headers.get("x-slack-retry-num")) {
-    return new Response(null, { status: 200 });
-  }
-
   if (isEventCallback(payload)) {
     if (hasSeenEvent(payload.event_id)) {
       return new Response(null, { status: 200 });

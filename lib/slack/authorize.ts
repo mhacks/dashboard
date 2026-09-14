@@ -31,11 +31,12 @@ export function isAllowedTeam(teamId: string): boolean {
 }
 
 export function isAllowedChannel(channelId: string): boolean {
-  const raw = process.env.SLACK_ALLOWED_CHANNEL_IDS;
-  if (!raw?.trim()) return true;
-  const allowed = raw
+  const allowed = (process.env.SLACK_ALLOWED_CHANNEL_IDS ?? "")
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
+  if (allowed.length === 0) {
+    return process.env.NODE_ENV !== "production";
+  }
   return allowed.includes(channelId);
 }

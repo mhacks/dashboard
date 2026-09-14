@@ -23,13 +23,13 @@ Put these in root `.env` (shared secrets file; see
 [`scripts/gen-env-local.sh`](../scripts/gen-env-local.sh) — that script overwrites
 `.env.local`.
 
-| Variable                    | Required | Purpose                                                |
-| --------------------------- | -------- | ------------------------------------------------------ |
-| `SLACK_SIGNING_SECRET`      | yes      | Verifies Slack request signatures                      |
-| `SLACK_BOT_TOKEN`           | yes      | Bot User OAuth Token                                   |
-| `SLACK_TEAM_ID`             | no       | Restrict to one workspace                              |
-| `SLACK_ALLOWED_CHANNEL_IDS` | no       | Comma-separated channel IDs allowed to mention the bot |
-| `OPENAI_API_KEY`            | yes      | LLM for answering questions                            |
+| Variable                    | Required   | Purpose                                                                                                    |
+| --------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------- |
+| `SLACK_SIGNING_SECRET`      | yes        | Verifies Slack request signatures                                                                          |
+| `SLACK_BOT_TOKEN`           | yes        | Bot User OAuth Token                                                                                       |
+| `SLACK_TEAM_ID`             | no         | Restrict to one workspace                                                                                  |
+| `SLACK_ALLOWED_CHANNEL_IDS` | production | Comma-separated channel IDs allowed to mention the bot. Unset fails closed in production and open locally. |
+| `OPENAI_API_KEY`            | yes        | LLM for answering questions                                                                                |
 
 ## Local
 
@@ -49,5 +49,10 @@ the bot in an organizers-only channel; replies can include applicant PII.
 
 Add the same variables as SSM parameters (see
 [`task-definition.json`](../task-definition.json)), then redeploy.
+`SLACK_ALLOWED_CHANNEL_IDS` is required in production; the bot will not
+answer in any channel until it is set.
+
+The bot uses `DATABASE_URL`. Prefer a dedicated Postgres role with `SELECT`
+only on the tables listed in [`lib/slack/schema-prompt.ts`](../lib/slack/schema-prompt.ts).
 
 [Remote development](./remote-development.md)

@@ -7,7 +7,7 @@ import {
 import { answerQuestion } from "./ask";
 import { getSlackClient } from "./client";
 import { isAppMention, type SlackEventCallback } from "./events";
-import { stripBotMention } from "./format";
+import { stripBotMention, truncateSlackText } from "./format";
 import { getThreadHistory } from "./thread";
 
 export async function handleMention(
@@ -29,7 +29,18 @@ async function handleMentionUnsafe(payload: SlackEventCallback): Promise<void> {
   if (!isAllowedChannel(event.channel)) return;
 
   const slack = getSlackClient();
-  const organizer = await getOrganizerForSlackUser(event.user);
+  let organizer: Awaited<ReturnType<typeof getOrganizerForSlackUser>>;
+  try {
+    organizer = await getOrganizerForSlackUser(event.user);
+  } catch (error) {
+    console.error("slack organizer lookup failed", error);
+    await slack.chat.postEphemeral({
+      channel: event.channel,
+      user: event.user,
+      text: "Couldn't verify you as an organizer. Try again in a moment.",
+    });
+    return;
+  }
   if (!organizer) {
     await slack.chat.postEphemeral({
       channel: event.channel,
@@ -68,14 +79,14 @@ async function handleMentionUnsafe(payload: SlackEventCallback): Promise<void> {
     await slack.chat.postMessage({
       channel: event.channel,
       thread_ts,
-      text: text.slice(0, 3900),
+      text: truncateSlackText(text),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("slack question failed", error);
     await slack.chat.postMessage({
       channel: event.channel,
       thread_ts,
-      text: `Could not answer that: ${message}`,
+      text: "Could not answer that. Try rephrasing the question.",
     });
   }
 }
