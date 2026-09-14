@@ -29,6 +29,7 @@ import {
 import { AdminHeaderActions } from "@/app/admin/components/admin-header-actions";
 import { adminPageHeaderClasses } from "@/app/admin/components/admin-page-header-layout";
 import { Button } from "@/components/ui/button";
+import { OTP_PREVIEW_CODE } from "@/lib/auth/otp";
 import type {
   EmailAudienceQuery,
   EmailCampaignContent,
@@ -3229,7 +3230,7 @@ const defaultMergeSamples: Record<string, string> = {
   first_name: "Hacker",
   last_name: "Hacker",
   name: "Hacker",
-  otp_code: "123456",
+  otp_code: OTP_PREVIEW_CODE,
   travel_reimbursement: "150.00",
 };
 

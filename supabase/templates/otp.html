@@ -194,7 +194,7 @@
                             Consolas, &quot;Courier New&quot;, monospace;
                         "
                       >
-                        {{ .Token }}
+                        {{ slice .Token 0 4 }}-{{ slice .Token 4 8 }}
                       </p>
                     </td>
                   </tr>
@@ -207,8 +207,8 @@
                     line-height: 1.4;
                   "
                 >
-                  This OTP code is valid for a limited time. Do not share this
-                  code with anyone.
+                  This OTP code expires in 5 minutes. Do not share this code
+                  with anyone.
                 </p>
               </td>
             </tr>
