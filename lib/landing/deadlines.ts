@@ -55,7 +55,7 @@ export const DEADLINES: Deadline[] = [
     id: "regular-decisions",
     label: "Regular decisions released",
     countdownLabel: "Decisions out",
-    date: "2026-09-19T23:59:59-04:00",
+    date: "2026-09-14T23:59:59-04:00",
   },
 ];
 
