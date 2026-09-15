@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { QrCode } from "@/components/checkin/qr-code";
-import { ButtonLink } from "@/components/console/button";
+import { buttonClass, ButtonLink } from "@/components/console/button";
 import { Panel, PanelHeading } from "@/components/console/panel";
 import { ProgressMeter, StatusLine } from "@/components/console/progress";
 import { Rail, RailNote } from "@/components/console/rail";
@@ -45,6 +45,7 @@ export function ApplicantDashboard({
   firstName,
   userId,
   canCheckIn,
+  walletConfigured,
 }: {
   data: ApplicantDashboardData;
   role: UserRole;
@@ -53,6 +54,8 @@ export function ApplicantDashboard({
   userId: string;
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
+  /** Whether this environment can sign Apple Wallet passes. */
+  walletConfigured: boolean;
 }) {
   return (
     <div className="font-red-hat">
@@ -67,7 +70,12 @@ export function ApplicantDashboard({
               who can see this has already been accepted and RSVPed, so their
               decision is settled news and the code is the thing they came to
               the dashboard to find. */}
-          {canCheckIn ? <CheckInPanel userId={userId} /> : null}
+          {canCheckIn ? (
+            <CheckInPanel
+              userId={userId}
+              walletPassAvailable={walletConfigured}
+            />
+          ) : null}
 
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
@@ -232,11 +240,28 @@ function DecisionReadyPanel() {
  * /dashboard/qr renders the same code full screen and needs no JavaScript at
  * all. It is no longer linked from here, but it stays reachable by URL — it is
  * the fallback to send someone to if this sheet won't open on their phone.
+ *
+ * The same code is also offered as an Apple Wallet pass. It's a
+ * plain <a>, not next/link: the response is a .pkpass download that Safari
+ * hands to Wallet, and a client-side navigation or prefetch would only get in
+ * the way.
  */
-function CheckInPanel({ userId }: { userId: string }) {
+function CheckInPanel({
+  userId,
+  walletPassAvailable,
+}: {
+  userId: string;
+  walletPassAvailable: boolean;
+}) {
   return (
     <Panel eyebrow="CHECK-IN" status="Ready">
-      <PanelHeading lede="This is your check-in code for the weekend. Organizers will scan this for attendance and meals.">
+      <PanelHeading
+        lede={
+          walletPassAvailable
+            ? "This is your check-in code for the weekend. Organizers will scan this for attendance and meals. Add it to Apple Wallet to pull it up from your lock screen, even offline."
+            : "This is your check-in code for the weekend. Organizers will scan this for attendance and meals."
+        }
+      >
         Your check-in code
       </PanelHeading>
 
@@ -248,6 +273,12 @@ function CheckInPanel({ userId }: { userId: string }) {
             className="w-[min(78vw,340px)]"
           />
         </QrDrawerButton>
+
+        {walletPassAvailable ? (
+          <a href="/wallet/pass" className={buttonClass("outline")}>
+            Add to Apple Wallet
+          </a>
+        ) : null}
       </div>
     </Panel>
   );
