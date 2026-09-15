@@ -4,6 +4,7 @@ import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { hackerApplicationInvitations } from "@/lib/db/schema/application-invitations";
 import { users } from "@/lib/db/schema/users";
+import type { ApplicationDecision } from "@/lib/decisions";
 import {
   applicationInvitationStatus,
   type AdminApplicationInvitation,
@@ -25,8 +26,24 @@ const applicationNameSql = sql<string | null>`(
   limit 1
 )`;
 
+const applicationSlugSql = sql<string | null>`(
+  select 'app_' || substring(md5(applicant.user_id::text) from 1 for 24)
+  from public.hacker_applicants applicant
+  inner join public.users target_user on target_user.id = applicant.user_id
+  where lower(target_user.email) = ${hackerApplicationInvitations.email}
+  limit 1
+)`;
+
 const submittedAtSql = sql<string | null>`(
   select applicant.created_at
+  from public.hacker_applicants applicant
+  inner join public.users target_user on target_user.id = applicant.user_id
+  where lower(target_user.email) = ${hackerApplicationInvitations.email}
+  limit 1
+)`;
+
+const applicationDecisionSql = sql<ApplicationDecision | null>`(
+  select applicant.decision
   from public.hacker_applicants applicant
   inner join public.users target_user on target_user.id = applicant.user_id
   where lower(target_user.email) = ${hackerApplicationInvitations.email}
@@ -71,9 +88,12 @@ async function getAdminApplicationInvitationRows(where?: SQL) {
       createdAt: hackerApplicationInvitations.createdAt,
       updatedAt: hackerApplicationInvitations.updatedAt,
       note: hackerApplicationInvitations.note,
+      autoAccept: hackerApplicationInvitations.autoAccept,
       createdByEmail: users.email,
       applicationId: applicationIdSql,
+      applicationSlug: applicationSlugSql,
       applicationName: applicationNameSql,
+      applicationDecision: applicationDecisionSql,
       submittedAt: submittedAtSql,
     })
     .from(hackerApplicationInvitations)

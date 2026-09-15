@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   pgPolicy,
@@ -32,6 +33,7 @@ export const hackerApplicationInvitations = pgTable(
       mode: "string",
     }).notNull(),
     note: text(),
+    autoAccept: boolean("auto_accept").default(false).notNull(),
     revokedAt: timestamp("revoked_at", {
       withTimezone: true,
       mode: "string",

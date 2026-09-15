@@ -1,20 +1,40 @@
 "use client";
 
 import { type FormEvent, useMemo, useState, useTransition } from "react";
-import { Clock3Icon, PlusIcon, RotateCcwIcon, SearchIcon } from "lucide-react";
+import Link from "next/link";
+import {
+  ClipboardCheckIcon,
+  Clock3Icon,
+  MailCheckIcon,
+  PlusIcon,
+  RotateCcwIcon,
+  SearchIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  acceptInvitedApplicantAction,
   createApplicationInvitationAction,
   revokeApplicationInvitationAction,
 } from "@/lib/actions/application-invitations.server.actions";
+import { decisionOutcome } from "@/lib/decisions";
 import {
   APPLICATION_INVITATION_MAX_DURATION_HOURS,
   type AdminApplicationInvitation,
-  type ApplicationInvitationStatus,
 } from "@/lib/types/application-invitations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Card,
   CardContent,
@@ -50,10 +70,26 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function statusBadge(status: ApplicationInvitationStatus) {
-  if (status === "active") return <Badge>Active</Badge>;
-  if (status === "applied") return <Badge variant="secondary">Applied</Badge>;
-  if (status === "expired") return <Badge variant="secondary">Expired</Badge>;
+function statusBadge(invitation: AdminApplicationInvitation) {
+  if (
+    invitation.applicationDecision &&
+    decisionOutcome(invitation.applicationDecision) === "accepted"
+  ) {
+    return <Badge>Accepted</Badge>;
+  }
+  if (
+    invitation.applicationDecision &&
+    decisionOutcome(invitation.applicationDecision) === "rejected"
+  ) {
+    return <Badge variant="destructive">Rejected</Badge>;
+  }
+  if (invitation.status === "active") return <Badge>Active</Badge>;
+  if (invitation.status === "applied") {
+    return <Badge variant="secondary">Applied</Badge>;
+  }
+  if (invitation.status === "expired") {
+    return <Badge variant="secondary">Expired</Badge>;
+  }
   return <Badge variant="outline">Revoked</Badge>;
 }
 
@@ -78,10 +114,14 @@ export function HackerInviteControls({
   const [email, setEmail] = useState("");
   const [durationHours, setDurationHours] = useState("168");
   const [note, setNote] = useState("");
+  const [autoAccept, setAutoAccept] = useState(false);
   const [search, setSearch] = useState("");
   const [isCreating, startCreateTransition] = useTransition();
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [isRevoking, startRevokeTransition] = useTransition();
+  const [pendingDecision, setPendingDecision] =
+    useState<AdminApplicationInvitation | null>(null);
+  const [isAccepting, setIsAccepting] = useState(false);
 
   const filteredInvitations = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -98,6 +138,7 @@ export function HackerInviteControls({
         email,
         durationHours,
         note,
+        autoAccept,
       });
 
       if (!result.ok) {
@@ -112,6 +153,7 @@ export function HackerInviteControls({
       setEmail("");
       setDurationHours("168");
       setNote("");
+      setAutoAccept(false);
       setOpen(false);
       if (result.emailSent) {
         toast.success(`Application invite sent to ${result.invitation.email}.`);
@@ -146,6 +188,51 @@ export function HackerInviteControls({
       );
       toast.success(`Application invite revoked for ${invitation.email}.`);
     });
+  }
+
+  async function acceptAndSendDecision() {
+    if (!pendingDecision) return;
+
+    setIsAccepting(true);
+    try {
+      const result = await acceptInvitedApplicantAction({
+        invitationId: pendingDecision.id,
+      });
+
+      if (!result.ok) {
+        toast.error(result.message);
+        setPendingDecision(null);
+        return;
+      }
+
+      setInvitations((current) =>
+        current.map((invitation) =>
+          invitation.id === pendingDecision.id
+            ? { ...invitation, applicationDecision: result.decision }
+            : invitation,
+        ),
+      );
+      setPendingDecision(null);
+
+      if (!result.emailSent) {
+        toast.warning(
+          result.newlyAccepted
+            ? "Applicant accepted, but the email failed. Use Resend email to try again."
+            : "Acceptance email failed to send. Please try again.",
+        );
+      } else {
+        toast.success(
+          result.newlyAccepted
+            ? "Applicant accepted and decision email sent."
+            : "Acceptance email resent.",
+        );
+      }
+    } catch (error) {
+      console.error("Unable to accept invited applicant:", error);
+      toast.error("Unable to accept this applicant. Please try again.");
+    } finally {
+      setIsAccepting(false);
+    }
   }
 
   return (
@@ -218,6 +305,22 @@ export function HackerInviteControls({
                     rows={4}
                   />
                 </div>
+
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+                  <Checkbox
+                    checked={autoAccept}
+                    onCheckedChange={(value) => setAutoAccept(value === true)}
+                  />
+                  <span>
+                    <span className="font-medium">
+                      Auto-accept after submission
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      Release their acceptance and send the decision email as
+                      soon as this invited hacker submits.
+                    </span>
+                  </span>
+                </label>
               </div>
 
               <SheetFooter>
@@ -279,28 +382,62 @@ export function HackerInviteControls({
                         {invitation.email}
                       </div>
                     ) : null}
+                    {invitation.autoAccept ? (
+                      <div className="mt-1 text-xs font-medium text-moss dark:text-sage">
+                        Auto-accept enabled
+                      </div>
+                    ) : null}
                   </TableCell>
-                  <TableCell>{statusBadge(invitation.status)}</TableCell>
+                  <TableCell>{statusBadge(invitation)}</TableCell>
                   <TableCell>{formatDateTime(invitation.expiresAt)}</TableCell>
                   <TableCell>{formatDateTime(invitation.createdAt)}</TableCell>
                   <TableCell>{invitation.createdByEmail ?? "—"}</TableCell>
                   <TableCell className="max-w-72 truncate">
                     {invitation.note || "—"}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        invitation.status !== "active" ||
-                        (isRevoking && revokingId === invitation.id)
-                      }
-                      onClick={() => revokeInvitation(invitation)}
-                    >
-                      <RotateCcwIcon data-icon="inline-start" />
-                      Revoke
-                    </Button>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      {invitation.status === "applied" &&
+                      invitation.applicationSlug ? (
+                        <Button asChild variant="outline" size="sm">
+                          <Link
+                            href={`/admin/applications/${invitation.applicationSlug}`}
+                          >
+                            <ClipboardCheckIcon data-icon="inline-start" />
+                            Review
+                          </Link>
+                        </Button>
+                      ) : null}
+                      {invitation.status === "applied" &&
+                      invitation.applicationDecision !== null &&
+                      decisionOutcome(invitation.applicationDecision) !==
+                        "rejected" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => setPendingDecision(invitation)}
+                        >
+                          <MailCheckIcon data-icon="inline-start" />
+                          {invitation.applicationDecision === "applied"
+                            ? "Accept & email"
+                            : "Resend email"}
+                        </Button>
+                      ) : invitation.status !== "applied" ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            invitation.status !== "active" ||
+                            (isRevoking && revokingId === invitation.id)
+                          }
+                          onClick={() => revokeInvitation(invitation)}
+                        >
+                          <RotateCcwIcon data-icon="inline-start" />
+                          Revoke
+                        </Button>
+                      ) : null}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -308,6 +445,49 @@ export function HackerInviteControls({
           </TableBody>
         </Table>
       </CardContent>
+      <AlertDialog
+        open={pendingDecision !== null}
+        onOpenChange={(open) => {
+          if (!open && !isAccepting) setPendingDecision(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <MailCheckIcon className="text-moss dark:text-sage" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              {pendingDecision?.applicationDecision === "applied"
+                ? "Accept and send decision email?"
+                : "Resend acceptance email?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDecision
+                ? pendingDecision.applicationDecision === "applied"
+                  ? `${pendingDecision.applicationName ?? pendingDecision.email} will be accepted. Their decision letter will go live immediately, and the acceptance email will be sent to ${pendingDecision.email}.`
+                  : `The acceptance email will be sent again to ${pendingDecision.email}. Their admission decision will not change.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isAccepting}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={isAccepting}
+              onClick={acceptAndSendDecision}
+            >
+              <MailCheckIcon className="size-4" />
+              {isAccepting
+                ? pendingDecision?.applicationDecision === "applied"
+                  ? "Accepting & sending…"
+                  : "Sending…"
+                : pendingDecision?.applicationDecision === "applied"
+                  ? "Accept & send email"
+                  : "Resend email"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
