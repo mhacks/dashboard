@@ -29,7 +29,9 @@ Put these in root `.env` (shared secrets file; see
 | `SLACK_BOT_TOKEN`           | yes        | Bot User OAuth Token                                                                                       |
 | `SLACK_TEAM_ID`             | no         | Restrict to one workspace                                                                                  |
 | `SLACK_ALLOWED_CHANNEL_IDS` | production | Comma-separated channel IDs allowed to mention the bot. Unset fails closed in production and open locally. |
-| `OPENAI_API_KEY`            | yes        | LLM for answering questions                                                                                |
+| `OPENAI_API_KEY`            | local      | LLM for answering questions (used when OpenRouter is unset)                                                |
+| `OPENROUTER_API_KEY`        | production | OpenRouter key from Terraform (`openrouter.tf`); injected via SSM                                          |
+| `OPENROUTER_BASE_URL`       | production | OpenRouter OpenAI-compatible base URL from Terraform                                                       |
 
 ## Local
 
@@ -47,8 +49,10 @@ the bot in an organizers-only channel; replies can include applicant PII.
 
 ## Production
 
-Add the same variables as SSM parameters (see
-[`task-definition.json`](../task-definition.json)), then redeploy.
+Production secrets are Terraform-managed in
+[`mhacks/deployment`](https://github.com/mhacks/deployment) (`live/secrets.tf`,
+`live/slack.tf`, `live/openrouter.tf`). Set `slack_*` in local `*.tfvars` (gitignored)
+and apply that stack — do not create SSM parameters in the AWS console.
 `SLACK_ALLOWED_CHANNEL_IDS` is required in production; the bot will not
 answer in any channel until it is set.
 

@@ -94,8 +94,12 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/SLACK_ALLOWED_CHANNEL_IDS"
         },
         {
-          "name": "OPENAI_API_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/OPENAI_API_KEY"
+          "name": "OPENROUTER_API_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/OPENROUTER_API_KEY"
+        },
+        {
+          "name": "OPENROUTER_BASE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/OPENROUTER_BASE_URL"
         }
       ],
       "logConfiguration": {

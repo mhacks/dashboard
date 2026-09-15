@@ -1,5 +1,5 @@
 import { generateText, stepCountIs, tool, type ModelMessage } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { formatQueryRows } from "./format";
 import { DATABASE_SCHEMA_PROMPT } from "./schema-prompt";
@@ -21,7 +21,7 @@ export async function answerQuestion(
   history: ModelMessage[] = [],
 ): Promise<string> {
   const { text, steps } = await generateText({
-    model: openai("gpt-4o"),
+    model: languageModel(),
     system: SYSTEM_PROMPT,
     messages: [...history, { role: "user", content: question }],
     tools: {
@@ -53,6 +53,19 @@ export async function answerQuestion(
   const lastRows = lastSuccessfulRows(steps);
   if (lastRows) return formatQueryRows(lastRows);
   return "I could not produce an answer. Try rephrasing the question.";
+}
+
+function languageModel() {
+  const apiKey = process.env.OPENROUTER_API_KEY ?? process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY or OPENAI_API_KEY is not set");
+  }
+  const baseURL = process.env.OPENROUTER_BASE_URL;
+  const openai = createOpenAI({
+    apiKey,
+    ...(baseURL ? { baseURL } : {}),
+  });
+  return openai(baseURL ? "openai/gpt-4o" : "gpt-4o");
 }
 
 function lastSuccessfulRows(
