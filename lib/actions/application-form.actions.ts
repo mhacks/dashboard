@@ -18,6 +18,7 @@ import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
 import { validateResumeInS3 } from "@/lib/resume";
 import { getApplicationRound } from "@/lib/types/application-reviews";
 import { assertApplicationOpenForUser } from "@/lib/applications/access";
+import { autoAcceptInvitedApplication } from "@/lib/applications/auto-accept";
 
 // Core application logic, parameterized by `userId`, shared by both the web
 // form (cookie-authenticated server actions) and the MCP server (OAuth
@@ -87,6 +88,11 @@ export async function submitHackerApplicationForUser(
     await db
       .delete(hackerApplicationDrafts)
       .where(eq(hackerApplicationDrafts.userId, userId));
+
+    await autoAcceptInvitedApplication({
+      applicationId: result[0].id,
+      userId,
+    });
 
     const posthog = getPostHogClient();
     if (source === "mcp") {

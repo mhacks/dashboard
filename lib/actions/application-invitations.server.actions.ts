@@ -7,12 +7,24 @@ import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { hackerApplicationInvitations } from "@/lib/db/schema/application-invitations";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { users } from "@/lib/db/schema/users";
-import { sendApplicationInvitationEmail } from "@/lib/email/send-invite-email";
-import { getAdminApplicationInvitationById } from "@/lib/queries/application-invitations";
 import {
+  hackerReimbursements,
+  reimbursementRegions,
+} from "@/lib/db/schema/reimbursements";
+import { users } from "@/lib/db/schema/users";
+import { sendEmail } from "@/lib/aws/ses";
+import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
+import { buildApplicationDecisionEmail } from "@/lib/email/application-decision-template";
+import { sendApplicationInvitationEmail } from "@/lib/email/send-invite-email";
+import { getPostHogClient } from "@/lib/posthog-server";
+import { getAdminApplicationInvitationById } from "@/lib/queries/application-invitations";
+import { getApplicationRound } from "@/lib/types/application-reviews";
+import { getRequestOrigin } from "@/lib/url/request-origin";
+import {
+  acceptInvitedApplicantSchema,
   createApplicationInvitationSchema,
   revokeApplicationInvitationSchema,
+  type AcceptInvitedApplicantResult,
   type CreateApplicationInvitationResult,
   type RevokeApplicationInvitationResult,
 } from "@/lib/types/application-invitations";
@@ -29,7 +41,7 @@ export async function createApplicationInvitationAction(
     };
   }
 
-  const { email, durationHours, note } = parsed.data;
+  const { email, durationHours, note, autoAccept } = parsed.data;
   const [existingUser] = await db
     .select({
       id: users.id,
@@ -60,6 +72,7 @@ export async function createApplicationInvitationAction(
       invitedByUserId: organizer.id,
       expiresAt: expiresAt.toISOString(),
       note,
+      autoAccept,
       revokedAt: null,
       updatedAt: now.toISOString(),
     })
@@ -69,6 +82,7 @@ export async function createApplicationInvitationAction(
         invitedByUserId: organizer.id,
         expiresAt: expiresAt.toISOString(),
         note,
+        autoAccept,
         revokedAt: null,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
@@ -95,6 +109,154 @@ export async function createApplicationInvitationAction(
   revalidatePath("/apply");
   revalidatePath("/dashboard");
   return { ok: true, invitation, emailSent };
+}
+
+/**
+ * Accepts only the application associated with this Backdoor invitation and
+ * then sends its decision letter. Committing before delivery makes an email
+ * outage recoverable: the row becomes accepted, and this action turns into an
+ * idempotent resend without ever downgrading an RSVP-confirmed decision.
+ */
+export async function acceptInvitedApplicantAction(
+  input: unknown,
+): Promise<AcceptInvitedApplicantResult> {
+  const organizer = await requireOrganizer();
+  const parsed = acceptInvitedApplicantSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid invitation." };
+
+  const accepted = await db.transaction(async (tx) => {
+    const [target] = await tx
+      .select({
+        applicationId: hackerApplicants.id,
+        userId: hackerApplicants.userId,
+        firstName: hackerApplicants.firstName,
+        email: users.email,
+        decision: hackerApplicants.decision,
+        createdAt: hackerApplicants.createdAt,
+        reimbursementCents: reimbursementRegions.amountCents,
+      })
+      .from(hackerApplicationInvitations)
+      .innerJoin(
+        users,
+        sql`lower(${users.email}) = ${hackerApplicationInvitations.email}`,
+      )
+      .innerJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
+      .leftJoin(
+        hackerReimbursements,
+        and(
+          eq(hackerReimbursements.userId, hackerApplicants.userId),
+          eq(hackerReimbursements.status, "approved"),
+        ),
+      )
+      .leftJoin(
+        reimbursementRegions,
+        eq(reimbursementRegions.region, hackerReimbursements.region),
+      )
+      .where(eq(hackerApplicationInvitations.id, parsed.data.invitationId))
+      .limit(1)
+      .for("update", { of: hackerApplicants });
+
+    if (!target) {
+      return {
+        ok: false as const,
+        message: "This invitation does not have a submitted application yet.",
+      };
+    }
+
+    if (target.decision !== "applied") {
+      if (decisionOutcome(target.decision) !== "accepted") {
+        return {
+          ok: false as const,
+          message:
+            "This applicant already has a rejection decision. It was not changed.",
+        };
+      }
+
+      return { ok: true as const, ...target, newlyAccepted: false };
+    }
+
+    const decision: ApplicationDecision =
+      getApplicationRound(target.createdAt) === "early"
+        ? "early_accepted"
+        : "regular_accepted";
+    const now = new Date().toISOString();
+
+    await tx
+      .update(hackerApplicants)
+      .set({ decision, updatedAt: now })
+      .where(eq(hackerApplicants.id, target.applicationId));
+
+    await tx
+      .update(hackerReimbursements)
+      .set({
+        decidedByUserId: organizer.id,
+        decidedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(hackerReimbursements.userId, target.userId));
+
+    return {
+      ok: true as const,
+      ...target,
+      decision,
+      newlyAccepted: true,
+    };
+  });
+
+  if (!accepted.ok) return accepted;
+
+  let emailSent = true;
+  try {
+    const origin = await getRequestOrigin();
+    const loginParams = new URLSearchParams({
+      email: accepted.email,
+      next: "/dashboard/decision",
+      utm_source: "decision_email",
+    });
+    const message = await buildApplicationDecisionEmail({
+      decision: accepted.decision,
+      firstName: accepted.firstName,
+      decisionUrl: `${origin}/login?${loginParams.toString()}`,
+      reimbursementCents: accepted.reimbursementCents,
+    });
+    await sendEmail({ to: accepted.email, ...message });
+  } catch (error) {
+    emailSent = false;
+    console.error("Unable to send application decision email:", error);
+  }
+
+  revalidatePath("/admin/backdoor");
+  revalidatePath("/admin/applications");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/decision");
+  revalidatePath("/rsvp");
+
+  if (accepted.newlyAccepted) {
+    try {
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: organizer.id,
+        event: "backdoor_application_accepted",
+        properties: {
+          invitation_id: parsed.data.invitationId,
+          application_id: accepted.applicationId,
+          applicant_user_id: accepted.userId,
+          decision: accepted.decision,
+          decision_email_sent: emailSent,
+        },
+      });
+      await posthog.flush();
+    } catch (error) {
+      console.error("Unable to record backdoor application acceptance:", error);
+    }
+  }
+
+  return {
+    ok: true,
+    decision: accepted.decision,
+    newlyAccepted: accepted.newlyAccepted,
+    emailSent,
+  };
 }
 
 export async function revokeApplicationInvitationAction(

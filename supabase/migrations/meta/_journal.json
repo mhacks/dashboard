@@ -169,6 +169,13 @@
       "when": 1789320684644,
       "tag": "20260913173124_event_account_checkin",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789440832686,
+      "tag": "20260915025352_backdoor_invitation_auto_accept",
+      "breakpoints": true
     }
   ]
 }
