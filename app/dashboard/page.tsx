@@ -16,6 +16,7 @@ import {
   getApplicantDecision,
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
+import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
 import { getApplicationAccessForUser } from "@/lib/applications/access";
 
 /**
@@ -33,8 +34,9 @@ export default async function DashboardPage() {
   const { id: userId, role } = await requireSessionUser();
 
   // Independent of each other, so they overlap rather than queue.
-  const [application, applicationAccess] = await Promise.all([
+  const [application, canCheckIn, applicationAccess] = await Promise.all([
     getApplicantDecision(userId),
+    getAttendeeQrEligibility(userId),
     getApplicationAccessForUser({ userId }),
   ]);
 
@@ -59,6 +61,7 @@ export default async function DashboardPage() {
     <ApplicantDashboard
       role={role}
       userId={userId}
+      canCheckIn={canCheckIn}
       firstName={application?.firstName ?? null}
       data={{
         stage: stageFor(application),

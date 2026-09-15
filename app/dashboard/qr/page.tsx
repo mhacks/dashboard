@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { KeepAwake } from "@/components/checkin/keep-awake";
 import { QrCode } from "@/components/checkin/qr-code";
 import { requireSessionUser } from "@/lib/auth/guards";
+import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
 
 /**
  * The check-in code, full screen and edge to edge.
@@ -15,6 +17,14 @@ import { requireSessionUser } from "@/lib/auth/guards";
  */
 export default async function DashboardQrPage() {
   const { id: userId } = await requireSessionUser();
+
+  const eligible = await getAttendeeQrEligibility(userId);
+
+  // Outside any try on purpose: redirect() throws NEXT_REDIRECT and a catch
+  // would swallow the navigation. A failed eligibility query degrades to false,
+  // which lands here — the safe default for a gated surface is to send someone
+  // back rather than hand out a code we could not verify.
+  if (!eligible) redirect("/dashboard");
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-7 bg-white px-6 py-10">
@@ -31,9 +41,8 @@ export default async function DashboardQrPage() {
           MHacks 2026 check-in
         </p>
         <p className="mt-2 font-red-hat text-[13px] leading-[1.5] text-neutral-600">
-          Show this when event staff ask for your check-in code. Turn your
-          brightness up — and take a screenshot, it scans just as well without
-          signal.
+          Show this at the door and at meals. Turn your brightness up — and take
+          a screenshot, it scans just as well without signal.
         </p>
       </div>
 
