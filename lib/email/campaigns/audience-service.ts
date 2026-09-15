@@ -34,9 +34,12 @@ import {
 } from "@/lib/email/types";
 import {
   APPLICATION_DECISIONS,
+  hasRsvped,
   type ApplicationDecision,
 } from "@/lib/decisions";
 import { isDraftStarted } from "@/lib/application-steps";
+import { getRequestOrigin } from "@/lib/url/request-origin";
+import { buildWalletPassUrl } from "@/lib/wallet/link-token";
 
 const audienceCsvColumns = [
   "email",
@@ -50,6 +53,9 @@ const audienceCsvColumns = [
   "rsvp_submitted",
   "rsvp_travel_plan",
   "rsvp_submitted_at",
+  // Signed Apple Wallet download link for RSVPed hackers, blank otherwise.
+  // Use it in a section body as [Add to Apple Wallet]({{wallet_pass_url}}).
+  "wallet_pass_url",
 ] as const;
 
 type SubmittedApplicationGroup = Exclude<
@@ -84,7 +90,7 @@ export async function resolveEmailAudience(input: unknown) {
   const body = emailAudienceResolveSchema.parse(input);
   const query = body.query;
   const rows = await loadAudienceRows(query);
-  const recipientText = audienceRowsToCsv(rows);
+  const recipientText = audienceRowsToCsv(rows, await getRequestOrigin());
   const parsed = parseRecipientText(recipientText);
   const { maxRecipients } = getCampaignLimits();
 
@@ -136,6 +142,7 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
 
   return db
     .select({
+      userId: users.id,
       email: users.email,
       role: users.role,
       firstName: hackerApplicants.firstName,
@@ -165,6 +172,7 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
 async function loadUmichAudienceRows() {
   const rows = await db
     .select({
+      userId: users.id,
       email: users.email,
       role: users.role,
     })
@@ -173,6 +181,7 @@ async function loadUmichAudienceRows() {
     .orderBy(asc(users.email));
 
   return rows.map((row) => ({
+    userId: row.userId,
     email: row.email,
     role: row.role,
     firstName: "",
@@ -189,6 +198,7 @@ async function loadUmichAudienceRows() {
 async function loadDraftAudienceRows() {
   const rows = await db
     .select({
+      userId: users.id,
       email: users.email,
       role: users.role,
       data: hackerApplicationDrafts.data,
@@ -210,6 +220,7 @@ async function loadDraftAudienceRows() {
 
     return [
       {
+        userId: row.userId,
         email: row.email,
         role: row.role,
         firstName: draftString(data, "firstName"),
@@ -230,12 +241,15 @@ function draftString(data: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function audienceRowsToCsv(rows: Awaited<ReturnType<typeof loadAudienceRows>>) {
+function audienceRowsToCsv(
+  rows: Awaited<ReturnType<typeof loadAudienceRows>>,
+  origin: string,
+) {
   return [
     audienceCsvColumns.join(","),
     ...rows.map((row) =>
       audienceCsvColumns
-        .map((column) => csvValue(audienceCellValue(row, column)))
+        .map((column) => csvValue(audienceCellValue(row, column, origin)))
         .join(","),
     ),
   ].join("\n");
@@ -244,6 +258,7 @@ function audienceRowsToCsv(rows: Awaited<ReturnType<typeof loadAudienceRows>>) {
 function audienceCellValue(
   row: Awaited<ReturnType<typeof loadAudienceRows>>[number],
   column: (typeof audienceCsvColumns)[number],
+  origin: string,
 ) {
   const firstName = row.firstName.trim();
   const lastName = row.lastName.trim();
@@ -274,6 +289,13 @@ function audienceCellValue(
       return row.rsvpTravelPlan ?? "";
     case "rsvp_submitted_at":
       return row.rsvpSubmittedAt ?? "";
+    case "wallet_pass_url":
+      // Same rule as the dashboard QR and lib/wallet/eligibility.ts: an RSVP
+      // row and a confirmed decision. The route re-checks on download.
+      // Draft and umich rows carry decision "", which hasRsvped rejects.
+      return row.rsvpId && hasRsvped(row.decision as ApplicationDecision)
+        ? (buildWalletPassUrl(origin, row.userId) ?? "")
+        : "";
   }
 }
 

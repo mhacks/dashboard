@@ -76,6 +76,34 @@
         {
           "name": "NEXT_PUBLIC_POSTHOG_HOST",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/NEXT_PUBLIC_POSTHOG_HOST"
+        },
+        {
+          "name": "APPLE_WALLET_PASS_TYPE_ID",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_PASS_TYPE_ID"
+        },
+        {
+          "name": "APPLE_WALLET_TEAM_ID",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_TEAM_ID"
+        },
+        {
+          "name": "APPLE_WALLET_SIGNER_CERT",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_SIGNER_CERT"
+        },
+        {
+          "name": "APPLE_WALLET_SIGNER_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_SIGNER_KEY"
+        },
+        {
+          "name": "APPLE_WALLET_SIGNER_KEY_PASSPHRASE",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_SIGNER_KEY_PASSPHRASE"
+        },
+        {
+          "name": "APPLE_WALLET_WWDR_CERT",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_WWDR_CERT"
+        },
+        {
+          "name": "WALLET_LINK_SECRET",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/WALLET_LINK_SECRET"
         }
       ],
       "logConfiguration": {
