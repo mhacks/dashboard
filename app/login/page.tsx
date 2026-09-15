@@ -7,6 +7,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -223,6 +224,8 @@ function AuthForm() {
                     render={({ field }) => (
                       <InputOTP
                         maxLength={OTP_LENGTH}
+                        pattern={REGEXP_ONLY_DIGITS}
+                        pasteTransformer={(pasted) => pasted.replace(/\D/g, "")}
                         value={field.value}
                         onChange={field.onChange}
                         autoFocus
