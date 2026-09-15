@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { sendEmail } from "@/lib/aws/ses";
 import { db } from "@/lib/db";
@@ -61,6 +61,10 @@ export async function autoAcceptInvitedApplication({
             eq(hackerApplicants.userId, userId),
             eq(hackerApplicationInvitations.autoAccept, true),
             isNull(hackerApplicationInvitations.revokedAt),
+            gt(
+              hackerApplicationInvitations.expiresAt,
+              new Date().toISOString(),
+            ),
           ),
         )
         .limit(1)

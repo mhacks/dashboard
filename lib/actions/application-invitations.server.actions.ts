@@ -186,15 +186,6 @@ export async function acceptInvitedApplicantAction(
       .set({ decision, updatedAt: now })
       .where(eq(hackerApplicants.id, target.applicationId));
 
-    await tx
-      .update(hackerReimbursements)
-      .set({
-        decidedByUserId: organizer.id,
-        decidedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(hackerReimbursements.userId, target.userId));
-
     return {
       ok: true as const,
       ...target,
