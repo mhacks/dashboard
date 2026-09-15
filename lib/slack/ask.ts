@@ -2,27 +2,26 @@ import { generateText, stepCountIs, tool, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { formatQueryRows } from "./format";
-import { DATABASE_SCHEMA_PROMPT } from "./schema-prompt";
+import { getDatabaseSchemaPrompt } from "./schema-prompt";
 import { runReadonlySql, SQL_ROW_LIMIT } from "./sql";
 
-const SYSTEM_PROMPT = `You answer organizer questions about the MHacks dashboard database.
+export async function answerQuestion(
+  question: string,
+  history: ModelMessage[] = [],
+): Promise<string> {
+  const schema = await getDatabaseSchemaPrompt();
+  const { text, steps } = await generateText({
+    model: languageModel(),
+    system: `You answer organizer questions about the MHacks dashboard database.
 
-${DATABASE_SCHEMA_PROMPT}
+${schema}
 
 Rules:
 - Call run_readonly_sql with a single SELECT or WITH … SELECT. Never mutate data.
 - Prefer aggregates (counts, averages, top-N) over dumping essays or PII. Include PII only when the question asks for a specific person.
 - Results are capped at ${SQL_ROW_LIMIT} rows. If the cap likely hid data, say so.
 - Reply in Slack mrkdwn: short sentences, bullet lists, or a compact table. No surrounding quotes.
-- If the tool returns an error, explain it briefly and try a corrected query once.`;
-
-export async function answerQuestion(
-  question: string,
-  history: ModelMessage[] = [],
-): Promise<string> {
-  const { text, steps } = await generateText({
-    model: languageModel(),
-    system: SYSTEM_PROMPT,
+- If the tool returns an error, explain it briefly and try a corrected query once.`,
     messages: [...history, { role: "user", content: question }],
     tools: {
       run_readonly_sql: tool({

@@ -1,7 +1,9 @@
 # Slack bot
 
 Organizers mention the bot in Slack; it queries dashboard Postgres via Drizzle.
-Events are handled at [`app/api/slack/events/route.ts`](../app/api/slack/events/route.ts).
+Events are handled at [`app/api/slack/events/route.ts`](../app/api/slack/events/route.ts)
+using the [Slack Node SDK](https://docs.slack.dev/tools/node-slack-sdk/typescript/)
+(`@slack/bolt` request verification, `@slack/types` event shapes, `@slack/web-api` client).
 
 ## Slack app
 
@@ -46,6 +48,9 @@ hit production.
 
 The Slack user's email must match `public.users.email` with `role = organizer`. Keep
 the bot in an organizers-only channel; replies can include applicant PII.
+
+The model is given the live `information_schema` columns for the allowlisted
+tables, so added columns show up without editing `schema-prompt.ts`.
 
 ## Production
 

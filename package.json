@@ -34,6 +34,8 @@
     "@posthog/mcp": "0.9.1",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
+    "@slack/bolt": "^5.1.0",
+    "@slack/types": "^3.1.0",
     "@slack/web-api": "^8.0.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.110.8",

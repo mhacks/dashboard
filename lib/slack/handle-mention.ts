@@ -26,6 +26,7 @@ async function handleMentionUnsafe(payload: SlackEventCallback): Promise<void> {
   const { event } = payload;
   if (!isAppMention(event)) return;
   if (event.bot_id || event.subtype) return;
+  if (!event.user) return;
   if (!isAllowedChannel(event.channel)) return;
 
   const slack = getSlackClient();

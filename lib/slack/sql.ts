@@ -2,7 +2,7 @@ import { pg } from "@/lib/db";
 
 export const SQL_ROW_LIMIT = 25;
 
-const ALLOWED_TABLES = new Set([
+export const ALLOWED_TABLES = new Set([
   "hacker_applicants",
   "hacker_application_reviews",
   "hacker_application_review_events",
@@ -48,11 +48,33 @@ const FORBIDDEN_WORDS = new Set([
 const FORBIDDEN_FUNCS = new Set([
   "set_config",
   "pg_read_file",
+  "pg_read_binary_file",
   "pg_ls_dir",
+  "pg_stat_file",
   "lo_import",
+  "lo_export",
   "lo_get",
   "dblink",
   "dblink_exec",
+  "dblink_connect",
+  "query_to_xml",
+  "query_to_xmlschema",
+  "query_to_xml_and_xmlschema",
+  "table_to_xml",
+  "table_to_xmlschema",
+  "table_to_xml_and_xmlschema",
+  "cursor_to_xml",
+  "cursor_to_xmlschema",
+  "database_to_xml",
+  "database_to_xmlschema",
+  "database_to_xml_and_xmlschema",
+  "schema_to_xml",
+  "schema_to_xmlschema",
+  "schema_to_xml_and_xmlschema",
+  "xmltable",
+  "xpath",
+  "xpath_exists",
+  "xmlexists",
 ]);
 
 const TABLE_FOLLOWERS = new Set([
@@ -339,8 +361,9 @@ function extractTableNames(tokens: Token[]): string[] {
     }
 
     if (isPunct(tokens[i], "(")) {
-      i = skipParens(tokens, i) - 1;
-      i = skipAlias(tokens, i + 1) - 1;
+      const afterParen = skipParens(tokens, i);
+      names.push(...extractTableNames(tokens.slice(i + 1, afterParen - 1)));
+      i = skipAlias(tokens, afterParen) - 1;
       if (fromList && isComma(tokens[i + 1])) {
         throw new Error("Comma-separated FROM lists are not allowed");
       }
@@ -445,8 +468,10 @@ export async function runReadonlySql(sql: string): Promise<SqlResult> {
 
   try {
     const rows = await pg.begin(async (tx) => {
-      await tx.unsafe("SET LOCAL statement_timeout = '5s'");
-      await tx.unsafe("SET LOCAL transaction_read_only = on");
+      await tx`SET LOCAL statement_timeout = '5s'`;
+      await tx`SET LOCAL transaction_read_only = on`;
+      // Dynamic SELECT after allowlist validation; tagged templates cannot
+      // interpolate a whole statement.
       return await tx.unsafe(wrapped);
     });
 

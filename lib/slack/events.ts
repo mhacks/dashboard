@@ -1,3 +1,5 @@
+import type { AppMentionEvent } from "@slack/types";
+
 const MAX_SEEN_EVENTS = 500;
 const seenEventIds = new Set<string>();
 
@@ -11,22 +13,13 @@ export function hasSeenEvent(eventId: string): boolean {
   return false;
 }
 
-export type SlackAppMentionEvent = {
-  type: "app_mention";
-  user: string;
-  text: string;
-  channel: string;
-  ts: string;
-  thread_ts?: string;
-  bot_id?: string;
-  subtype?: string;
-};
+export type { AppMentionEvent };
 
 export type SlackEventCallback = {
   type: "event_callback";
   team_id: string;
   event_id: string;
-  event: SlackAppMentionEvent | { type: string };
+  event: AppMentionEvent | { type: string };
 };
 
 export type SlackUrlVerification = {
@@ -69,16 +62,6 @@ export function isEventCallback(
 
 export function isAppMention(
   event: SlackEventCallback["event"],
-): event is SlackAppMentionEvent {
-  return (
-    event.type === "app_mention" &&
-    "user" in event &&
-    typeof event.user === "string" &&
-    "text" in event &&
-    typeof event.text === "string" &&
-    "channel" in event &&
-    typeof event.channel === "string" &&
-    "ts" in event &&
-    typeof event.ts === "string"
-  );
+): event is AppMentionEvent {
+  return event.type === "app_mention";
 }
