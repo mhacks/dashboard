@@ -165,7 +165,9 @@ calls `hackerApplicationSchema.parse(data)` before inserting.
 ## Server Actions
 
 **Use Server Actions for mutations and auth flows** — not API route handlers, unless
-you need a public webhook or third-party callback.
+you need a public webhook or third-party callback (Slack Events live at
+[`app/api/slack/events/route.ts`](../app/api/slack/events/route.ts); see
+[Slack bot](./slack.md)).
 
 Actions live in [`lib/actions/`](../lib/actions/) with a `.server.actions.ts` suffix
 and a `"use server"` directive at the top of the file:
