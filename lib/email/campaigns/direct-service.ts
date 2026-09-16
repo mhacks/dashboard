@@ -116,7 +116,116 @@ export async function sendDirectTestEmails(input: unknown) {
   };
 }
 
-export async function sendDirectBatch(input: unknown) {
+/**
+ * Persists a complete send job without delivering from the request itself.
+ * The caller can return immediately and run processDirectSendToCompletion in
+ * a server-owned background task.
+ */
+export async function startDirectSend(input: unknown) {
+  const { parsed, run } = await prepareDirectSend(input);
+  return sendRunStatus(run.id, parsed);
+}
+
+/**
+ * Continues a persisted run until SES has accepted every recipient or the run
+ * reaches a state that requires human review. This intentionally has no auth
+ * dependency: it is only called by a server-side task after an authenticated
+ * action has authorized the run.
+ */
+export async function processDirectSendToCompletion(runId: string) {
+  for (let batch = 0; batch < 10_000; batch += 1) {
+    const [run] = await db
+      .select()
+      .from(emailSendRuns)
+      .where(eq(emailSendRuns.id, runId))
+      .limit(1);
+
+    if (!run || run.status !== "sending") {
+      return;
+    }
+
+    const previousCursor = run.nextCursor;
+    const status = await processSendRun({
+      run,
+      cursor: run.nextCursor,
+      parsed: emptyParsedRecipients(),
+    });
+
+    if (
+      status.complete ||
+      status.paused ||
+      status.interrupted ||
+      status.leaseActive ||
+      !status.resumable ||
+      status.nextCursor === previousCursor
+    ) {
+      return;
+    }
+  }
+
+  throw new EmailCampaignError(
+    "Server email worker exceeded its safety limit",
+    500,
+  );
+}
+
+export async function getDirectSendStatus(input: unknown) {
+  await requireOrganizer();
+  await pruneExpiredSendData();
+  const body = directRecoverySendSchema.pick({ runId: true }).parse(input);
+  const run = await getSendRunForAdmin(body.runId);
+
+  return sendRunStatus(run.id, emptyParsedRecipients());
+}
+
+export async function resumeDirectSend(input: unknown) {
+  await requireOrganizer();
+  await pruneExpiredSendData();
+  const body = directRecoverySendSchema.pick({ runId: true }).parse(input);
+  const run = await getSendRunForAdmin(body.runId);
+
+  if (run.status !== "sending") {
+    return sendRunStatus(run.id, emptyParsedRecipients());
+  }
+
+  if (run.pausedAt) {
+    await db
+      .update(emailSendRuns)
+      .set({ pausedAt: null, updatedAt: new Date().toISOString() })
+      .where(eq(emailSendRuns.id, run.id));
+  }
+
+  const status = await sendRunStatus(run.id, emptyParsedRecipients());
+  if (!status.resumable) {
+    throw new EmailCampaignError(
+      status.recoveryIssue ?? "Stored send cannot be resumed safely.",
+      409,
+    );
+  }
+
+  return status;
+}
+
+export async function pauseDirectSend(input: unknown) {
+  await requireOrganizer();
+  await pruneExpiredSendData();
+  const body = directRecoverySendSchema.pick({ runId: true }).parse(input);
+  const run = await getSendRunForAdmin(body.runId);
+
+  if (run.status !== "sending") {
+    return sendRunStatus(run.id, emptyParsedRecipients());
+  }
+
+  const now = new Date().toISOString();
+  await db
+    .update(emailSendRuns)
+    .set({ pausedAt: run.pausedAt ?? now, updatedAt: now })
+    .where(eq(emailSendRuns.id, run.id));
+
+  return sendRunStatus(run.id, emptyParsedRecipients());
+}
+
+async function prepareDirectSend(input: unknown) {
   const organizer = await requireOrganizer();
   await pruneExpiredSendData();
   const body = directBatchSendSchema.parse(input);
@@ -155,19 +264,7 @@ export async function sendDirectBatch(input: unknown) {
     testSendToken: body.testSendToken,
   });
 
-  if (body.resolveInterrupted) {
-    await resolveInterruptedDeliveries({
-      run,
-    });
-    return sendRunStatus(run.id, parsed);
-  }
-
-  return processSendRun({
-    run,
-    cursor: body.cursor,
-    parsed,
-    fallbackTemplate: body.template,
-  });
+  return { parsed, run };
 }
 
 export async function listRecoverableDirectSends() {
@@ -194,13 +291,9 @@ export async function recoverDirectSend(input: unknown) {
   await requireOrganizer();
   await pruneExpiredSendData();
   const body = directRecoverySendSchema.parse(input);
-  const [run] = await db
-    .select()
-    .from(emailSendRuns)
-    .where(eq(emailSendRuns.id, body.runId))
-    .limit(1);
+  const run = await getSendRunForAdmin(body.runId);
 
-  if (!run || run.status !== "sending") {
+  if (run.status !== "sending") {
     throw new EmailCampaignError("Recoverable send run not found", 404);
   }
 
@@ -216,19 +309,31 @@ export async function recoverDirectSend(input: unknown) {
   });
 }
 
+async function getSendRunForAdmin(runId: string) {
+  const [run] = await db
+    .select()
+    .from(emailSendRuns)
+    .where(eq(emailSendRuns.id, runId))
+    .limit(1);
+
+  if (!run) {
+    throw new EmailCampaignError("Send run not found", 404);
+  }
+
+  return run;
+}
+
 async function processSendRun({
   run,
   cursor,
   parsed,
-  fallbackTemplate,
 }: {
   run: EmailSendRunRow;
   cursor: number;
   parsed: ReturnType<typeof parseRecipientText>;
-  fallbackTemplate?: DirectEmailTemplateInput;
 }) {
   const limits = getCampaignLimits();
-  const template = run.templateSnapshot ?? fallbackTemplate;
+  const template = run.templateSnapshot;
   if (!template) {
     throw new EmailCampaignError(
       "This send is missing its stored template and cannot be resumed safely.",
@@ -292,7 +397,7 @@ function emptyParsedRecipients(): ReturnType<typeof parseRecipientText> {
 }
 
 export async function findActiveDirectSend(input: unknown) {
-  const organizer = await requireOrganizer();
+  await requireOrganizer();
   await pruneExpiredSendData();
   const body = directBatchSendSchema
     .pick({ template: true, recipients: true })
@@ -310,7 +415,6 @@ export async function findActiveDirectSend(input: unknown) {
     .from(emailSendRuns)
     .where(
       and(
-        eq(emailSendRuns.organizerId, organizer.id),
         eq(emailSendRuns.templateFingerprint, templateFingerprint),
         eq(emailSendRuns.recipientListHash, recipientListHash),
         eq(emailSendRuns.status, "sending"),
@@ -359,7 +463,6 @@ async function resolveOrCreateSendRun({
 
     if (requestedRun) {
       assertRunIdentity(requestedRun, {
-        organizerId: organizer.id,
         templateFingerprint,
         recipientListHash,
         totalRecipients: recipients.length,
@@ -380,7 +483,6 @@ async function resolveOrCreateSendRun({
       .from(emailSendRuns)
       .where(
         and(
-          eq(emailSendRuns.organizerId, organizer.id),
           eq(emailSendRuns.templateFingerprint, templateFingerprint),
           eq(emailSendRuns.recipientListHash, recipientListHash),
           eq(emailSendRuns.status, "sending"),
@@ -398,7 +500,6 @@ async function resolveOrCreateSendRun({
       .from(emailSendRuns)
       .where(
         and(
-          eq(emailSendRuns.organizerId, organizer.id),
           eq(emailSendRuns.templateFingerprint, templateFingerprint),
           eq(emailSendRuns.recipientListHash, recipientListHash),
           inArray(emailSendRuns.status, ["expired", "superseded"]),
@@ -462,7 +563,6 @@ async function resolveOrCreateSendRun({
       .from(emailSendRuns)
       .where(
         and(
-          eq(emailSendRuns.organizerId, organizer.id),
           eq(emailSendRuns.templateFingerprint, templateFingerprint),
           eq(emailSendRuns.recipientListHash, recipientListHash),
           eq(emailSendRuns.status, "sending"),
@@ -481,14 +581,12 @@ async function resolveOrCreateSendRun({
 function assertRunIdentity(
   run: typeof emailSendRuns.$inferSelect,
   expected: {
-    organizerId: string;
     templateFingerprint: string;
     recipientListHash: string;
     totalRecipients: number;
   },
 ) {
   if (
-    run.organizerId !== expected.organizerId ||
     run.templateFingerprint !== expected.templateFingerprint ||
     run.recipientListHash !== expected.recipientListHash ||
     run.totalRecipients !== expected.totalRecipients
@@ -554,7 +652,11 @@ async function claimSendLease({
       return { status: currentStatus, leaseToken: null, deliveries: [] };
     }
 
-    if (currentStatus.interrupted || leaseIsActive(run)) {
+    if (
+      currentStatus.paused ||
+      currentStatus.interrupted ||
+      leaseIsActive(run)
+    ) {
       return { status: currentStatus, leaseToken: null, deliveries: [] };
     }
 
@@ -608,7 +710,12 @@ async function markDeliverySending({
       .limit(1)
       .for("update");
 
-    if (!run || run.status !== "sending" || run.leaseToken !== leaseToken) {
+    if (
+      !run ||
+      run.status !== "sending" ||
+      run.pausedAt ||
+      run.leaseToken !== leaseToken
+    ) {
       return false;
     }
 
@@ -876,6 +983,7 @@ function buildSendRunStatus(
   parsed: ReturnType<typeof parseRecipientText>,
 ) {
   const complete = run.status === "sent" || run.status === "failed";
+  const paused = !complete && Boolean(run.pausedAt);
   const activeLease = !complete && leaseIsActive(run);
   const activelySending = deliveries.filter(
     (delivery) => delivery.status === "sending",
@@ -908,6 +1016,8 @@ function buildSendRunStatus(
     leaseExpiresAt: activeLease ? run.leaseExpiresAt : null,
     nextCursor,
     complete,
+    paused,
+    pausedAt: paused ? run.pausedAt : null,
     resumable: recoveryIssue === null,
     recoveryIssue,
     interrupted: interruptedRecipients.length > 0,
@@ -978,6 +1088,7 @@ async function finalizeRun(
       templateSnapshot: null,
       leaseToken: null,
       leaseExpiresAt: null,
+      pausedAt: null,
       recoveryExpiresAt: null,
       updatedAt: now,
       completedAt: now,
@@ -1000,6 +1111,7 @@ async function finalizeRun(
       templateSnapshot: null,
       leaseToken: null,
       leaseExpiresAt: null,
+      pausedAt: null,
       recoveryExpiresAt: null,
       updatedAt: now,
       completedAt: now,
@@ -1058,6 +1170,7 @@ async function pruneExpiredSendData() {
           recentFailures: [],
           leaseToken: null,
           leaseExpiresAt: null,
+          pausedAt: null,
           recoveryExpiresAt: null,
           updatedAt: now,
           completedAt: now,
