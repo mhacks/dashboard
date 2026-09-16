@@ -27,6 +27,7 @@ import { defaultEmailTheme } from "@/lib/email/theme";
 import {
   directBatchSendSchema,
   directEmailTemplateSchema,
+  directRecoverySendSchema,
   directRecipientParseSchema,
   directSendOneSchema,
   directTestSendSchema,
@@ -120,7 +121,6 @@ export async function sendDirectBatch(input: unknown) {
   await pruneExpiredSendData();
   const body = directBatchSendSchema.parse(input);
   const parsed = parseRecipientText(body.recipients);
-  const limits = getCampaignLimits();
   const templateFingerprint = fingerprintDirectTemplate(body.template);
   const recipientListHash = fingerprintRecipients(parsed.recipients);
 
@@ -158,20 +158,88 @@ export async function sendDirectBatch(input: unknown) {
   if (body.resolveInterrupted) {
     await resolveInterruptedDeliveries({
       run,
-      organizerId: organizer.id,
-      templateFingerprint,
-      recipientListHash,
-      totalRecipients: parsed.recipients.length,
     });
     return sendRunStatus(run.id, parsed);
   }
 
-  const campaign = campaignLikeFromDirectTemplate(
-    run.templateSnapshot ?? body.template,
+  return processSendRun({
+    run,
+    cursor: body.cursor,
+    parsed,
+    fallbackTemplate: body.template,
+  });
+}
+
+export async function listRecoverableDirectSends() {
+  await requireOrganizer();
+  await pruneExpiredSendData();
+
+  const runs = await db
+    .select()
+    .from(emailSendRuns)
+    .where(eq(emailSendRuns.status, "sending"))
+    .orderBy(desc(emailSendRuns.updatedAt));
+
+  return Promise.all(
+    runs.map(async (run) => ({
+      ...(await sendRunStatus(run.id, emptyParsedRecipients())),
+      subject: run.templateSnapshot?.subject ?? "Stored email send",
+      createdAt: run.createdAt,
+      updatedAt: run.updatedAt,
+    })),
   );
+}
+
+export async function recoverDirectSend(input: unknown) {
+  await requireOrganizer();
+  await pruneExpiredSendData();
+  const body = directRecoverySendSchema.parse(input);
+  const [run] = await db
+    .select()
+    .from(emailSendRuns)
+    .where(eq(emailSendRuns.id, body.runId))
+    .limit(1);
+
+  if (!run || run.status !== "sending") {
+    throw new EmailCampaignError("Recoverable send run not found", 404);
+  }
+
+  if (body.resolveInterrupted) {
+    await resolveInterruptedDeliveries({ run });
+    return sendRunStatus(run.id, emptyParsedRecipients());
+  }
+
+  return processSendRun({
+    run,
+    cursor: body.cursor,
+    parsed: emptyParsedRecipients(),
+  });
+}
+
+async function processSendRun({
+  run,
+  cursor,
+  parsed,
+  fallbackTemplate,
+}: {
+  run: EmailSendRunRow;
+  cursor: number;
+  parsed: ReturnType<typeof parseRecipientText>;
+  fallbackTemplate?: DirectEmailTemplateInput;
+}) {
+  const limits = getCampaignLimits();
+  const template = run.templateSnapshot ?? fallbackTemplate;
+  if (!template) {
+    throw new EmailCampaignError(
+      "This send is missing its stored template and cannot be resumed safely.",
+      409,
+    );
+  }
+
+  const campaign = campaignLikeFromDirectTemplate(template);
   const lease = await claimSendLease({
     runId: run.id,
-    cursor: body.cursor,
+    cursor,
     parsed,
     batchSize: limits.batchSize,
   });
@@ -211,6 +279,16 @@ export async function sendDirectBatch(input: unknown) {
   });
 
   return sendRunStatus(run.id, parsed);
+}
+
+function emptyParsedRecipients(): ReturnType<typeof parseRecipientText> {
+  return {
+    recipients: [],
+    emails: [],
+    invalid: [],
+    duplicateCount: 0,
+    columns: [],
+  };
 }
 
 export async function findActiveDirectSend(input: unknown) {
@@ -464,6 +542,14 @@ async function claimSendLease({
       .orderBy(asc(emailSendDeliveries.recipientIndex));
     const currentStatus = buildSendRunStatus(run, deliveries, parsed);
 
+    if (!currentStatus.resumable) {
+      throw new EmailCampaignError(
+        currentStatus.recoveryIssue ??
+          "Stored send recovery data is incomplete; refusing to resume.",
+        409,
+      );
+    }
+
     if (cursor !== currentStatus.nextCursor) {
       return { status: currentStatus, leaseToken: null, deliveries: [] };
     }
@@ -678,27 +764,8 @@ async function releaseSendLease({
   });
 }
 
-async function resolveInterruptedDeliveries({
-  run,
-  organizerId,
-  templateFingerprint,
-  recipientListHash,
-  totalRecipients,
-}: {
-  run: EmailSendRunRow;
-  organizerId: string;
-  templateFingerprint: string;
-  recipientListHash: string;
-  totalRecipients: number;
-}) {
+async function resolveInterruptedDeliveries({ run }: { run: EmailSendRunRow }) {
   await db.transaction(async (tx) => {
-    assertRunIdentity(run, {
-      organizerId,
-      templateFingerprint,
-      recipientListHash,
-      totalRecipients,
-    });
-
     const [lockedRun] = await tx
       .select()
       .from(emailSendRuns)
@@ -710,6 +777,17 @@ async function resolveInterruptedDeliveries({
       throw new EmailCampaignError("Active send run not found", 404);
     }
 
+    const deliveries = await tx
+      .select()
+      .from(emailSendDeliveries)
+      .where(eq(emailSendDeliveries.runId, run.id))
+      .orderBy(asc(emailSendDeliveries.recipientIndex))
+      .for("update");
+    const recoveryIssue = getRecoveryIntegrityIssue(lockedRun, deliveries);
+    if (recoveryIssue) {
+      throw new EmailCampaignError(recoveryIssue, 409);
+    }
+
     if (leaseIsActive(lockedRun)) {
       throw new EmailCampaignError(
         "Wait for the active delivery to finish before resolving it.",
@@ -717,17 +795,9 @@ async function resolveInterruptedDeliveries({
       );
     }
 
-    const interrupted = await tx
-      .select()
-      .from(emailSendDeliveries)
-      .where(
-        and(
-          eq(emailSendDeliveries.runId, run.id),
-          eq(emailSendDeliveries.status, "sending"),
-        ),
-      )
-      .orderBy(asc(emailSendDeliveries.recipientIndex))
-      .for("update");
+    const interrupted = deliveries.filter(
+      (delivery) => delivery.status === "sending",
+    );
 
     if (interrupted.length === 0) {
       throw new EmailCampaignError("No interrupted deliveries found", 409);
@@ -818,6 +888,9 @@ function buildSendRunStatus(
     : Math.min(remainingCount, activelySending.length);
   const pendingCount = Math.max(0, remainingCount - sendingCount);
   const nextCursor = complete ? run.totalRecipients : run.nextCursor;
+  const recoveryIssue = complete
+    ? null
+    : getRecoveryIntegrityIssue(run, deliveries);
 
   const interruptedRecipients =
     !activeLease && activelySending.length > 0
@@ -835,6 +908,8 @@ function buildSendRunStatus(
     leaseExpiresAt: activeLease ? run.leaseExpiresAt : null,
     nextCursor,
     complete,
+    resumable: recoveryIssue === null,
+    recoveryIssue,
     interrupted: interruptedRecipients.length > 0,
     invalid: parsed.invalid,
     duplicateCount: parsed.duplicateCount,
@@ -842,6 +917,36 @@ function buildSendRunStatus(
     unverifiedRecipients: interruptedRecipients,
     recentFailures: run.recentFailures,
   };
+}
+
+function getRecoveryIntegrityIssue(
+  run: EmailSendRunRow,
+  deliveries: EmailSendDeliveryRow[],
+) {
+  if (!run.templateSnapshot) {
+    return "The stored template snapshot is missing.";
+  }
+
+  const completedCount = run.sentCount + run.failedCount;
+  const remainingCount = run.totalRecipients - completedCount;
+  if (remainingCount < 0 || run.nextCursor !== completedCount) {
+    return "The stored send counters are inconsistent.";
+  }
+
+  if (deliveries.length !== remainingCount) {
+    return `Expected ${remainingCount} pending delivery rows, but found ${deliveries.length}.`;
+  }
+
+  for (const [offset, delivery] of deliveries.entries()) {
+    if (delivery.recipientIndex !== run.nextCursor + offset) {
+      return "The pending delivery sequence has a gap or duplicate.";
+    }
+    if (delivery.status !== "pending" && delivery.status !== "sending") {
+      return `Pending delivery ${delivery.recipientIndex} has an invalid status.`;
+    }
+  }
+
+  return null;
 }
 
 async function finalizeRun(
