@@ -56,6 +56,10 @@ import {
 } from "./actions";
 
 type PreviewMode = "desktop" | "mobile";
+
+// Polls run every 1.5s; ~30s idle outlasts a slow lease claim and the longest
+// single transient-retry sleep on the server.
+const idlePollsBeforeStopped = 20;
 export type EmailCampaignSurface = "builder" | "styles" | "send";
 type TemplateType = "structured" | "html";
 type ToastTone = "loading" | "success" | "error" | "info";
@@ -250,7 +254,14 @@ export default function EmailCampaignsClient({
   const [busy, setBusy] = useState<string | null>(null);
   const [serverProcessingRunId, setServerProcessingRunId] = useState<
     string | null
-  >(null);
+  >(() => {
+    const stored = loadStoredSendStatus();
+    return stored?.leaseActive && !stored.paused ? stored.runId : null;
+  });
+  // The worker drops its lease between batches, while starting on a slow
+  // database, and during transient-retry backoff, so a few idle polls are not
+  // proof that the server stopped; require a sustained stretch.
+  const idlePollCountRef = useRef(0);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const selectedTemplate = useMemo(
@@ -914,33 +925,6 @@ export default function EmailCampaignsClient({
     );
     try {
       const runId = activeSendStatus?.runId ?? crypto.randomUUID();
-
-      if (!activeSendStatus) {
-        commitSendStatus({
-          runId,
-          proofKey: currentTestProofKey,
-          totalRecipients: recipientResult?.emails.length ?? 0,
-          sentCount: 0,
-          failedCount: 0,
-          pendingCount: recipientResult?.emails.length ?? 0,
-          sendingCount: 0,
-          leaseActive: false,
-          leaseExpiresAt: null,
-          nextCursor: 0,
-          complete: false,
-          paused: false,
-          pausedAt: null,
-          resumable: true,
-          recoveryIssue: null,
-          interrupted: false,
-          invalid: recipientResult?.invalid ?? [],
-          duplicateCount: recipientResult?.duplicateCount ?? 0,
-          columns: recipientResult?.columns,
-          unverifiedRecipients: [],
-          recentFailures: [],
-        });
-      }
-
       const status = await startDirectSendAction({
         runId,
         template,
@@ -1243,6 +1227,7 @@ export default function EmailCampaignsClient({
     }
 
     let polling = false;
+    idlePollCountRef.current = 0;
     const poll = async () => {
       if (polling) return;
       polling = true;
@@ -1272,7 +1257,9 @@ export default function EmailCampaignsClient({
             "List send complete",
             `${status.sentCount} sent, ${status.failedCount} failed.`,
           );
-          if (!recoveredById) {
+          if (recoveredById) {
+            clearSendStatus();
+          } else {
             clearCompletedSend();
           }
         } else if (status.paused) {
@@ -1290,6 +1277,20 @@ export default function EmailCampaignsClient({
             "Server send interrupted",
             "Verify the interrupted delivery in SES before resolving it.",
           );
+        } else if (status.leaseActive) {
+          if (idlePollCountRef.current >= idlePollsBeforeStopped) {
+            setSendNotice("The server picked this send back up.");
+          }
+          idlePollCountRef.current = 0;
+          setServerProcessingRunId(runId);
+        } else {
+          idlePollCountRef.current += 1;
+          if (idlePollCountRef.current === idlePollsBeforeStopped) {
+            setServerProcessingRunId(null);
+            setSendNotice(
+              "The server stopped before finishing this send. Resume it to continue.",
+            );
+          }
         }
       } catch (error) {
         setSendNotice(errorMessage(error));

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
@@ -38,6 +38,7 @@ const successfulTestProofWindowMs = 30 * 60 * 1000;
 const activeSendRecoveryWindowMs = 7 * 24 * 60 * 60 * 1000;
 const compactRunRetentionMs = 30 * 24 * 60 * 60 * 1000;
 const expiredTestProofRetentionMs = 60 * 60 * 1000;
+const maxTransientWorkerFailures = 5;
 
 interface ApprovedTestSend {
   templateFingerprint: string;
@@ -133,23 +134,45 @@ export async function startDirectSend(input: unknown) {
  * action has authorized the run.
  */
 export async function processDirectSendToCompletion(runId: string) {
+  let transientFailures = 0;
+
   for (let batch = 0; batch < 10_000; batch += 1) {
-    const [run] = await db
-      .select()
-      .from(emailSendRuns)
-      .where(eq(emailSendRuns.id, runId))
-      .limit(1);
+    let status: Awaited<ReturnType<typeof processSendRun>>;
+    let previousCursor: number;
 
-    if (!run || run.status !== "sending") {
-      return;
+    try {
+      const [run] = await db
+        .select()
+        .from(emailSendRuns)
+        .where(eq(emailSendRuns.id, runId))
+        .limit(1);
+
+      if (!run || run.status !== "sending") {
+        return;
+      }
+
+      previousCursor = run.nextCursor;
+      status = await processSendRun({
+        run,
+        cursor: run.nextCursor,
+        parsed: emptyParsedRecipients(),
+      });
+      transientFailures = 0;
+    } catch (error) {
+      // Campaign errors describe a run that needs human review; anything else
+      // (a slow or dropped database connection) is retried with backoff so a
+      // blip does not strand the run.
+      if (
+        error instanceof EmailCampaignError ||
+        transientFailures >= maxTransientWorkerFailures
+      ) {
+        throw error;
+      }
+
+      transientFailures += 1;
+      await sleep(Math.min(30_000, 1_000 * 2 ** transientFailures));
+      continue;
     }
-
-    const previousCursor = run.nextCursor;
-    const status = await processSendRun({
-      run,
-      cursor: run.nextCursor,
-      parsed: emptyParsedRecipients(),
-    });
 
     if (
       status.complete ||
@@ -169,9 +192,46 @@ export async function processDirectSendToCompletion(runId: string) {
   );
 }
 
+/**
+ * Re-queues every unpaused run that no worker currently holds. Runs on server
+ * start and on a timer so a deploy or crashed worker does not strand a send.
+ */
+export async function processIdleDirectSends() {
+  await pruneExpiredSendData();
+  const now = new Date().toISOString();
+  const idleRuns = await db
+    .select({ id: emailSendRuns.id })
+    .from(emailSendRuns)
+    .where(
+      and(
+        eq(emailSendRuns.status, "sending"),
+        isNull(emailSendRuns.pausedAt),
+        or(
+          isNull(emailSendRuns.leaseExpiresAt),
+          lt(emailSendRuns.leaseExpiresAt, now),
+        ),
+      ),
+    )
+    .orderBy(asc(emailSendRuns.updatedAt));
+
+  for (const run of idleRuns) {
+    try {
+      const status = await sendRunStatus(run.id, emptyParsedRecipients());
+      if (!status.resumable || status.interrupted) {
+        continue;
+      }
+      await processDirectSendToCompletion(run.id);
+    } catch (error) {
+      console.error("Idle email send sweep stopped", {
+        runId: run.id,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+}
+
 export async function getDirectSendStatus(input: unknown) {
   await requireOrganizer();
-  await pruneExpiredSendData();
   const body = directRecoverySendSchema.pick({ runId: true }).parse(input);
   const run = await getSendRunForAdmin(body.runId);
 
@@ -188,13 +248,6 @@ export async function resumeDirectSend(input: unknown) {
     return sendRunStatus(run.id, emptyParsedRecipients());
   }
 
-  if (run.pausedAt) {
-    await db
-      .update(emailSendRuns)
-      .set({ pausedAt: null, updatedAt: new Date().toISOString() })
-      .where(eq(emailSendRuns.id, run.id));
-  }
-
   const status = await sendRunStatus(run.id, emptyParsedRecipients());
   if (!status.resumable) {
     throw new EmailCampaignError(
@@ -203,7 +256,16 @@ export async function resumeDirectSend(input: unknown) {
     );
   }
 
-  return status;
+  if (!run.pausedAt) {
+    return status;
+  }
+
+  await db
+    .update(emailSendRuns)
+    .set({ pausedAt: null, updatedAt: new Date().toISOString() })
+    .where(eq(emailSendRuns.id, run.id));
+
+  return sendRunStatus(run.id, emptyParsedRecipients());
 }
 
 export async function pauseDirectSend(input: unknown) {
@@ -353,6 +415,42 @@ async function processSendRun({
     return lease.status;
   }
 
+  try {
+    await deliverLeasedBatch({ run, campaign, lease, limits });
+  } catch (error) {
+    // Hand the lease back so a retry or another worker can continue at once
+    // instead of waiting for the lease to expire. The release itself may hit
+    // the same outage, so keep trying for a while before giving up on it.
+    for (let attempt = 1; attempt <= maxTransientWorkerFailures; attempt += 1) {
+      try {
+        await releaseSendLease({ runId: run.id, leaseToken: lease.leaseToken });
+        break;
+      } catch {
+        await sleep(Math.min(30_000, 1_000 * 2 ** attempt));
+      }
+    }
+    throw error;
+  }
+
+  await releaseSendLease({
+    runId: run.id,
+    leaseToken: lease.leaseToken,
+  });
+
+  return sendRunStatus(run.id, parsed);
+}
+
+async function deliverLeasedBatch({
+  run,
+  campaign,
+  lease,
+  limits,
+}: {
+  run: EmailSendRunRow;
+  campaign: ReturnType<typeof campaignLikeFromDirectTemplate>;
+  lease: { leaseToken: string; deliveries: EmailSendDeliveryRow[] };
+  limits: ReturnType<typeof getCampaignLimits>;
+}) {
   for (const delivery of lease.deliveries) {
     const claimed = await markDeliverySending({
       runId: run.id,
@@ -377,13 +475,6 @@ async function processSendRun({
     });
     await sleep(limits.sendDelayMs);
   }
-
-  await releaseSendLease({
-    runId: run.id,
-    leaseToken: lease.leaseToken,
-  });
-
-  return sendRunStatus(run.id, parsed);
 }
 
 function emptyParsedRecipients(): ReturnType<typeof parseRecipientText> {
