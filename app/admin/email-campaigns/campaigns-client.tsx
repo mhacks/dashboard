@@ -1217,12 +1217,8 @@ export default function EmailCampaignsClient({
   useEffect(() => {
     const runId = activeSendStatus?.runId;
     const recoveredById = activeSendStatus?.recoveredById;
-    if (
-      !runId ||
-      activeSendStatus.complete ||
-      activeSendStatus.paused ||
-      activeSendStatus.interrupted
-    ) {
+    const wasPaused = activeSendStatus?.paused;
+    if (!runId || activeSendStatus.complete || activeSendStatus.interrupted) {
       return;
     }
 
@@ -1278,12 +1274,21 @@ export default function EmailCampaignsClient({
             "Verify the interrupted delivery in SES before resolving it.",
           );
         } else if (status.leaseActive) {
+          if (wasPaused) {
+            setSendNotice("Another admin resumed this send on the server.");
+          }
           if (idlePollCountRef.current >= idlePollsBeforeStopped) {
             setSendNotice("The server picked this send back up.");
           }
           idlePollCountRef.current = 0;
           setServerProcessingRunId(runId);
         } else {
+          if (wasPaused) {
+            setSendNotice(
+              "Another admin resumed this send; waiting for the server worker.",
+            );
+            setServerProcessingRunId(runId);
+          }
           idlePollCountRef.current += 1;
           if (idlePollCountRef.current === idlePollsBeforeStopped) {
             setServerProcessingRunId(null);
