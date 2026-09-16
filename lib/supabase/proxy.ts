@@ -50,6 +50,10 @@ function hasSupabaseAuthCookie(request: NextRequest) {
 
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname === "/api/slack" || pathname.startsWith("/api/slack/")) {
+    return NextResponse.next({ request });
+  }
+
   const publicPath = isPublicPath(pathname);
 
   // Anonymous traffic (health checks, the marketing page, crawlers) has
