@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireOrganizer } from "@/lib/auth/guards";
 import {
   findActiveDirectSend,
+  listRecoverableDirectSends,
   parseDirectRecipients,
+  recoverDirectSend,
   sendDirectBatch,
   sendDirectTestEmails,
   sendOneDirectEmail,
@@ -62,6 +64,14 @@ export async function parseDirectRecipientsAction(input: unknown) {
 
 export async function findActiveDirectSendAction(input: unknown) {
   return findActiveDirectSend(input);
+}
+
+export async function listRecoverableDirectSendsAction() {
+  return listRecoverableDirectSends();
+}
+
+export async function recoverDirectSendAction(input: unknown) {
+  return recoverDirectSend(input);
 }
 
 export async function resolveEmailAudienceAction(input: unknown) {
