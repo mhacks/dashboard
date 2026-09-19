@@ -17,6 +17,8 @@ import { getPostHogClient } from "@/lib/posthog-server";
 import { resumeKeyBelongsToUser } from "@/lib/aws/s3";
 import { validateResumeInS3 } from "@/lib/resume";
 import { getApplicationRound } from "@/lib/types/application-reviews";
+import { assertApplicationOpenForUser } from "@/lib/applications/access";
+import { autoAcceptInvitedApplication } from "@/lib/applications/auto-accept";
 
 // Core application logic, parameterized by `userId`, shared by both the web
 // form (cookie-authenticated server actions) and the MCP server (OAuth
@@ -47,6 +49,7 @@ export async function submitHackerApplicationForUser(
   data: HackerApplicationFormData,
   source: "web" | "mcp",
 ): Promise<{ duplicate: boolean; blocked: boolean }> {
+  await assertApplicationOpenForUser(userId);
   const validated = hackerApplicationSchema.parse(data);
   const parsed =
     getApplicationRound(new Date().toISOString()) === "regular"
@@ -70,6 +73,11 @@ export async function submitHackerApplicationForUser(
 
   const resumeSizeBytes = await validateResumeInS3(parsed.resume, userId);
 
+  // Resume validation can involve a network round trip. Re-check immediately
+  // before persistence so a request started before the cutoff cannot finish
+  // after it.
+  await assertApplicationOpenForUser(userId);
+
   const result = await db
     .insert(hackerApplicants)
     .values({ ...toDbValues(parsed), userId })
@@ -80,6 +88,11 @@ export async function submitHackerApplicationForUser(
     await db
       .delete(hackerApplicationDrafts)
       .where(eq(hackerApplicationDrafts.userId, userId));
+
+    await autoAcceptInvitedApplication({
+      applicationId: result[0].id,
+      userId,
+    });
 
     const posthog = getPostHogClient();
     if (source === "mcp") {
@@ -111,6 +124,7 @@ export async function saveDraftForUser(
   userId: string,
   data: Partial<HackerApplicationFormData>,
 ): Promise<void> {
+  await assertApplicationOpenForUser(userId);
   if (
     typeof data.resume === "string" &&
     !resumeKeyBelongsToUser(data.resume, userId)

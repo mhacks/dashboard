@@ -81,7 +81,7 @@ export const RSVP_URL: Record<DecisionRound, string> = {
 };
 
 export const RSVP_DEADLINE: Record<DecisionRound, string> = {
-  early: "August 21, 2026",
+  early: "August 23, 2026",
   regular: "September 19, 2026",
 };
 
@@ -123,21 +123,24 @@ const ACCEPTED_INTRO =
   "Congratulations! We were thoroughly impressed by your application and are thrilled to offer you a spot at MHacks 2026. Space is limited, so please confirm your attendance below to lock in your spot.";
 
 // Travel reimbursement is an early-round benefit only, so the second paragraph
-// of an accepted letter depends on the round and — for early — on whether the
-// applicant actually has an award.
+// of an accepted letter makes that explicit for regular applicants and — for
+// early applicants — states whether they actually have an award.
 const REIMBURSEMENT_AWARDED = (amount: string) =>
   `Because you applied before the early deadline on August 7, we're also able to offer you **${amount}** in travel reimbursement toward your trip to Ann Arbor. We'll send instructions for claiming it closer to the event.`;
 
 const REIMBURSEMENT_NONE =
   "Because you applied before the early deadline on August 7, you were also considered for travel reimbursement. It's limited and decided separately from admission — we would love to have you attend, but we're unable to provide reimbursement at this time. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.";
 
+const REIMBURSEMENT_REGULAR =
+  "Travel reimbursements are not available to regular-decision applicants. Limited reimbursement awards were offered only to eligible early applicants.";
+
 /**
  * `reimbursementCents` is the applicant's awarded tier in cents, or null when
  * they have no award at all. Returns null when the letter should stay silent on
  * reimbursement rather than address it.
  *
- * Regular-round letters never raise the subject: reimbursement is an early-round
- * benefit, so for them there is nothing to offer and nothing to decline.
+ * Regular-round letters explicitly explain that reimbursement was available
+ * only to eligible early applicants.
  *
  * Within the early round the cases are distinct:
  *   > 0   — the award is real money, so name the amount.
@@ -148,7 +151,7 @@ function reimbursementParagraph(
   round: DecisionRound,
   reimbursementCents: number | null,
 ): string | null {
-  if (round === "regular") return null;
+  if (round === "regular") return REIMBURSEMENT_REGULAR;
   if (reimbursementCents === null) return REIMBURSEMENT_NONE;
   if (reimbursementCents <= 0) return null;
   return REIMBURSEMENT_AWARDED(formatCents(reimbursementCents));
@@ -195,8 +198,9 @@ const REJECTED: Record<DecisionRound, LetterBody> = {
  * still `applied` — there is nothing to show yet.
  *
  * `reimbursementCents` is the applicant's awarded travel tier in cents, or null
- * if they have no award. It only affects accepted early-round letters; rejected
- * letters never mention reimbursement.
+ * if they have no award. Accepted regular-round letters clarify that travel
+ * reimbursements were available only during the early round; rejected letters
+ * never mention reimbursement.
  */
 export function decisionLetter(
   decision: ApplicationDecision,

@@ -1,0 +1,1 @@
+ALTER TABLE "hacker_application_invitations" ADD COLUMN "auto_accept" boolean DEFAULT false NOT NULL;

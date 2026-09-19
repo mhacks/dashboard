@@ -19,10 +19,12 @@ const MIN_QUERY_LENGTH = 2;
  */
 export function ManualEntry({
   slug,
+  requiresRsvp,
   onPick,
   disabled,
 }: {
   slug: string;
+  requiresRsvp: boolean;
   /** Runs the same check-in path a scan does, tagged as manual. */
   onPick: (userId: string) => void;
   disabled: boolean;
@@ -84,7 +86,9 @@ export function ManualEntry({
 
       {searched && !isSearching && matches.length === 0 ? (
         <p className="px-1 text-[12px] text-ui-ink-soft">
-          Nobody matches. Only accepted hackers who RSVPed can be checked in.
+          {requiresRsvp
+            ? "Nobody matches. Only accepted hackers who RSVPed can be checked in."
+            : "Nobody with an account matches that name or email."}
         </p>
       ) : null}
 

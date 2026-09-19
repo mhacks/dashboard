@@ -1,4 +1,5 @@
 import { render, toPlainText } from "@react-email/render";
+import { OTP_PREVIEW_CODE } from "@/lib/auth/otp";
 import { getEmailTemplate } from "@/lib/email/templates/registry";
 import { defaultEmailTheme, normalizeEmailTheme } from "@/lib/email/theme";
 import {
@@ -67,7 +68,7 @@ export async function renderEmailPreview(input: unknown) {
     email: "hacker@mhacks.org",
     expires_in: "10 minutes",
     name: "Hacker",
-    otp_code: "123456",
+    otp_code: OTP_PREVIEW_CODE,
     travel_reimbursement: "150.00",
     ...parsed.mergeData,
   };
@@ -169,7 +170,7 @@ function sanitizeHtmlTemplate(html: string) {
     .replace(/url\(\s*(['"]?)javascript:[^)]+\1\s*\)/gi, "url(#)");
 }
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")

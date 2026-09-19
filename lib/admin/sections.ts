@@ -5,7 +5,7 @@ import {
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
-  RadioTowerIcon,
+  MegaphoneIcon,
   QrCodeIcon,
   TrophyIcon,
   UsersRoundIcon,
@@ -64,6 +64,12 @@ export const ADMIN_AREAS: AdminArea[] = [
           "Build templates, preview merge fields, and send CSV lists.",
         icon: MailIcon,
       },
+      {
+        href: "/admin/broadcast",
+        title: "Broadcast",
+        description: "Email every hacker at once.",
+        icon: MegaphoneIcon,
+      },
     ],
   },
   {
@@ -80,7 +86,7 @@ export const ADMIN_AREAS: AdminArea[] = [
       {
         href: "/admin/backdoor",
         title: "Backdoor",
-        description: "Grant custom late RSVP windows for accepted applicants.",
+        description: "Invite late applicants and grant custom RSVP windows.",
         icon: KeyRoundIcon,
       },
     ],
@@ -95,12 +101,6 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Events",
         description: "Create events, open and close scanners, export rosters.",
         icon: CalendarPlusIcon,
-      },
-      {
-        href: "/admin/live",
-        title: "Live site",
-        description: "Publish the schedule, announcements, guide, and prizes.",
-        icon: RadioTowerIcon,
       },
       {
         // The one link here that isn't under /admin — volunteers use it too,

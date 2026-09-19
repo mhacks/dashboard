@@ -121,17 +121,29 @@ function SaveIndicator({
 export default function RsvpForm({
   draft,
   accountEmail,
+  closesAt,
   travelEligibility,
   draftVersion,
   reimbursementCents,
 }: {
   draft: RsvpDraftData;
   accountEmail: string;
+  closesAt: string;
   travelEligibility: RsvpTravelEligibility;
   draftVersion: number;
   reimbursementCents: number | null;
 }) {
   const reduceMotion = useReducedMotion();
+  const deadline = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "America/Detroit",
+      }).format(new Date(closesAt)),
+    [closesAt],
+  );
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -407,7 +419,7 @@ export default function RsvpForm({
             </div>
             <p className="mt-3 max-w-xl font-red-hat text-sm leading-6 text-moss/65">
               Please complete this form by{" "}
-              <span className="mr-1 font-semibold text-moss">August 21st</span>
+              <span className="mr-1 font-semibold text-moss">{deadline}</span>
               to confirm your spot at MHacks 2026. We&apos;re so excited to have
               you here !!
             </p>

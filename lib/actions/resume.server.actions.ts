@@ -11,6 +11,7 @@ import {
 import { requireSessionUser } from "@/lib/auth/guards";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { isPdfBuffer, resumeKeyForUser } from "@/lib/resume";
+import { assertApplicationOpenForUser } from "@/lib/applications/access";
 
 const RESUME_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;
 
@@ -33,6 +34,7 @@ export async function getResumeUploadUrl(
   userId: string,
   fileSizeBytes: number,
 ): Promise<{ uploadUrl: string; key: string }> {
+  await assertApplicationOpenForUser(userId);
   if (!Number.isInteger(fileSizeBytes) || fileSizeBytes <= 0) {
     throw new Error("fileSizeBytes must be a positive integer");
   }
@@ -65,6 +67,7 @@ export async function uploadResume(
   formData: FormData,
 ): Promise<{ error: string } | { key: string }> {
   const { id: userId } = await requireSessionUser();
+  await assertApplicationOpenForUser(userId);
   const file = formData.get("file");
 
   if (!(file instanceof File)) {

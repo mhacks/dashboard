@@ -9,8 +9,8 @@ import {
   isNull,
   lte,
   or,
+  sql,
 } from "drizzle-orm";
-import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema/events";
 import {
@@ -85,7 +85,7 @@ function mapResources(
 function mapEvent(
   row: {
     event: typeof events.$inferSelect;
-    details: typeof liveEventDetails.$inferSelect | null;
+    details: typeof liveEventDetails.$inferSelect;
   },
   resources: Map<string, EventResource[]>,
 ): LiveEvent {
@@ -96,19 +96,19 @@ function mapEvent(
     slug: event.slug,
     name: event.name,
     summary: event.description ?? "",
-    description: details?.description ?? "",
+    description: details.description,
     startsAt: event.startsAt ?? "",
     endsAt: event.endsAt,
     location: event.location ?? "",
-    locationDetails: details?.locationDetails ?? "",
-    mapUrl: details?.mapUrl ?? null,
-    eventType: details?.eventType ?? "Event",
-    hostName: details?.hostName ?? null,
-    audience: details?.audience ?? null,
-    capacity: details?.capacity ?? null,
-    featured: details?.featured ?? false,
-    status: details?.status ?? "draft",
-    position: details?.position ?? 0,
+    locationDetails: details.locationDetails,
+    mapUrl: details.mapUrl,
+    eventType: details.eventType,
+    hostName: details.hostName,
+    audience: details.audience,
+    capacity: details.capacity,
+    featured: details.featured,
+    status: details.status,
+    position: details.position,
     resources: resources.get(event.id) ?? [],
   };
 }
@@ -155,22 +155,10 @@ function mapPrize(row: typeof livePrizes.$inferSelect): Prize {
   };
 }
 
-async function loadLiveSiteContent(includeUnpublished: boolean) {
+export async function getPublicLiveSiteContent() {
   const now = new Date().toISOString();
-  const announcementFilter = includeUnpublished
-    ? undefined
-    : and(
-        eq(liveAnnouncements.status, "published"),
-        or(
-          isNull(liveAnnouncements.publishedAt),
-          lte(liveAnnouncements.publishedAt, now),
-        ),
-        or(
-          isNull(liveAnnouncements.expiresAt),
-          gt(liveAnnouncements.expiresAt, now),
-        ),
-      );
 
+  // The server connection bypasses RLS, so every content query filters publication.
   const [settingsRows, eventRows, announcementRows, guideRows, prizeRows] =
     await Promise.all([
       db
@@ -181,39 +169,51 @@ async function loadLiveSiteContent(includeUnpublished: boolean) {
       db
         .select({ event: events, details: liveEventDetails })
         .from(events)
-        .leftJoin(liveEventDetails, eq(liveEventDetails.eventId, events.id))
+        .innerJoin(liveEventDetails, eq(liveEventDetails.eventId, events.id))
         .where(
-          includeUnpublished
-            ? undefined
-            : and(
-                eq(liveEventDetails.status, "published"),
-                isNotNull(events.startsAt),
-              ),
+          and(
+            eq(liveEventDetails.status, "published"),
+            isNotNull(events.startsAt),
+          ),
         )
-        .orderBy(asc(events.startsAt), asc(liveEventDetails.position)),
-      db
-        .select()
-        .from(liveAnnouncements)
-        .where(announcementFilter)
         .orderBy(
-          asc(liveAnnouncements.position),
-          desc(liveAnnouncements.publishedAt),
+          asc(events.startsAt),
+          asc(liveEventDetails.position),
+          asc(events.id),
         ),
       db
         .select()
-        .from(liveGuideLinks)
+        .from(liveAnnouncements)
         .where(
-          includeUnpublished
-            ? undefined
-            : eq(liveGuideLinks.status, "published"),
+          and(
+            eq(liveAnnouncements.status, "published"),
+            or(
+              isNull(liveAnnouncements.publishedAt),
+              lte(liveAnnouncements.publishedAt, now),
+            ),
+            or(
+              isNull(liveAnnouncements.expiresAt),
+              gt(liveAnnouncements.expiresAt, now),
+            ),
+          ),
         )
+        .orderBy(
+          asc(liveAnnouncements.position),
+          desc(
+            sql`coalesce(${liveAnnouncements.publishedAt}, ${liveAnnouncements.createdAt})`,
+          ),
+          asc(liveAnnouncements.id),
+        )
+        .limit(1),
+      db
+        .select()
+        .from(liveGuideLinks)
+        .where(eq(liveGuideLinks.status, "published"))
         .orderBy(asc(liveGuideLinks.position), asc(liveGuideLinks.title)),
       db
         .select()
         .from(livePrizes)
-        .where(
-          includeUnpublished ? undefined : eq(livePrizes.status, "published"),
-        )
+        .where(eq(livePrizes.status, "published"))
         .orderBy(asc(livePrizes.position), asc(livePrizes.title)),
     ]);
 
@@ -242,13 +242,4 @@ async function loadLiveSiteContent(includeUnpublished: boolean) {
     guideLinks: guideRows.map(mapGuideLink),
     prizes: prizeRows.map(mapPrize),
   } satisfies LiveSiteContent;
-}
-
-export function getPublicLiveSiteContent() {
-  return loadLiveSiteContent(false);
-}
-
-export async function getOrganizerLiveSiteContent() {
-  await requireOrganizer();
-  return loadLiveSiteContent(true);
 }

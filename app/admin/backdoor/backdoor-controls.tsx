@@ -1,13 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState, useTransition } from "react";
-import {
-  Clock3Icon,
-  PlusIcon,
-  RotateCcwIcon,
-  SearchIcon,
-  ShieldAlertIcon,
-} from "lucide-react";
+import { Clock3Icon, PlusIcon, RotateCcwIcon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -153,172 +147,154 @@ export function BackdoorControls({
   }
 
   return (
-    <div className="grid gap-5">
-      <Card>
-        <CardHeader className="gap-3 sm:grid-cols-[1fr_auto]">
-          <div>
-            <CardTitle>RSVP Exceptions</CardTitle>
-            <CardDescription>
-              Grant an accepted applicant a private RSVP window by email.
-            </CardDescription>
-          </div>
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button type="button">
-                <PlusIcon data-icon="inline-start" />
-                Grant Exception
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-md">
-              <form className="flex min-h-full flex-col" onSubmit={onSubmit}>
-                <SheetHeader>
-                  <SheetTitle>Grant RSVP Exception</SheetTitle>
-                  <SheetDescription>
-                    This extends RSVP access for one accepted applicant.
-                  </SheetDescription>
-                </SheetHeader>
+    <Card>
+      <CardHeader className="gap-3 sm:grid-cols-[1fr_auto]">
+        <div>
+          <CardTitle>RSVP Exceptions</CardTitle>
+          <CardDescription>
+            Grant an accepted applicant a private RSVP window by email.
+          </CardDescription>
+        </div>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button type="button">
+              <PlusIcon data-icon="inline-start" />
+              Grant Exception
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-full sm:max-w-md">
+            <form className="flex min-h-full flex-col" onSubmit={onSubmit}>
+              <SheetHeader>
+                <SheetTitle>Grant RSVP Exception</SheetTitle>
+                <SheetDescription>
+                  This extends RSVP access for one accepted applicant.
+                </SheetDescription>
+              </SheetHeader>
 
-                <div className="grid gap-4 px-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="exception-email">Applicant email</Label>
+              <div className="grid gap-4 px-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="exception-email">Applicant email</Label>
+                  <Input
+                    id="exception-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="person@example.com"
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="exception-hours">RSVP window</Label>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     <Input
-                      id="exception-email"
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="person@example.com"
+                      id="exception-hours"
+                      type="number"
+                      min={1}
+                      max={RSVP_EXCEPTION_MAX_DURATION_HOURS}
+                      value={durationHours}
+                      onChange={(event) => setDurationHours(event.target.value)}
                       required
                     />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="exception-hours">RSVP window</Label>
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                      <Input
-                        id="exception-hours"
-                        type="number"
-                        min={1}
-                        max={RSVP_EXCEPTION_MAX_DURATION_HOURS}
-                        value={durationHours}
-                        onChange={(event) =>
-                          setDurationHours(event.target.value)
-                        }
-                        required
-                      />
-                      <div className="flex h-8 items-center rounded-lg border bg-muted px-3 text-sm text-muted-foreground">
-                        hours
-                      </div>
+                    <div className="flex h-8 items-center rounded-lg border bg-muted px-3 text-sm text-muted-foreground">
+                      hours
                     </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="exception-note">Internal note</Label>
-                    <Textarea
-                      id="exception-note"
-                      value={note}
-                      onChange={(event) => setNote(event.target.value)}
-                      placeholder="Reason, owner, or context"
-                      rows={4}
-                    />
                   </div>
                 </div>
 
-                <SheetFooter>
-                  <Button type="submit" disabled={isCreating}>
-                    <Clock3Icon data-icon="inline-start" />
-                    {isCreating ? "Granting..." : "Grant RSVP Window"}
-                  </Button>
-                </SheetFooter>
-              </form>
-            </SheetContent>
-          </Sheet>
-        </CardHeader>
+                <div className="grid gap-2">
+                  <Label htmlFor="exception-note">Internal note</Label>
+                  <Textarea
+                    id="exception-note"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Reason, owner, or context"
+                    rows={4}
+                  />
+                </div>
+              </div>
 
-        <CardContent className="grid gap-4 p-0">
-          <div className="px-4">
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search exceptions"
-                aria-label="Search RSVP exceptions"
-                className="pl-9"
-              />
-            </div>
+              <SheetFooter>
+                <Button type="submit" disabled={isCreating}>
+                  <Clock3Icon data-icon="inline-start" />
+                  {isCreating ? "Granting..." : "Grant RSVP Window"}
+                </Button>
+              </SheetFooter>
+            </form>
+          </SheetContent>
+        </Sheet>
+      </CardHeader>
+
+      <CardContent className="grid gap-4 p-0">
+        <div className="px-4">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search exceptions"
+              aria-label="Search RSVP exceptions"
+              className="pl-9"
+            />
           </div>
+        </div>
 
-          <Table>
-            <TableHeader>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Applicant</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Expires</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Note</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredExceptions.length === 0 ? (
               <TableRow>
-                <TableHead>Applicant</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Note</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableCell
+                  colSpan={7}
+                  className="h-28 text-center text-muted-foreground"
+                >
+                  No RSVP exceptions match this view.
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredExceptions.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="h-28 text-center text-muted-foreground"
-                  >
-                    No RSVP exceptions match this view.
+            ) : (
+              filteredExceptions.map((exception) => (
+                <TableRow key={exception.id}>
+                  <TableCell className="font-medium">
+                    {exception.applicationName}
+                  </TableCell>
+                  <TableCell>{exception.accountEmail}</TableCell>
+                  <TableCell>{statusBadge(exception.status)}</TableCell>
+                  <TableCell>{formatDateTime(exception.expiresAt)}</TableCell>
+                  <TableCell>{formatDateTime(exception.createdAt)}</TableCell>
+                  <TableCell className="max-w-72 truncate">
+                    {exception.note || "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={
+                        exception.status !== "active" ||
+                        (isRevoking && revokingId === exception.id)
+                      }
+                      onClick={() => revokeException(exception)}
+                    >
+                      <RotateCcwIcon data-icon="inline-start" />
+                      Revoke
+                    </Button>
                   </TableCell>
                 </TableRow>
-              ) : (
-                filteredExceptions.map((exception) => (
-                  <TableRow key={exception.id}>
-                    <TableCell className="font-medium">
-                      {exception.applicationName}
-                    </TableCell>
-                    <TableCell>{exception.accountEmail}</TableCell>
-                    <TableCell>{statusBadge(exception.status)}</TableCell>
-                    <TableCell>{formatDateTime(exception.expiresAt)}</TableCell>
-                    <TableCell>{formatDateTime(exception.createdAt)}</TableCell>
-                    <TableCell className="max-w-72 truncate">
-                      {exception.note || "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={
-                          exception.status !== "active" ||
-                          (isRevoking && revokingId === exception.id)
-                        }
-                        onClick={() => revokeException(exception)}
-                      >
-                        <RotateCcwIcon data-icon="inline-start" />
-                        Revoke
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card size="sm">
-        <CardHeader className="sm:grid-cols-[auto_1fr]">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <ShieldAlertIcon className="size-4" />
-          </div>
-          <div>
-            <CardTitle>Non-applicant backdoor</CardTitle>
-            <CardDescription>
-              Reserved for event-day adds who never submitted an application.
-            </CardDescription>
-          </div>
-        </CardHeader>
-      </Card>
-    </div>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

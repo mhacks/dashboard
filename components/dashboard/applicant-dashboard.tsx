@@ -33,6 +33,8 @@ export type ApplicantDashboardData = {
   /** Sections finished in a saved draft. 0 once submitted. */
   sectionsComplete: number;
   sectionsTotal: number;
+  /** Whether an unsubmitted application can still be edited or submitted. */
+  applicationsOpen: boolean;
   /** Pre-formatted, e.g. "12 August 2026". Absent before submitting. */
   submittedAt?: string;
 };
@@ -102,6 +104,30 @@ function ViewApplicationLink() {
  */
 function ApplyingPanel({ data }: { data: ApplicantDashboardData }) {
   const started = data.sectionsComplete > 0;
+
+  if (!data.applicationsOpen) {
+    return (
+      <Panel eyebrow="YOUR APPLICATION" status="Closed">
+        <PanelHeading
+          lede={
+            started
+              ? "The application deadline has passed. Your saved draft is still available to view, but it can no longer be changed or submitted."
+              : "The application deadline for MHacks 2026 has passed."
+          }
+        >
+          Applications are closed
+        </PanelHeading>
+
+        {started ? (
+          <div className="flex flex-wrap items-center gap-3.5">
+            <ButtonLink href="/apply" external={false}>
+              View your saved draft
+            </ButtonLink>
+          </div>
+        ) : null}
+      </Panel>
+    );
+  }
 
   return (
     <Panel eyebrow="YOUR APPLICATION">

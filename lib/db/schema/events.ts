@@ -38,6 +38,12 @@ export const events = pgTable(
     startsAt: timestamp("starts_at", { withTimezone: true, mode: "string" }),
     endsAt: timestamp("ends_at", { withTimezone: true, mode: "string" }),
 
+    // Most MHacks events are for people who accepted their offer and RSVPed.
+    // Outreach/qualifying events are different: checking in there is how we
+    // learn which account holders should be admitted later, so an organizer
+    // can explicitly open those events to every account.
+    requiresRsvp: boolean("requires_rsvp").default(true).notNull(),
+
     // The switch that actually opens and closes a scanner, flipped by hand.
     // Events run late, and a door that stops working at 9:00pm sharp because
     // the clock passed ends_at is worse than one an organizer closes when the
@@ -149,16 +155,21 @@ export const eventCheckins = pgTable(
     }),
     // Everything the check-in path enforces in TypeScript, restated as the
     // last word. The app inserts as the owner role and never touches this, but
-    // a volunteer's JWT can reach PostgREST directly, and "is staff" alone let
-    // one write a check-in for anybody — someone who never RSVPed, a row
-    // signed with a colleague's name, or an arrival at an event that closed
-    // hours ago.
+    // a volunteer's JWT can reach PostgREST directly. RSVP-gated events still
+    // require a confirmed spot; an account-only event deliberately accepts any
+    // real public.users row (enforced by the user_id foreign key).
     pgPolicy("event_checkins_insert_staff", {
       for: "insert",
       to: authenticatedRole,
       withCheck: sql`${isEventStaff}
   and ${table.checkedInBy} = ${authUid}
-  and public.has_confirmed_rsvp(${table.userId})
+  and (
+    public.has_confirmed_rsvp(${table.userId})
+    or exists (
+      select 1 from public.events event
+      where event.id = ${table.eventId} and not event.requires_rsvp
+    )
+  )
   and public.is_event_open(${table.eventId})`,
     }),
     // Reverting a mis-scan is an organizer's call, not a volunteer's. No update

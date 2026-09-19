@@ -113,6 +113,7 @@ export default async function RsvpPage() {
     <RsvpForm
       draft={state.draft}
       accountEmail={state.accountEmail}
+      closesAt={state.closesAt}
       travelEligibility={state.travelEligibility}
       draftVersion={state.draftVersion}
       reimbursementCents={state.reimbursementCents}

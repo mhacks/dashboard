@@ -49,10 +49,12 @@ const HISTORY_LIMIT = 20;
 export function CheckInScanner({
   slug,
   eventName,
+  requiresRsvp,
   initialCheckedInCount,
 }: {
   slug: string;
   eventName: string;
+  requiresRsvp: boolean;
   initialCheckedInCount: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -214,6 +216,12 @@ export function CheckInScanner({
 
   return (
     <div className="flex flex-col gap-4">
+      {!requiresRsvp ? (
+        <p className="border border-sky-500/50 bg-sky-50 px-3 py-2 text-center font-red-hat-mono text-[11.5px] tracking-[0.06em] text-sky-900">
+          Account event — anyone with an MHacks account can check in.
+        </p>
+      ) : null}
+
       {isOffline ? (
         // navigator.onLine lies about captive portals, so this is advisory —
         // but it turns a confusing hang into an explanation.
@@ -278,6 +286,7 @@ export function CheckInScanner({
 
       <ManualEntry
         slug={slug}
+        requiresRsvp={requiresRsvp}
         // A pending network error is an unfinished scan, not a dead end. Retry
         // above resends its scan id, so the server replays whatever it did
         // record rather than acting twice — and a request that failed on the

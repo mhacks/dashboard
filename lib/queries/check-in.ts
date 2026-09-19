@@ -14,12 +14,8 @@ import { RSVP_CONFIRMED_DECISIONS } from "@/lib/decisions";
  * alongside it. Requiring both means neither can hand out a code on its own if
  * they ever drift.
  *
- * The scanner re-checks exactly this server-side, so this is a display gate
- * rather than a security boundary — showing a code to someone who shouldn't
- * have one would only get them turned away at the door.
- *
- * Failures degrade to `false` rather than throwing, matching
- * `getApplicantDecision`: a dashboard missing its QR button beats an error page.
+ * Failures degrade to `false` rather than throwing: a dashboard missing its QR
+ * button beats an error page, and a gated surface should fail closed.
  */
 export async function getAttendeeQrEligibility(
   userId: string,

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -35,6 +36,7 @@ import {
 import {
   createEventAction,
   setEventActiveAction,
+  setEventRequiresRsvpAction,
 } from "@/lib/actions/events.server.actions";
 import type { AdminEventSummary } from "@/lib/queries/events";
 import { slugifyEventName } from "@/lib/types/events";
@@ -46,6 +48,7 @@ const EMPTY_FORM = {
   description: "",
   startsAt: "",
   endsAt: "",
+  requiresRsvp: true,
 };
 
 export function EventsManager({ events }: { events: AdminEventSummary[] }) {
@@ -58,7 +61,10 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
   // before the event exists, not discovered afterwards.
   const previewSlug = form.slug.trim() || slugifyEventName(form.name);
 
-  function set<K extends keyof typeof EMPTY_FORM>(key: K, value: string) {
+  function set<K extends keyof typeof EMPTY_FORM>(
+    key: K,
+    value: (typeof EMPTY_FORM)[K],
+  ) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -86,6 +92,26 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
         return;
       }
       toast.success(isActive ? `Opened ${name}.` : `Closed ${name}.`);
+      router.refresh();
+    });
+  }
+
+  function toggleRequiresRsvp(
+    slug: string,
+    name: string,
+    requiresRsvp: boolean,
+  ) {
+    startTransition(async () => {
+      const result = await setEventRequiresRsvpAction({ slug, requiresRsvp });
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(
+        requiresRsvp
+          ? `${name} now requires a confirmed RSVP.`
+          : `${name} is now open to every account.`,
+      );
       router.refresh();
     });
   }
@@ -180,6 +206,25 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                 </Field>
               </div>
 
+              <div className="flex items-start gap-2.5 sm:col-span-2">
+                <Checkbox
+                  id="requires-rsvp"
+                  checked={form.requiresRsvp}
+                  onCheckedChange={(checked) =>
+                    set("requiresRsvp", checked === true)
+                  }
+                />
+                <div className="grid gap-0.5">
+                  <Label htmlFor="requires-rsvp">
+                    Require a confirmed RSVP
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Turn this off for qualifying events where any account holder
+                    should be checked in.
+                  </p>
+                </div>
+              </div>
+
               <div className="flex justify-end sm:col-span-2">
                 <Button type="submit" disabled={isPending || !form.name.trim()}>
                   {isPending ? "Creating…" : "Create event"}
@@ -203,6 +248,7 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                     <TableHead>Event</TableHead>
                     <TableHead>When</TableHead>
                     <TableHead className="text-right">Checked in</TableHead>
+                    <TableHead>Who can attend</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -236,6 +282,14 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                       </TableCell>
 
                       <TableCell>
+                        <Badge variant="outline">
+                          {event.requiresRsvp
+                            ? "Confirmed RSVPs"
+                            : "Any account"}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell>
                         <Badge
                           variant={event.isActive ? "default" : "secondary"}
                         >
@@ -245,6 +299,24 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
 
                       <TableCell>
                         <div className="flex justify-end gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={isPending}
+                            onClick={() =>
+                              toggleRequiresRsvp(
+                                event.slug,
+                                event.name,
+                                !event.requiresRsvp,
+                              )
+                            }
+                          >
+                            {event.requiresRsvp
+                              ? "Allow accounts"
+                              : "Require RSVP"}
+                          </Button>
+
                           <Button
                             type="button"
                             size="sm"
