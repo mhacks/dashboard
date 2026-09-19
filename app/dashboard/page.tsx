@@ -11,7 +11,7 @@ import {
   isDraftStarted,
 } from "@/lib/application-steps";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { isDecided } from "@/lib/decisions";
+import { isDecided, isDecisionLetterOpen } from "@/lib/decisions";
 import {
   getApplicantDecision,
   type ApplicantDecisionRow,
@@ -68,6 +68,7 @@ export default async function DashboardPage() {
         sectionsComplete: draftSteps,
         sectionsTotal: APPLICATION_STEPS.length,
         applicationsOpen: applicationAccess.open,
+        decisionLetterOpen: isDecisionLetterOpen(),
         submittedAt: application
           ? format(new Date(application.createdAt), "MMMM d, yyyy")
           : undefined,

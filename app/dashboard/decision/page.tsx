@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { ResultsLetter } from "@/components/decision/results-letter";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { isDecided } from "@/lib/decisions";
+import { canViewDecisionLetter } from "@/lib/decisions";
 import { getApplicantDecision } from "@/lib/queries/applicant-decision";
 
 export const metadata: Metadata = {
@@ -17,12 +17,18 @@ export const metadata: Metadata = {
  * full page to be read and screenshotted on. The gate mirrors /dashboard/pass —
  * anyone without a released decision goes back to the dashboard rather than
  * seeing an empty page.
+ *
+ * The same redirect retires the letter after DECISION_LETTER_CLOSE_ISO. Old
+ * decision emails link here through /login?next=/dashboard/decision, so the
+ * redirect is the graceful landing for a link that outlives the letter.
  */
 export default async function DecisionPage() {
   const { id: userId } = await requireSessionUser();
 
   const application = await getApplicantDecision(userId);
-  if (!application || !isDecided(application.decision)) redirect("/dashboard");
+  if (!application || !canViewDecisionLetter(application.decision)) {
+    redirect("/dashboard");
+  }
 
   return (
     <ResultsLetter
