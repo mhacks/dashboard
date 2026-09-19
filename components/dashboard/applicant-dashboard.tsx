@@ -35,6 +35,12 @@ export type ApplicantDashboardData = {
   sectionsTotal: number;
   /** Whether an unsubmitted application can still be edited or submitted. */
   applicationsOpen: boolean;
+  /**
+   * Whether a released decision's letter can still be opened. False after the
+   * cutoff in lib/decisions.ts, which retires the letter without touching the
+   * decision behind it.
+   */
+  decisionLetterOpen: boolean;
   /** Pre-formatted, e.g. "12 August 2026". Absent before submitting. */
   submittedAt?: string;
 };
@@ -71,7 +77,9 @@ export function ApplicantDashboard({
 
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
-          {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
+          {data.stage === "decision-ready" ? (
+            <DecisionReadyPanel data={data} />
+          ) : null}
 
           {isEventStaff(role) ? <StaffTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
@@ -191,21 +199,41 @@ function InReviewPanel({ data }: { data: ApplicantDashboardData }) {
  * The button is a plain link to the decision route, so opening a letter is a
  * server-rendered navigation like any other — it arrives fully formed rather
  * than being revealed by client state.
+ *
+ * Once the letter closes the panel keeps its finished status line and loses the
+ * button: the decision still stands and the applicant should still see that it
+ * was made, but there is nothing left here to open. The lede points at the
+ * emailed copy, which is now the only one, rather than at a link that would
+ * bounce straight back to this page.
  */
-function DecisionReadyPanel() {
+function DecisionReadyPanel({ data }: { data: ApplicantDashboardData }) {
+  const steps = [
+    { label: "Submitted", done: true },
+    { label: "Reviewed", done: true },
+    { label: "Decision released", done: true },
+  ];
+
+  if (!data.decisionLetterOpen) {
+    return (
+      <Panel eyebrow="YOUR APPLICATION" status="Decision sent">
+        <PanelHeading lede="Your decision was released and is no longer viewable here. The copy we emailed you is yours to keep — search your inbox for MHacks 2026, and write to us if you can't find it.">
+          Your decision has been sent
+        </PanelHeading>
+
+        <StatusLine steps={steps} />
+
+        <ViewApplicationLink />
+      </Panel>
+    );
+  }
+
   return (
     <Panel eyebrow="YOUR APPLICATION" status="Decision ready">
       <PanelHeading lede="Reviews are complete and your result is waiting. Open it whenever you have a minute — a copy is in your email either way.">
         Your decision is ready
       </PanelHeading>
 
-      <StatusLine
-        steps={[
-          { label: "Submitted", done: true },
-          { label: "Reviewed", done: true },
-          { label: "Decision released", done: true },
-        ]}
-      />
+      <StatusLine steps={steps} />
 
       <div className="flex flex-wrap items-center gap-3.5">
         <ButtonLink href="/dashboard/decision" external={false}>

@@ -20,7 +20,10 @@ export type ApplicationDecision = (typeof APPLICATION_DECISIONS)[number];
 export type DecisionRound = "early" | "regular";
 export type DecisionOutcome = "pending" | "accepted" | "rejected";
 
-/** Whether a decision has been released — i.e. the letter is viewable. */
+/**
+ * Whether a decision has been released. Says nothing about whether the letter
+ * can still be opened — see `canViewDecisionLetter` for that.
+ */
 export function isDecided(decision: ApplicationDecision) {
   return decision !== "applied";
 }
@@ -84,6 +87,32 @@ export const RSVP_DEADLINE: Record<DecisionRound, string> = {
   early: "August 23, 2026",
   regular: "September 19, 2026",
 };
+
+/**
+ * When decision letters stop being viewable: midnight Eastern at the start of
+ * September 20, one millisecond after the regular RSVP deadline in
+ * lib/rsvp/deadline.ts. Once the last RSVP window has closed the letter has no
+ * work left to do, so the dashboard stops offering it and /dashboard/decision
+ * sends people back.
+ *
+ * This hides the letter, never the decision: the stored decision, the emailed
+ * copy of the letter, and every downstream gate (RSVP eligibility, check-in)
+ * are untouched by the cutoff.
+ */
+export const DECISION_LETTER_CLOSE_ISO = "2026-09-20T00:00:00.000-04:00";
+export const DECISION_LETTER_CLOSE_MS = Date.parse(DECISION_LETTER_CLOSE_ISO);
+
+export function isDecisionLetterOpen(nowMs = Date.now()): boolean {
+  return nowMs < DECISION_LETTER_CLOSE_MS;
+}
+
+/** A released decision whose letter can still be opened. */
+export function canViewDecisionLetter(
+  decision: ApplicationDecision,
+  nowMs = Date.now(),
+): boolean {
+  return isDecided(decision) && isDecisionLetterOpen(nowMs);
+}
 
 export const SUPPORT_EMAIL = "hackathon@mhacks.org";
 
