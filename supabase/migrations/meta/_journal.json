@@ -176,6 +176,13 @@
       "when": 1789440832686,
       "tag": "20260915025352_backdoor_invitation_auto_accept",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789531717092,
+      "tag": "20260916040837_email_send_runs_pause",
+      "breakpoints": true
     }
   ]
 }
