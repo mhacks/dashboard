@@ -16,11 +16,11 @@ import { sql } from "drizzle-orm";
 import { authenticatedRole } from "drizzle-orm/supabase";
 import { RESERVATION_EVENT_STATUSES } from "../../reservation/domain";
 import { isOrganizerFn } from "./functions";
-import { teams } from "./reservation-teams";
+import { teams } from "./teams";
 import { users } from "./users";
 
 export { teams };
-export type { Team } from "./reservation-teams";
+export type Team = typeof teams.$inferSelect;
 
 export const reservationEventStatus = pgEnum(
   "reservation_event_status",
@@ -28,7 +28,7 @@ export const reservationEventStatus = pgEnum(
 );
 
 export const events = pgTable(
-  "events",
+  "reservation_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
@@ -56,8 +56,11 @@ export const events = pgTable(
         OR ${event.reservationsCloseAt} IS NULL
         OR ${event.reservationsCloseAt} > ${event.reservationsOpenAt}`,
     ),
-    index("events_status_starts_at_idx").on(event.status, event.startsAt),
-    pgPolicy("events_select_visible_or_organizer", {
+    index("reservation_events_status_starts_at_idx").on(
+      event.status,
+      event.startsAt,
+    ),
+    pgPolicy("reservation_events_select_visible_or_organizer", {
       for: "select",
       to: authenticatedRole,
       using: sql`${isOrganizerFn} OR ${event.status} IN ('open', 'closed')`,
@@ -95,7 +98,7 @@ export const tables = pgTable(
       for: "select",
       to: authenticatedRole,
       using: sql`${isOrganizerFn} OR EXISTS (
-        SELECT 1 FROM public.events
+        SELECT 1 FROM public.reservation_events
         WHERE id = ${table.eventId}
           AND status IN ('open', 'closed')
       )`,

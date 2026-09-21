@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
+import { teamMembers, teams } from "@/lib/db/schema/teams";
 
 export const ACCEPTED_RESERVATION_ERROR =
   "An accepted MHacks 2026 application is required to reserve a table.";
@@ -17,6 +18,19 @@ export function isAcceptedReservationDecision(
   decision: ApplicationDecision,
 ): boolean {
   return decisionOutcome(decision) === "accepted";
+}
+
+export async function getParticipantTeam(
+  userId: string,
+): Promise<{ teamId: string; teamName: string } | null> {
+  const [row] = await db
+    .select({ teamId: teamMembers.teamId, teamName: teams.name })
+    .from(teamMembers)
+    .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+    .where(eq(teamMembers.userId, userId))
+    .limit(1);
+
+  return row ?? null;
 }
 
 export async function hasAcceptedReservationAccess(

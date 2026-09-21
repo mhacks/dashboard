@@ -8,6 +8,7 @@ import {
   type Event as ReservationEventRow,
 } from "@/lib/db/schema/reservation";
 import { users } from "@/lib/db/schema/users";
+import { getParticipantTeam } from "@/lib/reservation/access";
 import { getReservationAvailability } from "@/lib/reservation/domain";
 import type {
   ParticipantEvent,
@@ -53,17 +54,20 @@ export async function getParticipantReservationUser(): Promise<ParticipantReserv
     .select({
       id: users.id,
       email: users.email,
-      teamId: users.teamId,
-      teamName: teams.name,
       role: users.role,
     })
     .from(users)
-    .leftJoin(teams, eq(users.teamId, teams.id))
     .where(eq(users.id, sessionUser.id))
     .limit(1);
 
   if (!row) return null;
-  return row;
+
+  const team = await getParticipantTeam(sessionUser.id);
+  return {
+    ...row,
+    teamId: team?.teamId ?? null,
+    teamName: team?.teamName ?? null,
+  };
 }
 
 export function getTablesForEvent(eventId: string): Promise<TableWithTeam[]> {

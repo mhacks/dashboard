@@ -8,6 +8,7 @@ import { events, tables } from "@/lib/db/schema/reservation";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
   ACCEPTED_RESERVATION_ERROR,
+  getParticipantTeam,
   lockAcceptedReservationApplicant,
   ReservationAccessError,
 } from "@/lib/reservation/access";
@@ -63,10 +64,11 @@ async function requireTeamId(): Promise<
   if (user.role === "organizer") {
     return { ok: false, error: "Organizers cannot reserve tables." };
   }
-  if (!user.teamId) {
+  const team = await getParticipantTeam(user.id);
+  if (!team) {
     return { ok: false, error: "You're not on a team yet." };
   }
-  return { ok: true, teamId: user.teamId, user };
+  return { ok: true, teamId: team.teamId, user };
 }
 
 function revalidateReservationPaths(eventId: string) {

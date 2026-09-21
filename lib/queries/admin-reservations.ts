@@ -226,6 +226,7 @@ export async function getAdminReservationAssignments(
           id: teams.id,
           name: teams.name,
           createdAt: teams.createdAt,
+          createdByUserId: teams.createdByUserId,
           tableId: tables.id,
           tableNumber: tables.number,
         })
