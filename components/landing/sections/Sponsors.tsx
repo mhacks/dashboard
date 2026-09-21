@@ -283,12 +283,18 @@ export function Sponsors() {
           }}
         >
           <span className="flex items-center gap-3">
-            <SplitReveal as="span" className="block">
+            <span
+              aria-hidden
+              className="-scale-x-100 shrink-0 font-mono text-[0.42em] tracking-[0.08em] text-cream/60"
+            >
+              {"ᯓ★ˎˊ˗"}
+            </span>
+            <SplitReveal as="span" className="block text-center">
               {"Our Sponsors"}
             </SplitReveal>
             <span
               aria-hidden
-              className="font-mono text-[0.42em] tracking-[0.08em] text-cream/60"
+              className="shrink-0 font-mono text-[0.42em] tracking-[0.08em] text-cream/60"
             >
               {"ᯓ★ˎˊ˗"}
             </span>
