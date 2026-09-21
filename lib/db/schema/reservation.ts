@@ -28,7 +28,7 @@ export const reservationEventStatus = pgEnum(
 );
 
 export const events = pgTable(
-  "reservation_events",
+  "table_reservations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
@@ -56,11 +56,11 @@ export const events = pgTable(
         OR ${event.reservationsCloseAt} IS NULL
         OR ${event.reservationsCloseAt} > ${event.reservationsOpenAt}`,
     ),
-    index("reservation_events_status_starts_at_idx").on(
+    index("table_reservations_status_starts_at_idx").on(
       event.status,
       event.startsAt,
     ),
-    pgPolicy("reservation_events_select_visible_or_organizer", {
+    pgPolicy("table_reservations_select_visible_or_organizer", {
       for: "select",
       to: authenticatedRole,
       using: sql`${isOrganizerFn} OR ${event.status} IN ('open', 'closed')`,
@@ -98,7 +98,7 @@ export const tables = pgTable(
       for: "select",
       to: authenticatedRole,
       using: sql`${isOrganizerFn} OR EXISTS (
-        SELECT 1 FROM public.reservation_events
+        SELECT 1 FROM public.table_reservations
         WHERE id = ${table.eventId}
           AND status IN ('open', 'closed')
       )`,
