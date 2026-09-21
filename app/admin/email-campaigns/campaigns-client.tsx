@@ -29,6 +29,7 @@ import {
 import { AdminHeaderActions } from "@/app/admin/components/admin-header-actions";
 import { adminPageHeaderClasses } from "@/app/admin/components/admin-page-header-layout";
 import { Button } from "@/components/ui/button";
+import { OTP_PREVIEW_CODE } from "@/lib/auth/otp";
 import type {
   EmailAudienceQuery,
   EmailCampaignContent,
@@ -37,7 +38,10 @@ import type {
 import { cn } from "@/lib/utils";
 import {
   deleteEmailTemplateAction,
+  findActiveDirectSendAction,
+  listRecoverableDirectSendsAction,
   parseDirectRecipientsAction,
+  recoverDirectSendAction,
   renderEmailPreviewAction,
   resolveEmailAudienceAction,
   saveEmailTemplateAction,
@@ -89,21 +93,33 @@ interface AudienceResolveResult extends RecipientSaveResult {
 interface DirectSendStatus {
   runId: string;
   proofKey?: string;
-  staleBatchCursor?: number;
+  interrupted: boolean;
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
   pendingCount: number;
   sendingCount: number;
+  leaseActive: boolean;
+  leaseExpiresAt: string | null;
   nextCursor: number;
   complete: boolean;
+  resumable: boolean;
+  recoveryIssue: string | null;
+  recoveredById?: boolean;
   invalid: string[];
   duplicateCount: number;
   columns?: string[];
+  unverifiedRecipients: string[];
   recentFailures: Array<{
     email: string;
     error: string | null;
   }>;
+}
+
+interface RecoverableDirectSend extends DirectSendStatus {
+  subject: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface TestSendProof {
@@ -137,6 +153,8 @@ const defaultAudienceQuery: EmailAudienceQuery = {
 };
 const audienceDecisionOptions = [
   ["all_applicants", "All applicants"],
+  ["draft", "Draft application (not submitted)"],
+  ["umich", "All @umich.edu users"],
   ["accepted", "All accepted"],
   ["rsvped", "All RSVPed"],
   ["rejected", "All rejected"],
@@ -204,6 +222,10 @@ export default function EmailCampaignsClient({
   const [sendStatus, setSendStatus] = useState<DirectSendStatus | null>(() =>
     loadStoredSendStatus(),
   );
+  const [recoverableSends, setRecoverableSends] = useState<
+    RecoverableDirectSend[]
+  >([]);
+  const [recoverableSendsLoading, setRecoverableSendsLoading] = useState(true);
   const [testSendProof, setTestSendProof] = useState<TestSendProof | null>(() =>
     loadStoredTestSendProof(),
   );
@@ -239,12 +261,35 @@ export default function EmailCampaignsClient({
     testSendProof,
     currentTestProofKey,
   );
-  const activeSendStatus =
-    sendStatus?.proofKey === currentTestProofKey ? sendStatus : null;
+  const activeSendStatus = sendStatus?.recoveredById
+    ? sendStatus
+    : sendStatus?.proofKey === currentTestProofKey
+      ? sendStatus
+      : null;
   const effectiveMergePreviewData = useMemo(
     () => ensureMergePreviewData(mergeFields, mergePreviewData),
     [mergeFields, mergePreviewData],
   );
+
+  useEffect(() => {
+    if (surface !== "send") return;
+
+    let ignore = false;
+    void listRecoverableDirectSendsAction()
+      .then((runs) => {
+        if (!ignore) setRecoverableSends(runs);
+      })
+      .catch((error) => {
+        if (!ignore) setSendNotice(errorMessage(error));
+      })
+      .finally(() => {
+        if (!ignore) setRecoverableSendsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [surface]);
 
   async function saveTemplateToMaster() {
     if (!selectedTemplate) return;
@@ -618,18 +663,38 @@ export default function EmailCampaignsClient({
       "Validating addresses and merge columns.",
     );
     try {
-      const parsed = await parseDirectRecipientsAction({
-        recipients: recipientText,
-      });
+      const template = buildDirectSendTemplate(selectedTemplate, theme);
+      const [parsed, recoveredStatus] = await Promise.all([
+        parseDirectRecipientsAction({ recipients: recipientText }),
+        template
+          ? findActiveDirectSendAction({
+              template,
+              recipients: recipientText,
+            })
+          : Promise.resolve(null),
+      ]);
       setRecipientResult(parsed);
-      clearSendStatus();
-      setSendNotice(`${parsed.emails.length} recipients ready.`);
+      if (recoveredStatus) {
+        commitSendStatus({
+          ...recoveredStatus,
+          proofKey: currentTestProofKey,
+        });
+      } else {
+        clearSendStatus();
+      }
+      setSendNotice(
+        recoveredStatus
+          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
+          : `${parsed.emails.length} recipients ready.`,
+      );
       showToast(
-        "success",
-        "Recipient list ready",
-        `${parsed.emails.length} valid, ${parsed.duplicateCount} duplicate${
-          parsed.duplicateCount === 1 ? "" : "s"
-        }, ${parsed.invalid.length} invalid.`,
+        recoveredStatus ? "info" : "success",
+        recoveredStatus ? "Saved send recovered" : "Recipient list ready",
+        recoveredStatus
+          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
+          : `${parsed.emails.length} valid, ${parsed.duplicateCount} duplicate${
+              parsed.duplicateCount === 1 ? "" : "s"
+            }, ${parsed.invalid.length} invalid.`,
       );
     } catch (error) {
       const message = errorMessage(error);
@@ -656,14 +721,34 @@ export default function EmailCampaignsClient({
       storeSendRecipients(resolved.recipientText);
       setRecipientResult(resolved);
       setAudienceLabel(resolved.label);
-      clearSendStatus();
-      setSendNotice(`${resolved.emails.length} recipients loaded.`);
+      const template = buildDirectSendTemplate(selectedTemplate, theme);
+      const recoveredStatus = template
+        ? await findActiveDirectSendAction({
+            template,
+            recipients: resolved.recipientText,
+          })
+        : null;
+      if (recoveredStatus) {
+        commitSendStatus({
+          ...recoveredStatus,
+          proofKey: currentTestProofKey,
+        });
+      } else {
+        clearSendStatus();
+      }
+      setSendNotice(
+        recoveredStatus
+          ? `Recovered send: ${recoveredStatus.sentCount} sent, ${recoveredStatus.pendingCount} pending.`
+          : `${resolved.emails.length} recipients loaded.`,
+      );
       showToast(
-        "success",
-        "Group loaded",
-        `${resolved.emails.length} valid recipient${
-          resolved.emails.length === 1 ? "" : "s"
-        } from ${resolved.label}.`,
+        recoveredStatus ? "info" : "success",
+        recoveredStatus ? "Saved send recovered" : "Group loaded",
+        recoveredStatus
+          ? `${recoveredStatus.sentCount} sent, ${recoveredStatus.failedCount} failed, ${recoveredStatus.pendingCount} pending.`
+          : `${resolved.emails.length} valid recipient${
+              resolved.emails.length === 1 ? "" : "s"
+            } from ${resolved.label}.`,
       );
     } catch (error) {
       const message = errorMessage(error);
@@ -786,11 +871,16 @@ export default function EmailCampaignsClient({
   }
 
   async function startFullSend() {
+    if (activeSendStatus?.recoveredById) {
+      await resumeStoredSend(activeSendStatus);
+      return;
+    }
+
     const template = buildDirectSendTemplate(selectedTemplate, theme);
     if (!template) return;
     const proof = activeTestSendProof;
 
-    if (!proof) {
+    if (!proof && !activeSendStatus) {
       const message =
         "Run a successful test send before starting a full list send.";
       setSendNotice(message);
@@ -803,7 +893,9 @@ export default function EmailCampaignsClient({
     showToast(
       "loading",
       "Sending list",
-      "Starting the first server-throttled batch.",
+      activeSendStatus
+        ? "Resuming from the last durable recipient checkpoint."
+        : "Starting the first server-throttled send window.",
     );
     try {
       let status: DirectSendStatus | null = null;
@@ -819,11 +911,17 @@ export default function EmailCampaignsClient({
           failedCount: 0,
           pendingCount: recipientResult?.emails.length ?? 0,
           sendingCount: 0,
+          leaseActive: false,
+          leaseExpiresAt: null,
           nextCursor: cursor,
           complete: false,
+          resumable: true,
+          recoveryIssue: null,
+          interrupted: false,
           invalid: recipientResult?.invalid ?? [],
           duplicateCount: recipientResult?.duplicateCount ?? 0,
           columns: recipientResult?.columns,
+          unverifiedRecipients: [],
           recentFailures: [],
         });
       }
@@ -833,7 +931,7 @@ export default function EmailCampaignsClient({
           runId,
           template,
           recipients: recipientText,
-          testSendToken: proof.token,
+          testSendToken: proof?.token,
           cursor,
         });
         commitSendStatus({ ...status, proofKey: currentTestProofKey });
@@ -850,11 +948,11 @@ export default function EmailCampaignsClient({
           break;
         }
 
-        if (status.staleBatchCursor !== undefined) {
+        if (status.interrupted) {
           break;
         }
 
-        if (status.sendingCount > 0) {
+        if (status.leaseActive || status.sendingCount > 0) {
           break;
         }
       }
@@ -863,20 +961,28 @@ export default function EmailCampaignsClient({
         status
           ? status.complete
             ? `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`
-            : status.staleBatchCursor !== undefined
-              ? "A batch may have partially sent before completion was recorded. Verify SES, then resolve the checked batch."
-              : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending. Wait for the active batch to finish before continuing.`
+            : status.interrupted
+              ? "One delivery was interrupted after it started. Verify it in SES, then resolve it without automatically resending."
+              : status.leaseActive && status.leaseExpiresAt
+                ? `Waiting for the previous send request to expire at ${formatTime(status.leaseExpiresAt)}. Recovery will refresh automatically.`
+                : "Send paused. Continue when ready."
           : "Send complete.",
       );
       showToast(
-        status?.complete && !status.failedCount ? "success" : "error",
+        status?.complete && !status.failedCount
+          ? "success"
+          : status?.interrupted
+            ? "error"
+            : "info",
         status?.complete ? "List send complete" : "List send paused",
         status
           ? status.complete
             ? `${status.sentCount} sent, ${status.failedCount} failed.`
-            : status.staleBatchCursor !== undefined
-              ? "Verify SES delivery for the stuck batch before resolving it."
-              : `${status.sendingCount} recipient${status.sendingCount === 1 ? "" : "s"} still marked sending.`
+            : status.interrupted
+              ? "Verify the interrupted delivery in SES before resolving it."
+              : status.leaseActive && status.leaseExpiresAt
+                ? `Recovery becomes available at ${formatTime(status.leaseExpiresAt)}.`
+                : "The saved send is ready to continue."
           : "Send complete.",
       );
 
@@ -910,32 +1016,160 @@ export default function EmailCampaignsClient({
     removeStoredSendStatus();
   }
 
-  async function resolveStaleBatch() {
-    const template = buildDirectSendTemplate(selectedTemplate, theme);
-    const status = activeSendStatus;
+  function selectRecoverableSend(run: RecoverableDirectSend) {
+    commitSendStatus({ ...run, recoveredById: true });
+    setSendNotice(
+      run.resumable
+        ? `Stored send selected: ${run.sentCount} sent, ${run.pendingCount} pending.`
+        : `Stored send cannot resume safely: ${run.recoveryIssue}`,
+    );
+  }
 
-    if (!template || !status || status.staleBatchCursor === undefined) {
+  async function resumeStoredSend(initialStatus: DirectSendStatus) {
+    if (!initialStatus.resumable) {
       const message =
-        "Select the original template and keep the recipient list loaded before resolving this batch.";
+        initialStatus.recoveryIssue ?? "Stored recovery data is incomplete.";
       setSendNotice(message);
-      showToast("error", "Cannot resolve batch", message);
+      showToast("error", "Cannot resume stored send", message);
       return;
     }
 
     setBusy("start-send");
-    setSendNotice("Resolving checked batch...");
-    try {
-      const nextStatus = await sendDirectBatchAction({
-        runId: status.runId,
-        template,
-        recipients: recipientText,
-        cursor: status.nextCursor,
-        resolveStaleBatch: { cursor: status.staleBatchCursor },
-      });
+    setSendNotice("Resuming from the stored delivery ledger...");
+    showToast(
+      "loading",
+      "Resuming stored send",
+      `${initialStatus.sentCount} sent, ${initialStatus.pendingCount} pending.`,
+    );
 
-      commitSendStatus({ ...nextStatus, proofKey: currentTestProofKey });
+    try {
+      let status: DirectSendStatus = initialStatus;
+      let cursor = initialStatus.nextCursor;
+
+      for (let batch = 0; batch < 1000; batch += 1) {
+        const nextStatus = {
+          ...(await recoverDirectSendAction({
+            runId: initialStatus.runId,
+            cursor,
+          })),
+          recoveredById: true,
+        };
+        status = nextStatus;
+        commitSendStatus(nextStatus);
+        setRecoverableSends((runs) =>
+          runs.map((run) =>
+            run.runId === nextStatus.runId ? { ...run, ...nextStatus } : run,
+          ),
+        );
+        cursor = nextStatus.nextCursor;
+        showToast(
+          "loading",
+          "Resuming stored send",
+          `${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed, ${nextStatus.pendingCount} pending.`,
+        );
+
+        if (
+          nextStatus.complete ||
+          nextStatus.interrupted ||
+          nextStatus.leaseActive ||
+          nextStatus.sendingCount > 0
+        ) {
+          break;
+        }
+      }
+
+      if (status.complete) {
+        clearSendStatus();
+        setRecoverableSends((runs) =>
+          runs.filter((run) => run.runId !== status.runId),
+        );
+        setSendNotice(
+          `Send complete: ${status.sentCount} sent, ${status.failedCount} failed.`,
+        );
+        showToast(
+          status.failedCount ? "error" : "success",
+          "Stored send complete",
+          `${status.sentCount} sent, ${status.failedCount} failed.`,
+        );
+      } else if (status.interrupted) {
+        setSendNotice(
+          "A delivery was interrupted after it started. Verify it in SES, then resolve it without automatically resending.",
+        );
+        showToast(
+          "error",
+          "Stored send interrupted",
+          "Verify the interrupted delivery in SES before resolving it.",
+        );
+      } else if (status.leaseActive && status.leaseExpiresAt) {
+        setSendNotice(
+          `Another request holds the send lease until ${formatTime(status.leaseExpiresAt)}.`,
+        );
+      } else {
+        setSendNotice("Stored send paused. Continue when ready.");
+      }
+    } catch (error) {
+      const message = errorMessage(error);
+      setSendNotice(message);
+      showToast("error", "Stored send failed", message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function resolveInterruptedDelivery() {
+    const template = buildDirectSendTemplate(selectedTemplate, theme);
+    const status = activeSendStatus;
+
+    if (
+      !status ||
+      !status.interrupted ||
+      (!status.recoveredById && !template)
+    ) {
+      const message =
+        "Select the original template and keep the recipient list loaded before resolving this delivery.";
+      setSendNotice(message);
+      showToast("error", "Cannot resolve delivery", message);
+      return;
+    }
+
+    setBusy("start-send");
+    setSendNotice("Resolving interrupted delivery...");
+    try {
+      const nextStatus = status.recoveredById
+        ? await recoverDirectSendAction({
+            runId: status.runId,
+            cursor: status.nextCursor,
+            resolveInterrupted: true,
+          })
+        : await sendDirectBatchAction({
+            runId: status.runId,
+            template: template!,
+            recipients: recipientText,
+            cursor: status.nextCursor,
+            resolveInterrupted: true,
+          });
+
+      commitSendStatus({
+        ...nextStatus,
+        proofKey: status.recoveredById ? undefined : currentTestProofKey,
+        recoveredById: status.recoveredById,
+      });
+      if (status.recoveredById) {
+        setRecoverableSends((runs) =>
+          runs.map((run) =>
+            run.runId === status.runId ? { ...run, ...nextStatus } : run,
+          ),
+        );
+      }
       if (nextStatus.complete) {
-        clearCompletedSend();
+        if (status.recoveredById) {
+          clearSendStatus();
+          setRecoverableSends((runs) =>
+            runs.filter((run) => run.runId !== status.runId),
+          );
+        } else {
+          clearCompletedSend();
+        }
         setSendNotice(
           `Send complete: ${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
         );
@@ -945,8 +1179,10 @@ export default function EmailCampaignsClient({
           `${nextStatus.sentCount} sent, ${nextStatus.failedCount} failed.`,
         );
       } else {
-        setSendNotice("Checked batch resolved. Continue the send when ready.");
-        showToast("info", "Batch resolved", "The run can continue now.");
+        setSendNotice(
+          "Interrupted delivery resolved. Continue the send when ready.",
+        );
+        showToast("info", "Delivery resolved", "The run can continue now.");
       }
     } catch (error) {
       const message = errorMessage(error);
@@ -1039,6 +1275,69 @@ export default function EmailCampaignsClient({
     const timer = window.setTimeout(() => setToast(null), 6500);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    const leaseExpiresAt = activeSendStatus?.leaseExpiresAt;
+    const template = buildDirectSendTemplate(selectedTemplate, theme);
+    const recoveredById = activeSendStatus?.recoveredById;
+
+    if (
+      !activeSendStatus?.leaseActive ||
+      !leaseExpiresAt ||
+      (!recoveredById && (!template || !recipientText.trim()))
+    ) {
+      return;
+    }
+
+    const refreshDelay = Math.max(
+      0,
+      Date.parse(leaseExpiresAt) - Date.now() + 250,
+    );
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const recoveredStatus = recoveredById
+            ? (await listRecoverableDirectSendsAction()).find(
+                (run) => run.runId === activeSendStatus.runId,
+              )
+            : await findActiveDirectSendAction({
+                template: template!,
+                recipients: recipientText,
+              });
+
+          if (!recoveredStatus) {
+            return;
+          }
+
+          const nextStatus = {
+            ...recoveredStatus,
+            proofKey: recoveredById ? undefined : currentTestProofKey,
+            recoveredById,
+          };
+          setSendStatus(nextStatus);
+          storeSendStatus(nextStatus);
+          setSendNotice(
+            recoveredStatus.interrupted
+              ? "A delivery was interrupted after it started. Verify it before resolving."
+              : "Recovery window expired. The saved send is ready to continue.",
+          );
+        } catch (error) {
+          setSendNotice(errorMessage(error));
+        }
+      })();
+    }, refreshDelay);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    activeSendStatus?.leaseActive,
+    activeSendStatus?.leaseExpiresAt,
+    activeSendStatus?.recoveredById,
+    activeSendStatus?.runId,
+    currentTestProofKey,
+    recipientText,
+    selectedTemplate,
+    theme,
+  ]);
 
   const selectedSection =
     selectedTemplate?.content?.sections[selectedSectionIndex] ?? null;
@@ -1168,6 +1467,8 @@ export default function EmailCampaignsClient({
               sendOneEmail={sendOneEmail}
               testEmails={testEmails}
               sendStatus={activeSendStatus}
+              recoverableSends={recoverableSends}
+              recoverableSendsLoading={recoverableSendsLoading}
               testSendProof={activeTestSendProof}
               notice={sendNotice}
               busy={busy}
@@ -1186,7 +1487,8 @@ export default function EmailCampaignsClient({
               onSendOne={() => void sendOneRecipient()}
               onTestSend={() => void sendTestEmails()}
               onStartSend={() => void startFullSend()}
-              onResolveStaleBatch={() => void resolveStaleBatch()}
+              onResolveInterrupted={() => void resolveInterruptedDelivery()}
+              onRecoverableSendSelect={selectRecoverableSend}
             />
           )}
         </section>
@@ -1811,6 +2113,8 @@ function SendPanel({
   sendOneEmail,
   testEmails,
   sendStatus,
+  recoverableSends,
+  recoverableSendsLoading,
   testSendProof,
   notice,
   busy,
@@ -1823,7 +2127,8 @@ function SendPanel({
   onSendOne,
   onTestSend,
   onStartSend,
-  onResolveStaleBatch,
+  onResolveInterrupted,
+  onRecoverableSendSelect,
 }: {
   selectedTemplate: MasterTemplate | null;
   mergeFields: string[];
@@ -1836,6 +2141,8 @@ function SendPanel({
   sendOneEmail: string;
   testEmails: string;
   sendStatus: DirectSendStatus | null;
+  recoverableSends: RecoverableDirectSend[];
+  recoverableSendsLoading: boolean;
   testSendProof: TestSendProof | null;
   notice: string;
   busy: string | null;
@@ -1848,7 +2155,8 @@ function SendPanel({
   onSendOne: () => void;
   onTestSend: () => void;
   onStartSend: () => void;
-  onResolveStaleBatch: () => void;
+  onResolveInterrupted: () => void;
+  onRecoverableSendSelect: (run: RecoverableDirectSend) => void;
 }) {
   const sendRate = Math.floor(1000 / Math.max(1, limits.sendDelayMs));
   const templateCanSend = Boolean(
@@ -1863,18 +2171,20 @@ function SendPanel({
   const missingRecipientColumns = recipientResult
     ? requiredRecipientColumns.filter((field) => !recipientColumns.has(field))
     : [];
-  const fullSendUnlocked = Boolean(testSendProof);
+  const fullSendUnlocked = Boolean(testSendProof || sendStatus);
   const recipientInputDisabled =
     !fullSendUnlocked || Boolean(busy) || recipientSource === "audience";
-  const fullSendReady = Boolean(
-    templateCanSend &&
-    testSendProof &&
-    recipientText.trim() &&
-    recipientResult &&
-    recipientResult.emails.length > 0 &&
-    recipientResult.invalid.length === 0 &&
-    missingRecipientColumns.length === 0,
-  );
+  const fullSendReady = sendStatus?.recoveredById
+    ? sendStatus.resumable
+    : Boolean(
+        templateCanSend &&
+        (testSendProof || sendStatus) &&
+        recipientText.trim() &&
+        recipientResult &&
+        recipientResult.emails.length > 0 &&
+        recipientResult.invalid.length === 0 &&
+        missingRecipientColumns.length === 0,
+      );
 
   return (
     <div className="space-y-5">
@@ -1897,6 +2207,65 @@ function SendPanel({
       ) : null}
 
       <SendProgress busy={busy} sendStatus={sendStatus} />
+
+      <section className={cn(adminInsetClass, "p-4")}>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Stored recovery runs
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Resume directly from the server-side template snapshot and pending
+            delivery ledger. The current editor and recipient list do not need
+            to match.
+          </p>
+        </div>
+        {recoverableSendsLoading ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Checking stored sends...
+          </p>
+        ) : recoverableSends.length ? (
+          <div className="mt-3 space-y-2">
+            {recoverableSends.map((run) => (
+              <div
+                key={run.runId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {run.subject}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {run.sentCount} sent, {run.failedCount} failed,{" "}
+                    {run.pendingCount} pending · started{" "}
+                    {formatTime(run.createdAt)}
+                  </p>
+                  {!run.resumable ? (
+                    <p className="mt-1 text-xs text-red-700 dark:text-red-300">
+                      {run.recoveryIssue}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={Boolean(busy)}
+                  onClick={() => onRecoverableSendSelect(run)}
+                >
+                  {sendStatus?.runId === run.runId
+                    ? "Selected"
+                    : run.resumable
+                      ? "Select to resume"
+                      : "Inspect"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No unfinished server-side sends found.
+          </p>
+        )}
+      </section>
 
       <section className={cn(adminInsetClass, "p-4")}>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
@@ -1933,7 +2302,17 @@ function SendPanel({
           <div className="mt-4 grid gap-3 sm:grid-cols-4">
             <Metric
               label="Status"
-              value={sendStatus.complete ? "complete" : "sending"}
+              value={
+                sendStatus.complete
+                  ? "complete"
+                  : sendStatus.interrupted
+                    ? "interrupted"
+                    : sendStatus.leaseActive
+                      ? "recovering"
+                      : busy === "start-send"
+                        ? "sending"
+                        : "ready"
+              }
             />
             <Metric label="Recipients" value={sendStatus.totalRecipients} />
             <Metric label="Sent" value={sendStatus.sentCount} />
@@ -2014,12 +2393,20 @@ function SendPanel({
                   className={inputClass}
                   value={audienceQuery.decisionGroup}
                   disabled={Boolean(busy)}
-                  onChange={(event) =>
-                    onAudienceQueryChange({
-                      decisionGroup: event.target
-                        .value as EmailAudienceQuery["decisionGroup"],
-                    })
-                  }
+                  onChange={(event) => {
+                    const decisionGroup = event.target
+                      .value as EmailAudienceQuery["decisionGroup"];
+
+                    onAudienceQueryChange(
+                      decisionGroup === "draft" || decisionGroup === "umich"
+                        ? {
+                            decisionGroup,
+                            travelAward: "any",
+                            rsvpTravelPlan: "any",
+                          }
+                        : { decisionGroup },
+                    );
+                  }}
                 >
                   {audienceDecisionOptions.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -2032,7 +2419,11 @@ function SendPanel({
                 <select
                   className={inputClass}
                   value={audienceQuery.travelAward}
-                  disabled={Boolean(busy)}
+                  disabled={
+                    Boolean(busy) ||
+                    audienceQuery.decisionGroup === "draft" ||
+                    audienceQuery.decisionGroup === "umich"
+                  }
                   onChange={(event) =>
                     onAudienceQueryChange({
                       travelAward: event.target
@@ -2051,7 +2442,11 @@ function SendPanel({
                 <select
                   className={inputClass}
                   value={audienceQuery.rsvpTravelPlan}
-                  disabled={Boolean(busy)}
+                  disabled={
+                    Boolean(busy) ||
+                    audienceQuery.decisionGroup === "draft" ||
+                    audienceQuery.decisionGroup === "umich"
+                  }
                   onChange={(event) =>
                     onAudienceQueryChange({
                       rsvpTravelPlan: event.target
@@ -2178,8 +2573,9 @@ function SendPanel({
               Full list
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sends in server-throttled batches. Keep this tab open while the
-              list is running.
+              Unsent recipients are checkpointed for recovery; completed
+              recipient rows are removed immediately. If the server or tab
+              closes, check the same list to safely resume.
             </p>
             {sendStatus ? (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -2188,8 +2584,11 @@ function SendPanel({
                 {sendStatus.sendingCount
                   ? `, ${sendStatus.sendingCount} sending`
                   : ""}
-                {sendStatus.staleBatchCursor !== undefined
-                  ? ". Verify SES for the stuck batch before resolving it."
+                {sendStatus.leaseActive && sendStatus.leaseExpiresAt
+                  ? `. Recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
+                  : ""}
+                {sendStatus.interrupted
+                  ? ". Verify the interrupted delivery in SES before resolving it."
                   : ""}
               </p>
             ) : testSendProof ? (
@@ -2222,22 +2621,32 @@ function SendPanel({
               disabled={
                 !fullSendReady ||
                 Boolean(busy) ||
-                sendStatus?.staleBatchCursor !== undefined
+                sendStatus?.complete ||
+                sendStatus?.interrupted ||
+                sendStatus?.leaseActive
               }
               onClick={onStartSend}
             >
               <Play />
-              {busy === "start-send" ? "Sending..." : "Start send"}
+              {busy === "start-send"
+                ? "Sending..."
+                : sendStatus?.complete
+                  ? "Complete"
+                  : sendStatus?.leaseActive
+                    ? "Waiting for recovery"
+                    : sendStatus?.recoveredById
+                      ? "Resume stored send"
+                      : "Start send"}
             </Button>
-            {sendStatus?.staleBatchCursor !== undefined ? (
+            {sendStatus?.interrupted ? (
               <Button
                 variant="ghost"
                 className={adminSecondaryButtonClass}
                 disabled={Boolean(busy)}
-                onClick={onResolveStaleBatch}
+                onClick={onResolveInterrupted}
               >
                 <ListChecks />
-                Resolve checked batch
+                Resolve interrupted delivery
               </Button>
             ) : null}
           </div>
@@ -2252,6 +2661,12 @@ function SendPanel({
                 {failure.email}: {failure.error || "Send failed"}
               </p>
             ))}
+          </div>
+        ) : null}
+        {sendStatus?.interrupted && sendStatus.unverifiedRecipients.length ? (
+          <div className="mt-4 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            Verify in SES before resolving:{" "}
+            {sendStatus.unverifiedRecipients.join(", ")}
           </div>
         ) : null}
       </section>
@@ -2304,10 +2719,18 @@ function SendProgress({
               ? "Sending list"
               : sendStatus?.complete
                 ? "Send complete"
-                : "Send progress";
+                : sendStatus?.leaseActive
+                  ? "Waiting for recovery"
+                  : sendStatus?.interrupted
+                    ? "Interrupted delivery"
+                    : "Send progress";
   const detail = sendStatus
     ? `${sendStatus.sentCount} sent, ${sendStatus.failedCount} failed, ${sendStatus.pendingCount} pending${
         sendStatus.sendingCount ? `, ${sendStatus.sendingCount} sending` : ""
+      }${
+        sendStatus.leaseActive && sendStatus.leaseExpiresAt
+          ? `; recovery available at ${formatTime(sendStatus.leaseExpiresAt)}`
+          : ""
       }`
     : "Working on the server...";
 
@@ -2930,7 +3353,22 @@ function storeTheme(theme: EmailThemeTokens) {
 }
 
 function loadStoredSendStatus() {
-  return readStorage<DirectSendStatus | null>(activeSendStatusStorageKey, null);
+  const stored = readStorage<
+    (DirectSendStatus & { staleBatchCursor?: number }) | null
+  >(activeSendStatusStorageKey, null);
+
+  return stored
+    ? {
+        ...stored,
+        interrupted:
+          stored.interrupted ?? stored.staleBatchCursor !== undefined,
+        leaseActive: stored.leaseActive ?? false,
+        leaseExpiresAt: stored.leaseExpiresAt ?? null,
+        resumable: stored.resumable ?? true,
+        recoveryIssue: stored.recoveryIssue ?? null,
+        unverifiedRecipients: stored.unverifiedRecipients ?? [],
+      }
+    : null;
 }
 
 function storeSendStatus(status: DirectSendStatus) {
@@ -3048,7 +3486,7 @@ const defaultMergeSamples: Record<string, string> = {
   first_name: "Hacker",
   last_name: "Hacker",
   name: "Hacker",
-  otp_code: "123456",
+  otp_code: OTP_PREVIEW_CODE,
   travel_reimbursement: "150.00",
 };
 

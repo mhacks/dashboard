@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   foreignKey,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -134,5 +135,66 @@ export const hackerRsvps = pgTable(
   ],
 ).enableRLS();
 
+export const hackerRsvpExceptions = pgTable(
+  "hacker_rsvp_exceptions",
+  {
+    id: uuid().defaultRandom().primaryKey().notNull(),
+    userId: uuid("user_id").notNull(),
+    createdByUserId: uuid("created_by_user_id").notNull(),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    note: text(),
+    revokedAt: timestamp("revoked_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "hacker_rsvp_exceptions_user_id_users_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdByUserId],
+      foreignColumns: [users.id],
+      name: "hacker_rsvp_exceptions_created_by_user_id_users_id_fk",
+    }).onDelete("cascade"),
+    unique("hacker_rsvp_exceptions_user_id_unique").on(table.userId),
+    index("hacker_rsvp_exceptions_expires_at_idx").on(table.expiresAt),
+    pgPolicy("hacker_rsvp_exceptions_organizer_select", {
+      for: "select",
+      to: authenticatedRole,
+      using: isOrganizer,
+    }),
+    pgPolicy("hacker_rsvp_exceptions_organizer_insert", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: isOrganizer,
+    }),
+    pgPolicy("hacker_rsvp_exceptions_organizer_update", {
+      for: "update",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
+    }),
+  ],
+).enableRLS();
+
 export type HackerRsvpDraftRow = typeof hackerRsvpDrafts.$inferSelect;
 export type HackerRsvpRow = typeof hackerRsvps.$inferSelect;
+export type HackerRsvpExceptionRow = typeof hackerRsvpExceptions.$inferSelect;

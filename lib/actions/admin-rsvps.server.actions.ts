@@ -7,8 +7,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireOrganizer } from "@/lib/auth/guards";
-import { RESUMES_BUCKET, s3 } from "@/lib/aws/s3";
-import type { ApplicationDecision } from "@/lib/decisions";
+import { UPLOADS_BUCKET, s3 } from "@/lib/aws/s3";
+import {
+  RSVP_ELIGIBLE_DECISIONS,
+  type ApplicationDecision,
+} from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { hackerRsvps } from "@/lib/db/schema/rsvps";
@@ -22,13 +25,6 @@ import { applicationSlugSchema } from "@/lib/types/application-reviews";
 import type { AdminRsvpDetail } from "@/lib/types/admin-rsvps";
 
 const ADMIN_RSVP_RECEIPT_URL_TTL_SECONDS = 15 * 60;
-const RSVP_ELIGIBLE_DECISIONS = [
-  "early_accepted",
-  "early_rsvped",
-  "regular_accepted",
-  "regular_rsvped",
-] as const satisfies readonly ApplicationDecision[];
-
 const deleteAdminRsvpInputSchema = z.strictObject({
   slug: applicationSlugSchema,
   confirmationName: z.string().trim().min(1),
@@ -79,7 +75,7 @@ export async function getAdminRsvpReceiptDownloadUrl(
     return await getSignedUrl(
       s3,
       new GetObjectCommand({
-        Bucket: RESUMES_BUCKET,
+        Bucket: UPLOADS_BUCKET,
         Key: receipt.key,
         ResponseContentDisposition: contentDispositionForReceipt(
           receipt.originalName,

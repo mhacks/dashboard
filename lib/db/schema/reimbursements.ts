@@ -63,7 +63,8 @@ export const hackerReimbursements = pgTable(
     // and eligibility is revoked by flipping this rather than by deleting.
     status: reimbursementStatus().default("approved").notNull(),
 
-    // Set when an organizer finalizes the decision.
+    // Set when an organizer finalizes the reimbursement decision. Admission
+    // acceptance must not rewrite these audit fields.
     decidedByUserId: uuid("decided_by_user_id"),
     decidedAt: timestamp("decided_at", {
       withTimezone: true,

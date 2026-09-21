@@ -92,7 +92,7 @@
           "CMD",
           "node",
           "-e",
-          "\"if(!(await fetch('http://localhost:3000/')).ok) process.exit(1)\""
+          "\"if(!(await fetch('http://localhost:3000/health')).ok) process.exit(1)\""
         ],
         "interval": 30,
         "timeout": 5,
@@ -112,6 +112,6 @@
     "operatingSystemFamily": "LINUX"
   },
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "1024",
-  "memory": "2048"
+  "cpu": "256",
+  "memory": "1024"
 }

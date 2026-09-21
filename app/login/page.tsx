@@ -7,6 +7,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { sendOtp, verifyOtp } from "@/lib/actions/auth.server.actions";
+import { OTP_GROUP_SIZE, OTP_LENGTH } from "@/lib/auth/otp";
 import posthog from "posthog-js";
 
 const emailSchema = z.object({
@@ -25,14 +27,24 @@ const emailSchema = z.object({
 });
 
 const tokenSchema = z.object({
-  token: z.string().length(6, "Code must be 6 digits"),
+  token: z.string().length(OTP_LENGTH, `Code must be ${OTP_LENGTH} digits`),
 });
 
 type EmailForm = z.infer<typeof emailSchema>;
 type TokenForm = z.infer<typeof tokenSchema>;
 
 const SLOT_CLASS =
-  "size-11 font-red-hat text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30";
+  "size-10 font-red-hat text-base border-[#c8d4a8] data-[active=true]:border-[#3A4A26] data-[active=true]:ring-[#3A4A26]/30";
+
+function OtpDigitSlots({ start, count }: { start: number; count: number }) {
+  return Array.from({ length: count }, (_, offset) => (
+    <InputOTPSlot
+      key={start + offset}
+      index={start + offset}
+      className={SLOT_CLASS}
+    />
+  ));
+}
 
 function AuthForm() {
   const searchParams = useSearchParams();
@@ -193,7 +205,7 @@ function AuthForm() {
                 className="mt-2 font-red-hat text-[13px] text-center"
                 style={{ color: "rgba(58,74,38,0.6)" }}
               >
-                We sent a 6-digit code to{" "}
+                We sent an {OTP_LENGTH}-digit code to{" "}
                 <span className="font-medium" style={{ color: "#3A4A26" }}>
                   {sentEmail}
                 </span>
@@ -211,18 +223,28 @@ function AuthForm() {
                     control={tokenForm.control}
                     render={({ field }) => (
                       <InputOTP
-                        maxLength={6}
+                        maxLength={OTP_LENGTH}
+                        pattern={REGEXP_ONLY_DIGITS}
+                        pasteTransformer={(pasted) => pasted.replace(/\D/g, "")}
                         value={field.value}
                         onChange={field.onChange}
                         autoFocus
+                        containerClassName="gap-1"
                       >
                         <InputOTPGroup>
-                          <InputOTPSlot index={0} className={SLOT_CLASS} />
-                          <InputOTPSlot index={1} className={SLOT_CLASS} />
-                          <InputOTPSlot index={2} className={SLOT_CLASS} />
-                          <InputOTPSlot index={3} className={SLOT_CLASS} />
-                          <InputOTPSlot index={4} className={SLOT_CLASS} />
-                          <InputOTPSlot index={5} className={SLOT_CLASS} />
+                          <OtpDigitSlots start={0} count={OTP_GROUP_SIZE} />
+                        </InputOTPGroup>
+                        <span
+                          aria-hidden
+                          className="font-red-hat text-base text-[#3A4A26]/70"
+                        >
+                          -
+                        </span>
+                        <InputOTPGroup>
+                          <OtpDigitSlots
+                            start={OTP_GROUP_SIZE}
+                            count={OTP_GROUP_SIZE}
+                          />
                         </InputOTPGroup>
                       </InputOTP>
                     )}
@@ -237,7 +259,8 @@ function AuthForm() {
                 <Button
                   type="submit"
                   disabled={
-                    tokenForm.formState.isSubmitting || tokenValue.length < 6
+                    tokenForm.formState.isSubmitting ||
+                    tokenValue.length < OTP_LENGTH
                   }
                   className="h-11 rounded-full font-red-hat text-[14px] font-medium cursor-pointer"
                   style={{ background: "#3A4A26", color: "#fff" }}

@@ -1,4 +1,5 @@
 import { userRoleLabel } from "@/lib/display/user-roles";
+import { OTP_LENGTH } from "@/lib/auth/otp";
 import type { InvitableUserRole } from "@/lib/types/user-invitations";
 
 function escapeHtml(value: string) {
@@ -105,7 +106,7 @@ export function buildInviteEmail({
     "How to sign in:",
     "1. Open the link above.",
     "2. Confirm your email address.",
-    "3. Enter the 6-digit code we send you.",
+    `3. Enter the ${OTP_LENGTH}-digit code we send you.`,
     "",
     `This invite expires on ${expiration}.`,
     "",
@@ -388,7 +389,7 @@ export function buildInviteEmail({
                     Confirm your email address.
                   </li>
                   <li style="margin-bottom: 0">
-                    Enter the 6-digit code we email you to finish signing in.
+                    Enter the ${OTP_LENGTH}-digit code we email you to finish signing in.
                   </li>
                 </ol>
 

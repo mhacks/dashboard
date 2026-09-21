@@ -12,7 +12,7 @@ import {
   hackerRsvps,
   type HackerRsvpRow,
 } from "@/lib/db/schema/rsvps";
-import { isRsvpOpen } from "@/lib/rsvp/deadline";
+import { getRsvpAccessForUser } from "@/lib/rsvp/access";
 import {
   applyTravelEligibilityDefaults,
   getRsvpTravelEligibility,
@@ -40,7 +40,17 @@ export type AttendeeRsvpState =
       reimbursementCents: number | null;
     }
   | {
-      kind: "editable" | "closed";
+      kind: "editable";
+      closesAt: string;
+      draft: RsvpDraftData;
+      accountEmail: string;
+      travelEligibility: RsvpTravelEligibility;
+      draftVersion: number;
+      /** Approved travel award in cents, or null when none. */
+      reimbursementCents: number | null;
+    }
+  | {
+      kind: "closed";
       draft: RsvpDraftData;
       accountEmail: string;
       travelEligibility: RsvpTravelEligibility;
@@ -308,8 +318,9 @@ export async function getAttendeeRsvpState({
     row.reimbursementCents,
   );
 
-  return {
-    kind: isRsvpOpen(nowMs) ? "editable" : "closed",
+  const access = await getRsvpAccessForUser({ userId, nowMs });
+
+  const rsvpState = {
     draft,
     accountEmail,
     travelEligibility: getRsvpTravelEligibility(
@@ -325,5 +336,21 @@ export async function getAttendeeRsvpState({
     ),
     draftVersion: 0,
     reimbursementCents,
+  };
+
+  if (access.open) {
+    if (!access.closesAt) {
+      throw new Error("Open RSVP access is missing a closing time");
+    }
+    return {
+      kind: "editable",
+      closesAt: access.closesAt,
+      ...rsvpState,
+    };
+  }
+
+  return {
+    kind: "closed",
+    ...rsvpState,
   };
 }
