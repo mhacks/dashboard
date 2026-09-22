@@ -65,19 +65,18 @@ export function ReservationBoard({
   const myTable =
     tables.find((t) => teamId && t.reservedByTeamId === teamId) ?? null;
   const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
-  const hasReservation = myTable !== null;
-  const eventCanReserve = selectedEvent?.availability.canReserve ?? false;
+  const eventIsOpen = selectedEvent?.availability.state === "open";
   const canReserve =
     !readOnly &&
     user?.role !== "organizer" &&
     Boolean(teamId) &&
-    !hasReservation &&
-    eventCanReserve;
+    myTable === null &&
+    eventIsOpen;
   const showReservationControls =
     !readOnly &&
     user?.role !== "organizer" &&
     Boolean(teamId) &&
-    !hasReservation;
+    myTable === null;
 
   const total = tables.length;
   const reservedCount = tables.filter((t) => t.reservedByTeamId).length;
@@ -91,7 +90,7 @@ export function ReservationBoard({
   function handleReserve() {
     if (!canReserve) {
       toast.error(
-        hasReservation
+        myTable
           ? "Your team already has a table for this event."
           : "Reservations are not open for this event.",
       );
@@ -117,7 +116,7 @@ export function ReservationBoard({
   function handleRandom() {
     if (!canReserve) {
       toast.error(
-        hasReservation
+        myTable
           ? "Your team already has a table for this event."
           : "Reservations are not open for this event.",
       );
@@ -148,7 +147,7 @@ export function ReservationBoard({
             </div>
           </div>
           <CardDescription>
-            {eventCanReserve && !readOnly && hasReservation
+            {eventIsOpen && !readOnly && myTable
               ? "Your table is locked in for this event."
               : reservationStateCopy(selectedEvent, readOnly)}
           </CardDescription>
@@ -202,20 +201,20 @@ export function ReservationBoard({
               <div className="rounded-lg border border-dashed border-zinc-200 p-3 text-sm text-zinc-500">
                 You&apos;re not on a team yet.
               </div>
-            ) : hasReservation ? (
+            ) : myTable ? (
               <div className="rounded-lg border border-[#445721]/30 bg-[#445721]/10 p-3">
                 <p className="text-xs text-zinc-500">Your team&apos;s table</p>
                 <p
                   className="font-heading text-2xl italic"
                   style={{ color: "#3A4A26" }}
                 >
-                  Table {myTable!.number}
+                  Table {myTable.number}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
                   Reservations are final and cannot be changed.
                 </p>
               </div>
-            ) : !eventCanReserve ? (
+            ) : !eventIsOpen ? (
               <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 p-3 text-sm text-zinc-500">
                 {reservationStateCopy(selectedEvent, false)}
               </div>

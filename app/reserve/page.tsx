@@ -1,13 +1,13 @@
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { MHacksLogo } from "@/components/mhacks-logo";
+import { ReservationBoard } from "@/components/reservation/reservation-board";
 import {
   getParticipantEvents,
   getParticipantReservationUser,
   getTablesForEvent,
 } from "@/lib/db/queries/reservation";
 import { hasAcceptedReservationAccess } from "@/lib/reservation/access";
-import { ReservationBoard } from "@/components/reservation/reservation-board";
 
 export const dynamic = "force-dynamic";
 
@@ -20,17 +20,21 @@ export default async function ReservePage({
   if (user?.role === "organizer") {
     redirect("/admin/reservations");
   }
-  if (!user || !(await hasAcceptedReservationAccess(user.id))) {
+  if (!user) {
     redirect("/dashboard");
   }
 
-  const [events, { event: eventParam }] = await Promise.all([
+  const [hasAccess, events, { event: eventParam }] = await Promise.all([
+    hasAcceptedReservationAccess(user.id),
     getParticipantEvents(),
     searchParams,
   ]);
+  if (!hasAccess) {
+    redirect("/dashboard");
+  }
 
   const selectedEvent =
-    events.find((e) => e.id === eventParam) ?? events[0] ?? null;
+    events.find((event) => event.id === eventParam) ?? events[0];
 
   const tables = selectedEvent ? await getTablesForEvent(selectedEvent.id) : [];
 
@@ -39,13 +43,9 @@ export default async function ReservePage({
       <header className="border-b border-zinc-100 px-6 py-4 sm:px-10">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/mhacks_logo.png"
-              alt="MHacks"
-              width={28}
-              height={28}
-              className="opacity-80"
-            />
+            <span className="opacity-80">
+              <MHacksLogo size={28} />
+            </span>
             <span className="text-sm font-semibold text-zinc-500">
               MHacks 2026
             </span>
@@ -73,7 +73,7 @@ export default async function ReservePage({
           </p>
         </div>
 
-        {events.length === 0 ? (
+        {!selectedEvent ? (
           <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/60 px-6 py-16 text-center">
             <p className="font-heading text-2xl italic text-zinc-500">
               No events yet
@@ -87,7 +87,7 @@ export default async function ReservePage({
             events={events}
             user={user}
             tables={tables}
-            selectedEventId={selectedEvent!.id}
+            selectedEventId={selectedEvent.id}
           />
         )}
       </main>

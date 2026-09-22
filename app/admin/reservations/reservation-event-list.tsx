@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { AdminReservationEventListItem } from "@/lib/queries/admin-reservations";
-import type { ReservationEventStatus } from "@/lib/reservation/domain";
+import {
+  RESERVATION_EVENT_STATUS_BADGE_VARIANTS,
+  RESERVATION_EVENT_STATUS_LABELS,
+} from "@/lib/reservation/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,27 +36,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  ReservationEventForm,
-  useClientHydrated,
-} from "./reservation-event-form";
-
-const STATUS_LABELS: Record<ReservationEventStatus, string> = {
-  draft: "Draft",
-  open: "Open",
-  closed: "Closed",
-  archived: "Archived",
-};
-
-const STATUS_VARIANTS: Record<
-  ReservationEventStatus,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  draft: "outline",
-  open: "default",
-  closed: "secondary",
-  archived: "destructive",
-};
+import { ReservationEventForm } from "./reservation-event-form";
 
 export function formatReservationDateTime(
   value: Date | string | null,
@@ -72,13 +55,11 @@ export function formatReservationDateTime(
 
 function reservationWindowSummary(
   event: AdminReservationEventListItem,
-  hydrated: boolean,
   state: ReservationWindowPresentation,
 ) {
   if (!event.reservationsOpenAt && !event.reservationsCloseAt) {
     return "No reservation window";
   }
-  if (!hydrated) return "Loading local times…";
 
   if (state.boundary && state.boundaryLabel) {
     const boundary = formatReservationDateTime(state.boundary);
@@ -150,17 +131,9 @@ function reservationWindowPresentation(
   return { label: "Not open", variant: "outline" };
 }
 
-function EventCard({
-  event,
-  hydrated,
-}: {
-  event: AdminReservationEventListItem;
-  hydrated: boolean;
-}) {
+function EventCard({ event }: { event: AdminReservationEventListItem }) {
   const startsAt = event.startsAt
-    ? hydrated
-      ? (formatReservationDateTime(event.startsAt) ?? "Invalid start time")
-      : "Loading local time…"
+    ? (formatReservationDateTime(event.startsAt) ?? "Invalid start time")
     : "Not scheduled";
   const reservationWindowState = reservationWindowPresentation(event);
 
@@ -177,8 +150,10 @@ function EventCard({
         </CardTitle>
         <CardDescription>Reservation event</CardDescription>
         <CardAction className="flex flex-wrap justify-end gap-2">
-          <Badge variant={STATUS_VARIANTS[event.status]}>
-            {STATUS_LABELS[event.status]}
+          <Badge
+            variant={RESERVATION_EVENT_STATUS_BADGE_VARIANTS[event.status]}
+          >
+            {RESERVATION_EVENT_STATUS_LABELS[event.status]}
           </Badge>
           <Badge variant={reservationWindowState.variant}>
             {reservationWindowState.label}
@@ -192,19 +167,17 @@ function EventCard({
             <Clock3Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <dt className="font-medium">Starts</dt>
-              <dd className="text-muted-foreground">{startsAt}</dd>
+              <dd className="text-muted-foreground" suppressHydrationWarning>
+                {startsAt}
+              </dd>
             </div>
           </div>
           <div className="flex gap-3">
             <MapPinnedIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <dt className="font-medium">Reservation window</dt>
-              <dd className="text-muted-foreground">
-                {reservationWindowSummary(
-                  event,
-                  hydrated,
-                  reservationWindowState,
-                )}
+              <dd className="text-muted-foreground" suppressHydrationWarning>
+                {reservationWindowSummary(event, reservationWindowState)}
               </dd>
             </div>
           </div>
@@ -247,7 +220,6 @@ export function ReservationEventList({
   initialEvents: AdminReservationEventListItem[];
 }) {
   const router = useRouter();
-  const hydrated = useClientHydrated();
   const [createOpen, setCreateOpen] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const createPendingRef = useRef(false);
@@ -311,7 +283,7 @@ export function ReservationEventList({
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               {initialEvents.map((event) => (
-                <EventCard key={event.id} event={event} hydrated={hydrated} />
+                <EventCard key={event.id} event={event} />
               ))}
             </div>
           </>

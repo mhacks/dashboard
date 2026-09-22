@@ -4,8 +4,7 @@ import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { getReservationAuditPage } from "@/lib/queries/admin-reservations";
 import { AuditList } from "./audit-list";
 import {
-  buildAuditPageHref,
-  getAuditPageCount,
+  getCanonicalAuditPageHref,
   parseRequestedAuditPage,
   type AuditRouteSearchParams,
 } from "./audit-pagination";
@@ -22,21 +21,14 @@ export default async function ReservationAuditPage({
   const auditPage = await getReservationAuditPage({
     pageIndex: requestedPage.pageNumber - 1,
   });
-  const pageCount = getAuditPageCount(auditPage.totalItems, auditPage.pageSize);
-  const normalizedPage = Math.min(requestedPage.pageNumber, pageCount);
-
-  if (
-    !requestedPage.isCanonical ||
-    normalizedPage !== requestedPage.pageNumber
-  ) {
-    redirect(
-      buildAuditPageHref(
-        "/admin/reservations/audit",
-        resolvedSearchParams,
-        normalizedPage,
-      ),
-    );
-  }
+  const canonicalHref = getCanonicalAuditPageHref(
+    "/admin/reservations/audit",
+    resolvedSearchParams,
+    requestedPage,
+    auditPage.totalItems,
+    auditPage.pageSize,
+  );
+  if (canonicalHref) redirect(canonicalHref);
 
   return (
     <AdminPageShell>

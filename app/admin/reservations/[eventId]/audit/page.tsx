@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import { getReservationAuditPage } from "@/lib/queries/admin-reservations";
 import { AuditList } from "../../audit/audit-list";
 import {
-  buildAuditPageHref,
-  getAuditPageCount,
+  getCanonicalAuditPageHref,
   parseRequestedAuditPage,
   type AuditRouteSearchParams,
 } from "../../audit/audit-pagination";
@@ -26,21 +25,14 @@ export default async function ReservationEventAuditPage({
     eventId,
     pageIndex: requestedPage.pageNumber - 1,
   });
-  const pageCount = getAuditPageCount(auditPage.totalItems, auditPage.pageSize);
-  const normalizedPage = Math.min(requestedPage.pageNumber, pageCount);
-
-  if (
-    !requestedPage.isCanonical ||
-    normalizedPage !== requestedPage.pageNumber
-  ) {
-    redirect(
-      buildAuditPageHref(
-        `/admin/reservations/${eventId}/audit`,
-        resolvedSearchParams,
-        normalizedPage,
-      ),
-    );
-  }
+  const canonicalHref = getCanonicalAuditPageHref(
+    `/admin/reservations/${eventId}/audit`,
+    resolvedSearchParams,
+    requestedPage,
+    auditPage.totalItems,
+    auditPage.pageSize,
+  );
+  if (canonicalHref) redirect(canonicalHref);
 
   return (
     <section

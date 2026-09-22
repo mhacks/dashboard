@@ -1,14 +1,14 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { cache } from "react";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
-  events,
   reservationAuditLog,
+  reservationEvents,
   tables,
-  teams,
-  type Team,
 } from "@/lib/db/schema/reservation";
+import { teams } from "@/lib/db/schema/teams";
 import {
   getReservationAvailability,
   type ReservationAvailability,
@@ -32,14 +32,34 @@ const auditPageInputSchema = z.object({
 });
 
 const eventSummarySelection = {
-  id: events.id,
-  name: events.name,
-  status: events.status,
-  startsAt: events.startsAt,
-  reservationsOpenAt: events.reservationsOpenAt,
-  reservationsCloseAt: events.reservationsCloseAt,
+  id: reservationEvents.id,
+  name: reservationEvents.name,
+  status: reservationEvents.status,
+  startsAt: reservationEvents.startsAt,
+  reservationsOpenAt: reservationEvents.reservationsOpenAt,
+  reservationsCloseAt: reservationEvents.reservationsCloseAt,
   tableCount: sql<number>`count(${tables.id})::int`,
   assignedCount: sql<number>`count(${tables.reservedByTeamId})::int`,
+};
+
+const eventDetailSelection = {
+  id: reservationEvents.id,
+  name: reservationEvents.name,
+  status: reservationEvents.status,
+  startsAt: reservationEvents.startsAt,
+  reservationsOpenAt: reservationEvents.reservationsOpenAt,
+  reservationsCloseAt: reservationEvents.reservationsCloseAt,
+  description: reservationEvents.description,
+  location: reservationEvents.location,
+  createdAt: reservationEvents.createdAt,
+  updatedAt: reservationEvents.updatedAt,
+};
+
+const tableWithTeamSelection = {
+  id: tables.id,
+  number: tables.number,
+  reservedByTeamId: tables.reservedByTeamId,
+  reservedByTeamName: teams.name,
 };
 
 export type AdminReservationEventSummary = {
@@ -64,14 +84,20 @@ export type AdminReservationEventDetail = AdminReservationEventSummary & {
   updatedAt: Date;
 };
 
+export type AdminReservationEventHeader = {
+  id: string;
+  name: string;
+  status: ReservationEventStatus;
+};
+
 export type AdminReservationTablesData = {
   event: AdminReservationEventDetail;
   tables: TableWithTeam[];
 };
 
-export type AdminReservationTeam = Team & {
-  tableId: string | null;
-  tableNumber: number | null;
+export type AdminReservationTeam = {
+  id: string;
+  name: string;
 };
 
 export type AdminReservationAssignmentsData = {
@@ -100,6 +126,17 @@ export type ReservationAuditPage = {
   pageSize: number;
 };
 
+function withTableCounts(
+  event: Omit<AdminReservationEventDetail, "tableCount" | "assignedCount">,
+  eventTables: readonly TableWithTeam[],
+): AdminReservationEventDetail {
+  return {
+    ...event,
+    tableCount: eventTables.length,
+    assignedCount: eventTables.filter((table) => table.reservedByTeamId).length,
+  };
+}
+
 export function toAdminReservationEventListItem(
   event: AdminReservationEventSummary,
   referenceTime: Date,
@@ -116,41 +153,61 @@ export async function listAdminReservationEvents(): Promise<
   await requireOrganizer();
   const referenceTime = new Date();
 
-  const reservationEvents = await db
+  const events = await db
     .select(eventSummarySelection)
-    .from(events)
-    .leftJoin(tables, eq(tables.eventId, events.id))
-    .groupBy(events.id)
-    .orderBy(desc(events.createdAt), desc(events.id));
+    .from(reservationEvents)
+    .leftJoin(tables, eq(tables.eventId, reservationEvents.id))
+    .groupBy(reservationEvents.id)
+    .orderBy(desc(reservationEvents.createdAt), desc(reservationEvents.id));
 
-  return reservationEvents.map((event) =>
+  return events.map((event) =>
     toAdminReservationEventListItem(event, referenceTime),
   );
 }
 
-export async function getAdminReservationEvent(
-  eventId: string,
-): Promise<AdminReservationEventDetail | null> {
-  await requireOrganizer();
-  const parsedEventId = reservationIdSchema.safeParse(eventId);
-  if (!parsedEventId.success) return null;
+export const getAdminReservationEventHeader = cache(
+  async (eventId: string): Promise<AdminReservationEventHeader | null> => {
+    await requireOrganizer();
+    const parsedEventId = reservationIdSchema.safeParse(eventId);
+    if (!parsedEventId.success) return null;
 
-  const [event] = await db
-    .select({
-      ...eventSummarySelection,
-      description: events.description,
-      location: events.location,
-      createdAt: events.createdAt,
-      updatedAt: events.updatedAt,
-    })
-    .from(events)
-    .leftJoin(tables, eq(tables.eventId, events.id))
-    .where(eq(events.id, parsedEventId.data))
-    .groupBy(events.id)
-    .limit(1);
+    const [event] = await db
+      .select({
+        id: reservationEvents.id,
+        name: reservationEvents.name,
+        status: reservationEvents.status,
+      })
+      .from(reservationEvents)
+      .where(eq(reservationEvents.id, parsedEventId.data))
+      .limit(1);
 
-  return event ?? null;
-}
+    return event ?? null;
+  },
+);
+
+export const getAdminReservationEvent = cache(
+  async (eventId: string): Promise<AdminReservationEventDetail | null> => {
+    await requireOrganizer();
+    const parsedEventId = reservationIdSchema.safeParse(eventId);
+    if (!parsedEventId.success) return null;
+
+    const [event] = await db
+      .select({
+        ...eventSummarySelection,
+        description: reservationEvents.description,
+        location: reservationEvents.location,
+        createdAt: reservationEvents.createdAt,
+        updatedAt: reservationEvents.updatedAt,
+      })
+      .from(reservationEvents)
+      .leftJoin(tables, eq(tables.eventId, reservationEvents.id))
+      .where(eq(reservationEvents.id, parsedEventId.data))
+      .groupBy(reservationEvents.id)
+      .limit(1);
+
+    return event ?? null;
+  },
+);
 
 export async function getAdminReservationTables(
   eventId: string,
@@ -162,33 +219,23 @@ export async function getAdminReservationTables(
   return db.transaction(
     async (tx) => {
       const [event] = await tx
-        .select({
-          ...eventSummarySelection,
-          description: events.description,
-          location: events.location,
-          createdAt: events.createdAt,
-          updatedAt: events.updatedAt,
-        })
-        .from(events)
-        .leftJoin(tables, eq(tables.eventId, events.id))
-        .where(eq(events.id, parsedEventId.data))
-        .groupBy(events.id)
+        .select(eventDetailSelection)
+        .from(reservationEvents)
+        .where(eq(reservationEvents.id, parsedEventId.data))
         .limit(1);
       if (!event) return null;
 
       const eventTables = await tx
-        .select({
-          id: tables.id,
-          number: tables.number,
-          reservedByTeamId: tables.reservedByTeamId,
-          reservedByTeamName: teams.name,
-        })
+        .select(tableWithTeamSelection)
         .from(tables)
         .leftJoin(teams, eq(tables.reservedByTeamId, teams.id))
         .where(eq(tables.eventId, parsedEventId.data))
         .orderBy(asc(tables.number), asc(tables.id));
 
-      return { event, tables: eventTables };
+      return {
+        event: withTableCounts(event, eventTables),
+        tables: eventTables,
+      };
     },
     {
       isolationLevel: "repeatable read",
@@ -207,17 +254,9 @@ export async function getAdminReservationAssignments(
   return db.transaction(
     async (tx) => {
       const [event] = await tx
-        .select({
-          ...eventSummarySelection,
-          description: events.description,
-          location: events.location,
-          createdAt: events.createdAt,
-          updatedAt: events.updatedAt,
-        })
-        .from(events)
-        .leftJoin(tables, eq(tables.eventId, events.id))
-        .where(eq(events.id, parsedEventId.data))
-        .groupBy(events.id)
+        .select(eventDetailSelection)
+        .from(reservationEvents)
+        .where(eq(reservationEvents.id, parsedEventId.data))
         .limit(1);
       if (!event) return null;
 
@@ -225,34 +264,18 @@ export async function getAdminReservationAssignments(
         .select({
           id: teams.id,
           name: teams.name,
-          createdAt: teams.createdAt,
-          createdByUserId: teams.createdByUserId,
-          tableId: tables.id,
-          tableNumber: tables.number,
         })
         .from(teams)
-        .leftJoin(
-          tables,
-          and(
-            eq(tables.reservedByTeamId, teams.id),
-            eq(tables.eventId, parsedEventId.data),
-          ),
-        )
         .orderBy(asc(teams.name), asc(teams.id));
       const eventTables = await tx
-        .select({
-          id: tables.id,
-          number: tables.number,
-          reservedByTeamId: tables.reservedByTeamId,
-          reservedByTeamName: teams.name,
-        })
+        .select(tableWithTeamSelection)
         .from(tables)
         .leftJoin(teams, eq(tables.reservedByTeamId, teams.id))
         .where(eq(tables.eventId, parsedEventId.data))
         .orderBy(asc(tables.number), asc(tables.id));
 
       return {
-        event,
+        event: withTableCounts(event, eventTables),
         teams: reservationTeams,
         tables: eventTables,
       };

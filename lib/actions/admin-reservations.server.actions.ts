@@ -1,21 +1,23 @@
 "use server";
 
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { postgresErrorCode } from "@/lib/db/errors";
 import {
-  events,
+  reservationEvents,
   tables,
-  teams,
-  type Event as ReservationEventRow,
+  type ReservationEvent,
 } from "@/lib/db/schema/reservation";
+import { teams } from "@/lib/db/schema/teams";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
+  formatReservationList,
   MAX_RESERVATION_TABLE_NUMBER,
   planTableCountChange,
 } from "@/lib/reservation/domain";
+import { revalidateReservationEventPaths } from "@/lib/reservation/revalidate";
 import {
   reservationEventInputSchema,
   reservationIdSchema,
@@ -143,11 +145,6 @@ const unassignAssignmentInputSchema = z.object({
   expectedSourceTableNumber: reservationTableNumberSchema,
 });
 
-const updateEnvelopeSchema = z.object({
-  eventId: z.unknown(),
-  values: z.unknown(),
-});
-
 class EventFailure extends Error {
   constructor(
     readonly code: EventFailureCode,
@@ -183,25 +180,30 @@ function validationFailure(error: z.ZodError): ReservationActionResult {
   };
 }
 
-function postgresErrorCode(error: unknown): string | null {
-  if (typeof error !== "object" || error === null) return null;
-  if ("code" in error && typeof error.code === "string") return error.code;
-  if ("cause" in error) return postgresErrorCode(error.cause);
-  return null;
-}
-
-function formatTableNumberList(numbers: readonly number[]): string {
-  const labels = numbers.map(String);
-  if (labels.length < 2) return labels[0] ?? "";
-  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
-  return `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`;
+function knownConstraintFailure(
+  error: unknown,
+  messages: { unique: string; check: string },
+): ReservationActionResult | null {
+  switch (postgresErrorCode(error)) {
+    case "23505":
+      return { ok: false, error: messages.unique };
+    case "23514":
+      return { ok: false, error: messages.check };
+    case "23503":
+      return {
+        ok: false,
+        error: "A related record no longer exists. Refresh and try again.",
+      };
+    default:
+      return null;
+  }
 }
 
 function knownEventFailure(error: unknown): ReservationActionResult | null {
   if (error instanceof EventFailure) {
     if (error.code === "ASSIGNMENTS_EXIST") {
       const occupied = error.context.occupiedTableNumbers ?? [];
-      const tableLabel = formatTableNumberList(occupied);
+      const tableLabel = formatReservationList(occupied);
       return {
         ok: false,
         error:
@@ -213,25 +215,10 @@ function knownEventFailure(error: unknown): ReservationActionResult | null {
     return { ok: false, error: eventFailureMessages[error.code] };
   }
 
-  switch (postgresErrorCode(error)) {
-    case "23505":
-      return {
-        ok: false,
-        error: "An event with those values already exists.",
-      };
-    case "23514":
-      return {
-        ok: false,
-        error: "The event details conflict with database rules.",
-      };
-    case "23503":
-      return {
-        ok: false,
-        error: "A related record no longer exists. Refresh and try again.",
-      };
-    default:
-      return null;
-  }
+  return knownConstraintFailure(error, {
+    unique: "An event with those values already exists.",
+    check: "The event details conflict with database rules.",
+  });
 }
 
 function eventActionFailure(
@@ -288,29 +275,17 @@ function tableActionFailure(
     }
   }
 
-  switch (postgresErrorCode(error)) {
-    case "23505":
-      return {
-        ok: false,
-        error: "That table number is already in use.",
-      };
-    case "23514":
-      return {
-        ok: false,
-        error: "The table details conflict with database rules.",
-      };
-    case "23503":
-      return {
-        ok: false,
-        error: "A related record no longer exists. Refresh and try again.",
-      };
-    default:
-      console.error(`Unable to ${operation} reservation table:`, error);
-      return {
-        ok: false,
-        error: unexpectedTableFailureMessages[operation],
-      };
-  }
+  const constraintFailure = knownConstraintFailure(error, {
+    unique: "That table number is already in use.",
+    check: "The table details conflict with database rules.",
+  });
+  if (constraintFailure) return constraintFailure;
+
+  console.error(`Unable to ${operation} reservation table:`, error);
+  return {
+    ok: false,
+    error: unexpectedTableFailureMessages[operation],
+  };
 }
 
 function assignmentActionFailure(
@@ -344,32 +319,20 @@ function assignmentActionFailure(
     }
   }
 
-  switch (postgresErrorCode(error)) {
-    case "23505":
-      return {
-        ok: false,
-        error: "That team already has a table for this event.",
-      };
-    case "23514":
-      return {
-        ok: false,
-        error: "The assignment conflicts with database rules.",
-      };
-    case "23503":
-      return {
-        ok: false,
-        error: "A related record no longer exists. Refresh and try again.",
-      };
-    default:
-      console.error(`Unable to ${operation} reservation team:`, error);
-      return {
-        ok: false,
-        error: unexpectedAssignmentFailureMessages[operation],
-      };
-  }
+  const constraintFailure = knownConstraintFailure(error, {
+    unique: "That team already has a table for this event.",
+    check: "The assignment conflicts with database rules.",
+  });
+  if (constraintFailure) return constraintFailure;
+
+  console.error(`Unable to ${operation} reservation team:`, error);
+  return {
+    ok: false,
+    error: unexpectedAssignmentFailureMessages[operation],
+  };
 }
 
-function eventSnapshot(event: ReservationEventRow) {
+function eventSnapshot(event: ReservationEvent) {
   return {
     id: event.id,
     name: event.name,
@@ -382,21 +345,6 @@ function eventSnapshot(event: ReservationEventRow) {
     createdAt: event.createdAt.toISOString(),
     updatedAt: event.updatedAt.toISOString(),
   };
-}
-
-function revalidateReservationEventPaths(eventId: string) {
-  for (const path of [
-    "/reserve",
-    "/admin/reservations",
-    "/admin/reservations/audit",
-    `/admin/reservations/${eventId}`,
-    `/admin/reservations/${eventId}/tables`,
-    `/admin/reservations/${eventId}/assignments`,
-    `/admin/reservations/${eventId}/audit`,
-    `/admin/reservations/${eventId}/preview`,
-  ]) {
-    revalidatePath(path);
-  }
 }
 
 type ReservationTransaction = Parameters<
@@ -440,11 +388,11 @@ function sameTableTopology(
 async function getLockedEvent(
   tx: ReservationTransaction,
   eventId: string,
-): Promise<ReservationEventRow> {
+): Promise<ReservationEvent> {
   const [event] = await tx
     .select()
-    .from(events)
-    .where(eq(events.id, eventId))
+    .from(reservationEvents)
+    .where(eq(reservationEvents.id, eventId))
     .for("update")
     .limit(1);
   if (!event) throw new EventFailure("EVENT_NOT_FOUND");
@@ -454,18 +402,18 @@ async function getLockedEvent(
 async function getShareLockedEvent(
   tx: ReservationTransaction,
   eventId: string,
-): Promise<ReservationEventRow> {
+): Promise<ReservationEvent> {
   const [event] = await tx
     .select()
-    .from(events)
-    .where(eq(events.id, eventId))
+    .from(reservationEvents)
+    .where(eq(reservationEvents.id, eventId))
     .for("share")
     .limit(1);
   if (!event) throw new EventFailure("EVENT_NOT_FOUND");
   return event;
 }
 
-function requireMutableEvent(event: ReservationEventRow) {
+function requireMutableEvent(event: ReservationEvent) {
   if (event.status === "archived") throw new EventFailure("ARCHIVED");
 }
 
@@ -479,7 +427,10 @@ export async function createReservationEvent(
   let eventId: string;
   try {
     eventId = await db.transaction(async (tx) => {
-      const [event] = await tx.insert(events).values(parsed.data).returning();
+      const [event] = await tx
+        .insert(reservationEvents)
+        .values(parsed.data)
+        .returning();
       await writeReservationAudit(tx, {
         eventId: event.id,
         eventName: event.name,
@@ -509,15 +460,11 @@ export async function updateReservationEvent(input: {
   values: ReservationEventInput;
 }): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
-  const envelope = updateEnvelopeSchema.safeParse(input);
-  if (!envelope.success) return validationFailure(envelope.error);
   const parsedEventId = eventIdInputSchema.safeParse({
-    eventId: envelope.data.eventId,
+    eventId: input.eventId,
   });
   if (!parsedEventId.success) return validationFailure(parsedEventId.error);
-  const parsedValues = reservationEventInputSchema.safeParse(
-    envelope.data.values,
-  );
+  const parsedValues = reservationEventInputSchema.safeParse(input.values);
   if (!parsedValues.success) return validationFailure(parsedValues.error);
   const eventId = parsedEventId.data.eventId;
 
@@ -526,9 +473,9 @@ export async function updateReservationEvent(input: {
       const before = await getLockedEvent(tx, eventId);
       if (before.status === "archived") throw new EventFailure("ARCHIVED");
       const [after] = await tx
-        .update(events)
+        .update(reservationEvents)
         .set({ ...parsedValues.data, updatedAt: new Date() })
-        .where(eq(events.id, eventId))
+        .where(eq(reservationEvents.id, eventId))
         .returning();
       await writeReservationAudit(tx, {
         eventId,
@@ -566,9 +513,9 @@ export async function archiveReservationEvent(
         throw new EventFailure("ALREADY_ARCHIVED");
       }
       const [after] = await tx
-        .update(events)
+        .update(reservationEvents)
         .set({ status: "archived", updatedAt: new Date() })
-        .where(eq(events.id, parsed.data.eventId))
+        .where(eq(reservationEvents.id, parsed.data.eventId))
         .returning();
       await writeReservationAudit(tx, {
         eventId: after.id,
@@ -606,9 +553,9 @@ export async function restoreReservationEvent(
         throw new EventFailure("NOT_ARCHIVED");
       }
       const [after] = await tx
-        .update(events)
+        .update(reservationEvents)
         .set({ status: "closed", updatedAt: new Date() })
-        .where(eq(events.id, parsed.data.eventId))
+        .where(eq(reservationEvents.id, parsed.data.eventId))
         .returning();
       await writeReservationAudit(tx, {
         eventId: after.id,
@@ -672,7 +619,9 @@ export async function deleteReservationEvent(
         entityId: event.id,
         details: { before: eventSnapshot(event) },
       });
-      await tx.delete(events).where(eq(events.id, event.id));
+      await tx
+        .delete(reservationEvents)
+        .where(eq(reservationEvents.id, event.id));
     });
   } catch (error) {
     return eventActionFailure(error, "delete");

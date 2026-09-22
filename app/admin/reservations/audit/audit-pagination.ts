@@ -1,3 +1,5 @@
+import { clampPageIndex, getPageCount } from "@/lib/pagination";
+
 export type AuditRouteSearchParams = Record<
   string,
   string | string[] | undefined
@@ -31,14 +33,6 @@ export function parseRequestedAuditPage(
   };
 }
 
-export function getAuditPageCount(
-  totalItems: number,
-  pageSize: number,
-): number {
-  if (pageSize <= 0) return 1;
-  return Math.max(1, Math.ceil(totalItems / pageSize));
-}
-
 export function buildAuditPageHref(
   basePath: string,
   searchParams: AuditRouteSearchParams,
@@ -57,4 +51,25 @@ export function buildAuditPageHref(
 
   next.set("page", String(pageNumber));
   return `${basePath}?${next.toString()}`;
+}
+
+export function getCanonicalAuditPageHref(
+  basePath: string,
+  searchParams: AuditRouteSearchParams,
+  requestedPage: RequestedAuditPage,
+  totalItems: number,
+  pageSize: number,
+): string | null {
+  const normalizedPage =
+    clampPageIndex(
+      requestedPage.pageNumber - 1,
+      getPageCount(totalItems, pageSize),
+    ) + 1;
+  if (
+    requestedPage.isCanonical &&
+    normalizedPage === requestedPage.pageNumber
+  ) {
+    return null;
+  }
+  return buildAuditPageHref(basePath, searchParams, normalizedPage);
 }

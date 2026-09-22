@@ -17,6 +17,10 @@ import {
 } from "@/lib/actions/admin-reservations.server.actions";
 import type { AdminReservationEventDetail } from "@/lib/queries/admin-reservations";
 import {
+  RESERVATION_EVENT_STATUS_BADGE_VARIANTS,
+  RESERVATION_EVENT_STATUS_LABELS,
+} from "@/lib/reservation/domain";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -41,23 +45,6 @@ import {
 import { ReservationEventForm } from "../reservation-event-form";
 
 type LifecycleOperation = "archive" | "restore" | "delete";
-
-const STATUS_LABELS: Record<AdminReservationEventDetail["status"], string> = {
-  draft: "Draft",
-  open: "Open",
-  closed: "Closed",
-  archived: "Archived",
-};
-
-const STATUS_VARIANTS: Record<
-  AdminReservationEventDetail["status"],
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  draft: "outline",
-  open: "default",
-  closed: "secondary",
-  archived: "destructive",
-};
 
 export function EventOverview({
   event,
@@ -152,8 +139,10 @@ export function EventOverview({
         <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
           <div className="flex items-center justify-between gap-3">
             <span>Current status</span>
-            <Badge variant={STATUS_VARIANTS[event.status]}>
-              {STATUS_LABELS[event.status]}
+            <Badge
+              variant={RESERVATION_EVENT_STATUS_BADGE_VARIANTS[event.status]}
+            >
+              {RESERVATION_EVENT_STATUS_LABELS[event.status]}
             </Badge>
           </div>
           <div className="flex items-center justify-between gap-3">

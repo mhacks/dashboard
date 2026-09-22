@@ -48,13 +48,31 @@ import { JudgingMap } from "@/components/reservation/judging-map";
 
 type AssignmentTeam = AdminReservationAssignmentsData["teams"][number];
 
-type MoveIntent = {
-  kind: "assign" | "move" | "swap" | "displace";
-  team: AssignmentTeam;
-  source: TableWithTeam | null;
-  destination: TableWithTeam;
-  displacedTeamName: string | null;
-};
+type MoveIntent =
+  | {
+      kind: "assign";
+      team: AssignmentTeam;
+      destination: TableWithTeam;
+    }
+  | {
+      kind: "move";
+      team: AssignmentTeam;
+      source: TableWithTeam;
+      destination: TableWithTeam;
+    }
+  | {
+      kind: "swap";
+      team: AssignmentTeam;
+      source: TableWithTeam;
+      destination: TableWithTeam;
+      displacedTeamName: string;
+    }
+  | {
+      kind: "displace";
+      team: AssignmentTeam;
+      destination: TableWithTeam;
+      displacedTeamName: string;
+    };
 
 type UnassignIntent = {
   team: AssignmentTeam;
@@ -88,9 +106,9 @@ function intentDescription(intent: MoveIntent): string {
     case "assign":
       return `${intent.team.name} is currently unassigned and will be assigned to ${destination}.`;
     case "move":
-      return `${intent.team.name} will move from Table ${intent.source!.number} to empty ${destination}.`;
+      return `${intent.team.name} will move from Table ${intent.source.number} to empty ${destination}.`;
     case "swap":
-      return `${intent.team.name} will move from Table ${intent.source!.number} to ${destination}; ${intent.displacedTeamName} will move from ${destination} to Table ${intent.source!.number}.`;
+      return `${intent.team.name} will move from Table ${intent.source.number} to ${destination}; ${intent.displacedTeamName} will move from ${destination} to Table ${intent.source.number}.`;
     case "displace":
       return `${intent.team.name} will be assigned to ${destination}; ${intent.displacedTeamName} will be removed from ${destination} and become unassigned.`;
   }
@@ -129,26 +147,41 @@ export function AssignmentManagement({
     if (!selectedTeam || isArchived || isPending) return;
     if (destination.reservedByTeamId === selectedTeam.id) return;
 
-    const displacedTeamName = destination.reservedByTeamId
-      ? (destination.reservedByTeamName ??
-        teams.find((team) => team.id === destination.reservedByTeamId)?.name ??
-        "Unknown team")
-      : null;
-    const kind: MoveIntent["kind"] = currentTable
-      ? displacedTeamName
-        ? "swap"
-        : "move"
-      : displacedTeamName
-        ? "displace"
-        : "assign";
+    const displacedTeamName = destination.reservedByTeamName ?? "Unknown team";
 
     setActionError(null);
+    if (currentTable && destination.reservedByTeamId) {
+      setMoveIntent({
+        kind: "swap",
+        team: selectedTeam,
+        source: currentTable,
+        destination,
+        displacedTeamName,
+      });
+      return;
+    }
+    if (currentTable) {
+      setMoveIntent({
+        kind: "move",
+        team: selectedTeam,
+        source: currentTable,
+        destination,
+      });
+      return;
+    }
+    if (destination.reservedByTeamId) {
+      setMoveIntent({
+        kind: "displace",
+        team: selectedTeam,
+        destination,
+        displacedTeamName,
+      });
+      return;
+    }
     setMoveIntent({
-      kind,
+      kind: "assign",
       team: selectedTeam,
-      source: currentTable,
       destination,
-      displacedTeamName,
     });
   }
 
@@ -162,8 +195,10 @@ export function AssignmentManagement({
           eventId: event.id,
           teamId: moveIntent.team.id,
           tableId: moveIntent.destination.id,
-          expectedSourceTableId: moveIntent.source?.id ?? null,
-          expectedSourceTableNumber: moveIntent.source?.number ?? null,
+          expectedSourceTableId:
+            "source" in moveIntent ? moveIntent.source.id : null,
+          expectedSourceTableNumber:
+            "source" in moveIntent ? moveIntent.source.number : null,
           expectedDestinationTableNumber: moveIntent.destination.number,
           expectedDestinationTeamId:
             moveIntent.destination.reservedByTeamId ?? null,

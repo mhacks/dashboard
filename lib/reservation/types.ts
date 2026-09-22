@@ -1,5 +1,8 @@
 import type { UserRole } from "@/lib/db/schema/users";
-import type { ReservationAvailability } from "@/lib/reservation/domain";
+import type {
+  ReservationAvailability,
+  ReservationEventStatus,
+} from "@/lib/reservation/domain";
 
 export type ParticipantReservationUser = {
   id: string;
@@ -15,7 +18,7 @@ export type ParticipantEvent = {
   description: string | null;
   startsAt: Date | null;
   location: string | null;
-  status: "open" | "closed";
+  status: ReservationEventStatus;
   reservationsOpenAt: Date | null;
   reservationsCloseAt: Date | null;
   availability: ReservationAvailability;

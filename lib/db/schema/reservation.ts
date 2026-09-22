@@ -1,6 +1,5 @@
 import {
   check,
-  index,
   integer,
   jsonb,
   pgEnum,
@@ -11,23 +10,21 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { authenticatedRole } from "drizzle-orm/supabase";
 import { RESERVATION_EVENT_STATUSES } from "../../reservation/domain";
-import { isOrganizerFn } from "./functions";
+import { isOrganizer } from "./rls";
 import { teams } from "./teams";
 import { users } from "./users";
-
-export { teams };
-export type Team = typeof teams.$inferSelect;
 
 export const reservationEventStatus = pgEnum(
   "reservation_event_status",
   RESERVATION_EVENT_STATUSES,
 );
 
-export const events = pgTable(
+export const reservationEvents = pgTable(
   "table_reservations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -63,7 +60,7 @@ export const events = pgTable(
     pgPolicy("table_reservations_select_visible_or_organizer", {
       for: "select",
       to: authenticatedRole,
-      using: sql`${isOrganizerFn} OR ${event.status} IN ('open', 'closed')`,
+      using: sql`${isOrganizer} OR ${event.status} IN ('open', 'closed')`,
     }),
   ],
 ).enableRLS();
@@ -74,7 +71,7 @@ export const tables = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     eventId: uuid("event_id")
       .notNull()
-      .references(() => events.id, { onDelete: "cascade" }),
+      .references(() => reservationEvents.id, { onDelete: "cascade" }),
     number: integer("number").notNull(),
     reservedByTeamId: uuid("reserved_by_team_id").references(() => teams.id, {
       onDelete: "restrict",
@@ -87,7 +84,6 @@ export const tables = pgTable(
       table.eventId,
       table.reservedByTeamId,
     ),
-    index("tables_event_id_idx").on(table.eventId),
     check("tables_number_positive", sql`${table.number} > 0`),
     check(
       "tables_reservation_timestamp_consistent",
@@ -97,7 +93,7 @@ export const tables = pgTable(
     pgPolicy("tables_select_visible_or_organizer", {
       for: "select",
       to: authenticatedRole,
-      using: sql`${isOrganizerFn} OR EXISTS (
+      using: sql`${isOrganizer} OR EXISTS (
         SELECT 1 FROM public.table_reservations
         WHERE id = ${table.eventId}
           AND status IN ('open', 'closed')
@@ -110,7 +106,7 @@ export const reservationAuditLog = pgTable(
   "reservation_audit_log",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").references(() => events.id, {
+    eventId: uuid("event_id").references(() => reservationEvents.id, {
       onDelete: "set null",
     }),
     eventName: text("event_name").notNull(),
@@ -138,11 +134,11 @@ export const reservationAuditLog = pgTable(
     pgPolicy("reservation_audit_select_organizer", {
       for: "select",
       to: authenticatedRole,
-      using: isOrganizerFn,
+      using: isOrganizer,
     }),
   ],
 ).enableRLS();
 
-export type Event = typeof events.$inferSelect;
+export type ReservationEvent = typeof reservationEvents.$inferSelect;
 export type Table = typeof tables.$inferSelect;
 export type ReservationAuditLog = typeof reservationAuditLog.$inferSelect;

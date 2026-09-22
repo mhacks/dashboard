@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   type FormEvent,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -22,8 +21,10 @@ import {
 } from "@/lib/actions/admin-reservations.server.actions";
 import type { AdminReservationEventDetail } from "@/lib/queries/admin-reservations";
 import {
+  formatReservationList,
   MAX_RESERVATION_TABLE_COUNT,
   MAX_RESERVATION_TABLE_NUMBER,
+  planTableCountChange,
 } from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
 import type { ReservationTableTopology } from "@/lib/reservation/validation";
@@ -58,14 +59,6 @@ export type TableManagementProps = {
   tables: TableWithTeam[];
 };
 
-type CountFocusIntent =
-  | { kind: "next-source"; fromCount: number }
-  | { kind: "target-source"; count: number };
-
-type CountFocusIntentRef = {
-  current: CountFocusIntent | null;
-};
-
 function parseWholeNumber(value: string, minimum: number, maximum: number) {
   if (value.trim() === "") return null;
   const number = Number(value);
@@ -90,14 +83,6 @@ function topologyOf(
     number,
     reservedByTeamId,
   }));
-}
-
-function formatList(values: readonly (number | string)[]) {
-  const labels = values.map(String);
-  if (labels.length === 0) return "";
-  if (labels.length === 1) return labels[0];
-  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
-  return `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`;
 }
 
 function fieldError(
@@ -456,7 +441,6 @@ function TableCard({
 
 function TableCountManagement({
   eventId,
-  focusIntentRef,
   onMutationEnd,
   onMutationStart,
   readOnly,
@@ -464,7 +448,6 @@ function TableCountManagement({
   workspacePending,
 }: {
   eventId: string;
-  focusIntentRef: CountFocusIntentRef;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
   readOnly: boolean;
@@ -474,12 +457,18 @@ function TableCountManagement({
   const router = useRouter();
   const countInputId = useId();
   const countInputRef = useRef<HTMLInputElement>(null);
-  const reductionOpenRef = useRef(false);
-  const [desiredCount, setDesiredCount] = useState(String(tables.length));
+  const [countDraft, setCountDraft] = useState<{
+    tableCount: number;
+    value: string;
+  } | null>(null);
   const [countError, setCountError] = useState<string | null>(null);
   const [countFieldError, setCountFieldError] = useState<string | null>(null);
   const [reductionOpen, setReductionOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const desiredCount =
+    countDraft?.tableCount === tables.length
+      ? countDraft.value
+      : String(tables.length);
   const parsedDesiredCount = parseWholeNumber(
     desiredCount,
     0,
@@ -487,15 +476,23 @@ function TableCountManagement({
   );
   const isReduction =
     parsedDesiredCount !== null && parsedDesiredCount < tables.length;
-  const reductionTargets = useMemo(() => {
+  const tablesById = useMemo(
+    () => new Map(tables.map((table) => [table.id, table])),
+    [tables],
+  );
+  const countPlan = useMemo(() => {
     if (parsedDesiredCount === null || parsedDesiredCount >= tables.length) {
-      return [];
+      return null;
     }
-
-    return [...tables]
-      .sort((left, right) => right.number - left.number)
-      .slice(0, tables.length - parsedDesiredCount);
+    return planTableCountChange(tables, parsedDesiredCount);
   }, [parsedDesiredCount, tables]);
+  const reductionTargets = useMemo(
+    () =>
+      (countPlan?.removeIds ?? [])
+        .map((id) => tablesById.get(id))
+        .filter((table): table is TableWithTeam => table !== undefined),
+    [countPlan, tablesById],
+  );
   const reductionBlockers = useMemo(
     () =>
       reductionTargets
@@ -504,56 +501,11 @@ function TableCountManagement({
     [reductionTargets],
   );
 
-  useLayoutEffect(() => {
-    const mountedInput = countInputRef.current;
-
-    return () => {
-      if (
-        reductionOpenRef.current ||
-        (mountedInput?.isConnected && document.activeElement === mountedInput)
-      ) {
-        if (focusIntentRef.current?.kind !== "target-source") {
-          focusIntentRef.current = {
-            kind: "next-source",
-            fromCount: tables.length,
-          };
-        }
-      }
-    };
-  }, [focusIntentRef, tables.length]);
-
-  useLayoutEffect(() => {
-    const intent = focusIntentRef.current;
-    const matchesSource =
-      intent?.kind === "target-source"
-        ? intent.count === tables.length
-        : intent?.kind === "next-source" && intent.fromCount !== tables.length;
-    const target = countInputRef.current;
-    if (
-      !matchesSource ||
-      workspacePending ||
-      !target?.isConnected ||
-      target.disabled
-    ) {
-      return;
-    }
-
-    target.focus();
-    if (document.activeElement === target) {
-      focusIntentRef.current = null;
-    }
-  }, [focusIntentRef, tables.length, workspacePending]);
-
-  function setReductionDialogOpen(open: boolean) {
-    reductionOpenRef.current = open;
-    setReductionOpen(open);
-  }
-
   function handleDesiredCountChange(value: string) {
-    setDesiredCount(value);
+    setCountDraft({ tableCount: tables.length, value });
     setCountError(null);
     setCountFieldError(null);
-    setReductionDialogOpen(false);
+    setReductionOpen(false);
   }
 
   function runCountAction(count: number) {
@@ -572,10 +524,8 @@ function TableCountManagement({
           return;
         }
 
-        if (focusIntentRef.current?.kind !== "next-source") {
-          focusIntentRef.current = { kind: "target-source", count };
-        }
-        setReductionDialogOpen(false);
+        setCountDraft({ tableCount: tables.length, value: String(count) });
+        setReductionOpen(false);
         toast.success(result.message);
         router.refresh();
       } catch {
@@ -608,7 +558,7 @@ function TableCountManagement({
     }
     if (count === tables.length) return;
     if (count < tables.length) {
-      setReductionDialogOpen(true);
+      setReductionOpen(true);
       return;
     }
 
@@ -617,7 +567,7 @@ function TableCountManagement({
 
   function handleReductionOpenChange(open: boolean) {
     if (!open && isPending) return;
-    setReductionDialogOpen(open);
+    setReductionOpen(open);
   }
 
   const targetNumbers = reductionTargets.map((table) => table.number);
@@ -628,7 +578,7 @@ function TableCountManagement({
   const targetLabel =
     reductionTargets.length > 5
       ? `${reductionTargets.length} highest-numbered tables will be removed.`
-      : `${reductionTargets.length === 1 ? "Table" : "Tables"} ${formatList(
+      : `${reductionTargets.length === 1 ? "Table" : "Tables"} ${formatReservationList(
           targetNumbers,
         )} will be removed.`;
   const blockerLabel =
@@ -636,7 +586,7 @@ function TableCountManagement({
       ? `${reductionBlockers.length} assigned tables block this reduction.`
       : `Assigned ${
           reductionBlockers.length === 1 ? "table" : "tables"
-        } ${formatList(blockerLabels)} ${
+        } ${formatReservationList(blockerLabels)} ${
           reductionBlockers.length === 1 ? "blocks" : "block"
         } this reduction.`;
 
@@ -814,7 +764,6 @@ function TableCountManagement({
 function TableManagementWorkspace({ event, tables }: TableManagementProps) {
   const router = useRouter();
   const addInputId = useId();
-  const countFocusIntentRef = useRef<CountFocusIntent | null>(null);
   const mutationLockRef = useRef<string | null>(null);
   const readOnly = event.status === "archived";
   const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
@@ -921,9 +870,7 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <TableCountManagement
-          key={tables.length}
           eventId={event.id}
-          focusIntentRef={countFocusIntentRef}
           onMutationEnd={endMutation}
           onMutationStart={startMutation}
           readOnly={readOnly}

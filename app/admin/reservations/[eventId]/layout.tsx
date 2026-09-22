@@ -6,26 +6,12 @@ import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getAdminReservationEvent } from "@/lib/queries/admin-reservations";
-import type { ReservationEventStatus } from "@/lib/reservation/domain";
+import { getAdminReservationEventHeader } from "@/lib/queries/admin-reservations";
+import {
+  RESERVATION_EVENT_STATUS_BADGE_VARIANTS,
+  RESERVATION_EVENT_STATUS_LABELS,
+} from "@/lib/reservation/domain";
 import { ReservationEventNav } from "./reservation-event-nav";
-
-const STATUS_LABELS: Record<ReservationEventStatus, string> = {
-  draft: "Draft",
-  open: "Open",
-  closed: "Closed",
-  archived: "Archived",
-};
-
-const STATUS_VARIANTS: Record<
-  ReservationEventStatus,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  draft: "outline",
-  open: "default",
-  closed: "secondary",
-  archived: "destructive",
-};
 
 export default async function ReservationEventLayout({
   children,
@@ -35,7 +21,7 @@ export default async function ReservationEventLayout({
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  const event = await getAdminReservationEvent(eventId);
+  const event = await getAdminReservationEventHeader(eventId);
   if (!event) notFound();
 
   return (
@@ -45,8 +31,10 @@ export default async function ReservationEventLayout({
         title={event.name}
         actions={
           <>
-            <Badge variant={STATUS_VARIANTS[event.status]}>
-              {STATUS_LABELS[event.status]}
+            <Badge
+              variant={RESERVATION_EVENT_STATUS_BADGE_VARIANTS[event.status]}
+            >
+              {RESERVATION_EVENT_STATUS_LABELS[event.status]}
             </Badge>
             <Button asChild variant="outline" size="sm">
               <Link href={`/admin/reservations/${event.id}/preview`}>

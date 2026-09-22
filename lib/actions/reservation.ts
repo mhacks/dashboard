@@ -1,10 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { events, tables } from "@/lib/db/schema/reservation";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { reservationEvents, tables } from "@/lib/db/schema/reservation";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
   ACCEPTED_RESERVATION_ERROR,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/reservation/access";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import { getReservationAvailability } from "@/lib/reservation/domain";
+import { revalidateReservationEventPaths } from "@/lib/reservation/revalidate";
 import { reservationIdSchema } from "@/lib/reservation/validation";
 
 export type ActionResult =
@@ -48,15 +49,6 @@ class ReservationFailure extends Error {
   }
 }
 
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
 async function requireTeamId(): Promise<
   ParticipantReservationAuth | { ok: false; error: string }
 > {
@@ -71,20 +63,12 @@ async function requireTeamId(): Promise<
   return { ok: true, teamId: team.teamId, user };
 }
 
-function revalidateReservationPaths(eventId: string) {
-  revalidatePath("/reserve");
-  revalidatePath("/admin/reservations");
-  revalidatePath(`/admin/reservations/${eventId}/assignments`);
-  revalidatePath(`/admin/reservations/${eventId}/audit`);
-}
-
-function isPostgresErrorCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === code
-  );
+function reservationsAreOpen(event: {
+  status: Parameters<typeof getReservationAvailability>[0]["status"];
+  reservationsOpenAt?: Date | string | null;
+  reservationsCloseAt?: Date | string | null;
+}) {
+  return getReservationAvailability(event).state === "open";
 }
 
 function knownReservationFailure(error: unknown): ActionResult | null {
@@ -97,7 +81,7 @@ function knownReservationFailure(error: unknown): ActionResult | null {
       error: reservationFailureMessages[error.code],
     };
   }
-  if (isPostgresErrorCode(error, "23505")) {
+  if (isUniqueViolation(error)) {
     return {
       ok: false,
       error: reservationFailureMessages.TEAM_ALREADY_RESERVED,
@@ -131,26 +115,26 @@ export async function reserveTable({
           id: tables.id,
           eventId: tables.eventId,
           number: tables.number,
-          eventName: events.name,
-          eventStatus: events.status,
-          reservationsOpenAt: events.reservationsOpenAt,
-          reservationsCloseAt: events.reservationsCloseAt,
+          eventName: reservationEvents.name,
+          eventStatus: reservationEvents.status,
+          reservationsOpenAt: reservationEvents.reservationsOpenAt,
+          reservationsCloseAt: reservationEvents.reservationsCloseAt,
         })
-        .from(events)
-        .innerJoin(tables, eq(tables.eventId, events.id))
+        .from(reservationEvents)
+        .innerJoin(tables, eq(tables.eventId, reservationEvents.id))
         .where(eq(tables.id, selectedTableId))
-        .for("share", { of: events })
+        .for("share", { of: reservationEvents })
         .limit(1);
 
       if (!target) {
         throw new ReservationFailure("TABLE_NOT_FOUND");
       }
       if (
-        !getReservationAvailability({
+        !reservationsAreOpen({
           status: target.eventStatus,
           reservationsOpenAt: target.reservationsOpenAt,
           reservationsCloseAt: target.reservationsCloseAt,
-        }).canReserve
+        })
       ) {
         throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
       }
@@ -210,7 +194,7 @@ export async function reserveTable({
     };
   }
 
-  revalidateReservationPaths(assignment.eventId);
+  revalidateReservationEventPaths(assignment.eventId);
   return {
     ok: true,
     message: `Reserved table ${assignment.tableNumber}.`,
@@ -238,20 +222,20 @@ export async function randomlyAssignTable({
       // Keep the shared event-before-table lock order used by direct claims.
       const [event] = await tx
         .select({
-          id: events.id,
-          name: events.name,
-          status: events.status,
-          reservationsOpenAt: events.reservationsOpenAt,
-          reservationsCloseAt: events.reservationsCloseAt,
+          id: reservationEvents.id,
+          name: reservationEvents.name,
+          status: reservationEvents.status,
+          reservationsOpenAt: reservationEvents.reservationsOpenAt,
+          reservationsCloseAt: reservationEvents.reservationsCloseAt,
         })
-        .from(events)
-        .where(eq(events.id, selectedEventId))
+        .from(reservationEvents)
+        .where(eq(reservationEvents.id, selectedEventId))
         .for("share")
         .limit(1);
       if (!event) {
         throw new ReservationFailure("EVENT_NOT_FOUND");
       }
-      if (!getReservationAvailability(event).canReserve) {
+      if (!reservationsAreOpen(event)) {
         throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
       }
 
@@ -269,7 +253,7 @@ export async function randomlyAssignTable({
         throw new ReservationFailure("TEAM_ALREADY_RESERVED");
       }
 
-      const open = await tx
+      const [candidate] = await tx
         .select({ id: tables.id, number: tables.number })
         .from(tables)
         .where(
@@ -277,44 +261,45 @@ export async function randomlyAssignTable({
             eq(tables.eventId, selectedEventId),
             isNull(tables.reservedByTeamId),
           ),
-        );
+        )
+        .orderBy(sql`random()`)
+        .limit(1)
+        .for("update", { skipLocked: true });
 
-      if (open.length === 0) {
+      if (!candidate) {
         throw new ReservationFailure("FULL");
       }
 
-      for (const candidate of shuffle(open)) {
-        const claimed = await tx
-          .update(tables)
-          .set({ reservedByTeamId: teamId, reservedAt: new Date() })
-          .where(
-            and(eq(tables.id, candidate.id), isNull(tables.reservedByTeamId)),
-          )
-          .returning({ id: tables.id });
+      const claimed = await tx
+        .update(tables)
+        .set({ reservedByTeamId: teamId, reservedAt: new Date() })
+        .where(
+          and(eq(tables.id, candidate.id), isNull(tables.reservedByTeamId)),
+        )
+        .returning({ id: tables.id });
 
-        if (claimed.length > 0) {
-          await writeReservationAudit(tx, {
-            eventId: event.id,
-            eventName: event.name,
-            actorUserId: user.id,
-            actorEmail: user.email,
-            action: "assignment.randomly_reserved",
-            entityType: "assignment",
-            entityId: candidate.id,
-            details: {
-              tableId: candidate.id,
-              tableNumber: candidate.number,
-              teamId,
-            },
-          });
-          return {
-            eventId: event.id,
-            tableNumber: candidate.number,
-          };
-        }
+      if (claimed.length === 0) {
+        throw new ReservationFailure("FULL");
       }
 
-      throw new ReservationFailure("FULL");
+      await writeReservationAudit(tx, {
+        eventId: event.id,
+        eventName: event.name,
+        actorUserId: user.id,
+        actorEmail: user.email,
+        action: "assignment.randomly_reserved",
+        entityType: "assignment",
+        entityId: candidate.id,
+        details: {
+          tableId: candidate.id,
+          tableNumber: candidate.number,
+          teamId,
+        },
+      });
+      return {
+        eventId: event.id,
+        tableNumber: candidate.number,
+      };
     });
   } catch (error) {
     const known = knownReservationFailure(error);
@@ -326,6 +311,6 @@ export async function randomlyAssignTable({
     };
   }
 
-  revalidateReservationPaths(assigned.eventId);
+  revalidateReservationEventPaths(assigned.eventId);
   return { ok: true, message: `Assigned table ${assigned.tableNumber}.` };
 }

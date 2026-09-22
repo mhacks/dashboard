@@ -2,12 +2,11 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
-  events,
+  reservationEvents,
   tables,
-  teams,
-  type Event as ReservationEventRow,
+  type ReservationEvent,
 } from "@/lib/db/schema/reservation";
-import { users } from "@/lib/db/schema/users";
+import { teams } from "@/lib/db/schema/teams";
 import { getParticipantTeam } from "@/lib/reservation/access";
 import { getReservationAvailability } from "@/lib/reservation/domain";
 import type {
@@ -17,12 +16,18 @@ import type {
 } from "@/lib/reservation/types";
 
 export function toParticipantEvent(
-  event: ReservationEventRow,
+  event: Pick<
+    ReservationEvent,
+    | "id"
+    | "name"
+    | "description"
+    | "startsAt"
+    | "location"
+    | "status"
+    | "reservationsOpenAt"
+    | "reservationsCloseAt"
+  >,
 ): ParticipantEvent {
-  if (event.status !== "open" && event.status !== "closed") {
-    throw new Error("Participant events must be open or closed.");
-  }
-
   return {
     id: event.id,
     name: event.name,
@@ -39,9 +44,9 @@ export function toParticipantEvent(
 export async function getParticipantEvents(): Promise<ParticipantEvent[]> {
   const rows = await db
     .select()
-    .from(events)
-    .where(inArray(events.status, ["open", "closed"]))
-    .orderBy(asc(events.startsAt), asc(events.name));
+    .from(reservationEvents)
+    .where(inArray(reservationEvents.status, ["open", "closed"]))
+    .orderBy(asc(reservationEvents.startsAt), asc(reservationEvents.name));
 
   return rows.map(toParticipantEvent);
 }
@@ -50,21 +55,11 @@ export async function getParticipantReservationUser(): Promise<ParticipantReserv
   const sessionUser = await getSessionUser();
   if (!sessionUser) return null;
 
-  const [row] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      role: users.role,
-    })
-    .from(users)
-    .where(eq(users.id, sessionUser.id))
-    .limit(1);
-
-  if (!row) return null;
-
   const team = await getParticipantTeam(sessionUser.id);
   return {
-    ...row,
+    id: sessionUser.id,
+    email: sessionUser.email,
+    role: sessionUser.role,
     teamId: team?.teamId ?? null,
     teamName: team?.teamName ?? null,
   };

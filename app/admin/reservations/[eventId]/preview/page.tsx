@@ -1,34 +1,10 @@
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ReservationBoard } from "@/components/reservation/reservation-board";
-import {
-  getTablesForEvent,
-  toParticipantEvent,
-} from "@/lib/db/queries/reservation";
-import type { AdminReservationEventDetail } from "@/lib/queries/admin-reservations";
-import { getAdminReservationEvent } from "@/lib/queries/admin-reservations";
-import { getReservationAvailability } from "@/lib/reservation/domain";
-import type { ParticipantEvent } from "@/lib/reservation/types";
+import { toParticipantEvent } from "@/lib/db/queries/reservation";
+import { getAdminReservationTables } from "@/lib/queries/admin-reservations";
 
 export const dynamic = "force-dynamic";
-
-function toPreviewEvent(event: AdminReservationEventDetail): ParticipantEvent {
-  if (event.status === "open" || event.status === "closed") {
-    return toParticipantEvent(event);
-  }
-
-  return {
-    id: event.id,
-    name: event.name,
-    description: event.description,
-    startsAt: event.startsAt,
-    location: event.location,
-    status: "closed",
-    reservationsOpenAt: event.reservationsOpenAt,
-    reservationsCloseAt: event.reservationsCloseAt,
-    availability: getReservationAvailability(event),
-  };
-}
 
 export default async function ReservationParticipantPreviewPage({
   params,
@@ -36,11 +12,8 @@ export default async function ReservationParticipantPreviewPage({
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  const event = await getAdminReservationEvent(eventId);
-  if (!event) notFound();
-
-  const tables = await getTablesForEvent(eventId);
-  const participantEvent = toPreviewEvent(event);
+  const data = await getAdminReservationTables(eventId);
+  if (!data) notFound();
 
   return (
     <section
@@ -67,9 +40,9 @@ export default async function ReservationParticipantPreviewPage({
       </div>
 
       <ReservationBoard
-        events={[participantEvent]}
+        events={[toParticipantEvent(data.event)]}
         user={null}
-        tables={tables}
+        tables={data.tables}
         selectedEventId={eventId}
         readOnly
       />

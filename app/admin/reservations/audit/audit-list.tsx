@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ReservationAuditPage } from "@/lib/queries/admin-reservations";
+import { buildAuditPageHref } from "./audit-pagination";
 
 export type AuditListProps = ReservationAuditPage & {
   basePath: string;
@@ -77,9 +78,13 @@ export function AuditList({
   const searchParams = useSearchParams();
 
   function changePage(nextPageIndex: number) {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("page", String(nextPageIndex + 1));
-    router.push(`${basePath}?${next.toString()}`);
+    router.push(
+      buildAuditPageHref(
+        basePath,
+        Object.fromEntries(searchParams.entries()),
+        nextPageIndex + 1,
+      ),
+    );
   }
 
   return (

@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { DEFAULT_COLUMNS, toRows } from "@/lib/reservation/layout";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 export type TableStatus = "available" | "selected" | "mine" | "taken";
@@ -61,7 +60,10 @@ export function JudgingMap({
   disabled?: boolean;
   mode?: JudgingMapMode;
 }) {
-  const rows = toRows(tables, DEFAULT_COLUMNS);
+  const rows: TableWithTeam[][] = [];
+  for (let index = 0; index < tables.length; index += 8) {
+    rows.push(tables.slice(index, index + 8));
+  }
 
   return (
     <div className="flex flex-col gap-5">

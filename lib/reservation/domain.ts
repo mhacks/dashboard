@@ -11,6 +11,26 @@ export const MAX_RESERVATION_TABLE_NUMBER = 2_147_483_647;
 export type ReservationEventStatus =
   (typeof RESERVATION_EVENT_STATUSES)[number];
 
+export const RESERVATION_EVENT_STATUS_LABELS: Record<
+  ReservationEventStatus,
+  string
+> = {
+  draft: "Draft",
+  open: "Open",
+  closed: "Closed",
+  archived: "Archived",
+};
+
+export const RESERVATION_EVENT_STATUS_BADGE_VARIANTS: Record<
+  ReservationEventStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  draft: "outline",
+  open: "default",
+  closed: "secondary",
+  archived: "destructive",
+};
+
 type ReservationWindow = {
   status: ReservationEventStatus;
   reservationsOpenAt?: Date | string | null;
@@ -18,20 +38,20 @@ type ReservationWindow = {
 };
 
 export type ReservationAvailability =
-  | { state: "hidden"; canReserve: false }
-  | { state: "scheduled"; canReserve: false; boundary: Date }
-  | { state: "closed"; canReserve: false }
-  | { state: "open"; canReserve: true };
+  | { state: "hidden" }
+  | { state: "scheduled"; boundary: Date }
+  | { state: "closed" }
+  | { state: "open" };
 
 export function getReservationAvailability(
   event: ReservationWindow,
   now: Date = new Date(),
 ): ReservationAvailability {
   if (event.status === "draft" || event.status === "archived") {
-    return { state: "hidden", canReserve: false };
+    return { state: "hidden" };
   }
   if (event.status === "closed") {
-    return { state: "closed", canReserve: false };
+    return { state: "closed" };
   }
 
   const opensAt = event.reservationsOpenAt
@@ -42,12 +62,21 @@ export function getReservationAvailability(
     : null;
 
   if (opensAt && now < opensAt) {
-    return { state: "scheduled", canReserve: false, boundary: opensAt };
+    return { state: "scheduled", boundary: opensAt };
   }
   if (closesAt && now >= closesAt) {
-    return { state: "closed", canReserve: false };
+    return { state: "closed" };
   }
-  return { state: "open", canReserve: true };
+  return { state: "open" };
+}
+
+export function formatReservationList(
+  values: readonly (number | string)[],
+): string {
+  const labels = values.map(String);
+  if (labels.length < 2) return labels[0] ?? "";
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`;
 }
 
 type TableSlot = {
@@ -58,7 +87,7 @@ type TableSlot = {
 
 export type TableCountPlan =
   | { ok: true; addNumbers: number[]; removeIds: string[] }
-  | { ok: false; blockedNumbers: number[] };
+  | { ok: false; blockedNumbers: number[]; removeIds: string[] };
 
 export function planTableCountChange(
   current: readonly TableSlot[],
@@ -98,12 +127,13 @@ export function planTableCountChange(
   const targets = [...current]
     .sort((left, right) => right.number - left.number)
     .slice(0, removalCount);
+  const removeIds = targets.map((table) => table.id);
   const blockedNumbers = targets
     .filter((table) => table.reservedByTeamId)
     .map((table) => table.number)
     .sort((left, right) => left - right);
 
   return blockedNumbers.length > 0
-    ? { ok: false, blockedNumbers }
-    : { ok: true, addNumbers: [], removeIds: targets.map((table) => table.id) };
+    ? { ok: false, blockedNumbers, removeIds }
+    : { ok: true, addNumbers: [], removeIds };
 }

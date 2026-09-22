@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  useId,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  useTransition,
-} from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { Loader2Icon } from "lucide-react";
+import { useMounted } from "@/hooks/use-mounted";
 import {
   createReservationEvent,
   updateReservationEvent,
@@ -46,18 +41,6 @@ type ReservationEventFormProps = {
   onPendingChange?: (pending: boolean) => void;
   onSuccess?: (message: string) => void;
 };
-
-const subscribeToHydration = () => () => {};
-const getClientSnapshot = () => true;
-const getServerSnapshot = () => false;
-
-export function useClientHydrated() {
-  return useSyncExternalStore(
-    subscribeToHydration,
-    getClientSnapshot,
-    getServerSnapshot,
-  );
-}
 
 function toDateTimeLocal(value: Date | string | null | undefined) {
   if (!value) return "";
@@ -120,7 +103,7 @@ function FieldError({
 }
 
 export function ReservationEventForm(props: ReservationEventFormProps) {
-  const hydrated = useClientHydrated();
+  const hydrated = useMounted();
 
   if (props.event && !hydrated) {
     return (
