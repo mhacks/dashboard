@@ -5,5 +5,5 @@ export default async function AdminLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   await requireOrganizerPage();
-  return children;
+  return <div className="font-red-hat">{children}</div>;
 }

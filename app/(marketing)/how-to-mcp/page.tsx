@@ -12,7 +12,7 @@ export default function HowToMcpPage() {
   return (
     <main className="relative bg-transparent">
       <HowToMcp />
-      <Footer />
+      <Footer variant="compact" />
     </main>
   );
 }

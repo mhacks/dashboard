@@ -6,6 +6,7 @@ import type {
   ReviewEventChanges,
   ReviewEventSnapshot,
 } from "@/lib/db/schema/applications";
+import { DEADLINES } from "@/lib/landing/deadlines";
 
 const draftRatingSchema = z
   .number()
@@ -145,13 +146,61 @@ export type ReviewApplicationSummary = {
   university: string;
   major: string;
   whyMhacksPreview: string;
+  country: string;
+  // A US state code or the literal "international" — see comingFromOptions.
+  comingFrom: string;
+  needsTravelReimbursement: boolean;
+  // Only asked when reimbursement is needed, so null means "never answered",
+  // which is distinct from an explicit "no".
+  wouldAttendWithoutReimbursement: boolean | null;
   createdAt: string;
+};
+
+export type PossibleReapplicationSignal =
+  | "phone"
+  | "resume"
+  | "github"
+  | "linkedin"
+  | "name_university_graduation_year";
+
+export type PossibleReapplicationMatch = {
+  applicationId: string;
+  slug: string;
+  applicantName: string;
+  applicantEmail: string | null;
+  signals: PossibleReapplicationSignal[];
 };
 
 export type ReviewListSummaryItem = {
   application: ReviewApplicationSummary;
   review: ReviewRecord | null;
+  /**
+   * Derived at dashboard-read time. Nothing is persisted on either
+   * application or its review when a possible reapplication is found.
+   */
+  possibleReapplications: PossibleReapplicationMatch[];
 };
+
+export type ApplicationRound = "early" | "regular";
+
+const earlyApplicationsDeadline = DEADLINES.find(
+  (deadline) => deadline.id === "early-apps-due",
+);
+if (!earlyApplicationsDeadline) {
+  throw new Error(
+    'lib/types/application-reviews.ts: DEADLINES is missing the "early-apps-due" entry required to classify applications into early/regular rounds.',
+  );
+}
+const EARLY_APPLICATIONS_DEADLINE_MS = new Date(
+  earlyApplicationsDeadline.date,
+).getTime();
+
+/** Classifies an application's createdAt against the early-apps-due deadline. */
+export function getApplicationRound(createdAt: string): ApplicationRound {
+  return new Date(createdAt).getTime() < EARLY_APPLICATIONS_DEADLINE_MS
+    ? "early"
+    : "regular";
+}
 
 export type ReviewWorkspaceData = {
   items: ReviewListSummaryItem[];
@@ -205,12 +254,14 @@ export type ReimbursementAnalytics = {
   // hacker_reimbursements is unique per user_id, so an award count is also a
   // user count — "approved" is the reimbursed population.
   reimbursedUsers: number;
+  // Approved awards whose early-round hackers submitted an RSVP selecting the
+  // reimbursement travel plan. This is the expected actual payout.
+  actualReimbursedUsers: number;
   spentCents: number;
-  pendingRequests: number;
-  // What the pending queue would add to `spentCents` if every request were
-  // approved as-is.
-  pendingCents: number;
+  actualSpentCents: number;
   deniedRequests: number;
+  // What denied awards would have added to `spentCents` had they been approved.
+  deniedCents: number;
   totalRequests: number;
   averageAwardCents: number | null;
   statusBreakdown: AnalyticsBucket[];

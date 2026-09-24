@@ -28,6 +28,16 @@ export function scrollToHash(hash: string) {
   // Sections are sticky-pinned sheets, so their bounding rects (which Lenis
   // uses for element targets) report the pinned position, not where they
   // live in the document — walk the offsetParent chain for the flow position.
+  //
+  // That alone isn't enough once `el` itself has already been scrolled past:
+  // Chromium reports a *stuck* sticky element's own offsetTop near the
+  // current scroll position rather than its static flow position, which
+  // collapses the target distance to near-zero. Un-stick it for this one
+  // synchronous read — nothing repaints mid-task, so there's no visible
+  // flash — then restore it before yielding back to the browser.
+  const prevPosition = el.style.position;
+  el.style.position = "static";
+
   let top = 0;
   for (
     let n: HTMLElement | null = el;
@@ -36,6 +46,8 @@ export function scrollToHash(hash: string) {
   ) {
     top += n.offsetTop;
   }
+
+  el.style.position = prevPosition;
 
   if (lenis) {
     const distance = Math.abs(window.scrollY - top);

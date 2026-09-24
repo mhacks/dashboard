@@ -1,0 +1,219 @@
+// Admissions decisions. Kept free of any database imports so both the drizzle
+// schema and client components can share it — `lib/db/schema/applications.ts`
+// builds its pgEnum from APPLICATION_DECISIONS, so the enum and this union can
+// never drift apart. (lib/currency is pure formatting, no database.)
+
+import { formatCents } from "./currency";
+
+export const APPLICATION_DECISIONS = [
+  "applied",
+  "early_accepted",
+  "early_rsvped",
+  "early_rejected",
+  "regular_accepted",
+  "regular_rsvped",
+  "regular_rejected",
+] as const;
+
+export type ApplicationDecision = (typeof APPLICATION_DECISIONS)[number];
+
+export type DecisionRound = "early" | "regular";
+export type DecisionOutcome = "pending" | "accepted" | "rejected";
+
+/** Whether a decision has been released — i.e. the letter is viewable. */
+export function isDecided(decision: ApplicationDecision) {
+  return decision !== "applied";
+}
+
+export function decisionOutcome(
+  decision: ApplicationDecision,
+): DecisionOutcome {
+  if (decision === "applied") return "pending";
+  return decision.endsWith("_rejected") ? "rejected" : "accepted";
+}
+
+/** Null until a decision is released — an applicant has no round before then. */
+export function decisionRound(
+  decision: ApplicationDecision,
+): DecisionRound | null {
+  if (decision === "applied") return null;
+  return decision.startsWith("early_") ? "early" : "regular";
+}
+
+/**
+ * The decisions that mean "this person is coming": accepted, whether or not
+ * they have RSVPed yet. Shared by the admin RSVP tooling and by check-in, so
+ * the set of people who may hold a check-in code can never drift from the set
+ * the RSVP screens consider eligible.
+ */
+export const RSVP_ELIGIBLE_DECISIONS = [
+  "early_accepted",
+  "early_rsvped",
+  "regular_accepted",
+  "regular_rsvped",
+] as const satisfies readonly ApplicationDecision[];
+
+/**
+ * The decisions that mean "this person confirmed they are coming". Narrower
+ * than RSVP_ELIGIBLE_DECISIONS, which also covers people who were accepted and
+ * never replied.
+ *
+ * This is the check-in gate: being offered a spot is not the same as taking
+ * one, and only someone who took it gets a code or gets through a door. The
+ * SQL-friendly counterpart to `hasRsvped` below.
+ *
+ * Derived from `hasRsvped` rather than listed out, because it is also spelled
+ * in SQL — public.has_confirmed_rsvp(), the function behind the event_checkins
+ * insert policy. That one matches on the `_rsvped` suffix for the same reason,
+ * so a round added to APPLICATION_DECISIONS reaches both at once instead of
+ * relying on someone remembering to edit a list in two languages.
+ */
+export const RSVP_CONFIRMED_DECISIONS: readonly ApplicationDecision[] =
+  APPLICATION_DECISIONS.filter(hasRsvped);
+
+export function hasRsvped(decision: ApplicationDecision) {
+  return decision.endsWith("_rsvped");
+}
+
+export const RSVP_URL: Record<DecisionRound, string> = {
+  early: "/rsvp",
+  regular: "/rsvp",
+};
+
+export const RSVP_DEADLINE: Record<DecisionRound, string> = {
+  early: "August 23, 2026",
+  regular: "September 19, 2026",
+};
+
+export const SUPPORT_EMAIL = "hackathon@mhacks.org";
+
+export type DecisionLetter = {
+  /** Appended to the letterhead wordmark, e.g. "Early Decision". */
+  roundLabel: string;
+  heading: string;
+  /**
+   * Rendered as separate paragraphs, in order. Rejected letters fold the
+   * greeting into the first paragraph, so body[0] starts lowercase there.
+   *
+   * A span wrapped in **double asterisks** is emphasised by the letter
+   * component. Kept as a marker rather than markup so this module stays plain
+   * data and can be read by anything, not just React.
+   */
+  body: string[];
+  /** Accepted letters only — the quiet note above the sign-off. */
+  footnote?: string;
+  signOff: string;
+};
+
+const SIGN_OFF = "— The MHacks 2026 Team";
+
+const ROUND_LABEL: Record<DecisionRound, string> = {
+  early: "Early Decision",
+  regular: "Regular Decision",
+};
+
+const FOOTNOTE =
+  "Full schedule details, check-in instructions, and hacker guides will be sent to your email as we get closer to October.";
+
+type LetterBody = Omit<DecisionLetter, "roundLabel">;
+
+const ACCEPTED_HEADING = "You're in! Welcome to MHacks 2026.";
+
+const ACCEPTED_INTRO =
+  "Congratulations! We were thoroughly impressed by your application and are thrilled to offer you a spot at MHacks 2026. Space is limited, so please confirm your attendance below to lock in your spot.";
+
+// Travel reimbursement is an early-round benefit only, so the second paragraph
+// of an accepted letter makes that explicit for regular applicants and — for
+// early applicants — states whether they actually have an award.
+const REIMBURSEMENT_AWARDED = (amount: string) =>
+  `Because you applied before the early deadline on August 7, we're also able to offer you **${amount}** in travel reimbursement toward your trip to Ann Arbor. We'll send instructions for claiming it closer to the event.`;
+
+const REIMBURSEMENT_NONE =
+  "Because you applied before the early deadline on August 7, you were also considered for travel reimbursement. It's limited and decided separately from admission — we would love to have you attend, but we're unable to provide reimbursement at this time. Everything else at MHacks — meals, workshops, mentors, and the event itself — is completely free.";
+
+const REIMBURSEMENT_REGULAR =
+  "Travel reimbursements are not available to regular-decision applicants. Limited reimbursement awards were offered only to eligible early applicants.";
+
+/**
+ * `reimbursementCents` is the applicant's awarded tier in cents, or null when
+ * they have no award at all. Returns null when the letter should stay silent on
+ * reimbursement rather than address it.
+ *
+ * Regular-round letters explicitly explain that reimbursement was available
+ * only to eligible early applicants.
+ *
+ * Within the early round the cases are distinct:
+ *   > 0   — the award is real money, so name the amount.
+ *   0     — the region-0 tier. The letter says nothing about reimbursement.
+ *   null  — no award row, so the offer is addressed and declined.
+ */
+function reimbursementParagraph(
+  round: DecisionRound,
+  reimbursementCents: number | null,
+): string | null {
+  if (round === "regular") return REIMBURSEMENT_REGULAR;
+  if (reimbursementCents === null) return REIMBURSEMENT_NONE;
+  if (reimbursementCents <= 0) return null;
+  return REIMBURSEMENT_AWARDED(formatCents(reimbursementCents));
+}
+
+function acceptedLetter(
+  round: DecisionRound,
+  reimbursementCents: number | null,
+): LetterBody {
+  const reimbursement = reimbursementParagraph(round, reimbursementCents);
+
+  return {
+    heading: ACCEPTED_HEADING,
+    body: reimbursement ? [ACCEPTED_INTRO, reimbursement] : [ACCEPTED_INTRO],
+    footnote: FOOTNOTE,
+    signOff: SIGN_OFF,
+  };
+}
+
+// body[0] is prefixed with "Hi {name}, " by the letter component, so it starts
+// lowercase — the rejected letter folds the greeting into the paragraph rather
+// than standing it alone above the headline.
+const REJECTED: Record<DecisionRound, LetterBody> = {
+  early: {
+    heading: "An update on your MHacks 2026 application",
+    body: [
+      "thank you for applying to MHacks 2026. We received a record-breaking number of applications in our early round this year, making our selection process harder than ever. Unfortunately, due to strict venue capacity, we aren't able to offer you a spot this time around.",
+      "Please know that this outcome is not a reflection of your potential or technical ability. The caliber of applications was exceptional across the board. We genuinely appreciate the time you took to share your work with us, and we hope to see your application again for future events.",
+    ],
+    signOff: SIGN_OFF,
+  },
+  regular: {
+    heading: "An update on your MHacks 2026 application",
+    body: [
+      "thank you for applying to MHacks 2026. We received a record-breaking number of applications in our regular round this year, making our selection process harder than ever. Unfortunately, due to strict venue capacity, we aren't able to offer you a spot this time around.",
+      "This is our final decision for MHacks 2026. Please know that this outcome is not a reflection of your potential or technical ability — the caliber of applications was exceptional across the board. We genuinely appreciate the time you took to share your work with us, and we hope to see your application again for future events.",
+    ],
+    signOff: SIGN_OFF,
+  },
+};
+
+/**
+ * The letter shown in the decision modal. Returns null while the applicant is
+ * still `applied` — there is nothing to show yet.
+ *
+ * `reimbursementCents` is the applicant's awarded travel tier in cents, or null
+ * if they have no award. Accepted regular-round letters clarify that travel
+ * reimbursements were available only during the early round; rejected letters
+ * never mention reimbursement.
+ */
+export function decisionLetter(
+  decision: ApplicationDecision,
+  reimbursementCents: number | null = null,
+): DecisionLetter | null {
+  const round = decisionRound(decision);
+  if (!round) return null;
+
+  const outcome = decisionOutcome(decision);
+  const source =
+    outcome === "accepted"
+      ? acceptedLetter(round, reimbursementCents)
+      : REJECTED[round];
+
+  return { roundLabel: ROUND_LABEL[round], ...source };
+}

@@ -90,7 +90,11 @@ export function SiteHeader() {
               Sponsor us
             </CtaButton>
           </div>
-          <CtaButton href="/apply" variant="parchment" size="md">
+          {/* The dashboard, not /apply — it is the one signed-in entry point,
+              and it routes to the form, a saved draft, or a submitted
+              application as appropriate. Signed-out visitors are sent through
+              login and land back here. */}
+          <CtaButton href="/dashboard" variant="parchment" size="md">
             Apply
           </CtaButton>
         </div>

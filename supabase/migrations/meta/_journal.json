@@ -71,6 +71,132 @@
       "when": 1786128366444,
       "tag": "20260807184606_reimbursement_regions_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786308150117,
+      "tag": "20260809204230_hacker_decisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786309503715,
+      "tag": "20260809210503_reimbursement_status_binary",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786315772348,
+      "tag": "20260809224932_user_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786761461448,
+      "tag": "20260815023741_email_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786763562979,
+      "tag": "20260815031242_rsvps",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1787499602464,
+      "tag": "20260823154002_prune_completed_email_deliveries",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788497511689,
+      "tag": "20260825161042_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788204254490,
+      "tag": "20260831192414_rsvp_exceptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788482656709,
+      "tag": "20260904004416_rsvp_exceptions_definer_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788497511690,
+      "tag": "20260904045151_check_in_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789081626761,
+      "tag": "20260910230706_user_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789136999096,
+      "tag": "20260911142959_broadcast_logs_and_deliveries",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789319491246,
+      "tag": "20260913171131_hacker_application_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789320684644,
+      "tag": "20260913173124_event_account_checkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789440832686,
+      "tag": "20260915025352_backdoor_invitation_auto_accept",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789856000121,
+      "tag": "20260919221320_live_site_content",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789856018956,
+      "tag": "20260919221338_live_site_access_and_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790281843127,
+      "tag": "20260924203043_table_reservations",
+      "breakpoints": true
     }
   ]
 }

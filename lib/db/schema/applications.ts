@@ -16,6 +16,7 @@ import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole, authUsers } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";
 import { users } from "./users";
+import { APPLICATION_DECISIONS } from "../../decisions";
 import "./triggers";
 
 export const applicationStatus = pgEnum("application_status", [
@@ -23,6 +24,16 @@ export const applicationStatus = pgEnum("application_status", [
   "reviewed",
   "flagged",
 ]);
+
+// Admissions decision, distinct from `applicationStatus` — that one tracks the
+// organizer review queue, this one is what the applicant sees. The round
+// (early / regular) is encoded in the value rather than stored separately so
+// the two can never disagree. Values live in lib/decisions.ts so client
+// components can share them without importing the schema.
+export const applicationDecision = pgEnum(
+  "application_decision",
+  APPLICATION_DECISIONS,
+);
 
 export const reviewEventType = pgEnum("review_event_type", [
   "draft_saved",
@@ -52,6 +63,7 @@ export const hackerApplicants = pgTable(
     id: uuid().defaultRandom().primaryKey().notNull(),
     userId: uuid("user_id").notNull(),
     status: applicationStatus().default("pending").notNull(),
+    decision: applicationDecision().default("applied").notNull(),
 
     // Personal Information
     firstName: text("first_name").notNull().default(""),

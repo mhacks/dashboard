@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth/session";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,9 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function approveAuthorization(authorizationId: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   const { data, error } =
     await supabase.auth.oauth.approveAuthorization(authorizationId);
   if (error || !data?.redirect_url) {
