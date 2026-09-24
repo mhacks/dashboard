@@ -66,12 +66,7 @@ jobs:
           NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY }}
           NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ secrets.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN }}
           NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
-        run: |
-          {
-            echo "env_b64<<EOF"
-            env | grep '^NEXT_PUBLIC_' | base64 -w0
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+        run: echo "env_b64=$(env | grep '^NEXT_PUBLIC_' | base64 -w0)" >> "$GITHUB_OUTPUT"
 
       - name: Build image
         id: build
