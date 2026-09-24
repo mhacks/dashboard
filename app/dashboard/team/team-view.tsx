@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { TriangleAlertIcon } from "lucide-react";
+import { PencilLineIcon, TriangleAlertIcon } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   createTeam,
+  renameTeam,
   inviteToTeam,
   acceptInvitation,
   declineInvitation,
@@ -70,6 +71,9 @@ function errorMessage(err: unknown, fallback: string) {
 const createTeamFormSchema = z.object({ name: teamNameSchema });
 type CreateTeamFormValues = z.infer<typeof createTeamFormSchema>;
 
+const renameTeamFormSchema = z.object({ name: teamNameSchema });
+type RenameTeamFormValues = z.infer<typeof renameTeamFormSchema>;
+
 const inviteFormSchema = z.object({ email: inviteEmailSchema });
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
@@ -98,10 +102,16 @@ export function TeamView({
   // revokingId pattern, generalized to more than one action kind.
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const createForm = useForm<CreateTeamFormValues>({
     resolver: zodResolver(createTeamFormSchema),
     defaultValues: { name: "" },
+  });
+
+  const renameForm = useForm<RenameTeamFormValues>({
+    resolver: zodResolver(renameTeamFormSchema),
+    defaultValues: { name: team?.team.name ?? "" },
   });
 
   const inviteForm = useForm<InviteFormValues>({
@@ -128,6 +138,19 @@ export function TeamView({
       toast.success("Team created.");
     });
   });
+
+  const onRenameTeam = renameForm.handleSubmit((values) => {
+    runAction("rename", async () => {
+      await renameTeam(values.name);
+      toast.success("Team renamed.");
+      setIsRenaming(false);
+    });
+  });
+
+  function openRename() {
+    renameForm.reset({ name: team?.team.name ?? "" });
+    setIsRenaming(true);
+  }
 
   const onInvite = inviteForm.handleSubmit((values) => {
     runAction("invite", async () => {
@@ -190,15 +213,27 @@ export function TeamView({
             }
           >
             {team ? (
-              <PanelHeading
-                lede={
-                  team.members.length >= MAX_TEAM_SIZE
-                    ? "Your team is full."
-                    : `Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
-                }
-              >
-                {team.team.name}
-              </PanelHeading>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <PanelHeading
+                  lede={
+                    team.members.length >= MAX_TEAM_SIZE
+                      ? "Your team is full."
+                      : `Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
+                  }
+                >
+                  {team.team.name}
+                </PanelHeading>
+                {!isRenaming ? (
+                  <button
+                    type="button"
+                    onClick={openRename}
+                    disabled={isPending}
+                    className={ACTION_OUTLINE}
+                  >
+                    <PencilLineIcon className="size-3.5" /> Rename
+                  </button>
+                ) : null}
+              </div>
             ) : (
               <PanelHeading lede="Create a team or accept an invitation to join one.">
                 Find your team
@@ -207,6 +242,20 @@ export function TeamView({
 
             {team ? (
               <>
+                {team.team.renameRequestedAt ? (
+                  <RenameRequestBanner reason={team.team.renameRequestReason} />
+                ) : null}
+
+                {isRenaming ? (
+                  <RenameTeamForm
+                    form={renameForm}
+                    onSubmit={onRenameTeam}
+                    isPending={isPending}
+                    isSaving={pendingKey === "rename"}
+                    onCancel={() => setIsRenaming(false)}
+                  />
+                ) : null}
+
                 <MemberList
                   members={team.members}
                   currentUserId={currentUserId}
@@ -337,6 +386,64 @@ function MemberList({
         </div>
       ))}
     </div>
+  );
+}
+
+/* ——— rename ————————————————————————————————————————————————————— */
+
+function RenameRequestBanner({ reason }: { reason: string | null }) {
+  return (
+    <div className="flex items-start gap-2.5 border border-ui-line-strong bg-ui-well px-3 py-2.5">
+      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-ui-ink" />
+      <p className="text-[13px] leading-[1.5] text-ui-ink">
+        An organizer has asked your team to change its name.
+        {reason ? <span className="text-ui-ink-soft"> {reason}</span> : null}
+      </p>
+    </div>
+  );
+}
+
+function RenameTeamForm({
+  form,
+  onSubmit,
+  isPending,
+  isSaving,
+  onCancel,
+}: {
+  form: UseFormReturn<RenameTeamFormValues>;
+  onSubmit: () => void;
+  isPending: boolean;
+  isSaving: boolean;
+  onCancel: () => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2.5">
+        <input
+          autoFocus
+          placeholder="New team name"
+          disabled={isPending}
+          className={INPUT_CLASS}
+          {...form.register("name")}
+        />
+        <button type="submit" disabled={isPending} className={ACTION_PRIMARY}>
+          <Caret /> {isSaving ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={onCancel}
+          className={ACTION_OUTLINE}
+        >
+          Cancel
+        </button>
+      </div>
+      {form.formState.errors.name ? (
+        <p className="font-red-hat-mono text-[11px] text-red-700">
+          {form.formState.errors.name.message}
+        </p>
+      ) : null}
+    </form>
   );
 }
 

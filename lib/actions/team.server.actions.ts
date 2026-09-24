@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
 import {
   createTeamForUser,
+  renameTeam as renameTeamForUser,
   inviteToTeam as inviteToTeamForUser,
   acceptInvitation as acceptInvitationForUser,
   declineInvitation as declineInvitationForUser,
@@ -104,6 +105,19 @@ export const cancelInvitation = async (invitationId: string): Promise<void> => {
     revalidatePath("/dashboard/team");
   } catch (error) {
     throw toActionError(error, "Failed to cancel invitation");
+  }
+};
+
+export const renameTeam = async (name: string): Promise<TeamRow> => {
+  assertTeamPageEnabled();
+  const { id: userId } = await requireSessionUser();
+  try {
+    const team = await renameTeamForUser(userId, name);
+    revalidatePath("/dashboard/team");
+    revalidatePath("/admin/teams");
+    return team;
+  } catch (error) {
+    throw toActionError(error, "Failed to rename team");
   }
 };
 

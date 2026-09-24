@@ -190,6 +190,13 @@
       "when": 1789856018956,
       "tag": "20260919221338_live_site_access_and_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790279771183,
+      "tag": "20260924195611_team_rename_requests",
+      "breakpoints": true
     }
   ]
 }

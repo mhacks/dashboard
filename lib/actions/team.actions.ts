@@ -119,6 +119,45 @@ export async function createTeamForUser(
   });
 }
 
+export async function renameTeam(
+  userId: string,
+  name: string,
+): Promise<TeamRow> {
+  const parsedName = teamNameSchema.parse(name);
+
+  return db.transaction(async (tx) => {
+    await loadAcceptedHacker(tx, userId);
+
+    const [membership] = await tx
+      .select({ teamId: teamMembers.teamId })
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, userId))
+      .limit(1);
+    if (!membership) {
+      throw new Error("You're not on a team.");
+    }
+
+    // Renaming resolves any open admin request in the same update, whether
+    // or not the new name differs from the old one — the team is asserting
+    // "we picked a name," and that's the request's whole purpose.
+    const [team] = await tx
+      .update(teams)
+      .set({
+        name: parsedName,
+        renameRequestedAt: null,
+        renameRequestReason: null,
+        renameRequestedByUserId: null,
+      })
+      .where(eq(teams.id, membership.teamId))
+      .returning();
+    if (!team) {
+      throw new Error("Your team no longer exists.");
+    }
+
+    return team;
+  });
+}
+
 export type TeamInvitationWithContext = {
   invitation: TeamInvitationRow;
   invitedEmail: string;
