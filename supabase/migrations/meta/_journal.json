@@ -176,6 +176,20 @@
       "when": 1789440832686,
       "tag": "20260915025352_backdoor_invitation_auto_accept",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789856000121,
+      "tag": "20260919221320_live_site_content",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789856018956,
+      "tag": "20260919221338_live_site_access_and_defaults",
+      "breakpoints": true
     }
   ]
 }
