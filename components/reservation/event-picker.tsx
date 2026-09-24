@@ -13,16 +13,29 @@ import type { ParticipantEvent } from "@/lib/reservation/types";
 export function EventPicker({
   events,
   selectedEventId,
+  disabled = false,
+  onEventChange,
 }: {
   events: ParticipantEvent[];
   selectedEventId: string;
+  disabled?: boolean;
+  onEventChange?: (eventId: string) => void;
 }) {
   const router = useRouter();
+
+  function handleValueChange(id: string) {
+    if (onEventChange) {
+      onEventChange(id);
+      return;
+    }
+    router.push(`/reserve?event=${id}`);
+  }
 
   return (
     <Select
       value={selectedEventId}
-      onValueChange={(id) => router.push(`/reserve?event=${id}`)}
+      onValueChange={handleValueChange}
+      disabled={disabled}
     >
       <SelectTrigger className="w-full">
         <SelectValue placeholder="Select an event" />

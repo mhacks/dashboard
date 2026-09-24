@@ -184,7 +184,11 @@ export function ReservationBoard({
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-500">Event</label>
-              <EventPicker events={events} selectedEventId={selectedEventId} />
+              <EventPicker
+                events={events}
+                selectedEventId={selectedEventId}
+                disabled={readOnly}
+              />
             </div>
 
             <Separator />
