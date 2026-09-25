@@ -37,9 +37,13 @@ DATABASE_URL="<remote-pooler-url>" pnpm drizzle-kit migrate
 ## 2. Auth config → remote
 
 [`supabase/config.toml`](../supabase/config.toml) is the source of truth for auth
-rules, email templates, SMTP, `site_url`, and redirect URLs. `config push` syncs it
-to the remote project's dashboard settings — don't edit those values in the Supabase
-dashboard directly.
+rules, email templates, SMTP, `site_url`, redirect URLs, and whether the hosted
+**Data API** (PostgREST) is enabled. `config push` syncs it to the remote project's
+dashboard settings — don't edit those values in the Supabase dashboard directly.
+
+The Data API is **disabled** (`[api] enabled = false`). The app does not use
+`supabase.from(...)`; server routes and pages (including `/live`) use Drizzle over
+`DATABASE_URL`. Auth, Realtime, and MCP OAuth still use the Supabase API URL.
 
 Environment-specific values live in two committed layers of `config.toml`:
 
