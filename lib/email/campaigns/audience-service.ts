@@ -54,7 +54,8 @@ const audienceCsvColumns = [
   "rsvp_travel_plan",
   "rsvp_submitted_at",
   // Signed Apple Wallet download link for RSVPed hackers, blank otherwise.
-  // Use it in a section body as [Add to Apple Wallet]({{wallet_pass_url}}).
+  // Use it in a section body as [Add to Apple Wallet]({{wallet_pass_url}});
+  // the renderer drops the link entirely for rows where it is blank.
   "wallet_pass_url",
 ] as const;
 

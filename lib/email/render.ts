@@ -154,9 +154,19 @@ function mergeContent(
 }
 
 function mergeText(value: string, mergeData: Record<string, string>) {
-  return value.replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) => {
-    return mergeData[key] ?? "";
-  });
+  return (
+    value
+      // A markdown link whose URL merges to blank (e.g. wallet_pass_url for a
+      // recipient who hasn't RSVPed, or a test send) is dropped entirely;
+      // otherwise renderInlineText won't linkify it and "[text]()" ships as-is.
+      .replace(
+        /\[[^\]]+]\(\s*{{\s*([\w.-]+)\s*}}\s*\)/g,
+        (match, key: string) => (mergeData[key]?.trim() ? match : ""),
+      )
+      .replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) => {
+        return mergeData[key] ?? "";
+      })
+  );
 }
 
 function sanitizeHtmlTemplate(html: string) {
