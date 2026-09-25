@@ -1,7 +1,8 @@
 # Live site
 
-The public `/live` page reads its content from Supabase through the server-side
-database connection. Visitors do not need an account. It includes the timeline,
+The public `/live` page reads its content through the Next.js server’s Drizzle
+connection (`DATABASE_URL`), not the Supabase Data API. Visitors do not need an
+account. It includes the timeline,
 event details, one announcement, hacker guide links, and prizes. A dedicated
 organizer editor is deferred; use Supabase's Table Editor to manage content.
 
