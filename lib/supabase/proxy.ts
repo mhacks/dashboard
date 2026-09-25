@@ -36,6 +36,10 @@ function isPublicPath(pathname: string) {
     // full query string (authorization_id) preserved; the redirect below only
     // forwards `pathname`, which would drop it.
     isPathOrChild(pathname, "/oauth/consent") ||
+    // Emailed Wallet links carry a signed token instead of a session; the
+    // route verifies it (or the session) and redirects to /login itself.
+    // Scoped to the one route so anything else under /wallet stays behind auth.
+    isPathOrChild(pathname, "/wallet/pass") ||
     // Public docs page explaining how to connect an AI agent to the MCP
     // server — needs to be readable before/without logging in.
     isPathOrChild(pathname, "/how-to-mcp")
