@@ -61,26 +61,40 @@ Update prod URLs in `[remotes.production.auth]` when the production hostname cha
 
 ## 3. App connection → remote
 
-Set these on your hosting platform, then redeploy. Values are in
-[Keys in Notion](https://app.notion.com/p/Keys-38124ca0c81b80ffac62f65acb442613):
+Values are in
+[Keys in Notion](https://app.notion.com/p/Keys-38124ca0c81b80ffac62f65acb442613).
 
-| Variable                               | Value (Dashboard → Settings → API) |
-| -------------------------------------- | ---------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`             | remote project URL                 |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | remote publishable key             |
-| `DATABASE_URL`                         | remote Transaction pooler string   |
-| `RESUMES_BUCKET`                       | AWS S3 bucket name (SSM)           |
-| `RESUMES_ACCESS_KEY_ID`                | AWS IAM access key (SSM)           |
-| `RESUMES_SECRET_ACCESS_KEY`            | AWS IAM secret key (SSM)           |
+`NEXT_PUBLIC_*` values are GitHub Actions secrets. CD passes them into the image
+as one `BUILD_ENV_B64` build arg
+([`.github/workflows/cd.yml`](../.github/workflows/cd.yml)); the
+[Dockerfile](../Dockerfile) writes that to `.env.production.local` before
+`next build`. Next inlines them, so they are not set on the ECS task. Changing
+one requires a new image build. Add a variable by listing it on the Prepare
+build env step.
+
+| Variable                               | Value                  |
+| -------------------------------------- | ---------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | remote project URL     |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | remote publishable key |
+| `NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY` | Turnstile site key     |
+| `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`    | PostHog project token  |
+| `NEXT_PUBLIC_POSTHOG_HOST`             | PostHog host           |
+
+Server secrets stay in SSM and are injected by
+[`task-definition.json`](../task-definition.json) when the task starts:
+
+| Variable                    | Value                            |
+| --------------------------- | -------------------------------- |
+| `DATABASE_URL`              | remote Transaction pooler string |
+| `RESUMES_BUCKET`            | AWS S3 bucket name               |
+| `RESUMES_ACCESS_KEY_ID`     | AWS IAM access key               |
+| `RESUMES_SECRET_ACCESS_KEY` | AWS IAM secret key               |
 
 Set `RESUMES_REGION` to `us-east-2` in production (or omit it — that is the default).
 Local resume storage is seeded by `supabase/seed.sql` only — there are no
 `[storage.buckets.*]` blocks in `config.toml`, so `supabase seed buckets --linked`
 cannot create buckets on the remote Supabase project. Remote schema promotion uses
 drizzle-kit migrate, not `supabase db reset`, so `seed.sql` never runs against production.
-
-`NEXT_PUBLIC_*` vars are **inlined at build time** — changing them requires a
-rebuild/redeploy.
 
 ## Command reference
 
