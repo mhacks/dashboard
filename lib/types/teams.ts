@@ -51,3 +51,11 @@ export type SentInvitationSummary = {
   createdAt: string;
   respondedAt: string | null;
 };
+
+export type AdminTeamSummary = {
+  id: string;
+  name: string;
+  createdAt: string;
+  members: TeamMemberSummary[];
+  pendingInviteCount: number;
+};

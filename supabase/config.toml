@@ -71,6 +71,7 @@ sql_paths = [
   "./seeds/reservation-demo.sql",
   "./seeds/explicit-status-reimbursement-demo.sql",
   "./seeds/team-invites-demo.sql",
+  "./seeds/teams-demo.sql",
   "./seeds/broadcast-demo.sql",
   "./seeds/live-site-demo.sql",
 ]
