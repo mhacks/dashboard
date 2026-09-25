@@ -194,8 +194,15 @@
     {
       "idx": 27,
       "version": "7",
-      "when": 1790279771183,
-      "tag": "20260924195611_team_rename_requests",
+      "when": 1790281843127,
+      "tag": "20260924203043_table_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790301370948,
+      "tag": "20260925015610_team_rename_requests",
       "breakpoints": true
     }
   ]

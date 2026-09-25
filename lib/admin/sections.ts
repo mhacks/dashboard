@@ -2,6 +2,7 @@ import {
   BarChart3Icon,
   CalendarCheck2Icon,
   CalendarPlusIcon,
+  CalendarRangeIcon,
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
@@ -102,6 +103,13 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Events",
         description: "Create events, open and close scanners, export rosters.",
         icon: CalendarPlusIcon,
+      },
+      {
+        href: "/admin/reservations",
+        title: "Table reservations",
+        description:
+          "Create judging events, manage tables, and coordinate assignments.",
+        icon: CalendarRangeIcon,
       },
       {
         // The one link here that isn't under /admin — volunteers use it too,

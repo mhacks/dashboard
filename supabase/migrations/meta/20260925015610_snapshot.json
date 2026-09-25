@@ -1,6 +1,6 @@
 {
-  "id": "fbd7b43a-44d3-46df-92a3-cdd63e5d1019",
-  "prevId": "c8580d66-1632-4b40-88e8-8ebc37e9006b",
+  "id": "eff61c35-fd6c-420d-ba37-1c91b5fd8a0b",
+  "prevId": "98c3d7a9-f400-4130-9f99-8abe33e0d822",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3592,6 +3592,392 @@
       },
       "isRLSEnabled": true
     },
+    "public.reservation_audit_log": {
+      "name": "reservation_audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_name": {
+          "name": "event_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_email": {
+          "name": "actor_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "reservation_audit_event_created_at_idx": {
+          "name": "reservation_audit_event_created_at_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservation_audit_created_at_idx": {
+          "name": "reservation_audit_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reservation_audit_log_event_id_table_reservations_id_fk": {
+          "name": "reservation_audit_log_event_id_table_reservations_id_fk",
+          "tableFrom": "reservation_audit_log",
+          "tableTo": "table_reservations",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "reservation_audit_log_actor_user_id_users_id_fk": {
+          "name": "reservation_audit_log_actor_user_id_users_id_fk",
+          "tableFrom": "reservation_audit_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "reservation_audit_select_organizer": {
+          "name": "reservation_audit_select_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.table_reservations": {
+      "name": "table_reservations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "reservation_event_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "reservations_open_at": {
+          "name": "reservations_open_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reservations_close_at": {
+          "name": "reservations_close_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "table_reservations_status_starts_at_idx": {
+          "name": "table_reservations_status_starts_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "table_reservations_select_visible_or_organizer": {
+          "name": "table_reservations_select_visible_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer()) OR \"table_reservations\".\"status\" IN ('open', 'closed')"
+        }
+      },
+      "checkConstraints": {
+        "events_reservation_window_valid": {
+          "name": "events_reservation_window_valid",
+          "value": "\"table_reservations\".\"reservations_open_at\" IS NULL\n        OR \"table_reservations\".\"reservations_close_at\" IS NULL\n        OR \"table_reservations\".\"reservations_close_at\" > \"table_reservations\".\"reservations_open_at\""
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.tables": {
+      "name": "tables",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserved_by_team_id": {
+          "name": "reserved_by_team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserved_at": {
+          "name": "reserved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "tables_event_team_unique": {
+          "name": "tables_event_team_unique",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reserved_by_team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tables_event_id_table_reservations_id_fk": {
+          "name": "tables_event_id_table_reservations_id_fk",
+          "tableFrom": "tables",
+          "tableTo": "table_reservations",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "tables_reserved_by_team_id_teams_id_fk": {
+          "name": "tables_reserved_by_team_id_teams_id_fk",
+          "tableFrom": "tables",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "reserved_by_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tables_event_number_unique": {
+          "name": "tables_event_number_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "number"
+          ]
+        }
+      },
+      "policies": {
+        "tables_select_visible_or_organizer": {
+          "name": "tables_select_visible_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer()) OR EXISTS (\n        SELECT 1 FROM public.table_reservations\n        WHERE id = \"tables\".\"event_id\"\n          AND status IN ('open', 'closed')\n      )"
+        }
+      },
+      "checkConstraints": {
+        "tables_number_positive": {
+          "name": "tables_number_positive",
+          "value": "\"tables\".\"number\" > 0"
+        },
+        "tables_reservation_timestamp_consistent": {
+          "name": "tables_reservation_timestamp_consistent",
+          "value": "(\"tables\".\"reserved_by_team_id\" IS NULL) =\n        (\"tables\".\"reserved_at\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.hacker_rsvp_drafts": {
       "name": "hacker_rsvp_drafts",
       "schema": "",
@@ -4582,6 +4968,16 @@
       "values": [
         "approved",
         "denied"
+      ]
+    },
+    "public.reservation_event_status": {
+      "name": "reservation_event_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "open",
+        "closed",
+        "archived"
       ]
     },
     "public.rsvp_travel_plan": {

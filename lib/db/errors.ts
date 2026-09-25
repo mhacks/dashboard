@@ -1,4 +1,10 @@
+export function postgresErrorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null) return null;
+  if ("code" in error && typeof error.code === "string") return error.code;
+  if ("cause" in error) return postgresErrorCode(error.cause);
+  return null;
+}
+
 export function isUniqueViolation(error: unknown) {
-  const wrapped = error as { code?: string; cause?: { code?: string } };
-  return (wrapped.code ?? wrapped.cause?.code) === "23505";
+  return postgresErrorCode(error) === "23505";
 }
