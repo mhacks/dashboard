@@ -197,6 +197,13 @@
       "when": 1790281843127,
       "tag": "20260924203043_table_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790367692512,
+      "tag": "20260925202132_discord_accounts",
+      "breakpoints": true
     }
   ]
 }
