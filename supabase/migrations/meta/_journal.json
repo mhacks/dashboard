@@ -218,6 +218,13 @@
       "when": 1790368329896,
       "tag": "20260925203209_discord_verification_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790368357437,
+      "tag": "20260925203237_discord_verification_rpcs",
+      "breakpoints": true
     }
   ]
 }
