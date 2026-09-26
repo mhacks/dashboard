@@ -79,6 +79,9 @@ export default async function CheckInPickerPage() {
 
                     <span className="shrink-0 font-red-hat-mono text-[11.5px] text-ui-ink-soft">
                       {event.checkinCount} in
+                      {event.maxCheckins > 1
+                        ? ` · ${event.scanCount} scans`
+                        : ""}
                     </span>
                   </Link>
                 </li>

@@ -18,6 +18,21 @@ export const eventSlugSchema = z
 export const MAX_EVENT_NAME_LENGTH = 120;
 
 /**
+ * The most scans one person can be allowed at one event. Anything past this is
+ * a typo, not a meal plan.
+ */
+export const MAX_EVENT_CHECKINS = 50;
+
+export const maxCheckinsSchema = z.coerce
+  .number()
+  .int("Scans per person must be a whole number.")
+  .min(1, "Allow at least one scan per person.")
+  .max(
+    MAX_EVENT_CHECKINS,
+    `Allow at most ${MAX_EVENT_CHECKINS} scans per person.`,
+  );
+
+/**
  * Turns an event name into a candidate slug. Callers must still resolve
  * collisions — this is deliberately pure so it can run on the client to preview
  * the URL while someone types the name.

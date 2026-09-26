@@ -3,7 +3,7 @@
 // server actions, and directly exercisable by a script or a test without an
 // HTTP session. Same split as application-form.actions.ts.
 
-import { and, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
@@ -35,7 +35,12 @@ export type ScannedAttendee = {
   university: string | null;
 };
 
-export type ScannedEvent = { id: string; name: string };
+export type ScannedEvent = {
+  id: string;
+  name: string;
+  /** How many scans one person is allowed here; 1 for most events. */
+  maxCheckins: number;
+};
 
 export type CheckInResult =
   | {
@@ -45,6 +50,8 @@ export type CheckInResult =
       attendee: ScannedAttendee;
       event: ScannedEvent;
       checkedInAt: string;
+      /** Which of the event's allowed scans this was, 1-based. */
+      scanNumber: number;
     }
   | {
       ok: false;
@@ -57,8 +64,11 @@ export type CheckInResult =
        */
       attendee: ScannedAttendee | null;
       event: ScannedEvent | null;
+      /** On a duplicate: their most recent scan, and who made it. */
       checkedInAt?: string;
       checkedInByName?: string | null;
+      /** On a duplicate: how many of the event's scans they have used. */
+      scansUsed?: number;
     };
 
 const checkInSchema = z.strictObject({
@@ -126,6 +136,7 @@ export async function checkInAttendee(
         name: events.name,
         isActive: events.isActive,
         requiresRsvp: events.requiresRsvp,
+        maxCheckins: events.maxCheckins,
       })
       .from(events)
       .where(eq(events.slug, slug))
@@ -134,7 +145,11 @@ export async function checkInAttendee(
     const event = eventRows[0];
     if (!event) return failure("event-closed");
 
-    const scannedEvent: ScannedEvent = { id: event.id, name: event.name };
+    const scannedEvent: ScannedEvent = {
+      id: event.id,
+      name: event.name,
+      maxCheckins: event.maxCheckins,
+    };
 
     // Claim the attempt. An empty return means this exact clientScanId was
     // already processed for this event, so replay that outcome rather than
@@ -242,27 +257,50 @@ export async function checkInAttendee(
     }
 
     // The unique constraint is the arbiter, not a prior SELECT: two volunteers
-    // scanning the same badge at once both pass a read, and only one can win
-    // this insert.
-    const inserted = await tx
-      .insert(eventCheckins)
-      .values({
-        eventId: event.id,
-        userId: row.userId,
-        checkedInBy: staffId,
-        method,
-      })
-      .onConflictDoNothing({
-        target: [eventCheckins.eventId, eventCheckins.userId],
-      })
-      .returning({ checkedInAt: eventCheckins.checkedInAt });
+    // scanning the same badge at once both pick the same free slot, and only
+    // one can win this insert. The loser looks again, and either takes the
+    // next slot or finds none left. Bounded by the slot count, since every
+    // lost race means a slot was filled.
+    let fresh: { checkedInAt: string; scanNumber: number } | undefined;
+    for (let attempt = 0; attempt < event.maxCheckins && !fresh; attempt++) {
+      const slot = await nextFreeScanNumber(
+        tx,
+        event.id,
+        row.userId,
+        event.maxCheckins,
+      );
+      if (slot === null) break;
 
-    const fresh = inserted[0];
+      const inserted = await tx
+        .insert(eventCheckins)
+        .values({
+          eventId: event.id,
+          userId: row.userId,
+          checkedInBy: staffId,
+          method,
+          scanNumber: slot,
+        })
+        .onConflictDoNothing({
+          target: [
+            eventCheckins.eventId,
+            eventCheckins.userId,
+            eventCheckins.scanNumber,
+          ],
+        })
+        .returning({
+          checkedInAt: eventCheckins.checkedInAt,
+          scanNumber: eventCheckins.scanNumber,
+        });
+
+      fresh = inserted[0];
+    }
+
     if (!fresh) {
       const existing = await tx
         .select({
           checkedInAt: eventCheckins.checkedInAt,
           checkedInByName: personNameSql,
+          scansUsed: sql<number>`(count(*) over ())::int`,
         })
         .from(eventCheckins)
         .leftJoin(users, eq(users.id, eventCheckins.checkedInBy))
@@ -273,6 +311,7 @@ export async function checkInAttendee(
             eq(eventCheckins.userId, row.userId),
           ),
         )
+        .orderBy(desc(eventCheckins.checkedInAt))
         .limit(1);
 
       await finish("already-checked-in", row.userId);
@@ -281,6 +320,7 @@ export async function checkInAttendee(
         event: scannedEvent,
         checkedInAt: existing[0]?.checkedInAt,
         checkedInByName: existing[0]?.checkedInByName ?? null,
+        scansUsed: existing[0]?.scansUsed,
       });
     }
 
@@ -293,13 +333,44 @@ export async function checkInAttendee(
       attendee,
       event: scannedEvent,
       checkedInAt: fresh.checkedInAt,
+      scanNumber: fresh.scanNumber,
     };
   });
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * The lowest scan slot this person has not used at this event, or null when
+ * every one of the event's allowed scans is taken. Lowest rather than
+ * count + 1, so a reverted scan leaves a gap that the next scan fills instead
+ * of a gap that permanently eats one of their scans.
+ */
+async function nextFreeScanNumber(
+  tx: Tx,
+  eventId: string,
+  userId: string,
+  maxCheckins: number,
+): Promise<number | null> {
+  const rows = await tx.execute<{ slot: number }>(sql`
+    select slot::int as slot
+    from generate_series(1, ${maxCheckins}::int) as slot
+    where not exists (
+      select 1 from ${eventCheckins}
+      where ${eventCheckins.eventId} = ${eventId}
+        and ${eventCheckins.userId} = ${userId}
+        and ${eventCheckins.scanNumber} = slot
+    )
+    order by slot
+    limit 1
+  `);
+
+  return rows[0]?.slot ?? null;
+}
+
 /** Reconstructs the response for an attempt that was already recorded. */
 async function replayScan(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: Tx,
   clientScanId: string,
   event: ScannedEvent,
 ): Promise<CheckInResult> {
@@ -307,6 +378,7 @@ async function replayScan(
     .select({
       outcome: eventScanLog.outcome,
       userId: eventScanLog.userId,
+      scannedAt: eventScanLog.scannedAt,
       email: users.email,
       name: personNameSql,
       university: hackerApplicants.university,
@@ -339,13 +411,21 @@ async function replayScan(
       : null;
 
   if (row.outcome === "checked_in" && row.userId) {
+    // A person can hold several check-ins here, so pick out the one this
+    // attempt made. The log row and the check-in were written in the same
+    // transaction, and both default to now() — the transaction's start time —
+    // so their timestamps are identical.
     const checkin = await tx
-      .select({ checkedInAt: eventCheckins.checkedInAt })
+      .select({
+        checkedInAt: eventCheckins.checkedInAt,
+        scanNumber: eventCheckins.scanNumber,
+      })
       .from(eventCheckins)
       .where(
         and(
           eq(eventCheckins.eventId, event.id),
           eq(eventCheckins.userId, row.userId),
+          eq(eventCheckins.checkedInAt, row.scannedAt),
         ),
       )
       .limit(1);
@@ -360,6 +440,7 @@ async function replayScan(
         attendee,
         event,
         checkedInAt: checkin[0].checkedInAt,
+        scanNumber: checkin[0].scanNumber,
       };
     }
   }
@@ -384,7 +465,10 @@ export type AttendeeMatch = {
   name: string;
   email: string;
   university: string | null;
-  checkedIn: boolean;
+  /** How many of the event's allowed scans they have already used. */
+  scansUsed: number;
+  /** Whether they have used every scan the event allows. */
+  atLimit: boolean;
 };
 
 const searchSchema = z.strictObject({
@@ -408,7 +492,11 @@ export async function searchAttendees(
   const { slug, query } = parsed.data;
 
   const eventRows = await db
-    .select({ id: events.id, requiresRsvp: events.requiresRsvp })
+    .select({
+      id: events.id,
+      requiresRsvp: events.requiresRsvp,
+      maxCheckins: events.maxCheckins,
+    })
     .from(events)
     .where(eq(events.slug, slug))
     .limit(1);
@@ -426,24 +514,25 @@ export async function searchAttendees(
       )
     : undefined;
 
-  return db
+  // A subquery rather than a join: someone scanned in more than once would
+  // otherwise come back once per scan.
+  const scansUsed = sql<number>`(
+    select count(*)::int from ${eventCheckins}
+    where ${eventCheckins.userId} = ${users.id}
+      and ${eventCheckins.eventId} = ${event.id}
+  )`;
+
+  const rows = await db
     .select({
       userId: users.id,
       name: personNameSql,
       email: users.email,
       university: hackerApplicants.university,
-      checkedIn: sql<boolean>`${eventCheckins.id} is not null`,
+      scansUsed,
     })
     .from(users)
     .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
     .leftJoin(hackerRsvps, eq(hackerRsvps.userId, users.id))
-    .leftJoin(
-      eventCheckins,
-      and(
-        eq(eventCheckins.userId, users.id),
-        eq(eventCheckins.eventId, event.id),
-      ),
-    )
     .where(
       and(
         eligibility,
@@ -460,4 +549,9 @@ export async function searchAttendees(
     )
     .orderBy(hackerApplicants.firstName, hackerApplicants.lastName, users.email)
     .limit(MAX_SEARCH_RESULTS);
+
+  return rows.map((row) => ({
+    ...row,
+    atLimit: row.scansUsed >= event.maxCheckins,
+  }));
 }
