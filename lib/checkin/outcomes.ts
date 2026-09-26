@@ -58,7 +58,7 @@ export const OUTCOME_GUIDANCE: Record<CheckInOutcome, string | null> = {
 };
 
 /**
- * Whether an outcome put a new person into the event.
+ * Whether a scan put a new person into the event.
  *
  * The single source of truth for the scanner's running total, which must mean
  * "people checked into this event" and nothing else. Everything else a scanner
@@ -67,10 +67,27 @@ export const OUTCOME_GUIDANCE: Record<CheckInOutcome, string | null> = {
  * this number.
  *
  * A duplicate is excluded for the same reason from the other side: that person
- * was already counted when they were first scanned in.
+ * was already counted when they were first scanned in. So is a repeat scan at
+ * an event that allows several — it let them in again, but they were counted
+ * on their first.
  */
-export function countsAsCheckIn(outcome: CheckInOutcome): boolean {
-  return outcome === "checked-in";
+export function countsAsCheckIn(result: {
+  outcome: CheckInOutcome;
+  scanNumber?: number;
+}): boolean {
+  return result.outcome === "checked-in" && result.scanNumber === 1;
+}
+
+/**
+ * "Scan 2 of 3" for events that allow repeats, null for the usual one-scan
+ * event where the count would only be noise.
+ */
+export function describeScanCount(
+  used: number | undefined,
+  allowed: number | undefined,
+): string | null {
+  if (!used || !allowed || allowed <= 1) return null;
+  return `Scan ${used} of ${allowed}`;
 }
 
 /** Tailwind-free literals: this palette is read by a camera-lit screen, not themed. */

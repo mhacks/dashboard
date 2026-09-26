@@ -7,8 +7,10 @@ import { hackerApplicants } from "@/lib/db/schema/applications";
 import { eventCheckins, events } from "@/lib/db/schema/events";
 import { users } from "@/lib/db/schema/users";
 
+// People, not scans: at an event that allows repeat scans, someone scanned in
+// twice is still one attendee.
 const checkinCountSql = sql<number>`(
-  select count(*)::int
+  select count(distinct ${eventCheckins.userId})::int
   from ${eventCheckins}
   where ${eventCheckins.eventId} = ${events.id}
 )`;
@@ -23,6 +25,7 @@ export type AdminEventSummary = {
   endsAt: string | null;
   isActive: boolean;
   requiresRsvp: boolean;
+  maxCheckins: number;
   checkinCount: number;
 };
 
@@ -50,6 +53,7 @@ export async function listEventsForAdmin(): Promise<AdminEventSummary[]> {
       endsAt: events.endsAt,
       isActive: events.isActive,
       requiresRsvp: events.requiresRsvp,
+      maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
     })
     .from(events)
@@ -96,6 +100,7 @@ export type StaffEvent = {
   location: string | null;
   isActive: boolean;
   requiresRsvp: boolean;
+  maxCheckins: number;
 };
 
 /** The event a scanner is scanning for. Staff-readable, including closed ones
@@ -113,6 +118,7 @@ export async function getEventForStaff(
       location: events.location,
       isActive: events.isActive,
       requiresRsvp: events.requiresRsvp,
+      maxCheckins: events.maxCheckins,
     })
     .from(events)
     .where(eq(events.slug, slug))
@@ -127,9 +133,15 @@ export type EventRosterEntry = {
   email: string;
   /** Null if the application row is gone; the check-in itself still stands. */
   university: string | null;
+  /** When they were first let in. */
   checkedInAt: string;
+  /** Their most recent scan — the same as checkedInAt unless they have several. */
+  lastScannedAt: string;
+  /** How many times they have been scanned in; above 1 only on repeat events. */
+  scanCount: number;
+  /** How their most recent scan was made. */
   method: "scan" | "manual";
-  /** Who scanned them: their name if we have one, else their email. */
+  /** Who made their most recent scan: their name if we have one, else email. */
   checkedInByName: string | null;
 };
 
@@ -139,8 +151,8 @@ export type EventRoster = {
 };
 
 /**
- * Everyone checked into one event, newest first. Organizer-only — a volunteer
- * needs to scan, not to read the guest list.
+ * Everyone checked into one event, one entry per person, most recently scanned
+ * first. Organizer-only — a volunteer needs to scan, not to read the guest list.
  */
 export async function getEventRoster(
   slug: string,
@@ -158,6 +170,7 @@ export async function getEventRoster(
       endsAt: events.endsAt,
       isActive: events.isActive,
       requiresRsvp: events.requiresRsvp,
+      maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
     })
     .from(events)
@@ -179,7 +192,7 @@ export async function getEventRoster(
       .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id)),
   );
 
-  const entries = await db
+  const scans = await db
     .with(staff)
     .select({
       userId: eventCheckins.userId,
@@ -200,7 +213,25 @@ export async function getEventRoster(
     .where(eq(eventCheckins.eventId, event.id))
     .orderBy(desc(eventCheckins.checkedInAt));
 
-  return { event, entries };
+  // Scans arrive newest first, so the first one seen for a person is their
+  // latest and fixes their place in the list; each older one pushes their
+  // first check-in further back.
+  const byUser = new Map<string, EventRosterEntry>();
+  for (const scan of scans) {
+    const entry = byUser.get(scan.userId);
+    if (entry) {
+      entry.checkedInAt = scan.checkedInAt;
+      entry.scanCount += 1;
+    } else {
+      byUser.set(scan.userId, {
+        ...scan,
+        lastScannedAt: scan.checkedInAt,
+        scanCount: 1,
+      });
+    }
+  }
+
+  return { event, entries: [...byUser.values()] };
 }
 
 /** Rows for the CSV export, in the same order the roster shows them. */
@@ -214,7 +245,9 @@ export async function getEventCheckinCount(eventId: string): Promise<number> {
   await requireEventStaff();
 
   const rows = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({
+      count: sql<number>`count(distinct ${eventCheckins.userId})::int`,
+    })
     .from(eventCheckins)
     .where(and(eq(eventCheckins.eventId, eventId)));
 

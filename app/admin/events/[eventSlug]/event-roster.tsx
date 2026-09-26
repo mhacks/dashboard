@@ -46,14 +46,20 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
     );
   }, [entries, query]);
 
-  function revoke(userId: string, name: string) {
+  const allowsRepeats = event.maxCheckins > 1;
+
+  function revoke(userId: string, name: string, scanCount: number) {
     startTransition(async () => {
       const result = await revokeCheckInAction({ slug: event.slug, userId });
       if (!result.ok) {
         toast.error(result.message);
         return;
       }
-      toast.success(`Removed ${name}'s check-in.`);
+      toast.success(
+        scanCount > 1
+          ? `Removed ${name}'s latest scan.`
+          : `Removed ${name}'s check-in.`,
+      );
       router.refresh();
     });
   }
@@ -70,6 +76,11 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
             <Badge variant="outline">
               {event.requiresRsvp ? "Confirmed RSVPs" : "Any account"}
             </Badge>
+            {allowsRepeats ? (
+              <Badge variant="outline">
+                {event.maxCheckins} scans per person
+              </Badge>
+            ) : null}
           </CardTitle>
           <CardDescription>
             {event.location ? `${event.location} · ` : ""}
@@ -114,6 +125,7 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
                 <TableRow>
                   <TableHead>Attendee</TableHead>
                   <TableHead>Checked in</TableHead>
+                  {allowsRepeats ? <TableHead>Scans</TableHead> : null}
                   <TableHead>By</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -137,6 +149,18 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
                       </span>
                     </TableCell>
 
+                    {allowsRepeats ? (
+                      <TableCell className="text-sm tabular-nums">
+                        {entry.scanCount} / {event.maxCheckins}
+                        {entry.scanCount > 1 ? (
+                          <span className="block text-xs text-muted-foreground">
+                            Last{" "}
+                            {format(new Date(entry.lastScannedAt), "h:mm a")}
+                          </span>
+                        ) : null}
+                      </TableCell>
+                    ) : null}
+
                     <TableCell className="text-sm text-muted-foreground">
                       {entry.checkedInByName ?? "—"}
                     </TableCell>
@@ -147,10 +171,12 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
                         size="sm"
                         variant="ghost"
                         disabled={isPending}
-                        onClick={() => revoke(entry.userId, entry.name)}
+                        onClick={() =>
+                          revoke(entry.userId, entry.name, entry.scanCount)
+                        }
                       >
                         <Undo2Icon data-icon="inline-start" />
-                        Undo
+                        {entry.scanCount > 1 ? "Undo last" : "Undo"}
                       </Button>
                     </TableCell>
                   </TableRow>

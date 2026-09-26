@@ -49,6 +49,7 @@ export default async function CheckInScannerPage({
               slug={event.slug}
               eventName={event.name}
               requiresRsvp={event.requiresRsvp}
+              maxCheckins={event.maxCheckins}
               initialCheckedInCount={checkedInCount}
             />
           </Panel>
