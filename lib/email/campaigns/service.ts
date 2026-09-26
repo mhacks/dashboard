@@ -66,7 +66,7 @@ export async function sendSnapshotToEmail(
       campaign.themeSnapshot ?? defaultEmailTheme,
       mergeData,
     );
-    const messageId = await sendEmail({
+    const messageId = await sendWithThrottleRetry({
       to: email,
       subject: rendered.subject,
       html: rendered.html,
@@ -82,6 +82,47 @@ export async function sendSnapshotToEmail(
       error: sanitizeEmailError(error),
     };
   }
+}
+
+const maxThrottleRetries = 4;
+
+/**
+ * SES rejects requests above the account send rate with a throttling error.
+ * Concurrent workers can briefly exceed it, so back off and retry instead of
+ * recording the recipient as a permanent failure.
+ */
+async function sendWithThrottleRetry(input: Parameters<typeof sendEmail>[0]) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await sendEmail(input);
+    } catch (error) {
+      if (attempt >= maxThrottleRetries || !isThrottleError(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+}
+
+function isThrottleError(error: unknown) {
+  const cause =
+    error instanceof Error && error.cause !== undefined ? error.cause : error;
+  if (!cause || typeof cause !== "object") return false;
+  const name = "name" in cause ? String(cause.name) : "";
+  const code = "code" in cause ? String(cause.code) : "";
+  const httpStatus =
+    "$metadata" in cause &&
+    cause.$metadata &&
+    typeof cause.$metadata === "object" &&
+    "httpStatusCode" in cause.$metadata
+      ? cause.$metadata.httpStatusCode
+      : undefined;
+
+  return (
+    httpStatus === 429 ||
+    /Throttl|TooManyRequests|LimitExceeded/i.test(name) ||
+    /Throttl|TooManyRequests|LimitExceeded/i.test(code)
+  );
 }
 
 function sanitizeEmailError(error: unknown) {

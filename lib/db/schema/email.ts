@@ -162,6 +162,10 @@ export const emailSendRuns = pgTable(
       withTimezone: true,
       mode: "string",
     }),
+    pausedAt: timestamp("paused_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
     recoveryExpiresAt: timestamp("recovery_expires_at", {
       withTimezone: true,
       mode: "string",
@@ -194,7 +198,7 @@ export const emailSendRuns = pgTable(
       table.createdAt,
     ),
     uniqueIndex("email_send_runs_active_fingerprint_unique")
-      .on(table.organizerId, table.templateFingerprint, table.recipientListHash)
+      .on(table.templateFingerprint, table.recipientListHash)
       .where(sql`${table.status} = 'sending'`),
     pgPolicy("email_send_runs_organizer_select", {
       for: "select",
