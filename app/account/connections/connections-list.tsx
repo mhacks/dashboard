@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
@@ -150,6 +151,15 @@ export function ConnectionsList({
               </div>
             ))
           )}
+
+          {/* The dashboard's masthead links here, so this is the way back. */}
+          <Link
+            href="/dashboard"
+            className="self-center font-red-hat text-[13px] underline underline-offset-2 transition-opacity hover:opacity-70"
+            style={{ color: "#3A4A26" }}
+          >
+            Back to dashboard
+          </Link>
         </CardContent>
       </Card>
     </div>
