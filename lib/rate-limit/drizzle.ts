@@ -1,18 +1,21 @@
 import {
-  RateLimiterDrizzleNonAtomic,
+  RateLimiterDrizzle,
   type RateLimiterAbstract,
 } from "rate-limiter-flexible";
 import { db } from "@/lib/db";
 import { rateLimiterFlexible } from "@/lib/db/schema/rate-limiter";
 
-// NonAtomic + inMemoryBlockOnConsumed: Postgres limits shared across ECS tasks;
-// per-task memory block skips store I/O on retry storms after quota is hit.
+// Counters live in Postgres so limits are shared across ECS tasks. The atomic
+// limiter increments in SQL (points = points + n); the NonAtomic variant reads
+// then writes an absolute value, so concurrent requests overwrite each other
+// and a parallel burst gets through uncounted. inMemoryBlockOnConsumed only
+// helps after the quota is hit: it skips store I/O on the retry storm.
 export function drizzleRateLimiter(
   keyPrefix: string,
   points: number,
   duration = 60,
 ): RateLimiterAbstract {
-  return new RateLimiterDrizzleNonAtomic({
+  return new RateLimiterDrizzle({
     storeClient: db,
     schema: rateLimiterFlexible,
     keyPrefix,
