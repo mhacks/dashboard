@@ -253,6 +253,13 @@
       "when": 1790456792104,
       "tag": "20260926210632_event_max_checkins",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790458760878,
+      "tag": "20260926213920_pgrst_empty_schema",
+      "breakpoints": true
     }
   ]
 }
