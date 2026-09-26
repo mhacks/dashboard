@@ -1,6 +1,7 @@
 import { requireSessionUser } from "@/lib/auth/guards";
 import { currentDiscordLink } from "@/lib/actions/discord-link.actions";
 import { open } from "@/lib/discord/link-token";
+import { isDiscordEligible } from "@/lib/queries/discord";
 import { DiscordLinkConfirm } from "./discord-link-confirm";
 
 /**
@@ -35,6 +36,16 @@ export default async function DiscordAuthPage({
   if (!opened.ok) {
     return (
       <DiscordLinkConfirm state={{ kind: "invalid", reason: opened.reason }} />
+    );
+  }
+
+  // Checked again by confirmDiscordLink; this is only so an ineligible member
+  // never sees a button that would refuse them.
+  if (!(await isDiscordEligible(user.id))) {
+    return (
+      <DiscordLinkConfirm
+        state={{ kind: "ineligible", token: t!, email: user.email }}
+      />
     );
   }
 
