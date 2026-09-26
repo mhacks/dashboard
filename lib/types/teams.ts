@@ -41,8 +41,18 @@ export type TeamMemberSummary = {
   joinedAt: string;
 };
 
+/**
+ * The team fields a member's browser receives. Deliberately not TeamRow: that
+ * carries renameRequestedByUserId, and a user's id doubles as their check-in
+ * QR code, so it must not reach the team an organizer asked to rename.
+ */
+export type MemberTeam = Pick<
+  TeamRow,
+  "id" | "name" | "createdAt" | "renameRequestedAt" | "renameRequestReason"
+>;
+
 export type TeamWithMembers = {
-  team: TeamRow;
+  team: MemberTeam;
   members: TeamMemberSummary[];
 };
 

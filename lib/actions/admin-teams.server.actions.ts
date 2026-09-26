@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
@@ -17,6 +18,12 @@ export async function requestTeamRename(
   reason?: string,
 ): Promise<void> {
   const organizer = await requireOrganizer();
+  // A malformed id would otherwise reach Postgres and come back as a raw
+  // "invalid input syntax for type uuid" error.
+  const parsedTeamId = z.uuid().safeParse(teamId);
+  if (!parsedTeamId.success) {
+    throw new Error("Team not found.");
+  }
   const parsedReason = teamRenameReasonSchema.parse(reason);
 
   const result = await db
@@ -26,7 +33,7 @@ export async function requestTeamRename(
       renameRequestReason: parsedReason || null,
       renameRequestedByUserId: organizer.id,
     })
-    .where(eq(teams.id, teamId))
+    .where(eq(teams.id, parsedTeamId.data))
     .returning({ id: teams.id });
 
   if (result.length === 0) {

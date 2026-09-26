@@ -16,6 +16,7 @@ import {
   MAX_TEAM_SIZE,
   teamNameSchema,
   inviteEmailSchema,
+  type MemberTeam,
   type TeamWithMembers,
   type PendingInvitationSummary,
   type SentInvitationSummary,
@@ -119,10 +120,19 @@ export async function createTeamForUser(
   });
 }
 
+/** The columns behind MemberTeam, for queries whose result reaches a member. */
+const memberTeamColumns = {
+  id: teams.id,
+  name: teams.name,
+  createdAt: teams.createdAt,
+  renameRequestedAt: teams.renameRequestedAt,
+  renameRequestReason: teams.renameRequestReason,
+};
+
 export async function renameTeam(
   userId: string,
   name: string,
-): Promise<TeamRow> {
+): Promise<MemberTeam> {
   const parsedName = teamNameSchema.parse(name);
 
   return db.transaction(async (tx) => {
@@ -137,19 +147,41 @@ export async function renameTeam(
       throw new Error("You're not on a team.");
     }
 
-    // Renaming resolves any open admin request in the same update, whether
-    // or not the new name differs from the old one — the team is asserting
-    // "we picked a name," and that's the request's whole purpose.
+    // Locked so an organizer's request landing mid-rename waits for this
+    // commit, rather than being cleared by a rename that never saw it.
+    const [current] = await tx
+      .select({
+        name: teams.name,
+        renameRequestedAt: teams.renameRequestedAt,
+      })
+      .from(teams)
+      .where(eq(teams.id, membership.teamId))
+      .for("update");
+    if (!current) {
+      throw new Error("Your team no longer exists.");
+    }
+
+    // Only a new name resolves an open request. Clearing it on an unchanged
+    // save would let a team dismiss the request without doing what it asked.
+    const changed = parsedName !== current.name;
+    if (current.renameRequestedAt && !changed) {
+      throw new Error(
+        "Pick a different name. An organizer asked your team to change it.",
+      );
+    }
+
     const [team] = await tx
       .update(teams)
       .set({
         name: parsedName,
-        renameRequestedAt: null,
-        renameRequestReason: null,
-        renameRequestedByUserId: null,
+        ...(changed && {
+          renameRequestedAt: null,
+          renameRequestReason: null,
+          renameRequestedByUserId: null,
+        }),
       })
       .where(eq(teams.id, membership.teamId))
-      .returning();
+      .returning(memberTeamColumns);
     if (!team) {
       throw new Error("Your team no longer exists.");
     }
@@ -497,7 +529,7 @@ export async function getMyTeam(
   if (!membership) return null;
 
   const [team] = await db
-    .select()
+    .select(memberTeamColumns)
     .from(teams)
     .where(eq(teams.id, membership.teamId))
     .limit(1);

@@ -18,6 +18,7 @@ import { sendTeamInviteEmail } from "@/lib/email/send-invite-email";
 import { TEAM_PAGE_ENABLED } from "@/lib/features";
 import type { TeamRow } from "@/lib/db/schema/teams";
 import type {
+  MemberTeam,
   TeamWithMembers,
   PendingInvitationSummary,
   SentInvitationSummary,
@@ -108,7 +109,7 @@ export const cancelInvitation = async (invitationId: string): Promise<void> => {
   }
 };
 
-export const renameTeam = async (name: string): Promise<TeamRow> => {
+export const renameTeam = async (name: string): Promise<MemberTeam> => {
   assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
