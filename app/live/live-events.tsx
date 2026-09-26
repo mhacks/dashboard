@@ -742,10 +742,12 @@ function NextEventCountdown({ events }: { events: readonly LiveEvent[] }) {
 function DayPicker({
   days,
   active,
+  dayNumberByKey,
   onSelect,
 }: {
   days: DayItem[];
   active: string;
+  dayNumberByKey: ReadonlyMap<string, number>;
   onSelect: (key: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -811,7 +813,7 @@ function DayPicker({
               isActive ? "text-cream" : "text-olive",
             )}
           >
-            Day {index + 1}
+            Day {dayNumberByKey.get(day.key) ?? index + 1}
           </button>
         );
       })}
@@ -1216,6 +1218,10 @@ export function LiveEvents({
     () => groupEvents(events, settings.timezone),
     [events, settings.timezone],
   );
+  const dayNumberByKey = useMemo(
+    () => new Map(allDays.map((day, index) => [day.key, index + 1])),
+    [allDays],
+  );
   const eventsById = useMemo(
     () => new Map(events.map((event) => [event.id, event])),
     [events],
@@ -1384,6 +1390,7 @@ export function LiveEvents({
                       <DayPicker
                         days={days}
                         active={currentDay?.key ?? ""}
+                        dayNumberByKey={dayNumberByKey}
                         onSelect={setActiveDay}
                       />
                     </div>
