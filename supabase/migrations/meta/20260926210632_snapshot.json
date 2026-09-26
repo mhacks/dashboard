@@ -1,6 +1,6 @@
 {
-  "id": "904f4a78-4193-4d6b-b3b6-e9b0133e026c",
-  "prevId": "cdcf90f3-e568-4aac-a4df-6a3ebb1bebfb",
+  "id": "0920e050-0139-47b1-a1a9-f463a2c4e55f",
+  "prevId": "ef377aa4-7299-45b8-83c0-6ac807dbbbdf",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1370,79 +1370,8 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
-    "public.discord_verification_codes": {
-      "name": "discord_verification_codes",
-      "schema": "",
-      "columns": {
-        "discord_user_id": {
-          "name": "discord_user_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "code_hash": {
-          "name": "code_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "attempts": {
-          "name": "attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "discord_verification_codes_user_id_fkey": {
-          "name": "discord_verification_codes_user_id_fkey",
-          "tableFrom": "discord_verification_codes",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.discord_verification_sends": {
-      "name": "discord_verification_sends",
+    "public.discord_link_audit_log": {
+      "name": "discord_link_audit_log",
       "schema": "",
       "columns": {
         "id": {
@@ -1452,20 +1381,45 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_email": {
+          "name": "user_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "discord_user_id": {
           "name": "discord_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "email": {
-          "name": "email",
+        "discord_username": {
+          "name": "discord_username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "sent_at": {
-          "name": "sent_at",
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -1473,53 +1427,47 @@
         }
       },
       "indexes": {
-        "discord_verification_sends_discord_user_id_sent_at_idx": {
-          "name": "discord_verification_sends_discord_user_id_sent_at_idx",
+        "discord_link_audit_user_created_at_idx": {
+          "name": "discord_link_audit_user_created_at_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discord_link_audit_created_at_idx": {
+          "name": "discord_link_audit_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discord_link_audit_discord_user_id_idx": {
+          "name": "discord_link_audit_discord_user_id_idx",
           "columns": [
             {
               "expression": "discord_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sent_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "discord_verification_sends_email_sent_at_idx": {
-          "name": "discord_verification_sends_email_sent_at_idx",
-          "columns": [
-            {
-              "expression": "email",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sent_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "discord_verification_sends_sent_at_idx": {
-          "name": "discord_verification_sends_sent_at_idx",
-          "columns": [
-            {
-              "expression": "sent_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1531,10 +1479,34 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "discord_link_audit_log_user_id_fkey": {
+          "name": "discord_link_audit_log_user_id_fkey",
+          "tableFrom": "discord_link_audit_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
+      "policies": {
+        "discord_link_audit_select_organizer": {
+          "name": "discord_link_audit_select_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        }
+      },
       "checkConstraints": {},
       "isRLSEnabled": true
     },
@@ -2214,6 +2186,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'scan'"
+        },
+        "scan_number": {
+          "name": "scan_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         }
       },
       "indexes": {
@@ -2282,12 +2261,13 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "event_checkins_event_user_unique": {
-          "name": "event_checkins_event_user_unique",
+        "event_checkins_event_user_scan_unique": {
+          "name": "event_checkins_event_user_scan_unique",
           "nullsNotDistinct": false,
           "columns": [
             "event_id",
-            "user_id"
+            "user_id",
+            "scan_number"
           ]
         }
       },
@@ -2308,7 +2288,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and exists (\n    select 1 from public.events event\n    where event.id = \"event_checkins\".\"event_id\"\n      and \"event_checkins\".\"scan_number\" <= event.max_checkins\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
         },
         "event_checkins_delete_organizer": {
           "name": "event_checkins_delete_organizer",
@@ -2320,7 +2300,12 @@
           "using": "(select public.is_organizer())"
         }
       },
-      "checkConstraints": {},
+      "checkConstraints": {
+        "event_checkins_scan_number_positive": {
+          "name": "event_checkins_scan_number_positive",
+          "value": "\"event_checkins\".\"scan_number\" >= 1"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.event_scan_log": {
@@ -2531,6 +2516,13 @@
           "notNull": true,
           "default": true
         },
+        "max_checkins": {
+          "name": "max_checkins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
@@ -2634,7 +2626,12 @@
           "using": "(select public.is_organizer())"
         }
       },
-      "checkConstraints": {},
+      "checkConstraints": {
+        "events_max_checkins_positive": {
+          "name": "events_max_checkins_positive",
+          "value": "\"events\".\"max_checkins\" >= 1"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.live_announcements": {
@@ -3624,37 +3621,6 @@
           "value": "\"live_site_settings\".\"id\" = 'default'"
         }
       },
-      "isRLSEnabled": true
-    },
-    "public.rate_limiter_flexible": {
-      "name": "rate_limiter_flexible",
-      "schema": "",
-      "columns": {
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "points": {
-          "name": "points",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expire": {
-          "name": "expire",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.hacker_reimbursements": {

@@ -1,7 +1,7 @@
 import {
   foreignKey,
   index,
-  integer,
+  jsonb,
   pgPolicy,
   pgTable,
   text,
@@ -19,9 +19,10 @@ import { users } from "./users";
 // directions: the primary key stops a person linking two Discord accounts, and
 // the unique on discord_user_id stops one Discord account claiming two people.
 //
-// Only the bot writes here, as service_role through the discord_* RPCs in
-// 20260925*_discord_rpcs.sql. authenticated gets read access to its own row and
-// organizers to all, nothing more.
+// Written by the dashboard's /discord_auth confirm screen once the signed-in
+// account approves the link the bot handed it. authenticated gets read access to
+// its own row and organizers to all, nothing more; writes go through Drizzle on
+// the owner connection, which bypasses RLS.
 export const discordAccounts = pgTable(
   "discord_accounts",
   {
@@ -47,24 +48,50 @@ export const discordAccounts = pgTable(
   ],
 ).enableRLS();
 
-export type DiscordAccount = typeof discordAccounts.$inferSelect;
+/**
+ * Append-only history of every Discord link: the first association, a
+ * re-confirmation, a replacement, an unlink, and a refused attempt. `discord_accounts`
+ * only ever holds the current state, so without this there is no way to answer
+ * "who used to own this Discord account" after the fact.
+ *
+ * user_id is ON DELETE SET NULL, not cascade like discord_accounts.user_id:
+ * deleting an account erases the link itself, and an audit trail that vanishes
+ * with the thing it audits is not one. user_email is denormalised for the same
+ * reason — it is the only identifying trace left once the row is orphaned.
+ * Mirrors reservation_audit_log, which keeps actor_email and event_name.
+ */
+export const discordLinkAction = [
+  "linked",
+  "relinked",
+  "replaced",
+  "unlinked",
+  "link_refused",
+  "role_granted",
+] as const;
+export type DiscordLinkAction = (typeof discordLinkAction)[number];
 
-// The bot's pending email verification codes, one per Discord account; issuing
-// a new code replaces the old one. Only a SHA-256 of the code is stored, bound
-// to the Discord account it was sent for. email is kept so verification can
-// re-check eligibility through discord_lookup_member at the moment of linking.
-//
-// No policies: RLS denies anon and authenticated everything, and the bot works
-// through the definer RPCs in 20260925*_discord_verification_rpcs.sql.
-export const discordVerificationCodes = pgTable(
-  "discord_verification_codes",
+export interface DiscordLinkAuditDetails {
+  previousDiscordUserId?: string;
+  previousDiscordUsername?: string | null;
+  reason?: string;
+  role?: string;
+}
+
+export const discordLinkAuditLog = pgTable(
+  "discord_link_audit_log",
   {
-    discordUserId: text("discord_user_id").primaryKey().notNull(),
-    userId: uuid("user_id").notNull(),
-    email: text().notNull(),
-    codeHash: text("code_hash").notNull(),
-    attempts: integer().default(0).notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id"),
+    userEmail: text("user_email").notNull(),
+    discordUserId: text("discord_user_id").notNull(),
+    discordUsername: text("discord_username"),
+    // Plain text, not an enum: these are log labels, and adding one should not
+    // need a migration that rewrites a type other tables might come to share.
+    action: text("action").notNull().$type<DiscordLinkAction>(),
+    details: jsonb("details")
+      .$type<DiscordLinkAuditDetails>()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -73,30 +100,23 @@ export const discordVerificationCodes = pgTable(
     foreignKey({
       columns: [table.userId],
       foreignColumns: [users.id],
-      name: "discord_verification_codes_user_id_fkey",
-    }).onDelete("cascade"),
+      name: "discord_link_audit_log_user_id_fkey",
+    }).onDelete("set null"),
+    index("discord_link_audit_user_created_at_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    index("discord_link_audit_created_at_idx").on(table.createdAt),
+    // Answers "who has tried to claim this Discord account", which is the
+    // question an organizer chasing a duplicate actually has.
+    index("discord_link_audit_discord_user_id_idx").on(table.discordUserId),
+    pgPolicy("discord_link_audit_select_organizer", {
+      for: "select",
+      to: authenticatedRole,
+      using: isOrganizer,
+    }),
   ],
 ).enableRLS();
 
-// One row per code emailed, used only to rate limit sends per Discord account
-// and per inbox. discord_issue_code prunes rows older than a day.
-export const discordVerificationSends = pgTable(
-  "discord_verification_sends",
-  {
-    id: uuid().primaryKey().defaultRandom().notNull(),
-    discordUserId: text("discord_user_id").notNull(),
-    email: text().notNull(),
-    sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    index("discord_verification_sends_discord_user_id_sent_at_idx").on(
-      table.discordUserId,
-      table.sentAt,
-    ),
-    index("discord_verification_sends_email_sent_at_idx").on(
-      table.email,
-      table.sentAt,
-    ),
-    index("discord_verification_sends_sent_at_idx").on(table.sentAt),
-  ],
-).enableRLS();
+export type DiscordAccount = typeof discordAccounts.$inferSelect;
+export type DiscordLinkAuditEntry = typeof discordLinkAuditLog.$inferSelect;

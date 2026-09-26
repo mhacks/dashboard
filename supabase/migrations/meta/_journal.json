@@ -229,8 +229,43 @@
     {
       "idx": 32,
       "version": "7",
-      "when": 1790389959541,
-      "tag": "20260926023239_mcp_rate_limiter",
+      "when": 1790396350267,
+      "tag": "20260926041910_drop_discord_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790400408759,
+      "tag": "20260926052648_discord_link_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790400900000,
+      "tag": "20260926053500_drop_discord_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790456792104,
+      "tag": "20260926210632_event_max_checkins",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790458760878,
+      "tag": "20260926213920_pgrst_empty_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790459179482,
+      "tag": "20260926214619_mcp_rate_limiter",
       "breakpoints": true
     }
   ]
