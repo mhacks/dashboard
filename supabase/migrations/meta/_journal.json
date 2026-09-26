@@ -232,6 +232,20 @@
       "when": 1790396350267,
       "tag": "20260926041910_drop_discord_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790400408759,
+      "tag": "20260926052648_discord_link_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790400900000,
+      "tag": "20260926053500_drop_discord_rpcs",
+      "breakpoints": true
     }
   ]
 }
