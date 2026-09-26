@@ -260,6 +260,13 @@
       "when": 1790458760878,
       "tag": "20260926213920_pgrst_empty_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790459179482,
+      "tag": "20260926214619_mcp_rate_limiter",
+      "breakpoints": true
     }
   ]
 }
