@@ -3,7 +3,6 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { and, eq } from "drizzle-orm";
-import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 
 import { requireSessionUser } from "@/lib/auth/guards";
@@ -19,6 +18,7 @@ import {
   assertAcceptedRsvpDecision,
   assertRsvpOpenForUser,
 } from "@/lib/rsvp/access";
+import { rsvpReceiptUploadRateLimitMessage } from "@/lib/rsvp/rate-limit";
 import {
   MAX_RSVP_RECEIPT_SIZE_BYTES,
   RSVP_RECEIPT_CONTENT_TYPE,
@@ -43,11 +43,6 @@ const receiptUploadRequestSchema = receiptSizeSchema;
 
 const receiptConfirmationSchema = receiptSizeSchema.extend({
   originalName: z.string().trim().min(1).max(255),
-});
-
-const receiptUploadLimiter = new RateLimiterMemory({
-  points: 10,
-  duration: 60,
 });
 
 function draftData(data: unknown): Record<string, unknown> {
@@ -123,11 +118,8 @@ export async function requestRsvpReceiptUpload(input: unknown): Promise<{
   const user = await requireSessionUser();
   const access = await assertRsvpOpenForUser(user.id);
   const parsed = receiptUploadRequestSchema.parse(input);
-  try {
-    await receiptUploadLimiter.consume(user.id);
-  } catch {
-    throw new Error("Too many receipt uploads. Please wait and try again.");
-  }
+  const rateLimited = await rsvpReceiptUploadRateLimitMessage(user.id);
+  if (rateLimited) throw new Error(rateLimited);
 
   await assertCanUploadReceipt(user.id);
 
