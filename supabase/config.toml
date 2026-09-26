@@ -10,7 +10,10 @@ project_id = "dashboard"
 enabled = true
 smtp_port = 54325
 
+# PostgREST / auto-generated REST endpoints. The app reads and writes via Drizzle
+# (DATABASE_URL); Auth, Realtime, and OAuth still use the Supabase API gateway.
 [api]
+enabled = false
 schemas = ["public"]
 
 [auth]
