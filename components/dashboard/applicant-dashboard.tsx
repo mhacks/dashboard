@@ -60,7 +60,12 @@ export function ApplicantDashboard({
         <ConsolePage>
           <Masthead
             title={firstName ? `Hey, ${firstName}` : "Your dashboard"}
-            trailing={<SignOutButton />}
+            trailing={
+              <div className="flex items-center gap-2">
+                <ConnectionsLink />
+                <SignOutButton />
+              </div>
+            }
           />
 
           {/* Above the application panels, because it outranks them: anyone
@@ -80,6 +85,21 @@ export function ApplicantDashboard({
         </ConsolePage>
       </ConsoleShell>
     </div>
+  );
+}
+
+/**
+ * Connected apps and the linked Discord account. Sits beside sign-out as the
+ * same mono chip, since both are about the account rather than the application.
+ */
+function ConnectionsLink() {
+  return (
+    <Link
+      href="/account/connections"
+      className="rounded-[2px] border border-ui-line-strong bg-ui-paper px-2.5 py-[5px] font-red-hat-mono text-[10px] tracking-[0.14em] whitespace-nowrap text-ui-ink uppercase transition-colors duration-200 hover:bg-ui-selected focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ink"
+    >
+      Connections
+    </Link>
   );
 }
 

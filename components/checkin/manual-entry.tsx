@@ -20,11 +20,14 @@ const MIN_QUERY_LENGTH = 2;
 export function ManualEntry({
   slug,
   requiresRsvp,
+  maxCheckins,
   onPick,
   disabled,
 }: {
   slug: string;
   requiresRsvp: boolean;
+  /** Scans allowed per person; above 1, a person already in can be picked again. */
+  maxCheckins: number;
   /** Runs the same check-in path a scan does, tagged as manual. */
   onPick: (userId: string) => void;
   disabled: boolean;
@@ -101,7 +104,7 @@ export function ManualEntry({
             >
               <button
                 type="button"
-                disabled={disabled || match.checkedIn}
+                disabled={disabled || match.atLimit}
                 onClick={() => onPick(match.userId)}
                 className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-ui-selected disabled:cursor-not-allowed disabled:opacity-55"
               >
@@ -115,16 +118,20 @@ export function ManualEntry({
                   </span>
                 </span>
 
-                {match.checkedIn ? (
+                {match.atLimit ? (
                   <span className="flex shrink-0 items-center gap-1 font-red-hat-mono text-[10.5px] tracking-[0.1em] text-ui-ink-soft uppercase">
                     <CheckIcon className="size-3.5" />
-                    In
+                    {maxCheckins > 1
+                      ? `${match.scansUsed}/${maxCheckins}`
+                      : "In"}
                   </span>
                 ) : (
                   // A span, not a Button: the whole row is already the button,
                   // and nesting one inside another is invalid HTML.
                   <span className="shrink-0 rounded-[2px] border border-ui-line-strong px-2.5 py-1 font-red-hat-mono text-[10.5px] tracking-[0.1em] text-ui-ink uppercase">
-                    Check in
+                    {match.scansUsed > 0
+                      ? `Check in ${match.scansUsed + 1}/${maxCheckins}`
+                      : "Check in"}
                   </span>
                 )}
               </button>
