@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { MHacksLogo } from "@/components/mhacks-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { logout } from "@/lib/actions/auth.server.actions";
 import { confirmDiscordLink } from "@/lib/actions/discord-link.server.actions";
 
 const INK = "#3A4A26";
@@ -21,6 +22,7 @@ export type DiscordLinkState =
       existing: { discordUsername: string | null } | null;
     }
   | { kind: "invalid"; reason: "malformed" | "expired" }
+  | { kind: "ineligible"; token: string; email: string }
   | { kind: "misconfigured" };
 
 function Shell({
@@ -115,6 +117,33 @@ export function DiscordLinkConfirm({ state }: { state: DiscordLinkState }) {
           Head back to Discord and click <strong>Verify</strong> for a fresh
           one.
         </Note>
+      </Shell>
+    );
+  }
+
+  if (state.kind === "ineligible") {
+    return (
+      <Shell title="Can't link yet">
+        <Row label="MHacks" value={state.email} />
+        <Note>
+          Only hackers who have RSVP&apos;d and MHacks staff can link Discord.
+          If you signed in with the wrong email, sign out and use the one you
+          applied with. Otherwise, email hackathon@mhacks.org.
+        </Note>
+        <Button
+          type="button"
+          disabled={isPending}
+          onClick={() =>
+            // Back through /login to this same link, so the Discord side of it
+            // survives the switch of account.
+            startTransition(() =>
+              logout(`/discord_auth?t=${encodeURIComponent(state.token)}`),
+            )
+          }
+          className="rounded-full font-red-hat text-[13px] cursor-pointer"
+        >
+          {isPending ? "Signing out…" : "Sign out and switch account"}
+        </Button>
       </Shell>
     );
   }

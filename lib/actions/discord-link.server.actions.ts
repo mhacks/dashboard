@@ -7,11 +7,14 @@ import {
   unlinkDiscordAccount,
 } from "@/lib/actions/discord-link.actions";
 import { open } from "@/lib/discord/link-token";
+import { isDiscordEligible } from "@/lib/queries/discord";
 
 export type DiscordLinkResult =
   { ok: true; discordUsername: string } | { ok: false; error: string };
 
 const CONTACT = "email hackathon@mhacks.org";
+
+const INELIGIBLE = `This MHacks account can't link Discord — only hackers who have RSVP'd and MHacks staff can. If you signed in with the wrong email, sign out and use the one you applied with. Otherwise, ${CONTACT}.`;
 
 /**
  * Confirms the link the Discord bot asked for. The token is the only thing
@@ -42,6 +45,10 @@ export async function confirmDiscordLink(
           ? "That link has expired. Go back to Discord and click Verify for a new one."
           : "That link isn't valid. Go back to Discord and click Verify for a new one.",
     };
+  }
+
+  if (!(await isDiscordEligible(user.id))) {
+    return { ok: false, error: INELIGIBLE };
   }
 
   const outcome = await linkDiscordAccount({

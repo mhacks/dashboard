@@ -4,6 +4,13 @@ import { hackerApplicants } from "@/lib/db/schema/applications";
 import { discordAccounts } from "@/lib/db/schema/discord";
 import { users } from "@/lib/db/schema/users";
 
+/**
+ * Whether a dashboard account is entitled to a Discord role — see
+ * lookupDiscordMemberByDiscordId below for who and why. Shared with
+ * isDiscordEligible so that linking and claiming agree on who qualifies.
+ */
+const eligibleSql = sql<boolean>`(${users.role} = 'hacker' AND public.has_confirmed_rsvp(${users.id})) OR ${users.role} IN ('organizer', 'volunteer')`;
+
 export interface DiscordMember {
   userId: string;
   email: string;
@@ -44,7 +51,7 @@ export async function lookupDiscordMemberByDiscordId(
       fullName: sql<
         string | null
       >`nullif(trim(coalesce(${hackerApplicants.firstName}, '') || ' ' || coalesce(${hackerApplicants.lastName}, '')), '')`,
-      eligible: sql<boolean>`(${users.role} = 'hacker' AND public.has_confirmed_rsvp(${users.id})) OR ${users.role} IN ('organizer', 'volunteer')`,
+      eligible: eligibleSql,
     })
     .from(discordAccounts)
     .innerJoin(users, eq(users.id, discordAccounts.userId))
@@ -53,4 +60,19 @@ export async function lookupDiscordMemberByDiscordId(
     .limit(1);
 
   return row ?? null;
+}
+
+/**
+ * Whether this account may link a Discord account at all. The claim re-checks
+ * on every call, so this only turns someone away earlier, with a clearer
+ * reason, rather than letting them link and then be refused a role.
+ */
+export async function isDiscordEligible(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ eligible: eligibleSql })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return row?.eligible ?? false;
 }
