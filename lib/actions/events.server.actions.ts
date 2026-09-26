@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -10,6 +10,7 @@ import { eventCheckins, events, eventScanLog } from "@/lib/db/schema/events";
 import {
   eventSlugSchema,
   MAX_EVENT_NAME_LENGTH,
+  maxCheckinsSchema,
   slugifyEventName,
 } from "@/lib/types/events";
 
@@ -115,6 +116,7 @@ const eventFieldsSchema = z.object({
   startsAt: optionalTimestamp,
   endsAt: optionalTimestamp,
   requiresRsvp: z.boolean(),
+  maxCheckins: maxCheckinsSchema,
 });
 
 const createEventSchema = eventFieldsSchema.extend({
@@ -189,8 +191,16 @@ export async function createEventAction(
     };
   }
 
-  const { slug, name, description, location, startsAt, endsAt, requiresRsvp } =
-    parsed.data;
+  const {
+    slug,
+    name,
+    description,
+    location,
+    startsAt,
+    endsAt,
+    requiresRsvp,
+    maxCheckins,
+  } = parsed.data;
 
   if (endsBeforeStart(startsAt, endsAt)) {
     return { ok: false, message: "The end time is before the start time." };
@@ -232,6 +242,7 @@ export async function createEventAction(
       startsAt,
       endsAt,
       requiresRsvp,
+      maxCheckins,
       createdBy: organizer.id,
     });
   } catch (error) {
@@ -301,14 +312,53 @@ export async function setEventRequiresRsvpAction(
   return { ok: true, slug: updated[0].slug };
 }
 
+const setMaxCheckinsSchema = z.strictObject({
+  slug: eventSlugSchema,
+  maxCheckins: maxCheckinsSchema,
+});
+
+/**
+ * Sets how many times one person may be scanned into this event. Lowering it
+ * below what someone has already used removes nothing — they simply can't be
+ * scanned again.
+ */
+export async function setEventMaxCheckinsAction(
+  input: unknown,
+): Promise<EventActionResult> {
+  await requireOrganizer();
+
+  const parsed = setMaxCheckinsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Invalid request.",
+    };
+  }
+
+  const updated = await db
+    .update(events)
+    .set({ maxCheckins: parsed.data.maxCheckins })
+    .where(eq(events.slug, parsed.data.slug))
+    .returning({ slug: events.slug });
+
+  if (!updated[0])
+    return { ok: false, message: "That event no longer exists." };
+
+  revalidatePath("/admin/events");
+  revalidatePath(`/admin/events/${updated[0].slug}`);
+  revalidatePath(`/checkin/${updated[0].slug}`);
+  return { ok: true, slug: updated[0].slug };
+}
+
 const revokeCheckinSchema = z.strictObject({
   slug: eventSlugSchema,
   userId: z.uuid(),
 });
 
 /**
- * Undoes a mis-scan. The check-in row goes, but a `reverted` entry is appended
- * to the scan log — an audit trail you can delete from isn't one.
+ * Undoes a mis-scan. The person's most recent check-in row goes — at an event
+ * allowing several scans, only that one — but a `reverted` entry is appended to
+ * the scan log, because an audit trail you can delete from isn't one.
  */
 export async function revokeCheckInAction(
   input: unknown,
@@ -331,15 +381,24 @@ export async function revokeCheckInAction(
     if (!event)
       return { ok: false as const, message: "That event no longer exists." };
 
-    const deleted = await tx
-      .delete(eventCheckins)
+    const latest = await tx
+      .select({ id: eventCheckins.id })
+      .from(eventCheckins)
       .where(
         and(
           eq(eventCheckins.eventId, event.id),
           eq(eventCheckins.userId, userId),
         ),
       )
-      .returning({ id: eventCheckins.id });
+      .orderBy(desc(eventCheckins.checkedInAt), desc(eventCheckins.scanNumber))
+      .limit(1);
+
+    const deleted = latest[0]
+      ? await tx
+          .delete(eventCheckins)
+          .where(eq(eventCheckins.id, latest[0].id))
+          .returning({ id: eventCheckins.id })
+      : [];
 
     if (!deleted[0]) {
       return {

@@ -19,6 +19,10 @@ get_var() {
 
 DB_URL=$(get_var DB_URL)
 API_URL=$(get_var API_URL)
+# Kong (Auth, Realtime, Storage) still listens here when PostgREST is disabled.
+if [[ -z "$API_URL" && -n "$DB_URL" ]]; then
+  API_URL="http://127.0.0.1:54321"
+fi
 PUBLISHABLE_KEY=$(get_var PUBLISHABLE_KEY)
 S3_ACCESS_KEY=$(get_var S3_PROTOCOL_ACCESS_KEY_ID)
 S3_SECRET_KEY=$(get_var S3_PROTOCOL_ACCESS_KEY_SECRET)

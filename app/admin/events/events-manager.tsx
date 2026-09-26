@@ -36,10 +36,11 @@ import {
 import {
   createEventAction,
   setEventActiveAction,
+  setEventMaxCheckinsAction,
   setEventRequiresRsvpAction,
 } from "@/lib/actions/events.server.actions";
 import type { AdminEventSummary } from "@/lib/queries/events";
-import { slugifyEventName } from "@/lib/types/events";
+import { MAX_EVENT_CHECKINS, slugifyEventName } from "@/lib/types/events";
 
 const EMPTY_FORM = {
   name: "",
@@ -49,6 +50,9 @@ const EMPTY_FORM = {
   startsAt: "",
   endsAt: "",
   requiresRsvp: true,
+  // A string while it's being typed, so clearing the field doesn't snap it
+  // back to a number mid-edit. The action parses and bounds it.
+  maxCheckins: "1",
 };
 
 export function EventsManager({ events }: { events: AdminEventSummary[] }) {
@@ -93,6 +97,30 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
       }
       toast.success(isActive ? `Opened ${name}.` : `Closed ${name}.`);
       router.refresh();
+    });
+  }
+
+  function saveMaxCheckins(
+    slug: string,
+    name: string,
+    maxCheckins: number,
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        const result = await setEventMaxCheckinsAction({ slug, maxCheckins });
+        if (!result.ok) {
+          toast.error(result.message);
+          resolve(false);
+          return;
+        }
+        toast.success(
+          maxCheckins === 1
+            ? `${name} now allows one scan per person.`
+            : `${name} now allows ${maxCheckins} scans per person.`,
+        );
+        router.refresh();
+        resolve(true);
+      });
     });
   }
 
@@ -194,6 +222,22 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                 />
               </Field>
 
+              <Field
+                label="Scans per person"
+                hint="1 for most events. Raise it for seconds at a meal."
+              >
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_EVENT_CHECKINS}
+                  step={1}
+                  value={form.maxCheckins}
+                  onChange={(e) => set("maxCheckins", e.target.value)}
+                  required
+                />
+              </Field>
+
               <div className="sm:col-span-2">
                 <Field label="Description">
                   <Textarea
@@ -248,6 +292,7 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                     <TableHead>Event</TableHead>
                     <TableHead>When</TableHead>
                     <TableHead className="text-right">Checked in</TableHead>
+                    <TableHead>Scans each</TableHead>
                     <TableHead>Who can attend</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -279,6 +324,25 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
 
                       <TableCell className="text-right tabular-nums">
                         {event.checkinCount}
+                        {event.maxCheckins > 1 ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {event.scanCount} scans
+                          </span>
+                        ) : null}
+                      </TableCell>
+
+                      <TableCell>
+                        <MaxCheckinsInput
+                          // Remount when the saved value changes, so the field
+                          // shows what the server now holds.
+                          key={event.maxCheckins}
+                          value={event.maxCheckins}
+                          disabled={isPending}
+                          label={`Scans per person for ${event.name}`}
+                          onSave={(value) =>
+                            saveMaxCheckins(event.slug, event.name, value)
+                          }
+                        />
                       </TableCell>
 
                       <TableCell>
@@ -366,6 +430,65 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
         link — they can&apos;t pick the wrong one that way.
       </p>
     </div>
+  );
+}
+
+/**
+ * Edits an event's scan limit in place. Saves on blur or Enter rather than on
+ * every keystroke, so typing "12" never briefly saves "1".
+ */
+function MaxCheckinsInput({
+  value,
+  disabled,
+  label,
+  onSave,
+}: {
+  value: number;
+  disabled: boolean;
+  label: string;
+  onSave: (value: number) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  async function commit() {
+    const next = Number(draft);
+    if (draft.trim() === "" || next === value) {
+      setDraft(String(value));
+      return;
+    }
+    // The action validates too; this only saves a pointless round trip.
+    if (!Number.isInteger(next) || next < 1 || next > MAX_EVENT_CHECKINS) {
+      toast.error(`Enter a whole number from 1 to ${MAX_EVENT_CHECKINS}.`);
+      setDraft(String(value));
+      return;
+    }
+    if (!(await onSave(next))) setDraft(String(value));
+  }
+
+  return (
+    <Input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      max={MAX_EVENT_CHECKINS}
+      step={1}
+      aria-label={label}
+      value={draft}
+      disabled={disabled}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => void commit()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          const input = e.currentTarget;
+          setDraft(String(value));
+          // Blur after the reset renders, so the save on blur sees the saved
+          // value rather than the abandoned draft.
+          setTimeout(() => input.blur());
+        }
+      }}
+      className="h-8 w-16 tabular-nums"
+    />
   );
 }
 

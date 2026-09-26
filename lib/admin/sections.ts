@@ -2,12 +2,14 @@ import {
   BarChart3Icon,
   CalendarCheck2Icon,
   CalendarPlusIcon,
+  CalendarRangeIcon,
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
   MegaphoneIcon,
   QrCodeIcon,
   TrophyIcon,
+  Users2Icon,
   UsersRoundIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -103,12 +105,32 @@ export const ADMIN_AREAS: AdminArea[] = [
         icon: CalendarPlusIcon,
       },
       {
+        href: "/admin/reservations",
+        title: "Table reservations",
+        description:
+          "Create judging events, manage tables, and coordinate assignments.",
+        icon: CalendarRangeIcon,
+      },
+      {
         // The one link here that isn't under /admin — volunteers use it too,
         // so it can't live behind the organizer gate.
         href: "/checkin",
         title: "Scanner",
         description: "Scan attendee codes for whichever event is running.",
         icon: QrCodeIcon,
+      },
+    ],
+  },
+  {
+    title: "Hacker Teams",
+    description: "See the teams hackers have formed and who's on them.",
+    icon: Users2Icon,
+    links: [
+      {
+        href: "/admin/teams",
+        title: "All teams",
+        description: "Browse every team, its members, and pending invites.",
+        icon: Users2Icon,
       },
     ],
   },

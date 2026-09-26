@@ -23,12 +23,26 @@ export const teams = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
+    // Set together by an organizer asking the team to pick a new name.
+    // Cleared together (all three, back to null) the moment the team
+    // actually renames — see renameTeam in lib/actions/team.actions.ts.
+    renameRequestedAt: timestamp("rename_requested_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    renameRequestReason: text("rename_request_reason"),
+    renameRequestedByUserId: uuid("rename_requested_by_user_id"), // audit only, same rationale as createdByUserId
   },
   (table) => [
     foreignKey({
       columns: [table.createdByUserId],
       foreignColumns: [users.id],
       name: "teams_created_by_user_id_users_id_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.renameRequestedByUserId],
+      foreignColumns: [users.id],
+      name: "teams_rename_requested_by_user_id_users_id_fk",
     }).onDelete("set null"),
     pgPolicy("teams_select_member_or_organizer", {
       for: "select",

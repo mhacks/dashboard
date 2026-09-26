@@ -48,16 +48,7 @@ COPY . .
 
 ENV NODE_ENV=production
 
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-ARG NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY
-ARG NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
-ARG NEXT_PUBLIC_POSTHOG_HOST
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-ENV NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_LOGIN_TURNSTILE_SITE_KEY
-ENV NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=$NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
-ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
+ARG BUILD_ENV_B64
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -70,7 +61,9 @@ ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
 # This caches the .next/cache directory across builds, but it also prevents
 # .next/cache/fetch-cache from being included in the final image, meaning
 # cached fetch responses from the build won't be available at runtime.
-RUN if [ -f package-lock.json ]; then \
+RUN BUILD_ENV="$(printf '%s' "$BUILD_ENV_B64" | base64 -d)" \
+  && printf '%s\n' "$BUILD_ENV" > .env.production.local \
+  && if [ -f package-lock.json ]; then \
     npm run build; \
   elif [ -f yarn.lock ]; then \
     corepack enable yarn && yarn build; \

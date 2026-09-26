@@ -14,6 +14,17 @@ export const teamNameSchema = z
     `Team name must be ${TEAM_NAME_MAX_LENGTH} characters or fewer`,
   );
 
+export const TEAM_RENAME_REASON_MAX_LENGTH = 200;
+
+export const teamRenameReasonSchema = z
+  .string()
+  .trim()
+  .max(
+    TEAM_RENAME_REASON_MAX_LENGTH,
+    `Reason must be ${TEAM_RENAME_REASON_MAX_LENGTH} characters or fewer`,
+  )
+  .optional();
+
 export const inviteEmailSchema = z
   .string()
   .trim()
@@ -30,8 +41,18 @@ export type TeamMemberSummary = {
   joinedAt: string;
 };
 
+/**
+ * The team fields a member's browser receives. Deliberately not TeamRow: that
+ * carries renameRequestedByUserId, and a user's id doubles as their check-in
+ * QR code, so it must not reach the team an organizer asked to rename.
+ */
+export type MemberTeam = Pick<
+  TeamRow,
+  "id" | "name" | "createdAt" | "renameRequestedAt" | "renameRequestReason"
+>;
+
 export type TeamWithMembers = {
-  team: TeamRow;
+  team: MemberTeam;
   members: TeamMemberSummary[];
 };
 
@@ -50,4 +71,19 @@ export type SentInvitationSummary = {
   status: TeamInvitationStatus;
   createdAt: string;
   respondedAt: string | null;
+};
+
+export type RenameRequestSummary = {
+  requestedAt: string;
+  reason: string | null;
+  requestedByName: string | null;
+};
+
+export type AdminTeamSummary = {
+  id: string;
+  name: string;
+  createdAt: string;
+  members: TeamMemberSummary[];
+  pendingInviteCount: number;
+  renameRequest: RenameRequestSummary | null;
 };

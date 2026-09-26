@@ -3,10 +3,14 @@ import postgres from "postgres";
 import * as applicationInvitationsSchema from "./schema/application-invitations";
 import * as applicationsSchema from "./schema/applications";
 import * as blacklistSchema from "./schema/blacklist";
+import * as discordSchema from "./schema/discord";
 import * as broadcastsSchema from "./schema/broadcasts";
 import * as emailSchema from "./schema/email";
 import * as eventsSchema from "./schema/events";
+import * as liveSchema from "./schema/live";
+import * as rateLimiterSchema from "./schema/rate-limiter";
 import * as reimbursementsSchema from "./schema/reimbursements";
+import * as reservationSchema from "./schema/reservation";
 import * as rsvpsSchema from "./schema/rsvps";
 import * as userInvitationsSchema from "./schema/user-invitations";
 import * as usersSchema from "./schema/users";
@@ -23,8 +27,12 @@ export const db = drizzle({
     ...applicationsSchema,
     ...blacklistSchema,
     ...broadcastsSchema,
+    ...discordSchema,
     ...emailSchema,
     ...eventsSchema,
+    ...liveSchema,
+    ...rateLimiterSchema,
+    ...reservationSchema,
     ...reimbursementsSchema,
     ...rsvpsSchema,
     ...userInvitationsSchema,

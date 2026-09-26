@@ -29,7 +29,7 @@ Docker:
 | Service  | URL                             | Purpose                                   |
 | -------- | ------------------------------- | ----------------------------------------- |
 | Postgres | `127.0.0.1:54322`               | the database (`DATABASE_URL` points here) |
-| API/Auth | `127.0.0.1:54321`               | what the auth clients talk to             |
+| API/Auth | `127.0.0.1:54321`               | Auth, Realtime, OAuth (Data API off)      |
 | Storage  | `127.0.0.1:54321/storage/v1/s3` | S3-compatible API for resume uploads      |
 | Studio   | `127.0.0.1:54323`               | Supabase Studio — DB GUI                  |
 | Mailpit  | `127.0.0.1:54324`               | catches outgoing email locally            |

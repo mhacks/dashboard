@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { destinationForRole } from "@/lib/auth/redirects";
+import { destinationForRole, sanitizeNextPath } from "@/lib/auth/redirects";
 import { getSessionUser } from "@/lib/auth/session";
 import { acceptPendingUserInvite } from "@/lib/queries/user-invitations";
 import { createClient } from "@/lib/supabase/server";
@@ -38,10 +38,16 @@ export async function sendOtp(
   }
 }
 
-export async function logout() {
+/**
+ * With `next`, lands on the login page headed back there instead of the home
+ * page — for someone signed in as the wrong account mid-flow, like the Discord
+ * link page, who needs to sign in again and pick up where they left off.
+ */
+export async function logout(next?: string) {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/");
+  const safeNext = sanitizeNextPath(next);
+  redirect(safeNext ? `/login?next=${encodeURIComponent(safeNext)}` : "/");
 }
 
 export async function verifyOtp(

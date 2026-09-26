@@ -38,7 +38,15 @@ function isPublicPath(pathname: string) {
     isPathOrChild(pathname, "/oauth/consent") ||
     // Public docs page explaining how to connect an AI agent to the MCP
     // server — needs to be readable before/without logging in.
-    isPathOrChild(pathname, "/how-to-mcp")
+    isPathOrChild(pathname, "/how-to-mcp") ||
+    // The Discord bot authenticates this one by HMAC, not cookies, so it must
+    // reach the route instead of being redirected to /login — a 307 here turns
+    // into a silent failure the bot reports as a generic error.
+    //
+    // Only the claim endpoint. /discord_auth itself stays private on purpose:
+    // the redirect below is exactly how a member gets sent to log in and then
+    // returned to the page with the token intact.
+    isPathOrChild(pathname, "/discord_auth/claim")
   );
 }
 

@@ -1,6 +1,6 @@
 {
-  "id": "2f63e623-54ed-46db-904f-95d2dd15f9db",
-  "prevId": "5bd73cda-d795-40c5-8965-46b9168ce045",
+  "id": "0920e050-0139-47b1-a1a9-f463a2c4e55f",
+  "prevId": "ef377aa4-7299-45b8-83c0-6ac807dbbbdf",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1300,6 +1300,216 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.discord_accounts": {
+      "name": "discord_accounts",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "discord_user_id": {
+          "name": "discord_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discord_username": {
+          "name": "discord_username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verified_at": {
+          "name": "verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "discord_accounts_user_id_fkey": {
+          "name": "discord_accounts_user_id_fkey",
+          "tableFrom": "discord_accounts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "discord_accounts_discord_user_id_unique": {
+          "name": "discord_accounts_discord_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "discord_user_id"
+          ]
+        }
+      },
+      "policies": {
+        "discord_accounts_select_own_or_organizer": {
+          "name": "discord_accounts_select_own_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"discord_accounts\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.discord_link_audit_log": {
+      "name": "discord_link_audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_email": {
+          "name": "user_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discord_user_id": {
+          "name": "discord_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discord_username": {
+          "name": "discord_username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "discord_link_audit_user_created_at_idx": {
+          "name": "discord_link_audit_user_created_at_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discord_link_audit_created_at_idx": {
+          "name": "discord_link_audit_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discord_link_audit_discord_user_id_idx": {
+          "name": "discord_link_audit_discord_user_id_idx",
+          "columns": [
+            {
+              "expression": "discord_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "discord_link_audit_log_user_id_fkey": {
+          "name": "discord_link_audit_log_user_id_fkey",
+          "tableFrom": "discord_link_audit_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "discord_link_audit_select_organizer": {
+          "name": "discord_link_audit_select_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
     "public.email_send_deliveries": {
       "name": "email_send_deliveries",
       "schema": "",
@@ -1532,12 +1742,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "paused_at": {
-          "name": "paused_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "recovery_expires_at": {
           "name": "recovery_expires_at",
           "type": "timestamp with time zone",
@@ -1590,6 +1794,12 @@
         "email_send_runs_active_fingerprint_unique": {
           "name": "email_send_runs_active_fingerprint_unique",
           "columns": [
+            {
+              "expression": "organizer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "template_fingerprint",
               "isExpression": false,
@@ -1976,6 +2186,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'scan'"
+        },
+        "scan_number": {
+          "name": "scan_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         }
       },
       "indexes": {
@@ -2044,12 +2261,13 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "event_checkins_event_user_unique": {
-          "name": "event_checkins_event_user_unique",
+        "event_checkins_event_user_scan_unique": {
+          "name": "event_checkins_event_user_scan_unique",
           "nullsNotDistinct": false,
           "columns": [
             "event_id",
-            "user_id"
+            "user_id",
+            "scan_number"
           ]
         }
       },
@@ -2070,7 +2288,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and exists (\n    select 1 from public.events event\n    where event.id = \"event_checkins\".\"event_id\"\n      and \"event_checkins\".\"scan_number\" <= event.max_checkins\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
         },
         "event_checkins_delete_organizer": {
           "name": "event_checkins_delete_organizer",
@@ -2082,7 +2300,12 @@
           "using": "(select public.is_organizer())"
         }
       },
-      "checkConstraints": {},
+      "checkConstraints": {
+        "event_checkins_scan_number_positive": {
+          "name": "event_checkins_scan_number_positive",
+          "value": "\"event_checkins\".\"scan_number\" >= 1"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.event_scan_log": {
@@ -2293,6 +2516,13 @@
           "notNull": true,
           "default": true
         },
+        "max_checkins": {
+          "name": "max_checkins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
@@ -2357,6 +2587,16 @@
           ],
           "using": "(select public.is_event_staff())"
         },
+        "events_select_published_live": {
+          "name": "events_select_published_live",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "exists (\n        select 1 from public.live_event_details\n        where live_event_details.event_id = \"events\".\"id\"\n          and live_event_details.status = 'published'\n      )"
+        },
         "events_insert_organizer": {
           "name": "events_insert_organizer",
           "as": "PERMISSIVE",
@@ -2386,7 +2626,1001 @@
           "using": "(select public.is_organizer())"
         }
       },
-      "checkConstraints": {},
+      "checkConstraints": {
+        "events_max_checkins_positive": {
+          "name": "events_max_checkins_positive",
+          "value": "\"events\".\"max_checkins\" >= 1"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.live_announcements": {
+      "name": "live_announcements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tone": {
+          "name": "tone",
+          "type": "live_announcement_tone",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'info'"
+        },
+        "status": {
+          "name": "status",
+          "type": "live_content_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "live_announcements_public_feed_idx": {
+          "name": "live_announcements_public_feed_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "live_announcements_created_by_user_id_fkey": {
+          "name": "live_announcements_created_by_user_id_fkey",
+          "tableFrom": "live_announcements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "live_announcements_updated_by_user_id_fkey": {
+          "name": "live_announcements_updated_by_user_id_fkey",
+          "tableFrom": "live_announcements",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "live_announcements_public_select": {
+          "name": "live_announcements_public_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "\"live_announcements\".\"status\" = 'published'\n        and (\"live_announcements\".\"published_at\" is null or \"live_announcements\".\"published_at\" <= now())\n        and (\"live_announcements\".\"expires_at\" is null or \"live_announcements\".\"expires_at\" > now())"
+        },
+        "live_announcements_organizer_all": {
+          "name": "live_announcements_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "live_announcements_expiry_after_publish_check": {
+          "name": "live_announcements_expiry_after_publish_check",
+          "value": "\"live_announcements\".\"expires_at\" is null or \"live_announcements\".\"published_at\" is null or \"live_announcements\".\"expires_at\" > \"live_announcements\".\"published_at\""
+        },
+        "live_announcements_position_nonnegative_check": {
+          "name": "live_announcements_position_nonnegative_check",
+          "value": "\"live_announcements\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.live_event_details": {
+      "name": "live_event_details",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "location_details": {
+          "name": "location_details",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "map_url": {
+          "name": "map_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Event'"
+        },
+        "host_name": {
+          "name": "host_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "audience": {
+          "name": "audience",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capacity": {
+          "name": "capacity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "featured": {
+          "name": "featured",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "status": {
+          "name": "status",
+          "type": "live_content_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "live_event_details_public_order_idx": {
+          "name": "live_event_details_public_order_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "live_event_details_event_id_fkey": {
+          "name": "live_event_details_event_id_fkey",
+          "tableFrom": "live_event_details",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "live_event_details_created_by_user_id_fkey": {
+          "name": "live_event_details_created_by_user_id_fkey",
+          "tableFrom": "live_event_details",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "live_event_details_updated_by_user_id_fkey": {
+          "name": "live_event_details_updated_by_user_id_fkey",
+          "tableFrom": "live_event_details",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "live_event_details_public_select": {
+          "name": "live_event_details_public_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "\"live_event_details\".\"status\" = 'published'"
+        },
+        "live_event_details_organizer_all": {
+          "name": "live_event_details_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "live_event_details_position_nonnegative_check": {
+          "name": "live_event_details_position_nonnegative_check",
+          "value": "\"live_event_details\".\"position\" >= 0"
+        },
+        "live_event_details_capacity_positive_check": {
+          "name": "live_event_details_capacity_positive_check",
+          "value": "\"live_event_details\".\"capacity\" is null or \"live_event_details\".\"capacity\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.live_event_resources": {
+      "name": "live_event_resources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "live_event_resource_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'resource'"
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "live_event_resources_event_position_idx": {
+          "name": "live_event_resources_event_position_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "live_event_resources_event_id_fkey": {
+          "name": "live_event_resources_event_id_fkey",
+          "tableFrom": "live_event_resources",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "live_event_resources_public_select": {
+          "name": "live_event_resources_public_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "exists (\n        select 1 from public.live_event_details\n        where live_event_details.event_id = \"live_event_resources\".\"event_id\"\n          and live_event_details.status = 'published'\n      )"
+        },
+        "live_event_resources_organizer_all": {
+          "name": "live_event_resources_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "live_event_resources_position_nonnegative_check": {
+          "name": "live_event_resources_position_nonnegative_check",
+          "value": "\"live_event_resources\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.live_guide_links": {
+      "name": "live_guide_links",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'General'"
+        },
+        "status": {
+          "name": "status",
+          "type": "live_content_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "live_guide_links_public_order_idx": {
+          "name": "live_guide_links_public_order_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "live_guide_links_created_by_user_id_fkey": {
+          "name": "live_guide_links_created_by_user_id_fkey",
+          "tableFrom": "live_guide_links",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "live_guide_links_updated_by_user_id_fkey": {
+          "name": "live_guide_links_updated_by_user_id_fkey",
+          "tableFrom": "live_guide_links",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "live_guide_links_public_select": {
+          "name": "live_guide_links_public_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "\"live_guide_links\".\"status\" = 'published'"
+        },
+        "live_guide_links_organizer_all": {
+          "name": "live_guide_links_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "live_guide_links_position_nonnegative_check": {
+          "name": "live_guide_links_position_nonnegative_check",
+          "value": "\"live_guide_links\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.live_prizes": {
+      "name": "live_prizes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "sponsor": {
+          "name": "sponsor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "eligibility": {
+          "name": "eligibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "judging_criteria": {
+          "name": "judging_criteria",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "live_content_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "live_prizes_public_order_idx": {
+          "name": "live_prizes_public_order_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "live_prizes_created_by_user_id_fkey": {
+          "name": "live_prizes_created_by_user_id_fkey",
+          "tableFrom": "live_prizes",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "live_prizes_updated_by_user_id_fkey": {
+          "name": "live_prizes_updated_by_user_id_fkey",
+          "tableFrom": "live_prizes",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "live_prizes_public_select": {
+          "name": "live_prizes_public_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "\"live_prizes\".\"status\" = 'published'"
+        },
+        "live_prizes_organizer_all": {
+          "name": "live_prizes_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "live_prizes_position_nonnegative_check": {
+          "name": "live_prizes_position_nonnegative_check",
+          "value": "\"live_prizes\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.live_site_settings": {
+      "name": "live_site_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'default'"
+        },
+        "event_name": {
+          "name": "event_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'MHacks Live'"
+        },
+        "hero_title": {
+          "name": "hero_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Timeline'"
+        },
+        "hero_description": {
+          "name": "hero_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Events, workshops, food, and deadlines for the weekend.'"
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'America/Detroit'"
+        },
+        "devpost_url": {
+          "name": "devpost_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guide_empty_title": {
+          "name": "guide_empty_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Hacker guide coming soon'"
+        },
+        "guide_empty_description": {
+          "name": "guide_empty_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Travel details, venue information, policies, and weekend resources are being assembled here.'"
+        },
+        "prizes_empty_title": {
+          "name": "prizes_empty_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Prize details coming soon'"
+        },
+        "prizes_empty_description": {
+          "name": "prizes_empty_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Track descriptions, eligibility details, and judging criteria will appear here once they are finalized.'"
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "live_site_settings_updated_by_user_id_fkey": {
+          "name": "live_site_settings_updated_by_user_id_fkey",
+          "tableFrom": "live_site_settings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "live_site_settings_public_select": {
+          "name": "live_site_settings_public_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "true"
+        },
+        "live_site_settings_organizer_all": {
+          "name": "live_site_settings_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "live_site_settings_singleton_check": {
+          "name": "live_site_settings_singleton_check",
+          "value": "\"live_site_settings\".\"id\" = 'default'"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.hacker_reimbursements": {
@@ -2589,6 +3823,392 @@
         "reimbursement_regions_amount_cents_check": {
           "name": "reimbursement_regions_amount_cents_check",
           "value": "\"reimbursement_regions\".\"amount_cents\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.reservation_audit_log": {
+      "name": "reservation_audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_name": {
+          "name": "event_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_email": {
+          "name": "actor_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "reservation_audit_event_created_at_idx": {
+          "name": "reservation_audit_event_created_at_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservation_audit_created_at_idx": {
+          "name": "reservation_audit_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reservation_audit_log_event_id_table_reservations_id_fk": {
+          "name": "reservation_audit_log_event_id_table_reservations_id_fk",
+          "tableFrom": "reservation_audit_log",
+          "tableTo": "table_reservations",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "reservation_audit_log_actor_user_id_users_id_fk": {
+          "name": "reservation_audit_log_actor_user_id_users_id_fk",
+          "tableFrom": "reservation_audit_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "reservation_audit_select_organizer": {
+          "name": "reservation_audit_select_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.table_reservations": {
+      "name": "table_reservations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "reservation_event_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "reservations_open_at": {
+          "name": "reservations_open_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reservations_close_at": {
+          "name": "reservations_close_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "table_reservations_status_starts_at_idx": {
+          "name": "table_reservations_status_starts_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "table_reservations_select_visible_or_organizer": {
+          "name": "table_reservations_select_visible_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer()) OR \"table_reservations\".\"status\" IN ('open', 'closed')"
+        }
+      },
+      "checkConstraints": {
+        "events_reservation_window_valid": {
+          "name": "events_reservation_window_valid",
+          "value": "\"table_reservations\".\"reservations_open_at\" IS NULL\n        OR \"table_reservations\".\"reservations_close_at\" IS NULL\n        OR \"table_reservations\".\"reservations_close_at\" > \"table_reservations\".\"reservations_open_at\""
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.tables": {
+      "name": "tables",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserved_by_team_id": {
+          "name": "reserved_by_team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserved_at": {
+          "name": "reserved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "tables_event_team_unique": {
+          "name": "tables_event_team_unique",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reserved_by_team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tables_event_id_table_reservations_id_fk": {
+          "name": "tables_event_id_table_reservations_id_fk",
+          "tableFrom": "tables",
+          "tableTo": "table_reservations",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "tables_reserved_by_team_id_teams_id_fk": {
+          "name": "tables_reserved_by_team_id_teams_id_fk",
+          "tableFrom": "tables",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "reserved_by_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tables_event_number_unique": {
+          "name": "tables_event_number_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "number"
+          ]
+        }
+      },
+      "policies": {
+        "tables_select_visible_or_organizer": {
+          "name": "tables_select_visible_or_organizer",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer()) OR EXISTS (\n        SELECT 1 FROM public.table_reservations\n        WHERE id = \"tables\".\"event_id\"\n          AND status IN ('open', 'closed')\n      )"
+        }
+      },
+      "checkConstraints": {
+        "tables_number_positive": {
+          "name": "tables_number_positive",
+          "value": "\"tables\".\"number\" > 0"
+        },
+        "tables_reservation_timestamp_consistent": {
+          "name": "tables_reservation_timestamp_consistent",
+          "value": "(\"tables\".\"reserved_by_team_id\" IS NULL) =\n        (\"tables\".\"reserved_at\" IS NULL)"
         }
       },
       "isRLSEnabled": true
@@ -3517,12 +5137,51 @@
         "reverted"
       ]
     },
+    "public.live_announcement_tone": {
+      "name": "live_announcement_tone",
+      "schema": "public",
+      "values": [
+        "info",
+        "important",
+        "urgent"
+      ]
+    },
+    "public.live_content_status": {
+      "name": "live_content_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "published",
+        "archived"
+      ]
+    },
+    "public.live_event_resource_kind": {
+      "name": "live_event_resource_kind",
+      "schema": "public",
+      "values": [
+        "devpost",
+        "workshop",
+        "slides",
+        "registration",
+        "resource"
+      ]
+    },
     "public.reimbursement_status": {
       "name": "reimbursement_status",
       "schema": "public",
       "values": [
         "approved",
         "denied"
+      ]
+    },
+    "public.reservation_event_status": {
+      "name": "reservation_event_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "open",
+        "closed",
+        "archived"
       ]
     },
     "public.rsvp_travel_plan": {

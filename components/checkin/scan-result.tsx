@@ -2,6 +2,7 @@
 
 import type { CheckInResult } from "@/lib/actions/check-in.actions";
 import {
+  describeScanCount,
   OUTCOME_GUIDANCE,
   OUTCOME_HEADLINE,
   OUTCOME_SEVERITY,
@@ -36,6 +37,16 @@ export function ScanResult({
 
   const checkedInAt = timeOfDay(result.checkedInAt);
   const scannedBy = result.ok ? null : result.checkedInByName;
+  // Only said aloud at events allowing repeats, where "which one was that?"
+  // is the question the volunteer is actually asking.
+  const scanCount = describeScanCount(
+    result.ok ? result.scanNumber : result.scansUsed,
+    result.event?.maxCheckins,
+  );
+  const headline =
+    !result.ok && result.outcome === "already-checked-in" && scanCount
+      ? "No scans left"
+      : OUTCOME_HEADLINE[result.outcome];
 
   return (
     <button
@@ -53,8 +64,14 @@ export function ScanResult({
       </span>
 
       <span className="font-red-hat-mono text-[15px] tracking-[0.16em] uppercase opacity-90">
-        {OUTCOME_HEADLINE[result.outcome]}
+        {headline}
       </span>
+
+      {result.ok && scanCount ? (
+        <span className="font-red-hat-mono text-[13px] tracking-[0.1em] opacity-90">
+          {scanCount}
+        </span>
+      ) : null}
 
       {/* The name is the actual identity check — a volunteer reads it back
           against the person standing in front of them. */}
@@ -82,8 +99,15 @@ export function ScanResult({
       {/* On a duplicate this is the line that settles the argument at the door. */}
       {checkedInAt ? (
         <span className="font-red-hat-mono text-[12px] opacity-80">
-          {result.ok ? "Checked in" : "Already in"} {checkedInAt}
+          {result.ok ? "Checked in" : scanCount ? "Last in" : "Already in"}{" "}
+          {checkedInAt}
           {scannedBy ? ` · by ${scannedBy}` : ""}
+        </span>
+      ) : null}
+
+      {!result.ok && scanCount ? (
+        <span className="font-red-hat-mono text-[12px] opacity-80">
+          Used all {result.event?.maxCheckins} scans
         </span>
       ) : null}
 
