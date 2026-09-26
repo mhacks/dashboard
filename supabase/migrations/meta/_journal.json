@@ -225,6 +225,13 @@
       "when": 1790368357437,
       "tag": "20260925203237_discord_verification_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790392728239,
+      "tag": "20260926031848_discord_organizers_eligible",
+      "breakpoints": true
     }
   ]
 }
