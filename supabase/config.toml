@@ -12,6 +12,8 @@ smtp_port = 54325
 
 # PostgREST / auto-generated REST endpoints. The app reads and writes via Drizzle
 # (DATABASE_URL); Auth, Realtime, and OAuth still use the Supabase API gateway.
+# Before setting enabled = true, undo the empty-schema override from migration
+# 20260926183000_pgrst_empty_schema.sql (see its header).
 [api]
 enabled = false
 schemas = ["public"]

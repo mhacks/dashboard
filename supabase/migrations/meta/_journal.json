@@ -246,6 +246,13 @@
       "when": 1790400900000,
       "tag": "20260926053500_drop_discord_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790447400000,
+      "tag": "20260926183000_pgrst_empty_schema",
+      "breakpoints": true
     }
   ]
 }
