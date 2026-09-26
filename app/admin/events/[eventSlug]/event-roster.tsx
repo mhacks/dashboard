@@ -70,6 +70,7 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
         <div>
           <CardTitle className="flex items-center gap-2">
             {entries.length} checked in
+            {allowsRepeats ? ` · ${event.scanCount} scans` : ""}
             <Badge variant={event.isActive ? "default" : "secondary"}>
               {event.isActive ? "Open" : "Closed"}
             </Badge>

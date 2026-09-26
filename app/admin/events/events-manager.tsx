@@ -324,6 +324,11 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
 
                       <TableCell className="text-right tabular-nums">
                         {event.checkinCount}
+                        {event.maxCheckins > 1 ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {event.scanCount} scans
+                          </span>
+                        ) : null}
                       </TableCell>
 
                       <TableCell>

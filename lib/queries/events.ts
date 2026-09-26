@@ -15,6 +15,14 @@ const checkinCountSql = sql<number>`(
   where ${eventCheckins.eventId} = ${events.id}
 )`;
 
+// Every scan that let someone in. Equal to checkinCountSql at a one-scan
+// event; at a meal allowing seconds, this is what the kitchen cares about.
+const scanCountSql = sql<number>`(
+  select count(*)::int
+  from ${eventCheckins}
+  where ${eventCheckins.eventId} = ${events.id}
+)`;
+
 export type AdminEventSummary = {
   id: string;
   slug: string;
@@ -26,7 +34,10 @@ export type AdminEventSummary = {
   isActive: boolean;
   requiresRsvp: boolean;
   maxCheckins: number;
+  /** People checked in. */
   checkinCount: number;
+  /** Scans that let someone in; above checkinCount only on repeat events. */
+  scanCount: number;
 };
 
 /**
@@ -55,6 +66,7 @@ export async function listEventsForAdmin(): Promise<AdminEventSummary[]> {
       requiresRsvp: events.requiresRsvp,
       maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
+      scanCount: scanCountSql,
     })
     .from(events)
     .orderBy(...EVENT_ORDER);
@@ -67,7 +79,9 @@ export type StaffEventOption = {
   location: string | null;
   startsAt: string | null;
   requiresRsvp: boolean;
+  maxCheckins: number;
   checkinCount: number;
+  scanCount: number;
 };
 
 /**
@@ -86,7 +100,9 @@ export async function getOpenEventsForStaff(): Promise<StaffEventOption[]> {
       location: events.location,
       startsAt: events.startsAt,
       requiresRsvp: events.requiresRsvp,
+      maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
+      scanCount: scanCountSql,
     })
     .from(events)
     .where(eq(events.isActive, true))
@@ -172,6 +188,7 @@ export async function getEventRoster(
       requiresRsvp: events.requiresRsvp,
       maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
+      scanCount: scanCountSql,
     })
     .from(events)
     .where(eq(events.slug, slug))
@@ -240,16 +257,21 @@ export async function getEventExportRows(slug: string) {
   return roster?.entries ?? [];
 }
 
-/** Live count for the scanner's running total. Staff-readable. */
-export async function getEventCheckinCount(eventId: string): Promise<number> {
+export type EventCheckinCounts = { people: number; scans: number };
+
+/** Live counts for the scanner's running totals. Staff-readable. */
+export async function getEventCheckinCounts(
+  eventId: string,
+): Promise<EventCheckinCounts> {
   await requireEventStaff();
 
   const rows = await db
     .select({
-      count: sql<number>`count(distinct ${eventCheckins.userId})::int`,
+      people: sql<number>`count(distinct ${eventCheckins.userId})::int`,
+      scans: sql<number>`count(*)::int`,
     })
     .from(eventCheckins)
     .where(and(eq(eventCheckins.eventId, eventId)));
 
-  return rows[0]?.count ?? 0;
+  return rows[0] ?? { people: 0, scans: 0 };
 }

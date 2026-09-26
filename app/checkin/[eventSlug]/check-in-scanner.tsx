@@ -15,6 +15,7 @@ import { checkInAttendeeAction } from "@/lib/actions/check-in.server.actions";
 import { signalScan, unlockFeedbackAudio } from "@/lib/checkin/feedback";
 import {
   countsAsCheckIn,
+  countsAsScan,
   describeScanCount,
   OUTCOME_HEADLINE,
   OUTCOME_SEVERITY,
@@ -53,17 +54,20 @@ export function CheckInScanner({
   requiresRsvp,
   maxCheckins,
   initialCheckedInCount,
+  initialScanCount,
 }: {
   slug: string;
   eventName: string;
   requiresRsvp: boolean;
   maxCheckins: number;
   initialCheckedInCount: number;
+  initialScanCount: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "ready" });
   const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
   const [checkedInCount, setCheckedInCount] = useState(initialCheckedInCount);
+  const [scanCount, setScanCount] = useState(initialScanCount);
   const [isOffline, setIsOffline] = useState(false);
   const [isSlow, setIsSlow] = useState(false);
 
@@ -99,6 +103,9 @@ export function CheckInScanner({
     // the list above rather than in this number.
     if (countsAsCheckIn(result)) {
       setCheckedInCount((count) => count + 1);
+    }
+    if (countsAsScan(result)) {
+      setScanCount((count) => count + 1);
     }
     setPhase({ kind: "result", result });
   }, []);
@@ -294,6 +301,8 @@ export function CheckInScanner({
       <ScanHistory
         entries={history}
         checkedInCount={checkedInCount}
+        // Only worth a line where it can differ from the people count.
+        scanCount={maxCheckins > 1 ? scanCount : null}
         eventName={eventName}
       />
 

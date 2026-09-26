@@ -7,7 +7,7 @@ import {
   ConsoleShell,
   Masthead,
 } from "@/components/console/shell";
-import { getEventCheckinCount, getEventForStaff } from "@/lib/queries/events";
+import { getEventCheckinCounts, getEventForStaff } from "@/lib/queries/events";
 import { eventSlugSchema } from "@/lib/types/events";
 import { CheckInScanner } from "./check-in-scanner";
 
@@ -26,7 +26,7 @@ export default async function CheckInScannerPage({
   const event = await getEventForStaff(parsed.data);
   if (!event) notFound();
 
-  const checkedInCount = await getEventCheckinCount(event.id);
+  const counts = await getEventCheckinCounts(event.id);
 
   return (
     <ConsoleShell>
@@ -50,7 +50,8 @@ export default async function CheckInScannerPage({
               eventName={event.name}
               requiresRsvp={event.requiresRsvp}
               maxCheckins={event.maxCheckins}
-              initialCheckedInCount={checkedInCount}
+              initialCheckedInCount={counts.people}
+              initialScanCount={counts.scans}
             />
           </Panel>
         ) : (

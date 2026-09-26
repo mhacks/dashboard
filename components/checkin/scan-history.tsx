@@ -27,11 +27,17 @@ export const SCAN_HISTORY_LIMIT = 5;
 export function ScanHistory({
   entries,
   checkedInCount,
+  scanCount,
   eventName,
 }: {
   entries: ScanHistoryEntry[];
   /** People admitted to this event — never a count of the rows below. */
   checkedInCount: number;
+  /**
+   * Scans that let someone in, repeats included. Null at a one-scan event,
+   * where it would only repeat checkedInCount.
+   */
+  scanCount: number | null;
   eventName: string;
 }) {
   return (
@@ -48,6 +54,17 @@ export function ScanHistory({
           {checkedInCount}
         </span>
       </div>
+
+      {scanCount !== null ? (
+        <div className="flex items-baseline justify-between gap-3 border border-ui-line bg-ui-well px-3 py-2">
+          <span className="font-red-hat-mono text-[11px] tracking-[0.18em] text-ui-ink-soft uppercase">
+            Total scans
+          </span>
+          <span className="font-red-hat-mono text-[17px] leading-none font-bold text-ui-ink tabular-nums">
+            {scanCount}
+          </span>
+        </div>
+      ) : null}
 
       <h2 className="mt-1 font-red-hat-mono text-[11px] tracking-[0.18em] text-ui-ink-soft uppercase">
         Recent scans

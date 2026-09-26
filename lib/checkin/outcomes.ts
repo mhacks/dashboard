@@ -79,6 +79,14 @@ export function countsAsCheckIn(result: {
 }
 
 /**
+ * Whether a scan let someone in at all — first visit or a repeat. Drives the
+ * scanner's scan total, which only events allowing repeats show.
+ */
+export function countsAsScan(result: { outcome: CheckInOutcome }): boolean {
+  return result.outcome === "checked-in";
+}
+
+/**
  * "Scan 2 of 3" for events that allow repeats, null for the usual one-scan
  * event where the count would only be noise.
  */
