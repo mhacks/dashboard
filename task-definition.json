@@ -56,6 +56,10 @@
         {
           "name": "LOGIN_TURNSTILE_SECRET_KEY",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/LOGIN_TURNSTILE_SECRET_KEY"
+        },
+        {
+          "name": "DISCORD_LINK_SECRET",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DISCORD_LINK_SECRET"
         }
       ],
       "logConfiguration": {
