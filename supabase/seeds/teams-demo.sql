@@ -4,10 +4,64 @@
 -- cancelled invitations, a hacker invited by multiple teams at once, and a
 -- bulk block of 32 more teams (96 more members, reusing the bulk hackers from
 -- application-review-demo.sql) for pagination and search testing.
---
--- Only inserts into public.users (not auth.users/auth.identities): these
--- accounts don't need to log in for this view, and public.users has no FK to
--- auth.users.
+
+with demo_users(id, email) as (
+  values
+    ('40000000-0000-4000-8000-000000000101'::uuid, 'priya@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000102'::uuid, 'marcus@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000103'::uuid, 'sofia@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000104'::uuid, 'devon@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000105'::uuid, 'yuki@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000106'::uuid, 'omar@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000107'::uuid, 'nina@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000108'::uuid, 'leo@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000109'::uuid, 'zara@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000110'::uuid, 'theo@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000111'::uuid, 'kwame@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000112'::uuid, 'mia@mhacks.test')
+)
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, email_change, email_change_token_new, recovery_token
+)
+select
+  '00000000-0000-0000-0000-000000000000',
+  id, 'authenticated', 'authenticated', email, null, now(),
+  '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
+  '', '', '', ''
+from demo_users
+on conflict (id) do update set
+  email = excluded.email,
+  updated_at = now();
+
+with demo_users(id, email) as (
+  values
+    ('40000000-0000-4000-8000-000000000101'::uuid, 'priya@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000102'::uuid, 'marcus@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000103'::uuid, 'sofia@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000104'::uuid, 'devon@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000105'::uuid, 'yuki@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000106'::uuid, 'omar@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000107'::uuid, 'nina@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000108'::uuid, 'leo@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000109'::uuid, 'zara@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000110'::uuid, 'theo@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000111'::uuid, 'kwame@mhacks.test'),
+    ('40000000-0000-4000-8000-000000000112'::uuid, 'mia@mhacks.test')
+)
+insert into auth.identities (
+  id, user_id, provider_id, identity_data, provider, last_sign_in_at,
+  created_at, updated_at
+)
+select
+  id, id, id::text,
+  jsonb_build_object('sub', id::text, 'email', email),
+  'email', now(), now(), now()
+from demo_users
+on conflict (id) do update set
+  identity_data = excluded.identity_data,
+  updated_at = now();
 
 insert into public.users (id, email, role)
 values
@@ -30,7 +84,7 @@ on conflict (id) do update set
 -- Applications for everyone except Nina (...107), who is left without one on
 -- purpose so her team shows the email-fallback display name in the admin view.
 insert into public.hacker_applicants (
-  id, user_id, status, first_name, last_name, phone_number, age, gender,
+  id, user_id, status, decision, first_name, last_name, phone_number, age, gender,
   ethnicity, university, country, degree, graduation_year,
   previous_hackathons, major, resume, what_would_you_do, why_mhacks,
   hill_to_die_on, anything_else, transportation_type, coming_from,
@@ -39,19 +93,20 @@ insert into public.hacker_applicants (
   personal_site, follows_instagram, sponsor_emails
 )
 values
-  ('40000000-0000-4000-8000-000000000201', '40000000-0000-4000-8000-000000000101', 'reviewed', 'Priya', 'Shah', '+14155550201', 21, 'Female', 'Asian', 'University of Michigan', 'United States', 'Bachelor''s', 2027, 2, 'Computer Science', null, 'A team formation tool.', 'To build with new people.', 'Ship early.', null, 'Driving', 'Ann Arbor, MI', 'S', null, false, null, null, 'https://github.com/priya-local', 'https://www.linkedin.com/in/priya-local', null, true, true),
-  ('40000000-0000-4000-8000-000000000202', '40000000-0000-4000-8000-000000000102', 'reviewed', 'Marcus', 'Webb', '+14155550202', 22, 'Male', 'Black or African American', 'Michigan State University', 'United States', 'Bachelor''s', 2026, 1, 'Data Science', null, 'A campus wayfinding app.', 'To learn from other hackers.', 'Data over opinions.', null, 'Bus', 'East Lansing, MI', 'M', null, false, null, null, 'https://github.com/marcus-local', null, null, false, true),
-  ('40000000-0000-4000-8000-000000000203', '40000000-0000-4000-8000-000000000103', 'pending', 'Sofia', 'Reyes', '+14155550203', 20, 'Female', 'Hispanic or Latino / Latina / Latinx', 'Wayne State University', 'United States', 'Bachelor''s', 2028, 0, 'Design', null, 'A live event-day dashboard.', 'To design under pressure.', 'Good UX is invisible.', null, 'Train', 'Detroit, MI', 'L', 'Vegetarian', false, null, null, 'https://github.com/sofia-local', 'https://www.linkedin.com/in/sofia-local', 'https://sofia.example.com', true, true),
-  ('40000000-0000-4000-8000-000000000204', '40000000-0000-4000-8000-000000000104', 'reviewed', 'Devon', 'Clarke', '+14155550204', 23, 'Male', 'White', 'Purdue University', 'United States', 'Master''s', 2026, 4, 'Computer Engineering', null, 'An IoT badge scanner.', 'To build hardware fast.', 'Prototype, then polish.', null, 'Flying', 'Lafayette, IN', 'M', null, true, true, 'DTW', 'https://github.com/devon-local', 'https://www.linkedin.com/in/devon-local', null, true, false),
-  ('40000000-0000-4000-8000-000000000205', '40000000-0000-4000-8000-000000000105', 'reviewed', 'Yuki', 'Tanaka', '+14155550205', 21, 'Female', 'Asian', 'University of Toronto', 'Canada', 'Bachelor''s', 2027, 3, 'Robotics', null, 'A robot arm demo.', 'To meet other builders.', 'Simplicity wins.', null, 'Flying', 'Toronto, ON', 'S', null, true, false, 'YYZ', 'https://github.com/yuki-local', null, null, true, true),
-  ('40000000-0000-4000-8000-000000000206', '40000000-0000-4000-8000-000000000106', 'pending', 'Omar', 'Haddad', '+14155550206', 24, 'Male', 'Middle Eastern or North African', 'Georgia Institute of Technology', 'United States', 'Master''s', 2026, 5, 'Cybersecurity', null, 'A phishing-simulation trainer.', 'To break things responsibly.', 'Security is UX too.', null, 'Driving', 'Atlanta, GA', 'XL', null, false, null, null, 'https://github.com/omar-local', 'https://www.linkedin.com/in/omar-local', null, false, true),
-  ('40000000-0000-4000-8000-000000000208', '40000000-0000-4000-8000-000000000108', 'reviewed', 'Leo', 'Fischer', '+14155550208', 22, 'Male', 'White', 'Carnegie Mellon University', 'United States', 'Bachelor''s', 2027, 2, 'Human-Computer Interaction', null, 'A gesture-based presenter remote.', 'To prototype quickly.', 'Latency is a feature.', null, 'Bus', 'Pittsburgh, PA', 'M', null, false, null, null, 'https://github.com/leo-local', null, null, true, false),
-  ('40000000-0000-4000-8000-000000000209', '40000000-0000-4000-8000-000000000109', 'pending', 'Zara', 'Ali', '+14155550209', 20, 'Female', 'South Asian', 'University of Waterloo', 'Canada', 'Bachelor''s', 2028, 1, 'Software Engineering', null, 'A resume-to-portfolio generator.', 'To join an ambitious team.', 'Docs are part of the product.', null, 'Flying', 'Waterloo, ON', 'S', null, true, true, 'YYZ', 'https://github.com/zara-local', 'https://www.linkedin.com/in/zara-local', null, true, true),
-  ('40000000-0000-4000-8000-000000000210', '40000000-0000-4000-8000-000000000110', 'pending', 'Theo', 'Novak', '+14155550210', 23, 'Male', 'White', 'Ohio State University', 'United States', 'Bachelor''s', 2026, 3, 'Mathematics', null, 'A pricing-model visualizer.', 'To find a good team.', 'Math should be visual.', null, 'Driving', 'Columbus, OH', 'L', null, false, null, null, 'https://github.com/theo-local', null, null, false, true),
-  ('40000000-0000-4000-8000-000000000211', '40000000-0000-4000-8000-000000000111', 'pending', 'Kwame', 'Boateng', '+14155550211', 21, 'Male', 'Black or African American', 'University of Illinois Urbana-Champaign', 'United States', 'Bachelor''s', 2027, 0, 'Electrical Engineering', null, 'A smart power-strip monitor.', 'To find teammates.', 'Measure twice.', null, 'Train', 'Urbana, IL', 'M', null, false, null, null, 'https://github.com/kwame-local', null, null, false, true),
-  ('40000000-0000-4000-8000-000000000212', '40000000-0000-4000-8000-000000000112', 'reviewed', 'Mia', 'Andersson', '+14155550212', 22, 'Female', 'White', 'University of Illinois Urbana-Champaign', 'United States', 'Bachelor''s', 2026, 2, 'Statistics', null, 'A dataset-quality linter.', 'To lead a small team.', 'Clean data first.', null, 'Driving', 'Champaign, IL', 'S', null, false, null, null, 'https://github.com/mia-local', 'https://www.linkedin.com/in/mia-local', null, true, true)
+  ('40000000-0000-4000-8000-000000000201', '40000000-0000-4000-8000-000000000101', 'reviewed', 'regular_accepted', 'Priya', 'Shah', '+14155550201', 21, 'Female', 'Asian', 'University of Michigan', 'United States', 'Bachelor''s', 2027, 2, 'Computer Science', null, 'A team formation tool.', 'To build with new people.', 'Ship early.', null, 'Driving', 'Ann Arbor, MI', 'S', null, false, null, null, 'https://github.com/priya-local', 'https://www.linkedin.com/in/priya-local', null, true, true),
+  ('40000000-0000-4000-8000-000000000202', '40000000-0000-4000-8000-000000000102', 'reviewed', 'regular_accepted', 'Marcus', 'Webb', '+14155550202', 22, 'Male', 'Black or African American', 'Michigan State University', 'United States', 'Bachelor''s', 2026, 1, 'Data Science', null, 'A campus wayfinding app.', 'To learn from other hackers.', 'Data over opinions.', null, 'Bus', 'East Lansing, MI', 'M', null, false, null, null, 'https://github.com/marcus-local', null, null, false, true),
+  ('40000000-0000-4000-8000-000000000203', '40000000-0000-4000-8000-000000000103', 'pending', 'regular_accepted', 'Sofia', 'Reyes', '+14155550203', 20, 'Female', 'Hispanic or Latino / Latina / Latinx', 'Wayne State University', 'United States', 'Bachelor''s', 2028, 0, 'Design', null, 'A live event-day dashboard.', 'To design under pressure.', 'Good UX is invisible.', null, 'Train', 'Detroit, MI', 'L', 'Vegetarian', false, null, null, 'https://github.com/sofia-local', 'https://www.linkedin.com/in/sofia-local', 'https://sofia.example.com', true, true),
+  ('40000000-0000-4000-8000-000000000204', '40000000-0000-4000-8000-000000000104', 'reviewed', 'regular_accepted', 'Devon', 'Clarke', '+14155550204', 23, 'Male', 'White', 'Purdue University', 'United States', 'Master''s', 2026, 4, 'Computer Engineering', null, 'An IoT badge scanner.', 'To build hardware fast.', 'Prototype, then polish.', null, 'Flying', 'Lafayette, IN', 'M', null, true, true, 'DTW', 'https://github.com/devon-local', 'https://www.linkedin.com/in/devon-local', null, true, false),
+  ('40000000-0000-4000-8000-000000000205', '40000000-0000-4000-8000-000000000105', 'reviewed', 'regular_accepted', 'Yuki', 'Tanaka', '+14155550205', 21, 'Female', 'Asian', 'University of Toronto', 'Canada', 'Bachelor''s', 2027, 3, 'Robotics', null, 'A robot arm demo.', 'To meet other builders.', 'Simplicity wins.', null, 'Flying', 'Toronto, ON', 'S', null, true, false, 'YYZ', 'https://github.com/yuki-local', null, null, true, true),
+  ('40000000-0000-4000-8000-000000000206', '40000000-0000-4000-8000-000000000106', 'pending', 'regular_accepted', 'Omar', 'Haddad', '+14155550206', 24, 'Male', 'Middle Eastern or North African', 'Georgia Institute of Technology', 'United States', 'Master''s', 2026, 5, 'Cybersecurity', null, 'A phishing-simulation trainer.', 'To break things responsibly.', 'Security is UX too.', null, 'Driving', 'Atlanta, GA', 'XL', null, false, null, null, 'https://github.com/omar-local', 'https://www.linkedin.com/in/omar-local', null, false, true),
+  ('40000000-0000-4000-8000-000000000208', '40000000-0000-4000-8000-000000000108', 'reviewed', 'regular_accepted', 'Leo', 'Fischer', '+14155550208', 22, 'Male', 'White', 'Carnegie Mellon University', 'United States', 'Bachelor''s', 2027, 2, 'Human-Computer Interaction', null, 'A gesture-based presenter remote.', 'To prototype quickly.', 'Latency is a feature.', null, 'Bus', 'Pittsburgh, PA', 'M', null, false, null, null, 'https://github.com/leo-local', null, null, true, false),
+  ('40000000-0000-4000-8000-000000000209', '40000000-0000-4000-8000-000000000109', 'pending', 'regular_accepted', 'Zara', 'Ali', '+14155550209', 20, 'Female', 'South Asian', 'University of Waterloo', 'Canada', 'Bachelor''s', 2028, 1, 'Software Engineering', null, 'A resume-to-portfolio generator.', 'To join an ambitious team.', 'Docs are part of the product.', null, 'Flying', 'Waterloo, ON', 'S', null, true, true, 'YYZ', 'https://github.com/zara-local', 'https://www.linkedin.com/in/zara-local', null, true, true),
+  ('40000000-0000-4000-8000-000000000210', '40000000-0000-4000-8000-000000000110', 'pending', 'regular_accepted', 'Theo', 'Novak', '+14155550210', 23, 'Male', 'White', 'Ohio State University', 'United States', 'Bachelor''s', 2026, 3, 'Mathematics', null, 'A pricing-model visualizer.', 'To find a good team.', 'Math should be visual.', null, 'Driving', 'Columbus, OH', 'L', null, false, null, null, 'https://github.com/theo-local', null, null, false, true),
+  ('40000000-0000-4000-8000-000000000211', '40000000-0000-4000-8000-000000000111', 'pending', 'regular_accepted', 'Kwame', 'Boateng', '+14155550211', 21, 'Male', 'Black or African American', 'University of Illinois Urbana-Champaign', 'United States', 'Bachelor''s', 2027, 0, 'Electrical Engineering', null, 'A smart power-strip monitor.', 'To find teammates.', 'Measure twice.', null, 'Train', 'Urbana, IL', 'M', null, false, null, null, 'https://github.com/kwame-local', null, null, false, true),
+  ('40000000-0000-4000-8000-000000000212', '40000000-0000-4000-8000-000000000112', 'reviewed', 'regular_accepted', 'Mia', 'Andersson', '+14155550212', 22, 'Female', 'White', 'University of Illinois Urbana-Champaign', 'United States', 'Bachelor''s', 2026, 2, 'Statistics', null, 'A dataset-quality linter.', 'To lead a small team.', 'Clean data first.', null, 'Driving', 'Champaign, IL', 'S', null, false, null, null, 'https://github.com/mia-local', 'https://www.linkedin.com/in/mia-local', null, true, true)
 on conflict (user_id) do update set
   status = excluded.status,
+  decision = excluded.decision,
   first_name = excluded.first_name,
   last_name = excluded.last_name;
 

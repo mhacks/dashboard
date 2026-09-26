@@ -267,6 +267,13 @@
       "when": 1790459179482,
       "tag": "20260926214619_mcp_rate_limiter",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790460073189,
+      "tag": "20260926220113_team_rename_requests",
+      "breakpoints": true
     }
   ]
 }

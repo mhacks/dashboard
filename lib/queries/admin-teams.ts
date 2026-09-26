@@ -21,7 +21,24 @@ function displayName(
 export async function getAllTeamsForAdmin(): Promise<AdminTeamSummary[]> {
   await requireOrganizer();
 
-  const teamRows = await db.select().from(teams).orderBy(desc(teams.createdAt));
+  const teamRows = await db
+    .select({
+      id: teams.id,
+      name: teams.name,
+      createdAt: teams.createdAt,
+      renameRequestedAt: teams.renameRequestedAt,
+      renameRequestReason: teams.renameRequestReason,
+      requesterEmail: users.email,
+      requesterFirstName: hackerApplicants.firstName,
+      requesterLastName: hackerApplicants.lastName,
+    })
+    .from(teams)
+    // Nullable, set-null-on-delete FK, same rationale as invitedByUserId in
+    // getMyPendingInvitations — a removed requester shouldn't erase the
+    // request itself.
+    .leftJoin(users, eq(users.id, teams.renameRequestedByUserId))
+    .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
+    .orderBy(desc(teams.createdAt));
 
   const memberRows = await db
     .select({
@@ -72,5 +89,14 @@ export async function getAllTeamsForAdmin(): Promise<AdminTeamSummary[]> {
     createdAt: team.createdAt,
     members: membersByTeamId.get(team.id) ?? [],
     pendingInviteCount: pendingCountByTeamId.get(team.id) ?? 0,
+    renameRequest: team.renameRequestedAt
+      ? {
+          requestedAt: team.renameRequestedAt,
+          reason: team.renameRequestReason,
+          requestedByName:
+            displayName(team.requesterFirstName, team.requesterLastName) ??
+            team.requesterEmail,
+        }
+      : null,
   }));
 }
