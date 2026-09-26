@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { linkDiscordAccount } from "@/lib/actions/discord-link.actions";
+import {
+  linkDiscordAccount,
+  unlinkDiscordAccount,
+} from "@/lib/actions/discord-link.actions";
 import { open } from "@/lib/discord/link-token";
 
 export type DiscordLinkResult =
@@ -51,10 +54,17 @@ export async function confirmDiscordLink(
   if (!outcome.ok) {
     return {
       ok: false,
-      error: `That Discord account is already linked to a different MHacks account. If that shouldn't be the case, ${CONTACT}.`,
+      error: `That Discord account is already linked to a different MHacks account. If that account is yours, sign in to it, unlink Discord at mhacks.org/account/connections, then try again. Otherwise, ${CONTACT}.`,
     };
   }
 
   revalidatePath("/account/connections");
   return { ok: true, discordUsername: opened.payload.u };
+}
+
+/** Unlinks the signed-in account's Discord, if it has one. */
+export async function unlinkDiscord(): Promise<void> {
+  const user = await requireSessionUser();
+  await unlinkDiscordAccount({ userId: user.id, userEmail: user.email });
+  revalidatePath("/account/connections");
 }

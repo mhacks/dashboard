@@ -151,6 +151,44 @@ export async function linkDiscordAccount(args: {
   }
 }
 
+/**
+ * Removes the caller's link, freeing the Discord account to be linked to a
+ * different MHacks account — the way out for someone who confirmed the link
+ * while signed in to the wrong one.
+ *
+ * Deleted and audited in one transaction for the same reason as the link. The
+ * Discord role already handed over stays; the bot never takes roles back.
+ */
+export async function unlinkDiscordAccount(args: {
+  userId: string;
+  userEmail: string;
+}): Promise<ExistingLink | null> {
+  const { userId, userEmail } = args;
+
+  return db.transaction(async (tx) => {
+    const [removed] = await tx
+      .delete(discordAccounts)
+      .where(eq(discordAccounts.userId, userId))
+      .returning({
+        discordUserId: discordAccounts.discordUserId,
+        discordUsername: discordAccounts.discordUsername,
+        verifiedAt: discordAccounts.verifiedAt,
+      });
+
+    if (!removed) return null;
+
+    await audit(tx, {
+      userId,
+      userEmail,
+      discordUserId: removed.discordUserId,
+      discordUsername: removed.discordUsername,
+      action: "unlinked",
+    });
+
+    return removed;
+  });
+}
+
 /** Records that a Discord role was actually handed over, closing the story. */
 export async function recordRoleGranted(args: {
   userId: string;
