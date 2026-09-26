@@ -50,7 +50,7 @@ export const discordAccounts = pgTable(
 
 /**
  * Append-only history of every Discord link: the first association, a
- * re-confirmation, a replacement, and a refused attempt. `discord_accounts`
+ * re-confirmation, a replacement, an unlink, and a refused attempt. `discord_accounts`
  * only ever holds the current state, so without this there is no way to answer
  * "who used to own this Discord account" after the fact.
  *
@@ -64,6 +64,7 @@ export const discordLinkAction = [
   "linked",
   "relinked",
   "replaced",
+  "unlinked",
   "link_refused",
   "role_granted",
 ] as const;
