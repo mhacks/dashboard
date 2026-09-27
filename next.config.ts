@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   allowedDevOrigins: ["172.16.0.49", "127.0.0.1"],
   output: "standalone",
+  serverExternalPackages: ["rate-limiter-flexible"],
   images: {
     // Prefer AVIF, fall back to WebP — smaller payloads at the same visual quality.
     formats: ["image/avif", "image/webp"],

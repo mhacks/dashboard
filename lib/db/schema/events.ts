@@ -1,8 +1,10 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   foreignKey,
   index,
+  integer,
   pgEnum,
   pgPolicy,
   pgTable,
@@ -44,6 +46,11 @@ export const events = pgTable(
     // can explicitly open those events to every account.
     requiresRsvp: boolean("requires_rsvp").default(true).notNull(),
 
+    // How many times one person may be scanned in. Almost always 1 — a door
+    // is walked through once. A meal with seconds, or a swag table that hands
+    // out one item per visit, sets this higher.
+    maxCheckins: integer("max_checkins").default(1).notNull(),
+
     // The switch that actually opens and closes a scanner, flipped by hand.
     // Events run late, and a door that stops working at 9:00pm sharp because
     // the clock passed ends_at is worse than one an organizer closes when the
@@ -67,6 +74,7 @@ export const events = pgTable(
       name: "events_created_by_fkey",
     }).onDelete("set null"),
     unique("events_slug_unique").on(table.slug),
+    check("events_max_checkins_positive", sql`${table.maxCheckins} >= 1`),
     pgPolicy("events_select_staff", {
       for: "select",
       to: authenticatedRole,
@@ -104,8 +112,9 @@ export const events = pgTable(
 export const checkinMethod = pgEnum("checkin_method", ["scan", "manual"]);
 
 /**
- * The attendance record: one row per person per event, and that is the whole
- * point of the table.
+ * The attendance record: one row per scan that let someone in. For most events
+ * that is one row per person per event; an event allowing repeat scans holds up
+ * to `events.max_checkins` rows for the same person, one per numbered slot.
  */
 export const eventCheckins = pgTable(
   "event_checkins",
@@ -123,6 +132,9 @@ export const eventCheckins = pgTable(
     // does not erase the fact that the hacker was checked in.
     checkedInBy: uuid("checked_in_by"),
     method: checkinMethod().default("scan").notNull(),
+    // Which of the event's allowed scans this is, 1-based. A scan claims the
+    // lowest free slot, so reverting one frees it up again.
+    scanNumber: integer("scan_number").default(1).notNull(),
   },
   (table) => [
     foreignKey({
@@ -143,8 +155,15 @@ export const eventCheckins = pgTable(
 
     // The entire duplicate guarantee, and the reason the check-in path inserts
     // with ON CONFLICT rather than reading first. Two volunteers scanning the
-    // same badge at the same instant both pass a SELECT; only one can win this.
-    unique("event_checkins_event_user_unique").on(table.eventId, table.userId),
+    // same badge at the same instant both pick the same free slot; only one
+    // can win this. The upper bound on the slot is events.max_checkins, which
+    // the check-in path and the insert policy below both enforce.
+    unique("event_checkins_event_user_scan_unique").on(
+      table.eventId,
+      table.userId,
+      table.scanNumber,
+    ),
+    check("event_checkins_scan_number_positive", sql`${table.scanNumber} >= 1`),
     // Rosters and the live counter are always "this event, newest first".
     index("event_checkins_event_time_idx").on(table.eventId, table.checkedInAt),
 
@@ -169,6 +188,11 @@ export const eventCheckins = pgTable(
       select 1 from public.events event
       where event.id = ${table.eventId} and not event.requires_rsvp
     )
+  )
+  and exists (
+    select 1 from public.events event
+    where event.id = ${table.eventId}
+      and ${table.scanNumber} <= event.max_checkins
   )
   and public.is_event_open(${table.eventId})`,
     }),

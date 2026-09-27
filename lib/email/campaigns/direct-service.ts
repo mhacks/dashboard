@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, lt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
@@ -39,6 +39,7 @@ const successfulTestProofWindowMs = 30 * 60 * 1000;
 const activeSendRecoveryWindowMs = 7 * 24 * 60 * 60 * 1000;
 const compactRunRetentionMs = 30 * 24 * 60 * 60 * 1000;
 const expiredTestProofRetentionMs = 60 * 60 * 1000;
+const maxTransientWorkerFailures = 5;
 
 interface ApprovedTestSend {
   templateFingerprint: string;
@@ -117,7 +118,177 @@ export async function sendDirectTestEmails(input: unknown) {
   };
 }
 
-export async function sendDirectBatch(input: unknown) {
+/**
+ * Persists a complete send job without delivering from the request itself.
+ * The caller can return immediately and run processDirectSendToCompletion in
+ * a server-owned background task.
+ */
+export async function startDirectSend(input: unknown) {
+  const { parsed, run } = await prepareDirectSend(input);
+  return sendRunStatus(run.id, parsed);
+}
+
+/**
+ * Continues a persisted run until SES has accepted every recipient or the run
+ * reaches a state that requires human review. This intentionally has no auth
+ * dependency: it is only called by a server-side task after an authenticated
+ * action has authorized the run.
+ */
+export async function processDirectSendToCompletion(runId: string) {
+  let transientFailures = 0;
+
+  for (let batch = 0; batch < 10_000; batch += 1) {
+    let status: Awaited<ReturnType<typeof processSendRun>>;
+    let previousCursor: number;
+
+    try {
+      const [run] = await db
+        .select()
+        .from(emailSendRuns)
+        .where(eq(emailSendRuns.id, runId))
+        .limit(1);
+
+      if (!run || run.status !== "sending") {
+        return;
+      }
+
+      previousCursor = run.nextCursor;
+      status = await processSendRun({
+        run,
+        cursor: run.nextCursor,
+        parsed: emptyParsedRecipients(),
+      });
+      transientFailures = 0;
+    } catch (error) {
+      // Campaign errors describe a run that needs human review; anything else
+      // (a slow or dropped database connection) is retried with backoff so a
+      // blip does not strand the run.
+      if (
+        error instanceof EmailCampaignError ||
+        transientFailures >= maxTransientWorkerFailures
+      ) {
+        throw error;
+      }
+
+      transientFailures += 1;
+      await sleep(Math.min(30_000, 1_000 * 2 ** transientFailures));
+      continue;
+    }
+
+    if (
+      status.complete ||
+      status.paused ||
+      status.interrupted ||
+      status.leaseActive ||
+      !status.resumable ||
+      status.nextCursor === previousCursor
+    ) {
+      return;
+    }
+  }
+
+  throw new EmailCampaignError(
+    "Server email worker exceeded its safety limit",
+    500,
+  );
+}
+
+/**
+ * Re-queues every unpaused run that no worker currently holds. Runs on server
+ * start and on a timer so a deploy or crashed worker does not strand a send.
+ */
+export async function processIdleDirectSends() {
+  await pruneExpiredSendData();
+  const now = new Date().toISOString();
+  const idleRuns = await db
+    .select({ id: emailSendRuns.id })
+    .from(emailSendRuns)
+    .where(
+      and(
+        eq(emailSendRuns.status, "sending"),
+        isNull(emailSendRuns.pausedAt),
+        or(
+          isNull(emailSendRuns.leaseExpiresAt),
+          lt(emailSendRuns.leaseExpiresAt, now),
+        ),
+      ),
+    )
+    .orderBy(asc(emailSendRuns.updatedAt));
+
+  for (const run of idleRuns) {
+    try {
+      const status = await sendRunStatus(run.id, emptyParsedRecipients());
+      if (!status.resumable || status.interrupted) {
+        continue;
+      }
+      await processDirectSendToCompletion(run.id);
+    } catch (error) {
+      console.error("Idle email send sweep stopped", {
+        runId: run.id,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+}
+
+export async function getDirectSendStatus(input: unknown) {
+  await requireOrganizer();
+  const body = directRecoverySendSchema.pick({ runId: true }).parse(input);
+  const run = await getSendRunForAdmin(body.runId);
+
+  return sendRunStatus(run.id, emptyParsedRecipients());
+}
+
+export async function resumeDirectSend(input: unknown) {
+  await requireOrganizer();
+  await pruneExpiredSendData();
+  const body = directRecoverySendSchema.pick({ runId: true }).parse(input);
+  const run = await getSendRunForAdmin(body.runId);
+
+  if (run.status !== "sending") {
+    return sendRunStatus(run.id, emptyParsedRecipients());
+  }
+
+  const status = await sendRunStatus(run.id, emptyParsedRecipients());
+  if (!status.resumable) {
+    throw new EmailCampaignError(
+      status.recoveryIssue ?? "Stored send cannot be resumed safely.",
+      409,
+    );
+  }
+
+  if (!run.pausedAt) {
+    return status;
+  }
+
+  await db
+    .update(emailSendRuns)
+    .set({ pausedAt: null, updatedAt: new Date().toISOString() })
+    .where(eq(emailSendRuns.id, run.id));
+
+  return sendRunStatus(run.id, emptyParsedRecipients());
+}
+
+export async function pauseDirectSend(input: unknown) {
+  await requireOrganizer();
+  await pruneExpiredSendData();
+  const body = directRecoverySendSchema.pick({ runId: true }).parse(input);
+  const run = await getSendRunForAdmin(body.runId);
+
+  if (run.status !== "sending") {
+    return sendRunStatus(run.id, emptyParsedRecipients());
+  }
+
+  const now = new Date().toISOString();
+  await db
+    .update(emailSendRuns)
+    .set({ pausedAt: run.pausedAt ?? now, updatedAt: now })
+    .where(eq(emailSendRuns.id, run.id));
+
+  return sendRunStatus(run.id, emptyParsedRecipients());
+}
+
+async function prepareDirectSend(input: unknown) {
   const organizer = await requireOrganizer();
   await pruneExpiredSendData();
   const body = directBatchSendSchema.parse(input);
@@ -156,19 +327,7 @@ export async function sendDirectBatch(input: unknown) {
     testSendToken: body.testSendToken,
   });
 
-  if (body.resolveInterrupted) {
-    await resolveInterruptedDeliveries({
-      run,
-    });
-    return sendRunStatus(run.id, parsed);
-  }
-
-  return processSendRun({
-    run,
-    cursor: body.cursor,
-    parsed,
-    fallbackTemplate: body.template,
-  });
+  return { parsed, run };
 }
 
 export async function listRecoverableDirectSends() {
@@ -195,13 +354,9 @@ export async function recoverDirectSend(input: unknown) {
   await requireOrganizer();
   await pruneExpiredSendData();
   const body = directRecoverySendSchema.parse(input);
-  const [run] = await db
-    .select()
-    .from(emailSendRuns)
-    .where(eq(emailSendRuns.id, body.runId))
-    .limit(1);
+  const run = await getSendRunForAdmin(body.runId);
 
-  if (!run || run.status !== "sending") {
+  if (run.status !== "sending") {
     throw new EmailCampaignError("Recoverable send run not found", 404);
   }
 
@@ -217,19 +372,31 @@ export async function recoverDirectSend(input: unknown) {
   });
 }
 
+async function getSendRunForAdmin(runId: string) {
+  const [run] = await db
+    .select()
+    .from(emailSendRuns)
+    .where(eq(emailSendRuns.id, runId))
+    .limit(1);
+
+  if (!run) {
+    throw new EmailCampaignError("Send run not found", 404);
+  }
+
+  return run;
+}
+
 async function processSendRun({
   run,
   cursor,
   parsed,
-  fallbackTemplate,
 }: {
   run: EmailSendRunRow;
   cursor: number;
   parsed: ReturnType<typeof parseRecipientText>;
-  fallbackTemplate?: DirectEmailTemplateInput;
 }) {
   const limits = getCampaignLimits();
-  const template = run.templateSnapshot ?? fallbackTemplate;
+  const template = run.templateSnapshot;
   if (!template) {
     throw new EmailCampaignError(
       "This send is missing its stored template and cannot be resumed safely.",
@@ -249,6 +416,42 @@ async function processSendRun({
     return lease.status;
   }
 
+  try {
+    await deliverLeasedBatch({ run, campaign, lease, limits });
+  } catch (error) {
+    // Hand the lease back so a retry or another worker can continue at once
+    // instead of waiting for the lease to expire. The release itself may hit
+    // the same outage, so keep trying for a while before giving up on it.
+    for (let attempt = 1; attempt <= maxTransientWorkerFailures; attempt += 1) {
+      try {
+        await releaseSendLease({ runId: run.id, leaseToken: lease.leaseToken });
+        break;
+      } catch {
+        await sleep(Math.min(30_000, 1_000 * 2 ** attempt));
+      }
+    }
+    throw error;
+  }
+
+  await releaseSendLease({
+    runId: run.id,
+    leaseToken: lease.leaseToken,
+  });
+
+  return sendRunStatus(run.id, parsed);
+}
+
+async function deliverLeasedBatch({
+  run,
+  campaign,
+  lease,
+  limits,
+}: {
+  run: EmailSendRunRow;
+  campaign: ReturnType<typeof campaignLikeFromDirectTemplate>;
+  lease: { leaseToken: string; deliveries: EmailSendDeliveryRow[] };
+  limits: ReturnType<typeof getCampaignLimits>;
+}) {
   for (const delivery of lease.deliveries) {
     const claimed = await markDeliverySending({
       runId: run.id,
@@ -273,13 +476,6 @@ async function processSendRun({
     });
     await sleep(limits.sendDelayMs);
   }
-
-  await releaseSendLease({
-    runId: run.id,
-    leaseToken: lease.leaseToken,
-  });
-
-  return sendRunStatus(run.id, parsed);
 }
 
 function emptyParsedRecipients(): ReturnType<typeof parseRecipientText> {
@@ -293,7 +489,7 @@ function emptyParsedRecipients(): ReturnType<typeof parseRecipientText> {
 }
 
 export async function findActiveDirectSend(input: unknown) {
-  const organizer = await requireOrganizer();
+  await requireOrganizer();
   await pruneExpiredSendData();
   const body = directBatchSendSchema
     .pick({ template: true, recipients: true })
@@ -311,7 +507,6 @@ export async function findActiveDirectSend(input: unknown) {
     .from(emailSendRuns)
     .where(
       and(
-        eq(emailSendRuns.organizerId, organizer.id),
         eq(emailSendRuns.templateFingerprint, templateFingerprint),
         eq(emailSendRuns.recipientListHash, recipientListHash),
         eq(emailSendRuns.status, "sending"),
@@ -360,7 +555,6 @@ async function resolveOrCreateSendRun({
 
     if (requestedRun) {
       assertRunIdentity(requestedRun, {
-        organizerId: organizer.id,
         templateFingerprint,
         recipientListHash,
         totalRecipients: recipients.length,
@@ -381,7 +575,6 @@ async function resolveOrCreateSendRun({
       .from(emailSendRuns)
       .where(
         and(
-          eq(emailSendRuns.organizerId, organizer.id),
           eq(emailSendRuns.templateFingerprint, templateFingerprint),
           eq(emailSendRuns.recipientListHash, recipientListHash),
           eq(emailSendRuns.status, "sending"),
@@ -399,7 +592,6 @@ async function resolveOrCreateSendRun({
       .from(emailSendRuns)
       .where(
         and(
-          eq(emailSendRuns.organizerId, organizer.id),
           eq(emailSendRuns.templateFingerprint, templateFingerprint),
           eq(emailSendRuns.recipientListHash, recipientListHash),
           inArray(emailSendRuns.status, ["expired", "superseded"]),
@@ -463,7 +655,6 @@ async function resolveOrCreateSendRun({
       .from(emailSendRuns)
       .where(
         and(
-          eq(emailSendRuns.organizerId, organizer.id),
           eq(emailSendRuns.templateFingerprint, templateFingerprint),
           eq(emailSendRuns.recipientListHash, recipientListHash),
           eq(emailSendRuns.status, "sending"),
@@ -482,14 +673,12 @@ async function resolveOrCreateSendRun({
 function assertRunIdentity(
   run: typeof emailSendRuns.$inferSelect,
   expected: {
-    organizerId: string;
     templateFingerprint: string;
     recipientListHash: string;
     totalRecipients: number;
   },
 ) {
   if (
-    run.organizerId !== expected.organizerId ||
     run.templateFingerprint !== expected.templateFingerprint ||
     run.recipientListHash !== expected.recipientListHash ||
     run.totalRecipients !== expected.totalRecipients
@@ -555,7 +744,11 @@ async function claimSendLease({
       return { status: currentStatus, leaseToken: null, deliveries: [] };
     }
 
-    if (currentStatus.interrupted || leaseIsActive(run)) {
+    if (
+      currentStatus.paused ||
+      currentStatus.interrupted ||
+      leaseIsActive(run)
+    ) {
       return { status: currentStatus, leaseToken: null, deliveries: [] };
     }
 
@@ -609,7 +802,12 @@ async function markDeliverySending({
       .limit(1)
       .for("update");
 
-    if (!run || run.status !== "sending" || run.leaseToken !== leaseToken) {
+    if (
+      !run ||
+      run.status !== "sending" ||
+      run.pausedAt ||
+      run.leaseToken !== leaseToken
+    ) {
       return false;
     }
 
@@ -877,6 +1075,7 @@ function buildSendRunStatus(
   parsed: ReturnType<typeof parseRecipientText>,
 ) {
   const complete = run.status === "sent" || run.status === "failed";
+  const paused = !complete && Boolean(run.pausedAt);
   const activeLease = !complete && leaseIsActive(run);
   const activelySending = deliveries.filter(
     (delivery) => delivery.status === "sending",
@@ -909,6 +1108,8 @@ function buildSendRunStatus(
     leaseExpiresAt: activeLease ? run.leaseExpiresAt : null,
     nextCursor,
     complete,
+    paused,
+    pausedAt: paused ? run.pausedAt : null,
     resumable: recoveryIssue === null,
     recoveryIssue,
     interrupted: interruptedRecipients.length > 0,
@@ -979,6 +1180,7 @@ async function finalizeRun(
       templateSnapshot: null,
       leaseToken: null,
       leaseExpiresAt: null,
+      pausedAt: null,
       recoveryExpiresAt: null,
       updatedAt: now,
       completedAt: now,
@@ -1001,6 +1203,7 @@ async function finalizeRun(
       templateSnapshot: null,
       leaseToken: null,
       leaseExpiresAt: null,
+      pausedAt: null,
       recoveryExpiresAt: null,
       updatedAt: now,
       completedAt: now,
@@ -1059,6 +1262,7 @@ async function pruneExpiredSendData() {
           recentFailures: [],
           leaseToken: null,
           leaseExpiresAt: null,
+          pausedAt: null,
           recoveryExpiresAt: null,
           updatedAt: now,
           completedAt: now,

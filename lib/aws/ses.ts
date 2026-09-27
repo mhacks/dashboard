@@ -1,3 +1,5 @@
+import "server-only";
+
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import type SESTransport from "nodemailer/lib/ses-transport";

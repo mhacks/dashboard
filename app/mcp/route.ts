@@ -11,7 +11,6 @@ import {
   PostHogMCPAnalyticsProperty,
   type BeforeSendFn,
 } from "@posthog/mcp";
-import { RateLimiterMemory } from "rate-limiter-flexible";
 import { z } from "zod";
 import {
   baseApplicationSchema,
@@ -31,6 +30,7 @@ import { getPostHogClient } from "@/lib/posthog-server";
 import { getApplicationRound } from "@/lib/types/application-reviews";
 import { APPLICATION_CLOSE_ISO } from "@/lib/applications/deadline";
 import { getApplicationAccessForUser } from "@/lib/applications/access";
+import { mcpRateLimitMessage } from "@/lib/mcp/rate-limit";
 
 // The verified token's identity is attached by withMcpAuth and surfaced to tool
 // callbacks as `extra.authInfo`.
@@ -100,50 +100,6 @@ function errorText(text: string) {
     isError: true,
     content: [{ type: "text" as const, text }],
   };
-}
-
-// Best-effort, per-instance rate limiting, applied to every tool that reads
-// or writes user data (whoami, apply_get_draft, apply_save_draft,
-// apply_submit, apply_status, apply_get_resume_upload_url) — not just the
-// two write tools this used to cover. Not distributed: this app runs on AWS
-// ECS Fargate (task-definition.json), and RateLimiterMemory keeps its counters
-// in this process's own memory, so each running task has its own independent
-// counter. If the service ever runs more than one task, the effective
-// per-user limit is (points × task count), not the number below — this repo
-// doesn't define desiredCount/autoscaling, so that's worth confirming
-// directly against the actual ECS service config rather than assumed. This
-// blunts naive agent retry loops rather than being an airtight guard; if real
-// abuse shows up, add an ALB/WAF rate-based rule in front of this route (or
-// move to a shared store, e.g. RateLimiterPostgres) instead of hardening this
-// further.
-//
-// One RateLimiterMemory instance per tool (rather than one shared instance
-// keyed by `${tool}:${userId}`) so each tool's points/duration are just
-// config, not string-built keys — and so the library's own internal key
-// expiry (rather than a hand-rolled Map that never shrinks) is what reclaims
-// memory for users who stop calling a given tool.
-const RATE_LIMITERS = {
-  whoami: new RateLimiterMemory({ points: 30, duration: 60 }),
-  get_draft: new RateLimiterMemory({ points: 30, duration: 60 }),
-  save_draft: new RateLimiterMemory({ points: 20, duration: 60 }),
-  submit: new RateLimiterMemory({ points: 5, duration: 60 }),
-  status: new RateLimiterMemory({ points: 30, duration: 60 }),
-  resume_upload_url: new RateLimiterMemory({ points: 10, duration: 60 }),
-} as const;
-
-// RateLimiterMemory has no I/O of its own, so the only way `.consume()` ever
-// rejects is "no points left" (a RateLimiterRes, not an Error) — safe to
-// collapse to a plain boolean here.
-async function checkRateLimit(
-  limiter: RateLimiterMemory,
-  key: string,
-): Promise<boolean> {
-  try {
-    await limiter.consume(key);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 const CURRENT_APPLICATION_ROUND = getApplicationRound(new Date().toISOString());
@@ -270,11 +226,8 @@ const baseHandler = createMcpHandler(
       async (_input, extra) => {
         const authInfo = (extra as ToolExtra)?.authInfo;
         const userId = requireUserId(extra as ToolExtra);
-        if (!(await checkRateLimit(RATE_LIMITERS.whoami, userId))) {
-          return errorText(
-            "Too many requests in the last minute — wait a bit before trying again.",
-          );
-        }
+        const rateLimited = await mcpRateLimitMessage("whoami", userId);
+        if (rateLimited) return errorText(rateLimited);
         await assertSessionActive(extra as ToolExtra);
         return jsonText({
           userId,
@@ -312,11 +265,8 @@ const baseHandler = createMcpHandler(
       },
       async (_input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
-        if (!(await checkRateLimit(RATE_LIMITERS.get_draft, userId))) {
-          return errorText(
-            "Too many requests in the last minute — wait a bit before trying again.",
-          );
-        }
+        const rateLimited = await mcpRateLimitMessage("get_draft", userId);
+        if (rateLimited) return errorText(rateLimited);
         await assertSessionActive(extra as ToolExtra);
         const storedDraft = await getDraftForUser(userId);
         const draft =
@@ -348,11 +298,8 @@ const baseHandler = createMcpHandler(
       },
       async (input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
-        if (!(await checkRateLimit(RATE_LIMITERS.save_draft, userId))) {
-          return errorText(
-            "Too many draft saves in the last minute — wait a bit before checkpointing again.",
-          );
-        }
+        const rateLimited = await mcpRateLimitMessage("save_draft", userId);
+        if (rateLimited) return errorText(rateLimited);
         await assertSessionActive(extra as ToolExtra);
         if (!(await getApplicationAccessForUser({ userId })).open) {
           return errorText("Applications are closed");
@@ -381,11 +328,8 @@ const baseHandler = createMcpHandler(
       },
       async (input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
-        if (!(await checkRateLimit(RATE_LIMITERS.submit, userId))) {
-          return errorText(
-            "Too many submit attempts in the last minute — wait a bit before trying again.",
-          );
-        }
+        const rateLimited = await mcpRateLimitMessage("submit", userId);
+        if (rateLimited) return errorText(rateLimited);
         await assertSessionActive(extra as ToolExtra);
         // Check for an existing application before doing anything else — no
         // point validating input, or walking the user through MLH consent,
@@ -487,11 +431,8 @@ const baseHandler = createMcpHandler(
       },
       async (_input, extra) => {
         const userId = requireUserId(extra as ToolExtra);
-        if (!(await checkRateLimit(RATE_LIMITERS.status, userId))) {
-          return errorText(
-            "Too many requests in the last minute — wait a bit before trying again.",
-          );
-        }
+        const rateLimited = await mcpRateLimitMessage("status", userId);
+        if (rateLimited) return errorText(rateLimited);
         await assertSessionActive(extra as ToolExtra);
         const row = await getApplicationStatusForUser(userId);
         const applicationAccess = await getApplicationAccessForUser({ userId });
@@ -536,11 +477,11 @@ const baseHandler = createMcpHandler(
       },
       async ({ fileSizeBytes }, extra) => {
         const userId = requireUserId(extra as ToolExtra);
-        if (!(await checkRateLimit(RATE_LIMITERS.resume_upload_url, userId))) {
-          return errorText(
-            "Too many upload URL requests in the last minute — wait a bit before trying again.",
-          );
-        }
+        const rateLimited = await mcpRateLimitMessage(
+          "resume_upload_url",
+          userId,
+        );
+        if (rateLimited) return errorText(rateLimited);
         await assertSessionActive(extra as ToolExtra);
         if (!(await getApplicationAccessForUser({ userId })).open) {
           return errorText("Applications are closed");

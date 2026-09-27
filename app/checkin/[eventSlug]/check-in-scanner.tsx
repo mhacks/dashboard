@@ -15,6 +15,8 @@ import { checkInAttendeeAction } from "@/lib/actions/check-in.server.actions";
 import { signalScan, unlockFeedbackAudio } from "@/lib/checkin/feedback";
 import {
   countsAsCheckIn,
+  countsAsScan,
+  describeScanCount,
   OUTCOME_HEADLINE,
   OUTCOME_SEVERITY,
 } from "@/lib/checkin/outcomes";
@@ -50,17 +52,22 @@ export function CheckInScanner({
   slug,
   eventName,
   requiresRsvp,
+  maxCheckins,
   initialCheckedInCount,
+  initialScanCount,
 }: {
   slug: string;
   eventName: string;
   requiresRsvp: boolean;
+  maxCheckins: number;
   initialCheckedInCount: number;
+  initialScanCount: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "ready" });
   const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
   const [checkedInCount, setCheckedInCount] = useState(initialCheckedInCount);
+  const [scanCount, setScanCount] = useState(initialScanCount);
   const [isOffline, setIsOffline] = useState(false);
   const [isSlow, setIsSlow] = useState(false);
 
@@ -77,7 +84,10 @@ export function CheckInScanner({
         {
           id: scanId,
           name: result.attendee?.name ?? "Unrecognised code",
-          headline: OUTCOME_HEADLINE[result.outcome],
+          headline:
+            (result.ok
+              ? describeScanCount(result.scanNumber, result.event.maxCheckins)
+              : null) ?? OUTCOME_HEADLINE[result.outcome],
           severity,
           at: new Date().toLocaleTimeString([], {
             hour: "numeric",
@@ -88,11 +98,14 @@ export function CheckInScanner({
       ].slice(0, HISTORY_LIMIT),
     );
 
-    // Only a genuine arrival moves the total. An unrecognised code or a
-    // duplicate is a scan, not a person, and belongs in the list above rather
-    // than in this number.
-    if (countsAsCheckIn(result.outcome)) {
+    // Only a genuine arrival moves the total. An unrecognised code, a
+    // duplicate or a repeat scan is a scan, not a new person, and belongs in
+    // the list above rather than in this number.
+    if (countsAsCheckIn(result)) {
       setCheckedInCount((count) => count + 1);
+    }
+    if (countsAsScan(result)) {
+      setScanCount((count) => count + 1);
     }
     setPhase({ kind: "result", result });
   }, []);
@@ -222,6 +235,13 @@ export function CheckInScanner({
         </p>
       ) : null}
 
+      {maxCheckins > 1 ? (
+        <p className="border border-sky-500/50 bg-sky-50 px-3 py-2 text-center font-red-hat-mono text-[11.5px] tracking-[0.06em] text-sky-900">
+          Repeat event — each person can be scanned in up to {maxCheckins}{" "}
+          times.
+        </p>
+      ) : null}
+
       {isOffline ? (
         // navigator.onLine lies about captive portals, so this is advisory —
         // but it turns a confusing hang into an explanation.
@@ -281,12 +301,15 @@ export function CheckInScanner({
       <ScanHistory
         entries={history}
         checkedInCount={checkedInCount}
+        // Only worth a line where it can differ from the people count.
+        scanCount={maxCheckins > 1 ? scanCount : null}
         eventName={eventName}
       />
 
       <ManualEntry
         slug={slug}
         requiresRsvp={requiresRsvp}
+        maxCheckins={maxCheckins}
         // A pending network error is an unfinished scan, not a dead end. Retry
         // above resends its scan id, so the server replays whatever it did
         // record rather than acting twice — and a request that failed on the

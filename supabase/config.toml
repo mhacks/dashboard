@@ -10,7 +10,12 @@ project_id = "dashboard"
 enabled = true
 smtp_port = 54325
 
+# PostgREST / auto-generated REST endpoints. The app reads and writes via Drizzle
+# (DATABASE_URL); Auth, Realtime, and OAuth still use the Supabase API gateway.
+# Before setting enabled = true, undo the empty-schema override from migration
+# 20260926213920_pgrst_empty_schema.sql (see its header).
 [api]
+enabled = false
 schemas = ["public"]
 
 [auth]
@@ -71,6 +76,7 @@ sql_paths = [
   "./seeds/reservation-demo.sql",
   "./seeds/explicit-status-reimbursement-demo.sql",
   "./seeds/team-invites-demo.sql",
+  "./seeds/teams-demo.sql",
   "./seeds/broadcast-demo.sql",
   "./seeds/live-site-demo.sql",
 ]

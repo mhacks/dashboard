@@ -197,6 +197,90 @@
       "when": 1790281843127,
       "tag": "20260924203043_table_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790367692512,
+      "tag": "20260925202132_discord_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790367724967,
+      "tag": "20260925202204_discord_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790368329896,
+      "tag": "20260925203209_discord_verification_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790368357437,
+      "tag": "20260925203237_discord_verification_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790396350267,
+      "tag": "20260926041910_drop_discord_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790400408759,
+      "tag": "20260926052648_discord_link_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790400900000,
+      "tag": "20260926053500_drop_discord_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790456792104,
+      "tag": "20260926210632_event_max_checkins",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790458760878,
+      "tag": "20260926213920_pgrst_empty_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790459179482,
+      "tag": "20260926214619_mcp_rate_limiter",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790460073189,
+      "tag": "20260926220113_team_rename_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790463222766,
+      "tag": "20260926225342_email_send_runs_pause",
+      "breakpoints": true
     }
   ]
 }

@@ -1,15 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireOrganizer } from "@/lib/auth/guards";
 import {
   findActiveDirectSend,
+  getDirectSendStatus,
   listRecoverableDirectSends,
   parseDirectRecipients,
+  pauseDirectSend,
+  processDirectSendToCompletion,
   recoverDirectSend,
-  sendDirectBatch,
+  resumeDirectSend,
   sendDirectTestEmails,
   sendOneDirectEmail,
+  startDirectSend,
 } from "@/lib/email/campaigns/direct-service";
 import { resolveEmailAudience } from "@/lib/email/campaigns/audience-service";
 import { renderEmailPreview } from "@/lib/email/render";
@@ -71,7 +76,31 @@ export async function listRecoverableDirectSendsAction() {
 }
 
 export async function recoverDirectSendAction(input: unknown) {
-  return recoverDirectSend(input);
+  const status = await recoverDirectSend(input);
+  queueDirectSendWorker(status.runId);
+  return status;
+}
+
+export async function startDirectSendAction(input: unknown) {
+  const status = await startDirectSend(input);
+  queueDirectSendWorker(status.runId);
+  return status;
+}
+
+export async function resumeDirectSendAction(input: unknown) {
+  const status = await resumeDirectSend(input);
+  if (!status.complete) {
+    queueDirectSendWorker(status.runId);
+  }
+  return status;
+}
+
+export async function pauseDirectSendAction(input: unknown) {
+  return pauseDirectSend(input);
+}
+
+export async function getDirectSendStatusAction(input: unknown) {
+  return getDirectSendStatus(input);
 }
 
 export async function resolveEmailAudienceAction(input: unknown) {
@@ -104,10 +133,6 @@ export async function sendDirectTestEmailsAction(input: unknown) {
   };
 }
 
-export async function sendDirectBatchAction(input: unknown) {
-  return sendDirectBatch(input);
-}
-
 function redactEmailAddresses(value: string | null) {
   return (
     value?.replace(
@@ -115,4 +140,17 @@ function redactEmailAddresses(value: string | null) {
       "[test recipient]",
     ) ?? null
   );
+}
+
+function queueDirectSendWorker(runId: string) {
+  after(async () => {
+    try {
+      await processDirectSendToCompletion(runId);
+    } catch (error) {
+      console.error("Server email worker stopped", {
+        runId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
 }
