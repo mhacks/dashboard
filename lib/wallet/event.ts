@@ -42,3 +42,25 @@ export const WALLET_EVENT = {
 } as const;
 
 export const WALLET_EVENT_END_MS = Date.parse(WALLET_EVENT.endsAt);
+
+/** Attendee-facing copy shared by the Apple and Google Wallet passes. */
+export const WALLET_PASS_COPY = {
+  date: { label: "Date", value: "October 3-4th" },
+  attendee: { label: "Name", fallback: "Hacker" },
+  checkingIn: {
+    label: "Checking in",
+    value: `Initial check-in is at CCCB starting at 9:00 AM. Late check-in is in the ${WALLET_EVENT.lateCheckIn}. Bring a photo ID and show this QR code to event staff. Turn your brightness up if it won't scan.`,
+  },
+  venue: { label: "Venue", value: WALLET_EVENT.venue },
+  handbook: {
+    label: "Hacker handbook",
+    value: WALLET_EVENT.handbookUrl,
+  },
+  website: { label: "Website", value: WALLET_EVENT.webOrigin },
+  fallbackLabel: "Can't open this pass?",
+  support: { label: "Questions", value: WALLET_EVENT.supportEmail },
+} as const;
+
+export function walletFallbackText(origin: string) {
+  return `Your code is also at ${origin}/dashboard/qr`;
+}
