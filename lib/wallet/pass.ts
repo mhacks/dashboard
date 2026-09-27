@@ -19,9 +19,13 @@ const IMAGE_FILES = [
   "icon@3x.png",
   "logo.png",
   "logo@2x.png",
-  "strip.png",
-  "strip@2x.png",
-  "strip@3x.png",
+  "logo@3x.png",
+  "thumbnail.png",
+  "thumbnail@2x.png",
+  "thumbnail@3x.png",
+  "background.png",
+  "background@2x.png",
+  "background@3x.png",
 ] as const;
 
 let imageBuffers: Promise<Record<string, Buffer>> | null = null;
@@ -72,30 +76,28 @@ export async function buildCheckInPass({
     // instead of stacking a second copy beside it.
     serialNumber: userId,
     organizationName: "MHacks",
-    description: `${WALLET_EVENT.name} check-in pass`,
-    // The sky ticket theme in lib/pass/themes.ts, on its paper stock.
-    backgroundColor: "rgb(240, 247, 250)",
-    foregroundColor: "rgb(20, 58, 74)",
-    labelColor: "rgb(74, 125, 146)",
+    description: `${WALLET_EVENT.name} Ticket`,
+    // The "MHacks Check In" Pass Designer template. The colour shows while
+    // the blurred background image loads and wherever Wallet can't draw it.
+    backgroundColor: "rgb(56, 108, 54)",
+    foregroundColor: "rgb(255, 255, 255)",
+    labelColor: "rgb(254, 255, 255)",
     // Advisory only — Wallet hides the share button, nothing more.
     sharingProhibited: true,
     // Pre-iOS 18 devices ignore relevantDates and read this instead.
     relevantDate: WALLET_EVENT.relevantIntervals[0].startDate,
-    logoText: WALLET_EVENT.name,
+    logoText: "MHacks",
     eventTicket: {
-      // No primary field: it would be drawn over the sky strip in the navy
-      // foreground colour and barely read. Everything sits below the strip.
-      secondaryFields: [
-        { key: "attendee", label: "HACKER", value: attendee || "Hacker" },
-      ],
-      auxiliaryFields: [
-        { key: "checkin", label: "INITIAL CHECK-IN", value: "CCCB" },
+      headerFields: [
         {
-          key: "doors",
-          label: "DOORS OPEN",
+          key: "startTime",
+          label: WALLET_EVENT.doorsOpenDay,
           value: WALLET_EVENT.doorsOpenTime,
         },
-        { key: "dates", label: "DATES", value: WALLET_EVENT.dates },
+      ],
+      primaryFields: [{ key: "dates", label: "Date", value: "October 3-4th" }],
+      secondaryFields: [
+        { key: "attendee", label: "Name", value: attendee || "Hacker" },
       ],
       backFields: [
         {
@@ -104,6 +106,11 @@ export async function buildCheckInPass({
           value: `Initial check-in is at CCCB starting at 9:00 AM. Late check-in is in the ${WALLET_EVENT.lateCheckIn}. Bring a photo ID and show this QR code to event staff. Turn your brightness up if it won't scan.`,
         },
         { key: "venue", label: "Venue", value: WALLET_EVENT.venue },
+        {
+          key: "handbook",
+          label: "Hacker handbook",
+          value: WALLET_EVENT.handbookUrl,
+        },
         {
           key: "website",
           label: "Website",
@@ -143,6 +150,15 @@ export async function buildCheckInPass({
     ...WALLET_EVENT.location,
     relevantText: `Welcome to ${WALLET_EVENT.name}`,
   });
+  // iOS 27+ shows this as a button on the front; the back field above covers
+  // older devices.
+  pass.featuredActions = [
+    {
+      identifier: "Handbook",
+      type: "viewSchedule",
+      url: WALLET_EVENT.handbookUrl,
+    },
+  ];
   pass.setExpirationDate(new Date(WALLET_EVENT.endsAt));
 
   return pass.getAsBuffer();
