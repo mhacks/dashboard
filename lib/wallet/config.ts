@@ -3,6 +3,8 @@ import "server-only";
 import { createPrivateKey, X509Certificate } from "node:crypto";
 import { z } from "zod";
 
+import { memoizedWalletConfig } from "@/lib/wallet/memoized-config";
+
 /**
  * Apple Wallet signing material. The PEMs are stored base64-encoded so each
  * one fits in a single SSM parameter / .env line:
@@ -16,10 +18,9 @@ const walletEnvSchema = z.object({
   APPLE_WALLET_SIGNER_KEY: z.string().min(1),
   APPLE_WALLET_SIGNER_KEY_PASSPHRASE: z.string().optional(),
   APPLE_WALLET_WWDR_CERT: z.string().min(1),
-  WALLET_LINK_SECRET: z.string().min(32),
 });
 
-export type WalletConfig = {
+export type AppleWalletConfig = {
   passTypeIdentifier: string;
   teamIdentifier: string;
   certificates: {
@@ -28,7 +29,6 @@ export type WalletConfig = {
     signerKeyPassphrase?: string;
     wwdr: string;
   };
-  linkSecret: string;
 };
 
 function decodePem(name: string, value: string) {
@@ -57,15 +57,12 @@ function parseCertificate(name: string, value: string) {
   return pem;
 }
 
-let cached: WalletConfig | null = null;
-let cachedError: Error | null = null;
-
 /**
  * Parses and validates every Wallet variable, including that the PEMs decode
  * and the key opens with its passphrase, so a bad value fails here rather than
- * at signing time. Env vars are fixed for the process, so the result is cached.
+ * at signing time.
  */
-function loadWalletConfig(): WalletConfig {
+function loadWalletConfig(): AppleWalletConfig {
   const parsed = walletEnvSchema.safeParse(process.env);
   if (!parsed.success) {
     const missing = parsed.error.issues.map((issue) => issue.path.join("."));
@@ -113,42 +110,21 @@ function loadWalletConfig(): WalletConfig {
         env.APPLE_WALLET_WWDR_CERT,
       ),
     },
-    linkSecret: env.WALLET_LINK_SECRET,
   };
 }
 
-/** Throws when Wallet is missing or misconfigured — callers gate on isWalletConfigured(). */
-export function getWalletConfig(): WalletConfig {
-  if (cached) return cached;
-  if (cachedError) throw cachedError;
+const appleWalletConfig = memoizedWalletConfig(
+  "Apple Wallet",
+  Object.keys(walletEnvSchema.shape),
+  loadWalletConfig,
+);
 
-  try {
-    cached = loadWalletConfig();
-    return cached;
-  } catch (error) {
-    cachedError = error instanceof Error ? error : new Error(String(error));
-    throw cachedError;
-  }
-}
+/** Throws when Apple Wallet is missing or misconfigured. */
+export const getAppleWalletConfig = appleWalletConfig.get;
 
 /**
  * Environments without certificates (most local setups) hide every Wallet
  * entry point rather than offering a button that can only fail. Unusable
  * values (a raw PEM, a bad passphrase) hide them too, and are logged once.
  */
-export function isWalletConfigured() {
-  if (cached) return true;
-  if (cachedError) return false;
-
-  try {
-    getWalletConfig();
-    return true;
-  } catch (error) {
-    // Missing vars are the expected local setup; anything else is a real
-    // misconfiguration someone should see.
-    if (walletEnvSchema.safeParse(process.env).success) {
-      console.error("[wallet] Apple Wallet disabled:", error);
-    }
-    return false;
-  }
-}
+export const isAppleWalletConfigured = appleWalletConfig.isConfigured;

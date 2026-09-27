@@ -10,6 +10,8 @@ export const WALLET_EVENT = {
   name: "MHacks 2026",
   dates: "October 3–4, 2026",
   venue: "University of Michigan — North Campus, Ann Arbor, MI",
+  /** Canonical public host used for artwork and links stored at Google. */
+  webOrigin: "https://mhacks.org",
   // Wallet suggests the pass on the lock screen inside these windows. Each
   // interval may span at most 24 hours, hence one per day.
   relevantIntervals: [

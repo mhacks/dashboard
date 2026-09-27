@@ -35,6 +35,7 @@ import type {
   EmailCampaignContent,
   EmailThemeTokens,
 } from "@/lib/email/types";
+import { builtInRecipientMergeFields } from "@/lib/email/types";
 import { cn } from "@/lib/utils";
 import {
   deleteEmailTemplateAction,
@@ -143,7 +144,6 @@ const currentThemeStorageVersion = "m26-single-font-config";
 const activeSendStatusStorageKey = "mhacks-email-active-send-status";
 const activeSendRecipientsStorageKey = "mhacks-email-active-send-recipients";
 const activeTestProofStorageKey = "mhacks-email-active-test-proof";
-const builtInRecipientMergeFields = new Set(["email", "name"]);
 const serverManagedTestListLabel =
   "Server-managed required organizer test list";
 const defaultAudienceQuery: EmailAudienceQuery = {
@@ -194,11 +194,14 @@ export default function EmailCampaignsClient({
   initialTemplates,
   initialTheme,
   initialCampaignLimits,
+  googleWalletPublished,
 }: {
   initialSurface: EmailCampaignSurface;
   initialTemplates: MasterTemplate[];
   initialTheme: EmailThemeTokens;
   initialCampaignLimits: CampaignLimits;
+  /** Whether real sends include {{google_wallet_pass_url}} at all. */
+  googleWalletPublished: boolean;
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const toastIdRef = useRef(0);
@@ -267,8 +270,13 @@ export default function EmailCampaignsClient({
       ? sendStatus
       : null;
   const effectiveMergePreviewData = useMemo(
-    () => ensureMergePreviewData(mergeFields, mergePreviewData),
-    [mergeFields, mergePreviewData],
+    () =>
+      ensureMergePreviewData(
+        mergeFields,
+        mergePreviewData,
+        googleWalletPublished,
+      ),
+    [mergeFields, mergePreviewData, googleWalletPublished],
   );
 
   useEffect(() => {
@@ -3470,11 +3478,18 @@ function extractMergeFieldsFromValues(values: string[]) {
 function ensureMergePreviewData(
   fields: string[],
   current: Record<string, string>,
+  googleWalletPublished: boolean,
 ) {
   const next: Record<string, string> = {};
 
   for (const field of fields) {
-    next[field] = current[field] ?? defaultMergeValue(field);
+    // Real sends leave the Google link blank, which drops it, until the
+    // issuer is published; previews and test sends match unless overridden.
+    const fallback =
+      field === "google_wallet_pass_url" && !googleWalletPublished
+        ? ""
+        : defaultMergeValue(field);
+    next[field] = current[field] ?? fallback;
   }
 
   return next;
@@ -3488,6 +3503,10 @@ const defaultMergeSamples: Record<string, string> = {
   name: "Hacker",
   otp_code: OTP_PREVIEW_CODE,
   travel_reimbursement: "150.00",
+  // Real URLs, so previews and test sends render the links rather than raw
+  // markdown. Opened, they serve the organizer's own pass if they RSVPed.
+  wallet_pass_url: "https://mhacks.org/wallet/pass",
+  google_wallet_pass_url: "https://mhacks.org/wallet/google",
 };
 
 function defaultMergeValue(field: string) {

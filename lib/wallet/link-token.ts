@@ -4,8 +4,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { z } from "zod";
 
-import { getWalletConfig, isWalletConfigured } from "@/lib/wallet/config";
-import { WALLET_EVENT_END_MS } from "@/lib/wallet/event";
+import { getRequestOrigin } from "@/lib/url/request-origin";
+import { isAppleWalletConfigured } from "@/lib/wallet/config";
+import { WALLET_EVENT, WALLET_EVENT_END_MS } from "@/lib/wallet/event";
+import { isGoogleWalletPublished } from "@/lib/wallet/google-config";
 
 /**
  * Signed download links for emailed Wallet passes, so a hacker can add the
@@ -18,10 +20,22 @@ import { WALLET_EVENT_END_MS } from "@/lib/wallet/event";
  * to be unforgeable and eventually expire, not single-use.
  */
 
+const linkSecretSchema = z.string().min(32);
+
+function getLinkSecret() {
+  const parsed = linkSecretSchema.safeParse(process.env.WALLET_LINK_SECRET);
+  if (!parsed.success) {
+    throw new Error("WALLET_LINK_SECRET must be at least 32 characters.");
+  }
+  return parsed.data;
+}
+
+function isLinkSigningConfigured() {
+  return linkSecretSchema.safeParse(process.env.WALLET_LINK_SECRET).success;
+}
+
 function sign(payload: string) {
-  return createHmac("sha256", getWalletConfig().linkSecret)
-    .update(payload)
-    .digest();
+  return createHmac("sha256", getLinkSecret()).update(payload).digest();
 }
 
 export function signWalletLinkToken(userId: string, expiresAtMs: number) {
@@ -30,17 +44,48 @@ export function signWalletLinkToken(userId: string, expiresAtMs: number) {
 }
 
 /**
- * The emailed "Add to Apple Wallet" link, valid until the event ends. Null
- * when this environment can't sign passes, so emails simply omit the link.
+ * Emailed pass links are valid until the event ends. A missing platform config
+ * or link secret returns null so the email renderer simply omits that link.
  */
-export function buildWalletPassUrl(origin: string, userId: string) {
-  if (!isWalletConfigured()) return null;
+export function buildAppleWalletPassUrl(origin: string, userId: string) {
+  if (!isAppleWalletConfigured() || !isLinkSigningConfigured()) return null;
   const token = signWalletLinkToken(userId, WALLET_EVENT_END_MS);
   return `${origin}/wallet/pass?t=${token}`;
 }
 
+export function buildGoogleWalletPassUrl(origin: string, userId: string) {
+  if (!isGoogleWalletPublished() || !isLinkSigningConfigured()) return null;
+  const token = signWalletLinkToken(userId, WALLET_EVENT_END_MS);
+  return `${origin}/wallet/google?t=${token}`;
+}
+
+/**
+ * The {{wallet_pass_url}} and {{google_wallet_pass_url}} merge values for one
+ * email recipient, signed at send time from the audience CSV's wallet_user_id
+ * column (set only for RSVPed hackers). Keeping the long links out of the CSV
+ * keeps recipient lists small, and keeps their fingerprint independent of the
+ * host and config they were resolved under.
+ *
+ * Without a user id nothing is added: the fields stay unset, so the renderer
+ * drops their links, unless the recipient list supplies its own values.
+ */
+export async function walletPassMergeData(
+  userId: string | undefined,
+): Promise<Record<string, string>> {
+  if (!userId) return {};
+
+  // Sends can run outside a request (a background sweep), with no headers.
+  const origin = await getRequestOrigin().catch(() => WALLET_EVENT.webOrigin);
+  return {
+    wallet_pass_url: buildAppleWalletPassUrl(origin, userId) ?? "",
+    google_wallet_pass_url: buildGoogleWalletPassUrl(origin, userId) ?? "",
+  };
+}
+
 /** Returns the user id for a valid, unexpired token, otherwise null. */
 export function verifyWalletLinkToken(token: string): string | null {
+  if (!isLinkSigningConfigured()) return null;
+
   const [encodedPayload, encodedSignature, extra] = token.split(".");
   if (!encodedPayload || !encodedSignature || extra !== undefined) return null;
 

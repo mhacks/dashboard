@@ -6,13 +6,41 @@ import { hackerRsvps } from "@/lib/db/schema/rsvps";
 import { RSVP_CONFIRMED_DECISIONS } from "@/lib/decisions";
 
 /**
- * Whether this user may hold a check-in code: they RSVPed.
+ * The attendee's name if this user may hold a check-in code, otherwise null:
+ * they RSVPed.
  *
  * Being accepted is not enough — an offer someone never replied to is not a
  * spot, and those people get no code. Both halves of an RSVP are required: the
  * submitted row, and the confirmed decision that the same transaction writes
  * alongside it. Requiring both means neither can hand out a code on its own if
  * they ever drift.
+ *
+ * The dashboard QR and the Wallet passes both go through this, so the two can
+ * never disagree about who gets a code. Throws on failure; callers decide how
+ * to degrade.
+ */
+export async function getCheckInCodeHolder(userId: string) {
+  const [row] = await db
+    .select({
+      firstName: hackerApplicants.firstName,
+      lastName: hackerApplicants.lastName,
+    })
+    .from(hackerApplicants)
+    // Inner join, so no RSVP row means no result at all.
+    .innerJoin(hackerRsvps, eq(hackerRsvps.userId, hackerApplicants.userId))
+    .where(
+      and(
+        eq(hackerApplicants.userId, userId),
+        inArray(hackerApplicants.decision, RSVP_CONFIRMED_DECISIONS),
+      ),
+    )
+    .limit(1);
+
+  return row ?? null;
+}
+
+/**
+ * Whether this user may hold a check-in code (see getCheckInCodeHolder).
  *
  * Failures degrade to `false` rather than throwing: a dashboard missing its QR
  * button beats an error page, and a gated surface should fail closed.
@@ -21,20 +49,7 @@ export async function getAttendeeQrEligibility(
   userId: string,
 ): Promise<boolean> {
   try {
-    const rows = await db
-      .select({ userId: hackerApplicants.userId })
-      .from(hackerApplicants)
-      // Inner join, so no RSVP row means no result at all.
-      .innerJoin(hackerRsvps, eq(hackerRsvps.userId, hackerApplicants.userId))
-      .where(
-        and(
-          eq(hackerApplicants.userId, userId),
-          inArray(hackerApplicants.decision, RSVP_CONFIRMED_DECISIONS),
-        ),
-      )
-      .limit(1);
-
-    return rows.length > 0;
+    return (await getCheckInCodeHolder(userId)) !== null;
   } catch (err) {
     const cause = err instanceof Error ? (err.cause ?? err) : err;
     console.error("[DB] check-in eligibility query failed:", cause);

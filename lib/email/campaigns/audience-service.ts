@@ -38,8 +38,6 @@ import {
   type ApplicationDecision,
 } from "@/lib/decisions";
 import { isDraftStarted } from "@/lib/application-steps";
-import { getRequestOrigin } from "@/lib/url/request-origin";
-import { buildWalletPassUrl } from "@/lib/wallet/link-token";
 
 const audienceCsvColumns = [
   "email",
@@ -53,10 +51,11 @@ const audienceCsvColumns = [
   "rsvp_submitted",
   "rsvp_travel_plan",
   "rsvp_submitted_at",
-  // Signed Apple Wallet download link for RSVPed hackers, blank otherwise.
-  // Use it in a section body as [Add to Apple Wallet]({{wallet_pass_url}});
-  // the renderer drops the link entirely for rows where it is blank.
-  "wallet_pass_url",
+  // The user id of RSVPed hackers, blank otherwise. Sending signs it into the
+  // {{wallet_pass_url}} (Apple) and {{google_wallet_pass_url}} merge fields;
+  // use them in a section body as [Add to Apple Wallet]({{wallet_pass_url}}).
+  // The renderer drops the link entirely for rows where it is blank.
+  "wallet_user_id",
 ] as const;
 
 type SubmittedApplicationGroup = Exclude<
@@ -91,7 +90,7 @@ export async function resolveEmailAudience(input: unknown) {
   const body = emailAudienceResolveSchema.parse(input);
   const query = body.query;
   const rows = await loadAudienceRows(query);
-  const recipientText = audienceRowsToCsv(rows, await getRequestOrigin());
+  const recipientText = audienceRowsToCsv(rows);
   const parsed = parseRecipientText(recipientText);
   const { maxRecipients } = getCampaignLimits();
 
@@ -242,15 +241,12 @@ function draftString(data: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function audienceRowsToCsv(
-  rows: Awaited<ReturnType<typeof loadAudienceRows>>,
-  origin: string,
-) {
+function audienceRowsToCsv(rows: Awaited<ReturnType<typeof loadAudienceRows>>) {
   return [
     audienceCsvColumns.join(","),
     ...rows.map((row) =>
       audienceCsvColumns
-        .map((column) => csvValue(audienceCellValue(row, column, origin)))
+        .map((column) => csvValue(audienceCellValue(row, column)))
         .join(","),
     ),
   ].join("\n");
@@ -259,7 +255,6 @@ function audienceRowsToCsv(
 function audienceCellValue(
   row: Awaited<ReturnType<typeof loadAudienceRows>>[number],
   column: (typeof audienceCsvColumns)[number],
-  origin: string,
 ) {
   const firstName = row.firstName.trim();
   const lastName = row.lastName.trim();
@@ -290,12 +285,12 @@ function audienceCellValue(
       return row.rsvpTravelPlan ?? "";
     case "rsvp_submitted_at":
       return row.rsvpSubmittedAt ?? "";
-    case "wallet_pass_url":
-      // Same rule as the dashboard QR and lib/wallet/eligibility.ts: an RSVP
-      // row and a confirmed decision. The route re-checks on download.
+    case "wallet_user_id":
+      // Same rule as the dashboard QR (getCheckInCodeHolder): an RSVP row and
+      // a confirmed decision. The Wallet routes re-check on download.
       // Draft and umich rows carry decision "", which hasRsvped rejects.
       return row.rsvpId && hasRsvped(row.decision as ApplicationDecision)
-        ? (buildWalletPassUrl(origin, row.userId) ?? "")
+        ? row.userId
         : "";
   }
 }

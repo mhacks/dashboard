@@ -157,11 +157,18 @@ function mergeText(value: string, mergeData: Record<string, string>) {
   return (
     value
       // A markdown link whose URL merges to blank (e.g. wallet_pass_url for a
-      // recipient who hasn't RSVPed, or a test send) is dropped entirely;
-      // otherwise renderInlineText won't linkify it and "[text]()" ships as-is.
+      // recipient who hasn't RSVPed) is dropped entirely; otherwise
+      // renderInlineText won't linkify it and "[text]()" ships as-is.
       .replace(
         /\[[^\]]+]\(\s*{{\s*([\w.-]+)\s*}}\s*\)/g,
         (match, key: string) => (mergeData[key]?.trim() ? match : ""),
+      )
+      // The HTML-template equivalent: an <a href="{{key}}"> that merges to
+      // blank is dropped with its text rather than shipped as a dead link.
+      .replace(
+        /<a\b[^>]*\bhref\s*=\s*(["'])\s*{{\s*([\w.-]+)\s*}}\s*\1[^>]*>[\s\S]*?<\/a>/gi,
+        (match, _quote: string, key: string) =>
+          mergeData[key]?.trim() ? match : "",
       )
       .replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) => {
         return mergeData[key] ?? "";

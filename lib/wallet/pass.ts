@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { PKPass } from "passkit-generator";
 
-import { getWalletConfig } from "@/lib/wallet/config";
+import { getAppleWalletConfig } from "@/lib/wallet/config";
 import { WALLET_EVENT } from "@/lib/wallet/event";
 
 /**
@@ -59,7 +59,7 @@ export async function buildCheckInPass({
   lastName: string;
   origin: string;
 }): Promise<Buffer> {
-  const config = getWalletConfig();
+  const config = getAppleWalletConfig();
   const attendee = [firstName.trim(), lastName.trim()]
     .filter(Boolean)
     .join(" ");

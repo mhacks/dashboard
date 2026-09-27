@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { QrCode } from "@/components/checkin/qr-code";
 import { buttonClass, ButtonLink } from "@/components/console/button";
@@ -45,7 +46,8 @@ export function ApplicantDashboard({
   firstName,
   userId,
   canCheckIn,
-  walletConfigured,
+  appleWalletConfigured,
+  googleWalletAvailable,
 }: {
   data: ApplicantDashboardData;
   role: UserRole;
@@ -55,7 +57,12 @@ export function ApplicantDashboard({
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
   /** Whether this environment can sign Apple Wallet passes. */
-  walletConfigured: boolean;
+  appleWalletConfigured: boolean;
+  /**
+   * Whether this environment can create and sign Google Wallet passes, and the
+   * issuer has publishing access so any attendee can save one.
+   */
+  googleWalletAvailable: boolean;
 }) {
   return (
     <div className="font-red-hat">
@@ -73,7 +80,8 @@ export function ApplicantDashboard({
           {canCheckIn ? (
             <CheckInPanel
               userId={userId}
-              walletPassAvailable={walletConfigured}
+              appleWalletAvailable={appleWalletConfigured}
+              googleWalletAvailable={googleWalletAvailable}
             />
           ) : null}
 
@@ -241,24 +249,32 @@ function DecisionReadyPanel() {
  * all. It is no longer linked from here, but it stays reachable by URL — it is
  * the fallback to send someone to if this sheet won't open on their phone.
  *
- * The same code is also offered as an Apple Wallet pass. It's a
- * plain <a>, not next/link: the response is a .pkpass download that Safari
- * hands to Wallet, and a client-side navigation or prefetch would only get in
- * the way.
+ * The same code is also offered as Apple and Google Wallet passes. Both use
+ * plain <a> elements rather than next/link: Apple returns a .pkpass download,
+ * while Google provisions the object and redirects to Google's Save flow.
  */
 function CheckInPanel({
   userId,
-  walletPassAvailable,
+  appleWalletAvailable,
+  googleWalletAvailable,
 }: {
   userId: string;
-  walletPassAvailable: boolean;
+  appleWalletAvailable: boolean;
+  googleWalletAvailable: boolean;
 }) {
+  const walletLabel =
+    appleWalletAvailable && googleWalletAvailable
+      ? "Apple Wallet or Google Wallet"
+      : appleWalletAvailable
+        ? "Apple Wallet"
+        : "Google Wallet";
+
   return (
     <Panel eyebrow="CHECK-IN" status="Ready">
       <PanelHeading
         lede={
-          walletPassAvailable
-            ? "This is your check-in code for the weekend. Organizers will scan this for attendance and meals. Add it to Apple Wallet to pull it up from your lock screen, even offline."
+          appleWalletAvailable || googleWalletAvailable
+            ? `This is your check-in code for the weekend. Organizers will scan this for attendance and meals. Add it to ${walletLabel} to pull it up quickly, even offline.`
             : "This is your check-in code for the weekend. Organizers will scan this for attendance and meals."
         }
       >
@@ -274,9 +290,24 @@ function CheckInPanel({
           />
         </QrDrawerButton>
 
-        {walletPassAvailable ? (
+        {appleWalletAvailable ? (
           <a href="/wallet/pass" className={buttonClass("outline")}>
             Add to Apple Wallet
+          </a>
+        ) : null}
+
+        {googleWalletAvailable ? (
+          <a
+            href="/wallet/google"
+            aria-label="Add to Google Wallet"
+            className="inline-flex p-2 max-sm:w-full max-sm:justify-center"
+          >
+            <Image
+              src="/wallet/google/add-to-google-wallet.svg"
+              alt="Add to Google Wallet"
+              width={199}
+              height={55}
+            />
           </a>
         ) : null}
       </div>

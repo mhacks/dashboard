@@ -44,10 +44,10 @@ otp_length = 8
 otp_expiry = 300
 
 # Local Mailpit — required so auth.rate_limit.email_sent applies in dev.
-# Auth runs in Docker; reach Mailpit via the inbucket service on its internal
-# SMTP port (1025). 54325 is only the host-mapped port for app-level SMTP.
 [auth.email.smtp]
 enabled = true
+# Auth runs inside Docker, so use Mailpit's network alias and container port.
+# 127.0.0.1:54325 is only the host-side address and is unreachable here.
 host = "inbucket"
 port = 1025
 user = "postmaster@local.dev"
