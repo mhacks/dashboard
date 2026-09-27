@@ -22,12 +22,12 @@ import sharp from "sharp";
 const out = path.resolve("public/wallet/pass");
 const googleOut = path.resolve("public/wallet/google");
 const mark = path.resolve("public/pass/marks/mhacks-m-sky.png");
-const googleMark = path.resolve("public/decision/mhacks-m.svg");
-const backdrop = path.resolve("public/pass/backdrops/sky-binary.jpg");
 const ticketMark = path.resolve("scripts/wallet-art/ticket-mark.png");
 const ticketBackground = path.resolve(
   "scripts/wallet-art/ticket-background.jpg",
 );
+const googleLogo = path.resolve("scripts/wallet-art/google-pass-logo.png");
+const googleBanner = path.resolve("scripts/wallet-art/google-pass-banner.png");
 
 /** The pass's backgroundColor, so the icon has no transparent corners. */
 const PAPER = { r: 240, g: 247, b: 250, alpha: 1 };
@@ -56,19 +56,22 @@ for (const scale of [1, 2, 3]) {
     .toFile(path.join(out, `icon${suffix(scale)}.png`));
 }
 
-// Google Wallet masks the square logo into a circle. Its documented safe area
-// leaves 15% on each edge, hence 462px of artwork on a 660px canvas.
-await sharp(googleMark)
-  .resize(462, 462, { fit: "contain", background: PAPER })
-  .extend({ top: 99, bottom: 99, left: 99, right: 99, background: PAPER })
-  .flatten({ background: PAPER })
-  .png({ palette: true, compressionLevel: 9 })
+// Google Wallet masks this square into a circle. The supplied artwork already
+// keeps the M inside Google's 15% safe area; contain preserves its proportions
+// while making the transparent canvas the required 660px square.
+await sharp(googleLogo)
+  .resize(660, 660, {
+    fit: "contain",
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  })
+  .png({ palette: true, quality: 100, compressionLevel: 9 })
   .toFile(path.join(googleOut, "logo.png"));
 
-// Google's recommended hero banner: 1032×336, about 3:1.
-await sharp(backdrop)
+// Crop only the narrow excess at the sides to reach Google's recommended
+// 1032×336 hero size without stretching the supplied banner.
+await sharp(googleBanner)
   .resize(1032, 336, { fit: "cover", position: "centre" })
-  .png({ palette: true, quality: 80, compressionLevel: 9 })
+  .png({ palette: true, quality: 100, compressionLevel: 9 })
   .toFile(path.join(googleOut, "hero.png"));
 
 // The template's mark is a 330px square with the M padded inside it; both the

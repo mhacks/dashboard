@@ -17,9 +17,8 @@ const CLASS_SUFFIX = "mhacks_2026";
 const EVENT_START = WALLET_EVENT.relevantIntervals[0].startDate;
 const EVENT_DATES_FIELD = "class.textModulesData['event_dates']";
 const DOORS_OPEN_FIELD = "class.textModulesData['doors_open']";
-const CHECK_IN_FIELD = "class.textModulesData['check_in_location']";
-const DEV_LOGO_URL =
-  "https://raw.githubusercontent.com/mhacks/dashboard/a299023952a2d4a9fba79adc79e68b0591479aae/public/wallet/google/logo.png";
+const ATTENDEE_FIELD = "object.textModulesData['attendee']";
+const GOOGLE_PASS_BACKGROUND = "#f0f7fa";
 
 const accessTokenSchema = z.object({
   access_token: z.string().min(1),
@@ -131,28 +130,6 @@ function googleWalletClass() {
   const { issuerId } = getGoogleWalletConfig();
   const id = `${issuerId}.${CLASS_SUFFIX}`;
   const publicOrigin = WALLET_EVENT.webOrigin;
-  // Google fetches class artwork from its own servers, so localhost URLs are
-  // unusable and newly added production paths may not exist yet during local
-  // development. The immutable committed logo lets local previews exercise
-  // the real circular mark; production uses the canonical deployed artwork.
-  const artwork =
-    process.env.NODE_ENV === "development"
-      ? {
-          logo: {
-            sourceUri: { uri: DEV_LOGO_URL },
-            contentDescription: localized("MHacks logo"),
-          },
-        }
-      : {
-          logo: {
-            sourceUri: { uri: `${publicOrigin}/wallet/google/logo.png` },
-            contentDescription: localized("MHacks logo"),
-          },
-          heroImage: {
-            sourceUri: { uri: `${publicOrigin}/wallet/google/hero.png` },
-            contentDescription: localized("MHacks 2026 sky ticket artwork"),
-          },
-        };
 
   return {
     id,
@@ -170,33 +147,19 @@ function googleWalletClass() {
     dateTime: { doorsOpen: WALLET_EVENT.doorsOpenAt },
     textModulesData: [
       {
-        id: "check_in_location",
-        header: "Initial Check-in",
-        body: "CCCB",
-      },
-      {
         id: "event_dates",
-        header: "Dates",
-        body: WALLET_EVENT.datesShort,
+        header: "Date",
+        body: "October 3-4th",
       },
       {
         id: "doors_open",
-        header: "Doors Open",
+        header: WALLET_EVENT.doorsOpenDay,
         body: WALLET_EVENT.doorsOpenTime,
       },
     ],
     classTemplateInfo: {
       cardTemplateOverride: {
         cardRowTemplateInfos: [
-          {
-            oneItem: {
-              item: {
-                firstValue: {
-                  fields: [{ fieldPath: CHECK_IN_FIELD }],
-                },
-              },
-            },
-          },
           {
             twoItems: {
               startItem: {
@@ -211,6 +174,15 @@ function googleWalletClass() {
               },
             },
           },
+          {
+            oneItem: {
+              item: {
+                firstValue: {
+                  fields: [{ fieldPath: ATTENDEE_FIELD }],
+                },
+              },
+            },
+          },
         ],
       },
       listTemplateOverride: {
@@ -219,8 +191,15 @@ function googleWalletClass() {
         },
       },
     },
-    ...artwork,
-    hexBackgroundColor: "#f0f7fa",
+    logo: {
+      sourceUri: { uri: `${publicOrigin}/wallet/google/logo.png` },
+      contentDescription: localized("MHacks logo"),
+    },
+    heroImage: {
+      sourceUri: { uri: `${publicOrigin}/wallet/google/hero.png` },
+      contentDescription: localized("MHacks banner artwork"),
+    },
+    hexBackgroundColor: GOOGLE_PASS_BACKGROUND,
     homepageUri: {
       uri: publicOrigin,
       description: "MHacks",
@@ -294,7 +273,7 @@ function googleWalletObject({
     ticketHolderName: attendee || "Hacker",
     ticketType: localized("Hacker"),
     barcode: { type: "QR_CODE", value: userId },
-    hexBackgroundColor: "#f0f7fa",
+    hexBackgroundColor: GOOGLE_PASS_BACKGROUND,
     // Expires with the Apple pass and the emailed links, not when the last
     // day's relevant interval does.
     validTimeInterval: {
@@ -303,6 +282,11 @@ function googleWalletObject({
     },
     locations: [{ ...WALLET_EVENT.location }],
     textModulesData: [
+      {
+        id: "attendee",
+        header: "Name",
+        body: attendee || "Hacker",
+      },
       {
         id: "check_in",
         header: "Checking In",
