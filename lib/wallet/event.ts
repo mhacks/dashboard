@@ -9,7 +9,15 @@
 export const WALLET_EVENT = {
   name: "MHacks 2026",
   dates: "October 3–4, 2026",
-  venue: "University of Michigan — North Campus, Ann Arbor, MI",
+  datesShort: "Oct 3–4, 2026",
+  doorsOpenAt: "2026-10-03T09:00:00-04:00",
+  doorsOpenTime: "9:00 AM",
+  venueName: "Central Campus Classroom Building (CCCB)",
+  venueAddress: "1225 Geddes Ave, Ann Arbor, MI 48109",
+  venue:
+    "Central Campus Classroom Building (CCCB), 1225 Geddes Ave, Ann Arbor, MI 48109",
+  lateCheckIn:
+    "Pierpont corridor, 2101 Bonisteel Blvd, from 11:00 AM to 2:30 PM",
   /** Canonical public host used for artwork and links stored at Google. */
   webOrigin: "https://mhacks.org",
   // Wallet suggests the pass on the lock screen inside these windows. Each
@@ -24,11 +32,11 @@ export const WALLET_EVENT = {
       endDate: "2026-10-05T00:00:00-04:00",
     },
   ],
-  // North Campus. Wallet also surfaces the pass near this point.
-  location: { latitude: 42.2912, longitude: -83.7157 },
+  // CCCB. Wallet also surfaces the pass near the initial check-in location.
+  location: { latitude: 42.27792, longitude: -83.73401 },
   /** After this the pass greys out in Wallet and emailed links stop working. */
   endsAt: "2026-10-06T00:00:00-04:00",
-  supportEmail: "hackathon@mhacks.org",
+  supportEmail: "hackathon-org@umich.edu",
 } as const;
 
 export const WALLET_EVENT_END_MS = Date.parse(WALLET_EVENT.endsAt);

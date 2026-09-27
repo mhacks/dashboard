@@ -89,21 +89,25 @@ export async function buildCheckInPass({
         { key: "attendee", label: "HACKER", value: attendee || "Hacker" },
       ],
       auxiliaryFields: [
+        { key: "checkin", label: "INITIAL CHECK-IN", value: "CCCB" },
+        {
+          key: "doors",
+          label: "DOORS OPEN",
+          value: WALLET_EVENT.doorsOpenTime,
+        },
         { key: "dates", label: "DATES", value: WALLET_EVENT.dates },
-        { key: "city", label: "WHERE", value: "Ann Arbor, MI" },
       ],
       backFields: [
         {
           key: "how",
           label: "Checking in",
-          value:
-            "Show this QR code to event staff at registration, meals and events. Turn your brightness up if it won't scan.",
+          value: `Initial check-in is at CCCB starting at 9:00 AM. Late check-in is in the ${WALLET_EVENT.lateCheckIn}. Bring a photo ID and show this QR code to event staff. Turn your brightness up if it won't scan.`,
         },
         { key: "venue", label: "Venue", value: WALLET_EVENT.venue },
         {
-          key: "dashboard",
-          label: "Dashboard",
-          value: `${origin}/dashboard`,
+          key: "website",
+          label: "Website",
+          value: WALLET_EVENT.webOrigin,
         },
         {
           key: "fallback",

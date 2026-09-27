@@ -74,3 +74,8 @@ node --experimental-strip-types scripts/generate-wallet-assets.ts
 It produces Apple pass images in `public/wallet/pass/` and the Google Wallet
 logo and hero images in `public/wallet/google/`. The official Google button SVG
 is kept alongside them but is not generated.
+
+Google downloads class artwork from its own servers, so `next dev` uses the
+immutable committed copy of the Google logo and omits the unpublished hero
+image. A production request switches the class to the canonical logo and hero
+after those paths are deployed and publicly reachable.

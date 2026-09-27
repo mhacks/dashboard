@@ -15,7 +15,11 @@ const GOOGLE_WALLET_SCOPE =
 const GOOGLE_SAVE_URL = "https://pay.google.com/gp/v/save";
 const CLASS_SUFFIX = "mhacks_2026";
 const EVENT_START = WALLET_EVENT.relevantIntervals[0].startDate;
-const EVENT_END = WALLET_EVENT.relevantIntervals.at(-1)!.endDate;
+const EVENT_DATES_FIELD = "class.textModulesData['event_dates']";
+const DOORS_OPEN_FIELD = "class.textModulesData['doors_open']";
+const CHECK_IN_FIELD = "class.textModulesData['check_in_location']";
+const DEV_LOGO_URL =
+  "https://raw.githubusercontent.com/mhacks/dashboard/a299023952a2d4a9fba79adc79e68b0591479aae/public/wallet/google/logo.png";
 
 const accessTokenSchema = z.object({
   access_token: z.string().min(1),
@@ -127,6 +131,28 @@ function googleWalletClass() {
   const { issuerId } = getGoogleWalletConfig();
   const id = `${issuerId}.${CLASS_SUFFIX}`;
   const publicOrigin = WALLET_EVENT.webOrigin;
+  // Google fetches class artwork from its own servers, so localhost URLs are
+  // unusable and newly added production paths may not exist yet during local
+  // development. The immutable committed logo lets local previews exercise
+  // the real circular mark; production uses the canonical deployed artwork.
+  const artwork =
+    process.env.NODE_ENV === "development"
+      ? {
+          logo: {
+            sourceUri: { uri: DEV_LOGO_URL },
+            contentDescription: localized("MHacks logo"),
+          },
+        }
+      : {
+          logo: {
+            sourceUri: { uri: `${publicOrigin}/wallet/google/logo.png` },
+            contentDescription: localized("MHacks logo"),
+          },
+          heroImage: {
+            sourceUri: { uri: `${publicOrigin}/wallet/google/hero.png` },
+            contentDescription: localized("MHacks 2026 sky ticket artwork"),
+          },
+        };
 
   return {
     id,
@@ -135,22 +161,69 @@ function googleWalletClass() {
     reviewStatus: "UNDER_REVIEW",
     eventName: localized(WALLET_EVENT.name),
     venue: {
-      name: localized("University of Michigan — North Campus"),
-      address: localized("Ann Arbor, MI"),
+      name: localized(WALLET_EVENT.venueName),
+      address: localized(WALLET_EVENT.venueAddress),
     },
-    dateTime: { start: EVENT_START, end: EVENT_END },
-    logo: {
-      sourceUri: { uri: `${publicOrigin}/wallet/google/logo.png` },
-      contentDescription: localized("MHacks logo"),
+    // Keep the multi-day range attendee-facing while supplying the actual
+    // doors-open time for Google's event semantics and notifications. The
+    // internal 7:00 AM relevance-window boundary never appears on the pass.
+    dateTime: { doorsOpen: WALLET_EVENT.doorsOpenAt },
+    textModulesData: [
+      {
+        id: "check_in_location",
+        header: "Initial Check-in",
+        body: "CCCB",
+      },
+      {
+        id: "event_dates",
+        header: "Dates",
+        body: WALLET_EVENT.datesShort,
+      },
+      {
+        id: "doors_open",
+        header: "Doors Open",
+        body: WALLET_EVENT.doorsOpenTime,
+      },
+    ],
+    classTemplateInfo: {
+      cardTemplateOverride: {
+        cardRowTemplateInfos: [
+          {
+            oneItem: {
+              item: {
+                firstValue: {
+                  fields: [{ fieldPath: CHECK_IN_FIELD }],
+                },
+              },
+            },
+          },
+          {
+            twoItems: {
+              startItem: {
+                firstValue: {
+                  fields: [{ fieldPath: EVENT_DATES_FIELD }],
+                },
+              },
+              endItem: {
+                firstValue: {
+                  fields: [{ fieldPath: DOORS_OPEN_FIELD }],
+                },
+              },
+            },
+          },
+        ],
+      },
+      listTemplateOverride: {
+        secondRowOption: {
+          fields: [{ fieldPath: EVENT_DATES_FIELD }],
+        },
+      },
     },
-    heroImage: {
-      sourceUri: { uri: `${publicOrigin}/wallet/google/hero.png` },
-      contentDescription: localized("MHacks 2026 sky ticket artwork"),
-    },
+    ...artwork,
     hexBackgroundColor: "#f0f7fa",
     homepageUri: {
-      uri: `${publicOrigin}/dashboard`,
-      description: "MHacks dashboard",
+      uri: publicOrigin,
+      description: "MHacks",
     },
     locations: [{ ...WALLET_EVENT.location }],
   };
@@ -233,15 +306,15 @@ function googleWalletObject({
       {
         id: "check_in",
         header: "Checking In",
-        body: "Show this QR code to event staff at registration, meals, and events.",
+        body: `Initial check-in is at CCCB starting at 9:00 AM. Late check-in is in the ${WALLET_EVENT.lateCheckIn}. Bring a photo ID and show this QR code to event staff.`,
       },
     ],
     linksModuleData: {
       uris: [
         {
-          id: "dashboard",
-          uri: `${WALLET_EVENT.webOrigin}/dashboard`,
-          description: "MHacks dashboard",
+          id: "website",
+          uri: WALLET_EVENT.webOrigin,
+          description: "MHacks",
         },
         {
           id: "support",
