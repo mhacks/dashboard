@@ -12,7 +12,6 @@ export const WALLET_EVENT = {
   datesShort: "Oct 3–4, 2026",
   doorsOpenAt: "2026-10-03T09:00:00-04:00",
   doorsOpenTime: "9:00 AM",
-  doorsOpenDay: "Oct 3",
   venueName: "Central Campus Classroom Building (CCCB)",
   venueAddress: "1225 Geddes Ave, Ann Arbor, MI 48109",
   venue:

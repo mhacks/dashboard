@@ -88,13 +88,6 @@ export async function buildCheckInPass({
     relevantDate: WALLET_EVENT.relevantIntervals[0].startDate,
     logoText: "MHacks",
     eventTicket: {
-      headerFields: [
-        {
-          key: "startTime",
-          label: WALLET_EVENT.doorsOpenDay,
-          value: WALLET_EVENT.doorsOpenTime,
-        },
-      ],
       primaryFields: [{ key: "dates", label: "Date", value: "October 3-4th" }],
       secondaryFields: [
         { key: "attendee", label: "Name", value: attendee || "Hacker" },
