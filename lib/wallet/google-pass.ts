@@ -4,7 +4,11 @@ import { sign } from "node:crypto";
 
 import { z } from "zod";
 
-import { WALLET_EVENT } from "@/lib/wallet/event";
+import {
+  WALLET_EVENT,
+  WALLET_PASS_COPY,
+  walletFallbackText,
+} from "@/lib/wallet/event";
 import { getGoogleWalletConfig } from "@/lib/wallet/google-config";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -16,10 +20,8 @@ const GOOGLE_SAVE_URL = "https://pay.google.com/gp/v/save";
 const CLASS_SUFFIX = "mhacks_2026";
 const EVENT_START = WALLET_EVENT.relevantIntervals[0].startDate;
 const EVENT_DATES_FIELD = "class.textModulesData['event_dates']";
-const DOORS_OPEN_FIELD = "class.textModulesData['doors_open']";
-const CHECK_IN_FIELD = "class.textModulesData['check_in_location']";
-const DEV_LOGO_URL =
-  "https://raw.githubusercontent.com/mhacks/dashboard/a299023952a2d4a9fba79adc79e68b0591479aae/public/wallet/google/logo.png";
+const ATTENDEE_FIELD = "object.textModulesData['attendee']";
+const GOOGLE_PASS_BACKGROUND = "#f0f7fa";
 
 const accessTokenSchema = z.object({
   access_token: z.string().min(1),
@@ -131,28 +133,6 @@ function googleWalletClass() {
   const { issuerId } = getGoogleWalletConfig();
   const id = `${issuerId}.${CLASS_SUFFIX}`;
   const publicOrigin = WALLET_EVENT.webOrigin;
-  // Google fetches class artwork from its own servers, so localhost URLs are
-  // unusable and newly added production paths may not exist yet during local
-  // development. The immutable committed logo lets local previews exercise
-  // the real circular mark; production uses the canonical deployed artwork.
-  const artwork =
-    process.env.NODE_ENV === "development"
-      ? {
-          logo: {
-            sourceUri: { uri: DEV_LOGO_URL },
-            contentDescription: localized("MHacks logo"),
-          },
-        }
-      : {
-          logo: {
-            sourceUri: { uri: `${publicOrigin}/wallet/google/logo.png` },
-            contentDescription: localized("MHacks logo"),
-          },
-          heroImage: {
-            sourceUri: { uri: `${publicOrigin}/wallet/google/hero.png` },
-            contentDescription: localized("MHacks 2026 sky ticket artwork"),
-          },
-        };
 
   return {
     id,
@@ -164,25 +144,11 @@ function googleWalletClass() {
       name: localized(WALLET_EVENT.venueName),
       address: localized(WALLET_EVENT.venueAddress),
     },
-    // Keep the multi-day range attendee-facing while supplying the actual
-    // doors-open time for Google's event semantics and notifications. The
-    // internal 7:00 AM relevance-window boundary never appears on the pass.
-    dateTime: { doorsOpen: WALLET_EVENT.doorsOpenAt },
     textModulesData: [
       {
-        id: "check_in_location",
-        header: "Initial Check-in",
-        body: "CCCB",
-      },
-      {
         id: "event_dates",
-        header: "Dates",
-        body: WALLET_EVENT.datesShort,
-      },
-      {
-        id: "doors_open",
-        header: "Doors Open",
-        body: WALLET_EVENT.doorsOpenTime,
+        header: WALLET_PASS_COPY.date.label,
+        body: WALLET_PASS_COPY.date.value,
       },
     ],
     classTemplateInfo: {
@@ -192,21 +158,16 @@ function googleWalletClass() {
             oneItem: {
               item: {
                 firstValue: {
-                  fields: [{ fieldPath: CHECK_IN_FIELD }],
+                  fields: [{ fieldPath: EVENT_DATES_FIELD }],
                 },
               },
             },
           },
           {
-            twoItems: {
-              startItem: {
+            oneItem: {
+              item: {
                 firstValue: {
-                  fields: [{ fieldPath: EVENT_DATES_FIELD }],
-                },
-              },
-              endItem: {
-                firstValue: {
-                  fields: [{ fieldPath: DOORS_OPEN_FIELD }],
+                  fields: [{ fieldPath: ATTENDEE_FIELD }],
                 },
               },
             },
@@ -219,12 +180,15 @@ function googleWalletClass() {
         },
       },
     },
-    ...artwork,
-    hexBackgroundColor: "#f0f7fa",
-    homepageUri: {
-      uri: publicOrigin,
-      description: "MHacks",
+    logo: {
+      sourceUri: { uri: `${publicOrigin}/wallet/google/logo.png` },
+      contentDescription: localized("MHacks logo"),
     },
+    heroImage: {
+      sourceUri: { uri: `${publicOrigin}/wallet/google/hero.png` },
+      contentDescription: localized("MHacks banner artwork"),
+    },
+    hexBackgroundColor: GOOGLE_PASS_BACKGROUND,
     locations: [{ ...WALLET_EVENT.location }],
   };
 }
@@ -277,10 +241,12 @@ function googleWalletObject({
   userId,
   firstName,
   lastName,
+  origin,
 }: {
   userId: string;
   firstName: string;
   lastName: string;
+  origin: string;
 }) {
   const { issuerId } = getGoogleWalletConfig();
   const attendee = [firstName.trim(), lastName.trim()]
@@ -291,10 +257,9 @@ function googleWalletObject({
     id: `${issuerId}.${CLASS_SUFFIX}_${userId}`,
     classId: `${issuerId}.${CLASS_SUFFIX}`,
     state: "ACTIVE",
-    ticketHolderName: attendee || "Hacker",
-    ticketType: localized("Hacker"),
+    ticketHolderName: attendee || WALLET_PASS_COPY.attendee.fallback,
     barcode: { type: "QR_CODE", value: userId },
-    hexBackgroundColor: "#f0f7fa",
+    hexBackgroundColor: GOOGLE_PASS_BACKGROUND,
     // Expires with the Apple pass and the emailed links, not when the last
     // day's relevant interval does.
     validTimeInterval: {
@@ -304,22 +269,47 @@ function googleWalletObject({
     locations: [{ ...WALLET_EVENT.location }],
     textModulesData: [
       {
+        id: "attendee",
+        header: WALLET_PASS_COPY.attendee.label,
+        body: attendee || WALLET_PASS_COPY.attendee.fallback,
+      },
+      {
         id: "check_in",
-        header: "Checking In",
-        body: `Initial check-in is at CCCB starting at 9:00 AM. Late check-in is in the ${WALLET_EVENT.lateCheckIn}. Bring a photo ID and show this QR code to event staff.`,
+        header: WALLET_PASS_COPY.checkingIn.label,
+        body: WALLET_PASS_COPY.checkingIn.value,
+      },
+      {
+        id: "venue",
+        header: WALLET_PASS_COPY.venue.label,
+        body: WALLET_PASS_COPY.venue.value,
+      },
+      {
+        id: "fallback_text",
+        header: WALLET_PASS_COPY.fallbackLabel,
+        body: walletFallbackText(origin),
       },
     ],
     linksModuleData: {
       uris: [
         {
+          id: "handbook",
+          uri: WALLET_PASS_COPY.handbook.value,
+          description: WALLET_PASS_COPY.handbook.label,
+        },
+        {
           id: "website",
-          uri: WALLET_EVENT.webOrigin,
-          description: "MHacks",
+          uri: WALLET_PASS_COPY.website.value,
+          description: WALLET_PASS_COPY.website.label,
+        },
+        {
+          id: "fallback",
+          uri: `${origin}/dashboard/qr`,
+          description: WALLET_PASS_COPY.fallbackLabel,
         },
         {
           id: "support",
-          uri: `mailto:${WALLET_EVENT.supportEmail}`,
-          description: "Questions? Email MHacks",
+          uri: `mailto:${WALLET_PASS_COPY.support.value}`,
+          description: WALLET_PASS_COPY.support.label,
         },
       ],
     },
@@ -343,7 +333,7 @@ export async function buildGoogleWalletSaveUrl({
   origin: string;
 }) {
   await ensureEventClass();
-  const object = googleWalletObject({ userId, firstName, lastName });
+  const object = googleWalletObject({ userId, firstName, lastName, origin });
   await upsert("eventTicketObject", object, "Google Wallet pass");
 
   const config = getGoogleWalletConfig();
