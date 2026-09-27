@@ -79,6 +79,10 @@ Run the asset generator after changing the ticket artwork:
 node --experimental-strip-types scripts/generate-wallet-assets.ts
 ```
 
+The Apple pass follows the "MHacks Check In" Pass Designer template: its
+background and M mark are kept in `scripts/wallet-art/`, and its colours and
+fields are in `lib/wallet/pass.ts`. Replace those files to change the design.
+
 It produces Apple pass images in `public/wallet/pass/` and the Google Wallet
 logo and hero images in `public/wallet/google/`. The official Google button SVG
 is kept alongside them but is not generated.
