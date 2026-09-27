@@ -34,6 +34,7 @@ import {
 } from "@/lib/email/types";
 import {
   APPLICATION_DECISIONS,
+  hasRsvped,
   type ApplicationDecision,
 } from "@/lib/decisions";
 import { isDraftStarted } from "@/lib/application-steps";
@@ -50,6 +51,11 @@ const audienceCsvColumns = [
   "rsvp_submitted",
   "rsvp_travel_plan",
   "rsvp_submitted_at",
+  // The user id of RSVPed hackers, blank otherwise. Sending signs it into the
+  // {{wallet_pass_url}} (Apple) and {{google_wallet_pass_url}} merge fields;
+  // use them in a section body as [Add to Apple Wallet]({{wallet_pass_url}}).
+  // The renderer drops the link entirely for rows where it is blank.
+  "wallet_user_id",
 ] as const;
 
 type SubmittedApplicationGroup = Exclude<
@@ -136,6 +142,7 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
 
   return db
     .select({
+      userId: users.id,
       email: users.email,
       role: users.role,
       firstName: hackerApplicants.firstName,
@@ -165,6 +172,7 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
 async function loadUmichAudienceRows() {
   const rows = await db
     .select({
+      userId: users.id,
       email: users.email,
       role: users.role,
     })
@@ -173,6 +181,7 @@ async function loadUmichAudienceRows() {
     .orderBy(asc(users.email));
 
   return rows.map((row) => ({
+    userId: row.userId,
     email: row.email,
     role: row.role,
     firstName: "",
@@ -189,6 +198,7 @@ async function loadUmichAudienceRows() {
 async function loadDraftAudienceRows() {
   const rows = await db
     .select({
+      userId: users.id,
       email: users.email,
       role: users.role,
       data: hackerApplicationDrafts.data,
@@ -210,6 +220,7 @@ async function loadDraftAudienceRows() {
 
     return [
       {
+        userId: row.userId,
         email: row.email,
         role: row.role,
         firstName: draftString(data, "firstName"),
@@ -274,6 +285,13 @@ function audienceCellValue(
       return row.rsvpTravelPlan ?? "";
     case "rsvp_submitted_at":
       return row.rsvpSubmittedAt ?? "";
+    case "wallet_user_id":
+      // Same rule as the dashboard QR (getCheckInCodeHolder): an RSVP row and
+      // a confirmed decision. The Wallet routes re-check on download.
+      // Draft and umich rows carry decision "", which hasRsvped rejects.
+      return row.rsvpId && hasRsvped(row.decision as ApplicationDecision)
+        ? row.userId
+        : "";
   }
 }
 

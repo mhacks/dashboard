@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { QrCode } from "@/components/checkin/qr-code";
-import { ButtonLink } from "@/components/console/button";
+import { buttonClass, ButtonLink } from "@/components/console/button";
 import { Panel, PanelHeading } from "@/components/console/panel";
 import { ProgressMeter, StatusLine } from "@/components/console/progress";
 import { Rail, RailNote } from "@/components/console/rail";
@@ -45,6 +46,8 @@ export function ApplicantDashboard({
   firstName,
   userId,
   canCheckIn,
+  appleWalletAvailable,
+  googleWalletAvailable,
 }: {
   data: ApplicantDashboardData;
   role: UserRole;
@@ -53,6 +56,16 @@ export function ApplicantDashboard({
   userId: string;
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
+  /**
+   * Whether this environment can sign Apple Wallet passes and
+   * APPLE_WALLET_PUBLISHED is on.
+   */
+  appleWalletAvailable: boolean;
+  /**
+   * Whether this environment can create and sign Google Wallet passes, and the
+   * issuer has publishing access so any attendee can save one.
+   */
+  googleWalletAvailable: boolean;
 }) {
   return (
     <div className="font-red-hat">
@@ -72,7 +85,13 @@ export function ApplicantDashboard({
               who can see this has already been accepted and RSVPed, so their
               decision is settled news and the code is the thing they came to
               the dashboard to find. */}
-          {canCheckIn ? <CheckInPanel userId={userId} /> : null}
+          {canCheckIn ? (
+            <CheckInPanel
+              userId={userId}
+              appleWalletAvailable={appleWalletAvailable}
+              googleWalletAvailable={googleWalletAvailable}
+            />
+          ) : null}
 
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
@@ -252,11 +271,36 @@ function DecisionReadyPanel() {
  * /dashboard/qr renders the same code full screen and needs no JavaScript at
  * all. It is no longer linked from here, but it stays reachable by URL — it is
  * the fallback to send someone to if this sheet won't open on their phone.
+ *
+ * The same code is also offered as Apple and Google Wallet passes. Both use
+ * plain <a> elements rather than next/link: Apple returns a .pkpass download,
+ * while Google provisions the object and redirects to Google's Save flow.
  */
-function CheckInPanel({ userId }: { userId: string }) {
+function CheckInPanel({
+  userId,
+  appleWalletAvailable,
+  googleWalletAvailable,
+}: {
+  userId: string;
+  appleWalletAvailable: boolean;
+  googleWalletAvailable: boolean;
+}) {
+  const walletLabel =
+    appleWalletAvailable && googleWalletAvailable
+      ? "Apple Wallet or Google Wallet"
+      : appleWalletAvailable
+        ? "Apple Wallet"
+        : "Google Wallet";
+
   return (
     <Panel eyebrow="CHECK-IN" status="Ready">
-      <PanelHeading lede="This is your check-in code for the weekend. Organizers will scan this for attendance and meals.">
+      <PanelHeading
+        lede={
+          appleWalletAvailable || googleWalletAvailable
+            ? `This is your check-in code for the weekend. Organizers will scan this for attendance and meals. Add it to ${walletLabel} to pull it up quickly, even offline.`
+            : "This is your check-in code for the weekend. Organizers will scan this for attendance and meals."
+        }
+      >
         Your check-in code
       </PanelHeading>
 
@@ -268,6 +312,27 @@ function CheckInPanel({ userId }: { userId: string }) {
             className="w-[min(78vw,340px)]"
           />
         </QrDrawerButton>
+
+        {appleWalletAvailable ? (
+          <a href="/wallet/pass" className={buttonClass("outline")}>
+            Add to Apple Wallet
+          </a>
+        ) : null}
+
+        {googleWalletAvailable ? (
+          <a
+            href="/wallet/google"
+            aria-label="Add to Google Wallet"
+            className="inline-flex p-2 max-sm:w-full max-sm:justify-center"
+          >
+            <Image
+              src="/wallet/google/add-to-google-wallet.svg"
+              alt="Add to Google Wallet"
+              width={199}
+              height={55}
+            />
+          </a>
+        ) : null}
       </div>
     </Panel>
   );

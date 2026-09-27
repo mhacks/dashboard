@@ -1,6 +1,7 @@
 import { sendEmail } from "@/lib/aws/ses";
 import { renderCampaignEmail, renderHtmlEmail } from "@/lib/email/render";
 import { defaultEmailTheme } from "@/lib/email/theme";
+import { walletPassMergeData } from "@/lib/wallet/link-token";
 import type {
   DirectEmailTemplateInput,
   EmailCampaignContent,
@@ -64,7 +65,10 @@ export async function sendSnapshotToEmail(
     const rendered = await renderSnapshot(
       campaign.templateSnapshot,
       campaign.themeSnapshot ?? defaultEmailTheme,
-      mergeData,
+      {
+        ...mergeData,
+        ...(await walletPassMergeData(mergeData.wallet_user_id)),
+      },
     );
     const messageId = await sendWithThrottleRetry({
       to: email,

@@ -1,6 +1,19 @@
 import { z } from "zod";
 import { APPLICATION_DECISIONS } from "@/lib/decisions";
 
+/**
+ * Merge fields a recipient list never needs a column for: email and name are
+ * always derived, and the Wallet links are signed at send time from the
+ * audience's wallet_user_id column (blank, dropping the link, without one).
+ * Shared so the admin client and the send path agree on required columns.
+ */
+export const builtInRecipientMergeFields: ReadonlySet<string> = new Set([
+  "email",
+  "name",
+  "wallet_pass_url",
+  "google_wallet_pass_url",
+]);
+
 const maxRecipientTextLength = 300_000;
 const maxHtmlTemplateLength = 500_000;
 const emailLinkUrlSchema = z

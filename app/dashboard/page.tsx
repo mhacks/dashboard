@@ -18,6 +18,8 @@ import {
 } from "@/lib/queries/applicant-decision";
 import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
 import { getApplicationAccessForUser } from "@/lib/applications/access";
+import { isAppleWalletPublished } from "@/lib/wallet/config";
+import { isGoogleWalletPublished } from "@/lib/wallet/google-config";
 
 /**
  * Stage is derived, never stored. `applied` is the enum's "submitted, no
@@ -63,6 +65,8 @@ export default async function DashboardPage() {
       userId={userId}
       canCheckIn={canCheckIn}
       firstName={application?.firstName ?? null}
+      appleWalletAvailable={isAppleWalletPublished()}
+      googleWalletAvailable={isGoogleWalletPublished()}
       data={{
         stage: stageFor(application),
         sectionsComplete: draftSteps,

@@ -25,6 +25,7 @@ import {
 } from "@/lib/email/campaigns/service";
 import { defaultEmailTheme } from "@/lib/email/theme";
 import {
+  builtInRecipientMergeFields,
   directBatchSendSchema,
   directEmailTemplateSchema,
   directRecoverySendSchema,
@@ -1443,9 +1444,8 @@ function assertRequiredMergeColumns(
   columns: string[],
 ) {
   const columnSet = new Set(columns);
-  const builtInFields = new Set(["email", "name"]);
   const missing = extractDirectTemplateMergeFields(template).filter(
-    (field) => !builtInFields.has(field) && !columnSet.has(field),
+    (field) => !builtInRecipientMergeFields.has(field) && !columnSet.has(field),
   );
 
   if (missing.length > 0) {
