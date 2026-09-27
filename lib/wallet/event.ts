@@ -12,10 +12,9 @@ export const WALLET_EVENT = {
   datesShort: "Oct 3–4, 2026",
   doorsOpenAt: "2026-10-03T09:00:00-04:00",
   doorsOpenTime: "9:00 AM",
-  venueName: "Central Campus Classroom Building (CCCB)",
-  venueAddress: "1225 Geddes Ave, Ann Arbor, MI 48109",
-  venue:
-    "Central Campus Classroom Building (CCCB), 1225 Geddes Ave, Ann Arbor, MI 48109",
+  venueName: "University of Michigan",
+  venueAddress: "Ann Arbor, MI",
+  venue: "University of Michigan, Ann Arbor, MI",
   lateCheckIn:
     "Pierpont corridor, 2101 Bonisteel Blvd, from 11:00 AM to 2:30 PM",
   /** Canonical public host used for artwork and links stored at Google. */
@@ -32,7 +31,7 @@ export const WALLET_EVENT = {
       endDate: "2026-10-05T00:00:00-04:00",
     },
   ],
-  // CCCB. Wallet also surfaces the pass near the initial check-in location.
+  // Central campus. Wallet also surfaces the pass near the event location.
   location: { latitude: 42.27792, longitude: -83.73401 },
   /** After this the pass greys out in Wallet and emailed links stop working. */
   endsAt: "2026-10-06T00:00:00-04:00",
