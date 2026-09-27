@@ -4,6 +4,14 @@ Accepted hackers who have RSVPed can put the same check-in QR code shown on the
 dashboard into Apple Wallet or Google Wallet. Environments without credentials
 hide the corresponding button and omit its email merge field.
 
+## Apple Wallet visibility
+
+The dashboard's "Add to Apple Wallet" button stays hidden until
+`APPLE_WALLET_PUBLISHED=true` is in the `environment` array in
+`task-definition.json`. Until then, anyone who's RSVPed can still test the pass
+by opening `/wallet/pass` directly, and `{{wallet_pass_url}}` still works in
+emails.
+
 ## Google Wallet setup
 
 1. Complete [Google Wallet issuer onboarding](https://developers.google.com/wallet/tickets/events/getting-started/issuer-onboarding), enable the Google Wallet API in the associated Google Cloud project, and note the numeric issuer ID.

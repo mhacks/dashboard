@@ -46,7 +46,7 @@ export function ApplicantDashboard({
   firstName,
   userId,
   canCheckIn,
-  appleWalletConfigured,
+  appleWalletAvailable,
   googleWalletAvailable,
 }: {
   data: ApplicantDashboardData;
@@ -56,8 +56,11 @@ export function ApplicantDashboard({
   userId: string;
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
-  /** Whether this environment can sign Apple Wallet passes. */
-  appleWalletConfigured: boolean;
+  /**
+   * Whether this environment can sign Apple Wallet passes and
+   * APPLE_WALLET_PUBLISHED is on.
+   */
+  appleWalletAvailable: boolean;
   /**
    * Whether this environment can create and sign Google Wallet passes, and the
    * issuer has publishing access so any attendee can save one.
@@ -85,7 +88,7 @@ export function ApplicantDashboard({
           {canCheckIn ? (
             <CheckInPanel
               userId={userId}
-              appleWalletAvailable={appleWalletConfigured}
+              appleWalletAvailable={appleWalletAvailable}
               googleWalletAvailable={googleWalletAvailable}
             />
           ) : null}

@@ -128,3 +128,14 @@ export const getAppleWalletConfig = appleWalletConfig.get;
  * values (a raw PEM, a bad passphrase) hide them too, and are logged once.
  */
 export const isAppleWalletConfigured = appleWalletConfig.isConfigured;
+
+/**
+ * Whether the dashboard offers the "Add to Apple Wallet" button. Off until
+ * APPLE_WALLET_PUBLISHED=true, so the pass can be tested at /wallet/pass
+ * before hackers see it.
+ */
+export function isAppleWalletPublished() {
+  return (
+    process.env.APPLE_WALLET_PUBLISHED === "true" && isAppleWalletConfigured()
+  );
+}
