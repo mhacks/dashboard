@@ -1,5 +1,6 @@
 import { LetterBody, LetterKicker } from "@/components/console/letter";
 import { TRAVEL_GUIDE_URL } from "@/lib/rsvp/travel-guide";
+import { WALLET_EVENT } from "@/lib/wallet/event";
 
 interface Detail {
   label: string;
@@ -61,7 +62,16 @@ export function EventDetails() {
         >
           MHacks 2026 Travel Guide
         </a>{" "}
-        for everything you need to know about getting to Ann Arbor.
+        for everything you need to know about getting to Ann Arbor. The{" "}
+        <a
+          href={WALLET_EVENT.handbookUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium underline underline-offset-4"
+        >
+          hacker handbook
+        </a>{" "}
+        covers the venue, schedule, and weekend policies.
       </LetterBody>
     </>
   );
