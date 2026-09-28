@@ -15,7 +15,6 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "live:sync": "node scripts/sync-live-calendar.mjs",
-    "live:sync:test": "node --test scripts/live-calendar.test.mjs",
     "prepare": "husky",
     "db:start": "supabase start && bash scripts/gen-env-local.sh",
     "db:env": "bash scripts/gen-env-local.sh",

@@ -129,7 +129,3 @@ checks and transactional behavior apply. Refresh `/live` after a successful sync
   attendance. Reappearing archived entries stay archived until manually published.
 - Empty feeds, duplicate IDs or title/time pairs, unsupported recurring/all-day
   entries, unresolved timezones, and invalid dates abort before any write.
-
-Run parser and safety tests with `pnpm live:sync:test`. To include the real database
-integration test, set `LIVE_SYNC_TEST_DATABASE_URL` to a migrated **local** database.
-The test refuses remote databases and rolls back all test content.
