@@ -201,23 +201,9 @@ function StatusLabel({
 const QUICK_LINK_CLASS =
   "liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base";
 
-const HACKER_HANDBOOK_LINK: GuideLink = {
-  id: "hacker-handbook",
-  title: "Hacker handbook",
-  description:
-    "Venue, schedule, policies, and everything else you need for the weekend.",
-  href: WALLET_EVENT.handbookUrl,
-  category: "Weekend",
-  status: "published",
-  position: 0,
-};
-
-function withHackerHandbook(links: readonly GuideLink[]) {
-  if (links.some((link) => link.href === WALLET_EVENT.handbookUrl)) {
-    return links;
-  }
-
-  return [HACKER_HANDBOOK_LINK, ...links];
+/** Notion's public page refuses iframes. `/ebd/` is the embeddable copy. */
+function handbookEmbedUrl(pageUrl: string) {
+  return pageUrl.replace(/\/[^/]*?([0-9a-f]{32})$/i, "/ebd/$1");
 }
 
 function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
@@ -228,16 +214,6 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
         <span>MHacks home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </Link>
-      <a
-        href={WALLET_EVENT.handbookUrl}
-        target="_blank"
-        rel="noreferrer"
-        className={QUICK_LINK_CLASS}
-      >
-        <BookOpen className="size-4 text-olive" />
-        <span>Hacker handbook</span>
-        <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-      </a>
       {devpostUrl ? (
         <a
           href={devpostUrl}
@@ -362,16 +338,10 @@ function ComingSoonState({
   );
 }
 
-function GuidePanel({
-  emptyState,
-  links,
-}: {
-  emptyState: ComingSoonContent;
-  links: readonly GuideLink[];
-}) {
-  if (links.length === 0) {
-    return <ComingSoonState content={emptyState} icon={BookOpen} />;
-  }
+function GuidePanel({ links }: { links: readonly GuideLink[] }) {
+  const otherLinks = links.filter(
+    (link) => link.href !== WALLET_EVENT.handbookUrl,
+  );
 
   return (
     <section aria-labelledby="guide-heading" className="space-y-4">
@@ -381,33 +351,49 @@ function GuidePanel({
       >
         Hacker guide
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {links.map((link) => (
-          <a
-            key={link.id}
-            href={link.href}
-            target="_blank"
-            rel="noreferrer"
-            className={cn(
-              LIQUID_GLASS_CARD_CLASS,
-              "group rounded-md p-5 transition-transform hover:-translate-y-0.5",
-            )}
-          >
-            <span className="font-red-hat mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-olive/75">
-              {link.category}
-            </span>
-            <span className="flex items-center justify-between gap-3">
-              <span className="font-red-hat text-lg font-semibold text-ink">
-                {link.title}
+      <a
+        href={WALLET_EVENT.handbookUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="font-red-hat inline-flex items-center gap-1.5 text-sm font-semibold text-olive hover:text-moss"
+      >
+        Open in Notion
+        <ExternalLink className="size-3.5" />
+      </a>
+      <iframe
+        title="Hacker handbook"
+        src={handbookEmbedUrl(WALLET_EVENT.handbookUrl)}
+        className="h-[min(80vh,960px)] w-full rounded-md border border-olive/15 bg-white"
+      />
+      {otherLinks.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {otherLinks.map((link) => (
+            <a
+              key={link.id}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                LIQUID_GLASS_CARD_CLASS,
+                "group rounded-md p-5 transition-transform hover:-translate-y-0.5",
+              )}
+            >
+              <span className="font-red-hat mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-olive/75">
+                {link.category}
               </span>
-              <ExternalLink className="size-4 shrink-0 text-olive" />
-            </span>
-            <span className="font-red-hat mt-2 block text-sm leading-6 text-ink/75">
-              {link.description}
-            </span>
-          </a>
-        ))}
-      </div>
+              <span className="flex items-center justify-between gap-3">
+                <span className="font-red-hat text-lg font-semibold text-ink">
+                  {link.title}
+                </span>
+                <ExternalLink className="size-4 shrink-0 text-olive" />
+              </span>
+              <span className="font-red-hat mt-2 block text-sm leading-6 text-ink/75">
+                {link.description}
+              </span>
+            </a>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1197,10 +1183,6 @@ export function LiveEvents({
   prizes,
   settings,
 }: LiveEventsProps) {
-  const guideLinksWithHandbook = useMemo(
-    () => withHackerHandbook(guideLinks),
-    [guideLinks],
-  );
   const [activeView, setActiveView] = useState<LiveView>("timeline");
   const [activeCategory, setActiveCategory] = useState("All");
   const [showPast, setShowPast] = useState(false);
@@ -1571,14 +1553,7 @@ export function LiveEvents({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              <GuidePanel
-                emptyState={{
-                  eyebrow: "Hacker guide",
-                  title: settings.guideEmptyTitle,
-                  description: settings.guideEmptyDescription,
-                }}
-                links={guideLinksWithHandbook}
-              />
+              <GuidePanel links={guideLinks} />
             </motion.div>
           ) : (
             <motion.div
