@@ -498,6 +498,12 @@ function LiveViewTabs({
   interactive?: boolean;
   variant?: "inline" | "floating";
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<LiveView, HTMLButtonElement | null>>({
+    timeline: null,
+    guide: null,
+    prizes: null,
+  });
   const views = [
     {
       id: "timeline" as const,
@@ -519,17 +525,29 @@ function LiveViewTabs({
     },
   ];
 
+  useEffect(() => {
+    const container = containerRef.current;
+    const tab = tabRefs.current[active];
+    if (!container || !tab) return;
+
+    container.scrollTo({
+      behavior: "smooth",
+      left: tab.offsetLeft - (container.clientWidth - tab.offsetWidth) / 2,
+    });
+  }, [active]);
+
   return (
     <div
+      ref={containerRef}
       aria-label={
         variant === "inline" ? "Live page views" : "Floating live page views"
       }
       aria-hidden={!interactive}
       className={cn(
-        "flex w-full min-w-0 justify-between gap-2 overflow-x-clip sm:justify-start sm:gap-10",
+        "flex gap-3 overflow-x-auto [scrollbar-width:none] sm:gap-10 [&::-webkit-scrollbar]:hidden",
         variant === "inline"
-          ? "border-b border-olive/15"
-          : "px-1 sm:justify-center sm:px-2",
+          ? "-mx-5 border-b border-olive/15 px-5 sm:mx-0 sm:px-0"
+          : "gap-2 px-1 sm:justify-center sm:gap-10 sm:px-2",
       )}
       role="tablist"
     >
@@ -540,6 +558,9 @@ function LiveViewTabs({
           <button
             key={id}
             id={idPrefix === "inline" ? `${id}-tab` : `${id}-floating-tab`}
+            ref={(element) => {
+              tabRefs.current[id] = element;
+            }}
             type="button"
             aria-label={label}
             aria-controls={`${id}-panel`}
@@ -547,17 +568,23 @@ function LiveViewTabs({
             onClick={() => onSelect(id)}
             tabIndex={interactive ? 0 : -1}
             className={cn(
-              "font-red-hat relative inline-flex min-w-0 items-center gap-1.5 px-1 text-sm font-semibold whitespace-nowrap uppercase tracking-[0.14em] transition-colors sm:gap-2",
+              "font-red-hat relative inline-flex shrink-0 items-center gap-2 px-1 text-sm font-semibold whitespace-nowrap uppercase tracking-[0.14em] transition-colors",
               variant === "inline"
-                ? "h-12 text-[11px] tracking-[0.06em] sm:h-14 sm:text-base sm:tracking-[0.14em]"
-                : "h-11 text-[11px] tracking-[0.06em] sm:h-12 sm:text-sm sm:tracking-[0.14em]",
+                ? "h-12 text-[11px] tracking-[0.08em] sm:h-14 sm:text-base sm:tracking-[0.14em]"
+                : "h-11 gap-1.5 text-[11px] tracking-[0.08em] sm:h-12 sm:gap-2 sm:text-sm sm:tracking-[0.14em]",
               isActive ? "text-olive" : "text-ink/70 hover:text-ink",
             )}
             role="tab"
           >
             <Icon className="size-3.5 sm:size-4" />
-            <span className="sm:hidden">{shortLabel}</span>
-            <span className="hidden sm:inline">{label}</span>
+            {variant === "floating" ? (
+              <>
+                <span className="sm:hidden">{shortLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
+              </>
+            ) : (
+              label
+            )}
             {isActive ? (
               <motion.span
                 layoutId={`live-view-indicator-${variant}`}
@@ -620,7 +647,7 @@ function EventCategoryFilter({
   return (
     <div
       aria-label="Event categories"
-      className="flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
       role="group"
       tabIndex={0}
     >
@@ -847,51 +874,12 @@ function getCalendarUrl(event: LiveEvent) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-const DUDERSTADT_FLOOR_PLANS_URL =
-  "https://www.dc.umich.edu/about-the-dc/maps-floor-plans-hours/";
-
-const UNLINKED_LOCATIONS = new Set([
-  "",
-  "devpost",
-  "not provided",
-  "tba",
-  "tbd",
-]);
-
-/** Buildings Google Maps can resolve. Room names and Dude interiors cannot. */
-const VENUE_MAP_QUERIES: Record<string, string> = {
-  bbb: "Bob and Betty Beyster Building, Ann Arbor, MI",
-  cccb: "Central Campus Classroom Building, Ann Arbor, MI",
-  "pierpont commons": "Pierpont Commons, Ann Arbor, MI",
-  "pierpont connector hall": "Pierpont Commons, Ann Arbor, MI",
-  "the grove": "The Grove, Ann Arbor, MI",
-};
-
-function isHttpUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 function getLocationUrl(event: LiveEvent) {
-  const explicit = event.mapUrl?.trim() ?? "";
-  if (explicit && isHttpUrl(explicit)) return explicit;
+  if (event.mapUrl) return event.mapUrl;
+  if (event.location.toLowerCase() === "devpost") return null;
 
-  const location = event.location.trim();
-  if (isHttpUrl(location)) return location;
-
-  const key = location.toLowerCase();
-  if (UNLINKED_LOCATIONS.has(key)) return null;
-
-  const venue = VENUE_MAP_QUERIES[key];
-  if (venue) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue)}`;
-  }
-
-  return DUDERSTADT_FLOOR_PLANS_URL;
+  const query = encodeURIComponent(`${event.location}, Ann Arbor, MI`);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
 function EventCard({
@@ -1125,9 +1113,7 @@ function EventDetailsDrawer({
                     <a href={locationUrl} target="_blank" rel="noreferrer">
                       <span className="inline-flex items-center gap-2">
                         <MapPin className="size-4" />
-                        {locationUrl === DUDERSTADT_FLOOR_PLANS_URL
-                          ? "Duderstadt map"
-                          : "Open location"}
+                        Open location
                       </span>
                       <ExternalLink className="size-3.5 opacity-60" />
                     </a>
@@ -1333,7 +1319,7 @@ export function LiveEvents({
     : null;
 
   return (
-    <main className="font-red-hat relative min-h-screen overflow-x-clip bg-paper text-ink">
+    <main className="font-red-hat relative min-h-screen bg-paper text-ink">
       <FloatingLiveNav
         active={activeView}
         onSelect={setActiveView}
