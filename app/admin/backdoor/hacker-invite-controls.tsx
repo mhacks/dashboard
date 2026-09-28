@@ -217,14 +217,18 @@ export function HackerInviteControls({
       if (!result.emailSent) {
         toast.warning(
           result.newlyAccepted
-            ? "Applicant accepted, but the email failed. Use Resend email to try again."
-            : "Acceptance email failed to send. Please try again.",
+            ? "Applicant accepted and their RSVP window opened, but the email failed. Use Resend email to try again."
+            : result.rsvpWindowOpened
+              ? "Their RSVP window was reopened, but the acceptance email failed. Please try again."
+              : "Acceptance email failed to send. Please try again.",
         );
       } else {
         toast.success(
           result.newlyAccepted
-            ? "Applicant accepted and decision email sent."
-            : "Acceptance email resent.",
+            ? "Applicant accepted, RSVP window opened, and decision email sent."
+            : result.rsvpWindowOpened
+              ? "RSVP window reopened and acceptance email resent."
+              : "Acceptance email resent.",
         );
       }
     } catch (error) {
@@ -242,7 +246,8 @@ export function HackerInviteControls({
           <CardTitle>Hacker Invites</CardTitle>
           <CardDescription>
             Invite someone who did not apply to use a private application window
-            after applications close.
+            after applications close. Accepting them also opens a private
+            24-hour RSVP window.
           </CardDescription>
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
@@ -464,8 +469,8 @@ export function HackerInviteControls({
             <AlertDialogDescription>
               {pendingDecision
                 ? pendingDecision.applicationDecision === "applied"
-                  ? `${pendingDecision.applicationName ?? pendingDecision.email} will be accepted. Their decision letter will go live immediately, and the acceptance email will be sent to ${pendingDecision.email}.`
-                  : `The acceptance email will be sent again to ${pendingDecision.email}. Their admission decision will not change.`
+                  ? `${pendingDecision.applicationName ?? pendingDecision.email} will be accepted. Their decision letter will go live immediately, a private RSVP window will open for 24 hours, and the acceptance email will be sent to ${pendingDecision.email}.`
+                  : `The acceptance email will be sent again to ${pendingDecision.email}. Their admission decision will not change. If their private RSVP window is missing or expired, it will reopen for 24 hours.`
                 : null}
             </AlertDialogDescription>
           </AlertDialogHeader>

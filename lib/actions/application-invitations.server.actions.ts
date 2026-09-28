@@ -11,6 +11,7 @@ import {
   hackerReimbursements,
   reimbursementRegions,
 } from "@/lib/db/schema/reimbursements";
+import { hackerRsvps } from "@/lib/db/schema/rsvps";
 import { users } from "@/lib/db/schema/users";
 import { sendEmail } from "@/lib/aws/ses";
 import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
@@ -18,6 +19,7 @@ import { buildApplicationDecisionEmail } from "@/lib/email/application-decision-
 import { sendApplicationInvitationEmail } from "@/lib/email/send-invite-email";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { getAdminApplicationInvitationById } from "@/lib/queries/application-invitations";
+import { ensureBackdoorRsvpWindow } from "@/lib/rsvp/backdoor-window";
 import { getApplicationRound } from "@/lib/types/application-reviews";
 import { getRequestOrigin } from "@/lib/url/request-origin";
 import {
@@ -113,9 +115,10 @@ export async function createApplicationInvitationAction(
 
 /**
  * Accepts only the application associated with this Backdoor invitation and
- * then sends its decision letter. Committing before delivery makes an email
- * outage recoverable: the row becomes accepted, and this action turns into an
- * idempotent resend without ever downgrading an RSVP-confirmed decision.
+ * opens its private RSVP window, and then sends its decision letter. Committing
+ * before delivery makes an email outage recoverable: the row becomes accepted,
+ * and this action turns into an idempotent resend without ever downgrading an
+ * RSVP-confirmed decision.
  */
 export async function acceptInvitedApplicantAction(
   input: unknown,
@@ -134,6 +137,7 @@ export async function acceptInvitedApplicantAction(
         decision: hackerApplicants.decision,
         createdAt: hackerApplicants.createdAt,
         reimbursementCents: reimbursementRegions.amountCents,
+        finalRsvpId: hackerRsvps.id,
       })
       .from(hackerApplicationInvitations)
       .innerJoin(
@@ -152,6 +156,7 @@ export async function acceptInvitedApplicantAction(
         reimbursementRegions,
         eq(reimbursementRegions.region, hackerReimbursements.region),
       )
+      .leftJoin(hackerRsvps, eq(hackerRsvps.userId, hackerApplicants.userId))
       .where(eq(hackerApplicationInvitations.id, parsed.data.invitationId))
       .limit(1)
       .for("update", { of: hackerApplicants });
@@ -172,7 +177,19 @@ export async function acceptInvitedApplicantAction(
         };
       }
 
-      return { ok: true as const, ...target, newlyAccepted: false };
+      const rsvpWindow = target.finalRsvpId
+        ? null
+        : await ensureBackdoorRsvpWindow(tx, {
+            userId: target.userId,
+            createdByUserId: organizer.id,
+          });
+
+      return {
+        ok: true as const,
+        ...target,
+        newlyAccepted: false,
+        rsvpWindow,
+      };
     }
 
     const decision: ApplicationDecision =
@@ -186,11 +203,18 @@ export async function acceptInvitedApplicantAction(
       .set({ decision, updatedAt: now })
       .where(eq(hackerApplicants.id, target.applicationId));
 
+    const rsvpWindow = await ensureBackdoorRsvpWindow(tx, {
+      userId: target.userId,
+      createdByUserId: organizer.id,
+      now: new Date(now),
+    });
+
     return {
       ok: true as const,
       ...target,
       decision,
       newlyAccepted: true,
+      rsvpWindow,
     };
   });
 
@@ -234,6 +258,7 @@ export async function acceptInvitedApplicantAction(
           applicant_user_id: accepted.userId,
           decision: accepted.decision,
           decision_email_sent: emailSent,
+          rsvp_window_closes_at: accepted.rsvpWindow?.closesAt ?? null,
         },
       });
       await posthog.flush();
@@ -247,6 +272,8 @@ export async function acceptInvitedApplicantAction(
     decision: accepted.decision,
     newlyAccepted: accepted.newlyAccepted,
     emailSent,
+    rsvpClosesAt: accepted.rsvpWindow?.closesAt ?? null,
+    rsvpWindowOpened: accepted.rsvpWindow?.opened ?? false,
   };
 }
 

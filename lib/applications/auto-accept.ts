@@ -13,6 +13,7 @@ import {
 import { users } from "@/lib/db/schema/users";
 import type { ApplicationDecision } from "@/lib/decisions";
 import { buildApplicationDecisionEmail } from "@/lib/email/application-decision-template";
+import { ensureBackdoorRsvpWindow } from "@/lib/rsvp/backdoor-window";
 import { getApplicationRound } from "@/lib/types/application-reviews";
 import { getRequestOrigin } from "@/lib/url/request-origin";
 
@@ -37,6 +38,7 @@ export async function autoAcceptInvitedApplication({
           decision: hackerApplicants.decision,
           createdAt: hackerApplicants.createdAt,
           reimbursementCents: reimbursementRegions.amountCents,
+          invitedByUserId: hackerApplicationInvitations.invitedByUserId,
         })
         .from(hackerApplicants)
         .innerJoin(users, eq(users.id, hackerApplicants.userId))
@@ -82,6 +84,12 @@ export async function autoAcceptInvitedApplication({
         .update(hackerApplicants)
         .set({ decision, updatedAt: now })
         .where(eq(hackerApplicants.id, applicationId));
+
+      await ensureBackdoorRsvpWindow(tx, {
+        userId,
+        createdByUserId: target.invitedByUserId,
+        now: new Date(now),
+      });
 
       return { ...target, decision };
     });
