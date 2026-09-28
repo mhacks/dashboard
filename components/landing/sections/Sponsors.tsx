@@ -105,7 +105,7 @@ const TIERS: {
       },
       {
         name: "SpaceX",
-        url: "https://www.spacex.com",
+        url: "https://x.ai/",
         file: "spacex",
         width: 1072,
         height: 304,
