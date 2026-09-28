@@ -846,9 +846,11 @@ function getCalendarUrl(event: LiveEvent) {
 
 function getLocationUrl(event: LiveEvent) {
   if (event.mapUrl) return event.mapUrl;
-  if (event.location.toLowerCase() === "devpost") return null;
+  const location = event.location.trim();
+  if (["", "devpost", "tbd", "tba"].includes(location.toLowerCase()))
+    return null;
 
-  const query = encodeURIComponent(`${event.location}, Ann Arbor, MI`);
+  const query = encodeURIComponent(`${location}, Ann Arbor, MI`);
   return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
@@ -899,10 +901,12 @@ function EventCard({
           <span className="rounded-full bg-sage/30 px-2.5 py-0.5 text-[12px] font-medium text-olive">
             {event.eventType}
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <MapPin className="size-3.5 opacity-60" />
-            {event.location}
-          </span>
+          {event.location ? (
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="size-3.5 opacity-60" />
+              {event.location}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -985,7 +989,8 @@ function EventDetailsDrawer({
               {event.name}
             </DrawerTitle>
             <DrawerDescription className="font-red-hat text-sm text-ink/75">
-              {formatEventTime(event, timezone)} · {event.location}
+              {formatEventTime(event, timezone)}
+              {event.location ? ` · ${event.location}` : ""}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -1010,7 +1015,7 @@ function EventDetailsDrawer({
                   Location
                 </div>
                 <div className="font-red-hat mt-1 font-medium text-ink">
-                  {event.location}
+                  {event.location || "Location to be announced"}
                 </div>
                 {event.locationDetails ? (
                   <div className="mt-1 text-xs leading-5 text-ink/65">
@@ -1277,7 +1282,6 @@ export function LiveEvents({
 
   const currentDay = days.find((day) => day.key === activeDay) ?? days[0];
   const currentDayEvents = currentDay?.events.filter(matchesCategory) ?? [];
-  const pastCount = events.length - visibleEvents.length;
   const scheduleRange = formatScheduleRange(events, settings.timezone);
   const showFloatingNav = tabsPassed && scrollNavVisible;
   const selectedEvent = selectedEventId
@@ -1445,15 +1449,13 @@ export function LiveEvents({
                         {currentDay.label}
                       </h3>
                       <div className="flex items-center gap-4">
-                        {pastCount > 0 || showPast ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowPast((value) => !value)}
-                            className="font-red-hat text-xs font-medium uppercase tracking-[0.16em] text-olive transition-colors hover:text-moss"
-                          >
-                            {showPast ? "Hide past events" : "Show past events"}
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setShowPast((value) => !value)}
+                          className="font-red-hat text-xs font-medium uppercase tracking-[0.16em] text-olive transition-colors hover:text-moss"
+                        >
+                          {showPast ? "Hide past events" : "Show past events"}
+                        </button>
                         <p className="font-red-hat text-base text-ink/70 sm:text-lg">
                           {currentDayEvents.length}{" "}
                           {currentDayEvents.length === 1 ? "event" : "events"}

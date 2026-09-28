@@ -58,3 +58,78 @@ Check signed-out access, day selection, search, event details, and links on both
 desktop and mobile. Verify that drafts, archived rows, future announcements,
 and expired announcements are hidden. Edit a published item's text in the local
 database and reload `/live` to confirm the change appears without redeploying.
+
+## Syncing the Google Calendar
+
+The MHacks 2026 calendar can be imported repeatedly without creating new event
+IDs when titles or times change. The script uses the calendar UID in a stable
+`gcal-...` slug, so **do not rename imported slugs**. No schema migration is needed.
+The command is a one-time sync, not a background subscription.
+
+```bash
+pnpm live:sync                       # Download and preview; never writes
+pnpm live:sync --file schedule.ics   # Preview a saved export of the same calendar
+```
+
+Without `DATABASE_URL`, the preview checks only the calendar. With `DATABASE_URL`,
+it also reports existing events and possible conflicts. The script intentionally
+does not load `.env.local` automatically, so the database target is explicit.
+
+For a local test, set `DATABASE_URL` to your local database and run:
+
+```bash
+pnpm live:sync --apply --publish
+```
+
+For production, configure `DATABASE_URL` privately with the production connection
+string, preview first, and explicitly allow the write:
+
+```bash
+pnpm live:sync
+pnpm live:sync --apply --allow-remote --publish
+```
+
+Do not paste credentials in chat or commit them. Remote connections require
+certificate-verified TLS. Before applying, the command saves matching event rows,
+their live details, and the source calendar in a private temporary backup folder
+and prints its location. The database writes are one transaction.
+
+Alternatively, generate a transaction for Supabase's SQL Editor without needing
+a local database connection. Use a new output filename each time:
+
+```bash
+pnpm live:sync --publish --sql /tmp/mhacks-calendar.sql
+```
+
+Review the target project and SQL before executing. This export does not execute
+anything or make the CLI's automatic backup; export the affected event content
+from Supabase before using it to update existing records. The same duplicate
+checks and transactional behavior apply. Refresh `/live` after a successful sync.
+
+### Ownership and safety
+
+- Includes all calendar entries, including judge activities. Blank locations stay
+  blank; titles and timestamps, including the 11:30 AM-noon submissions reminder,
+  are preserved. Dates must fall within October 3-4, 2026 in Eastern Time.
+- The calendar owns `events.name`, `description`, `location`, `starts_at`, and
+  `ends_at`. Update these in Google Calendar, not Supabase, or a later sync will
+  overwrite the manual change. Descriptions are imported verbatim, including any
+  source boilerplate.
+- Extra live details, categories, resources, capacities, existing publishing
+  status, scanner settings, RSVP requirements, and attendance are preserved.
+  New events use the default `Event` category and closed scanners.
+- New live entries are drafts unless `--publish` is supplied. That flag publishes
+  only new entries, not existing drafts or archives. Publish those manually after
+  review when needed.
+- Existing non-calendar events are never silently adopted or overwritten. A
+  matching title and start time under a different slug aborts the whole import;
+  reconcile that event deliberately before retrying.
+- Explicit cancellations archive imported events. Missing entries are reported
+  but kept unless `--archive-missing` is supplied. Nothing is deleted, including
+  attendance. Reappearing archived entries stay archived until manually published.
+- Empty feeds, duplicate IDs or title/time pairs, unsupported recurring/all-day
+  entries, unresolved timezones, and invalid dates abort before any write.
+
+Run parser and safety tests with `pnpm live:sync:test`. To include the real database
+integration test, set `LIVE_SYNC_TEST_DATABASE_URL` to a migrated **local** database.
+The test refuses remote databases and rolls back all test content.
