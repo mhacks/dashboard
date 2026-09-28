@@ -41,6 +41,7 @@ export function ResultsLetter({
   decision,
   applicantName,
   reimbursementCents = null,
+  rsvpDeadline,
   /**
    * Both are future additions. The bands exist and are wired; supplying a URL
    * is all it takes to turn one on. Discord is deliberately accepted-only —
@@ -53,6 +54,7 @@ export function ResultsLetter({
   decision: ApplicationDecision;
   applicantName: string;
   reimbursementCents?: number | null;
+  rsvpDeadline?: string;
   discordInviteUrl?: string;
   bouquetGameUrl?: string;
 }) {
@@ -84,7 +86,7 @@ export function ResultsLetter({
               <AcceptedBody
                 letter={letter}
                 applicantName={applicantName}
-                deadline={RSVP_DEADLINE[round]}
+                deadline={rsvpDeadline ?? RSVP_DEADLINE[round]}
                 discordInviteUrl={discordInviteUrl}
                 bouquetGameUrl={bouquetGameUrl}
               />
