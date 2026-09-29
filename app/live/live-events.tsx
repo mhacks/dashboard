@@ -53,6 +53,7 @@ import type {
   LiveSiteSettings,
   Prize,
 } from "@/lib/live/types";
+import { WALLET_EVENT } from "@/lib/wallet/event";
 import { cn } from "@/lib/utils";
 
 type LiveEventsProps = {
@@ -197,13 +198,18 @@ function StatusLabel({
   return null;
 }
 
+const QUICK_LINK_CLASS =
+  "liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base";
+
+/** Notion's public page refuses iframes. `/ebd/` is the embeddable copy. */
+function handbookEmbedUrl(pageUrl: string) {
+  return pageUrl.replace(/\/[^/]*?([0-9a-f]{32})$/i, "/ebd/$1");
+}
+
 function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
   return (
     <nav aria-label="Quick links" className="flex flex-wrap gap-2">
-      <Link
-        href="/"
-        className="liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base"
-      >
+      <Link href="/" className={QUICK_LINK_CLASS}>
         <House className="size-4 text-olive" />
         <span>MHacks home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -213,7 +219,7 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
           href={devpostUrl}
           target="_blank"
           rel="noreferrer"
-          className="liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base"
+          className={QUICK_LINK_CLASS}
         >
           <ExternalLink className="size-4 text-olive" />
           <span>Devpost</span>
@@ -332,16 +338,10 @@ function ComingSoonState({
   );
 }
 
-function GuidePanel({
-  emptyState,
-  links,
-}: {
-  emptyState: ComingSoonContent;
-  links: readonly GuideLink[];
-}) {
-  if (links.length === 0) {
-    return <ComingSoonState content={emptyState} icon={BookOpen} />;
-  }
+function GuidePanel({ links }: { links: readonly GuideLink[] }) {
+  const otherLinks = links.filter(
+    (link) => link.href !== WALLET_EVENT.handbookUrl,
+  );
 
   return (
     <section aria-labelledby="guide-heading" className="space-y-4">
@@ -351,33 +351,49 @@ function GuidePanel({
       >
         Hacker guide
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {links.map((link) => (
-          <a
-            key={link.id}
-            href={link.href}
-            target="_blank"
-            rel="noreferrer"
-            className={cn(
-              LIQUID_GLASS_CARD_CLASS,
-              "group rounded-md p-5 transition-transform hover:-translate-y-0.5",
-            )}
-          >
-            <span className="font-red-hat mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-olive/75">
-              {link.category}
-            </span>
-            <span className="flex items-center justify-between gap-3">
-              <span className="font-red-hat text-lg font-semibold text-ink">
-                {link.title}
+      <a
+        href={WALLET_EVENT.handbookUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="font-red-hat inline-flex items-center gap-1.5 text-sm font-semibold text-olive hover:text-moss"
+      >
+        Open in Notion
+        <ExternalLink className="size-3.5" />
+      </a>
+      <iframe
+        title="Hacker handbook"
+        src={handbookEmbedUrl(WALLET_EVENT.handbookUrl)}
+        className="h-[min(80vh,960px)] w-full rounded-md border border-olive/15 bg-white"
+      />
+      {otherLinks.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {otherLinks.map((link) => (
+            <a
+              key={link.id}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                LIQUID_GLASS_CARD_CLASS,
+                "group rounded-md p-5 transition-transform hover:-translate-y-0.5",
+              )}
+            >
+              <span className="font-red-hat mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-olive/75">
+                {link.category}
               </span>
-              <ExternalLink className="size-4 shrink-0 text-olive" />
-            </span>
-            <span className="font-red-hat mt-2 block text-sm leading-6 text-ink/75">
-              {link.description}
-            </span>
-          </a>
-        ))}
-      </div>
+              <span className="flex items-center justify-between gap-3">
+                <span className="font-red-hat text-lg font-semibold text-ink">
+                  {link.title}
+                </span>
+                <ExternalLink className="size-4 shrink-0 text-olive" />
+              </span>
+              <span className="font-red-hat mt-2 block text-sm leading-6 text-ink/75">
+                {link.description}
+              </span>
+            </a>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -468,12 +484,6 @@ function LiveViewTabs({
   interactive?: boolean;
   variant?: "inline" | "floating";
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<Record<LiveView, HTMLButtonElement | null>>({
-    timeline: null,
-    guide: null,
-    prizes: null,
-  });
   const views = [
     {
       id: "timeline" as const,
@@ -495,29 +505,17 @@ function LiveViewTabs({
     },
   ];
 
-  useEffect(() => {
-    const container = containerRef.current;
-    const tab = tabRefs.current[active];
-    if (!container || !tab) return;
-
-    container.scrollTo({
-      behavior: "smooth",
-      left: tab.offsetLeft - (container.clientWidth - tab.offsetWidth) / 2,
-    });
-  }, [active]);
-
   return (
     <div
-      ref={containerRef}
       aria-label={
         variant === "inline" ? "Live page views" : "Floating live page views"
       }
       aria-hidden={!interactive}
       className={cn(
-        "flex gap-3 overflow-x-auto [scrollbar-width:none] sm:gap-10 [&::-webkit-scrollbar]:hidden",
+        "flex w-full min-w-0 justify-between gap-2 overflow-x-clip sm:justify-start sm:gap-10",
         variant === "inline"
-          ? "-mx-5 border-b border-olive/15 px-5 sm:mx-0 sm:px-0"
-          : "gap-2 px-1 sm:justify-center sm:gap-10 sm:px-2",
+          ? "border-b border-olive/15"
+          : "px-1 sm:justify-center sm:px-2",
       )}
       role="tablist"
     >
@@ -528,9 +526,6 @@ function LiveViewTabs({
           <button
             key={id}
             id={idPrefix === "inline" ? `${id}-tab` : `${id}-floating-tab`}
-            ref={(element) => {
-              tabRefs.current[id] = element;
-            }}
             type="button"
             aria-label={label}
             aria-controls={`${id}-panel`}
@@ -538,23 +533,17 @@ function LiveViewTabs({
             onClick={() => onSelect(id)}
             tabIndex={interactive ? 0 : -1}
             className={cn(
-              "font-red-hat relative inline-flex shrink-0 items-center gap-2 px-1 text-sm font-semibold whitespace-nowrap uppercase tracking-[0.14em] transition-colors",
+              "font-red-hat relative inline-flex min-w-0 items-center gap-1.5 px-1 text-sm font-semibold whitespace-nowrap uppercase tracking-[0.14em] transition-colors sm:gap-2",
               variant === "inline"
-                ? "h-12 text-[11px] tracking-[0.08em] sm:h-14 sm:text-base sm:tracking-[0.14em]"
-                : "h-11 gap-1.5 text-[11px] tracking-[0.08em] sm:h-12 sm:gap-2 sm:text-sm sm:tracking-[0.14em]",
+                ? "h-12 text-[11px] tracking-[0.06em] sm:h-14 sm:text-base sm:tracking-[0.14em]"
+                : "h-11 text-[11px] tracking-[0.06em] sm:h-12 sm:text-sm sm:tracking-[0.14em]",
               isActive ? "text-olive" : "text-ink/70 hover:text-ink",
             )}
             role="tab"
           >
             <Icon className="size-3.5 sm:size-4" />
-            {variant === "floating" ? (
-              <>
-                <span className="sm:hidden">{shortLabel}</span>
-                <span className="hidden sm:inline">{label}</span>
-              </>
-            ) : (
-              label
-            )}
+            <span className="sm:hidden">{shortLabel}</span>
+            <span className="hidden sm:inline">{label}</span>
             {isActive ? (
               <motion.span
                 layoutId={`live-view-indicator-${variant}`}
@@ -617,7 +606,7 @@ function EventCategoryFilter({
   return (
     <div
       aria-label="Event categories"
-      className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+      className="flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="group"
       tabIndex={0}
     >
@@ -844,12 +833,51 @@ function getCalendarUrl(event: LiveEvent) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-function getLocationUrl(event: LiveEvent) {
-  if (event.mapUrl) return event.mapUrl;
-  if (event.location.toLowerCase() === "devpost") return null;
+const DUDERSTADT_FLOOR_PLANS_URL =
+  "https://www.dc.umich.edu/about-the-dc/maps-floor-plans-hours/";
 
-  const query = encodeURIComponent(`${event.location}, Ann Arbor, MI`);
-  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+const UNLINKED_LOCATIONS = new Set([
+  "",
+  "devpost",
+  "not provided",
+  "tba",
+  "tbd",
+]);
+
+/** Buildings Google Maps can resolve. Room names and Dude interiors cannot. */
+const VENUE_MAP_QUERIES: Record<string, string> = {
+  bbb: "Bob and Betty Beyster Building, Ann Arbor, MI",
+  cccb: "Central Campus Classroom Building, Ann Arbor, MI",
+  "pierpont commons": "Pierpont Commons, Ann Arbor, MI",
+  "pierpont connector hall": "Pierpont Commons, Ann Arbor, MI",
+  "the grove": "The Grove, Ann Arbor, MI",
+};
+
+function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getLocationUrl(event: LiveEvent) {
+  const explicit = event.mapUrl?.trim() ?? "";
+  if (explicit && isHttpUrl(explicit)) return explicit;
+
+  const location = event.location.trim();
+  if (isHttpUrl(location)) return location;
+
+  const key = location.toLowerCase();
+  if (UNLINKED_LOCATIONS.has(key)) return null;
+
+  const venue = VENUE_MAP_QUERIES[key];
+  if (venue) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue)}`;
+  }
+
+  return DUDERSTADT_FLOOR_PLANS_URL;
 }
 
 function EventCard({
@@ -1083,7 +1111,9 @@ function EventDetailsDrawer({
                     <a href={locationUrl} target="_blank" rel="noreferrer">
                       <span className="inline-flex items-center gap-2">
                         <MapPin className="size-4" />
-                        Open location
+                        {locationUrl === DUDERSTADT_FLOOR_PLANS_URL
+                          ? "Duderstadt map"
+                          : "Open location"}
                       </span>
                       <ExternalLink className="size-3.5 opacity-60" />
                     </a>
@@ -1285,7 +1315,7 @@ export function LiveEvents({
     : null;
 
   return (
-    <main className="font-red-hat relative min-h-screen bg-paper text-ink">
+    <main className="font-red-hat relative min-h-screen overflow-x-clip bg-paper text-ink">
       <FloatingLiveNav
         active={activeView}
         onSelect={setActiveView}
@@ -1523,14 +1553,7 @@ export function LiveEvents({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              <GuidePanel
-                emptyState={{
-                  eyebrow: "Hacker guide",
-                  title: settings.guideEmptyTitle,
-                  description: settings.guideEmptyDescription,
-                }}
-                links={guideLinks}
-              />
+              <GuidePanel links={guideLinks} />
             </motion.div>
           ) : (
             <motion.div

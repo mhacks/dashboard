@@ -18,6 +18,7 @@ import { QrDrawerButton } from "@/app/dashboard/qr-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
 import { isEventStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
+import { WALLET_EVENT } from "@/lib/wallet/event";
 
 /**
  * Where an applicant stands. `stage` chooses the panel and nothing else does,
@@ -96,6 +97,8 @@ export function ApplicantDashboard({
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
+
+          <HackerHandbook />
 
           {isEventStaff(role) ? <StaffTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
@@ -335,6 +338,28 @@ function CheckInPanel({
         ) : null}
       </div>
     </Panel>
+  );
+}
+
+/**
+ * The signed-in portal, not the public live schedule. Every dashboard visitor
+ * can open the handbook; staff tools stay below it.
+ */
+function HackerHandbook() {
+  return (
+    <div className="flex flex-col gap-3.5">
+      <Rail label="WEEKEND" ramp={false} />
+
+      <ToolGrid>
+        <ToolCard
+          eyebrow="GUIDE"
+          name="Hacker handbook"
+          description="Venue, schedule, policies, and what to bring for the weekend."
+          href={WALLET_EVENT.handbookUrl}
+          external
+        />
+      </ToolGrid>
+    </div>
   );
 }
 
