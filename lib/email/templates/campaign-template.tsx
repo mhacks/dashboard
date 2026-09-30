@@ -18,11 +18,13 @@ export function CampaignTemplate({
   previewText,
   theme = defaultEmailTheme,
   variant = "general",
+  googleWalletButtonUrl,
 }: {
   content: EmailCampaignContent;
   previewText: string;
   theme?: EmailThemeTokens;
   variant?: CampaignEmailVariant;
+  googleWalletButtonUrl?: string;
 }) {
   void variant;
   const sections = content.sections.map((section) => (
@@ -32,6 +34,7 @@ export function CampaignTemplate({
       body={section.body}
       kind={section.kind}
       theme={theme}
+      googleWalletButtonUrl={googleWalletButtonUrl}
     />
   ));
 

@@ -1,5 +1,6 @@
 import { render, toPlainText } from "@react-email/render";
 import { OTP_PREVIEW_CODE } from "@/lib/auth/otp";
+import { googleWalletButtonPath } from "@/lib/email/assets";
 import { getEmailTemplate } from "@/lib/email/templates/registry";
 import { defaultEmailTheme, normalizeEmailTheme } from "@/lib/email/theme";
 import {
@@ -16,6 +17,7 @@ export interface RenderCampaignEmailInput {
   content: unknown;
   theme?: unknown;
   mergeData?: Record<string, string>;
+  googleWalletButtonUrl?: string;
 }
 
 export interface RenderedCampaignEmail {
@@ -31,6 +33,7 @@ export async function renderCampaignEmail({
   content,
   theme,
   mergeData = {},
+  googleWalletButtonUrl,
 }: RenderCampaignEmailInput): Promise<RenderedCampaignEmail> {
   const template = getEmailTemplate(templateId);
 
@@ -50,6 +53,7 @@ export async function renderCampaignEmail({
     content: mergedContent,
     previewText: mergedPreviewText,
     theme: parsedTheme,
+    googleWalletButtonUrl,
   });
 
   const html = await render(element, { pretty: true });
@@ -62,7 +66,10 @@ export async function renderCampaignEmail({
   };
 }
 
-export async function renderEmailPreview(input: unknown) {
+export async function renderEmailPreview(
+  input: unknown,
+  options: { assetOrigin?: string } = {},
+) {
   const parsed = emailRenderPreviewSchema.parse(input);
   const mergeData = {
     email: "hacker@mhacks.org",
@@ -89,6 +96,9 @@ export async function renderEmailPreview(input: unknown) {
     content: parsed.content,
     theme: parsed.theme,
     mergeData,
+    googleWalletButtonUrl: options.assetOrigin
+      ? `${options.assetOrigin}${googleWalletButtonPath}`
+      : undefined,
   });
 }
 

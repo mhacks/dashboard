@@ -45,11 +45,13 @@ export function EmailSection({
   body,
   kind = "text",
   theme = defaultEmailTheme,
+  googleWalletButtonUrl = emailAssets.googleWalletButton,
 }: {
   title?: string;
   body: string;
   kind?: "text" | "code";
   theme?: EmailThemeTokens;
+  googleWalletButtonUrl?: string;
 }) {
   return (
     <Section style={sectionBlock}>
@@ -70,7 +72,7 @@ export function EmailSection({
                   <Img
                     alt="Add to Google Wallet"
                     height="55"
-                    src={emailAssets.googleWalletButton}
+                    src={googleWalletButtonUrl}
                     style={googleWalletButtonImage}
                     width="199"
                   />

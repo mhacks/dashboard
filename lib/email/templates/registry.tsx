@@ -17,6 +17,7 @@ export interface EmailTemplateDefinition {
     content: EmailCampaignContent;
     previewText: string;
     theme?: EmailThemeTokens;
+    googleWalletButtonUrl?: string;
   }) => React.ReactElement;
 }
 
@@ -25,13 +26,14 @@ function template(
 ): EmailTemplateDefinition {
   return {
     ...definition,
-    render({ content, previewText, theme }) {
+    render({ content, previewText, theme, googleWalletButtonUrl }) {
       return (
         <CampaignTemplate
           content={content}
           previewText={previewText}
           theme={theme}
           variant={definition.variant}
+          googleWalletButtonUrl={googleWalletButtonUrl}
         />
       );
     },
