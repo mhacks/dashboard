@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { QrCode } from "@/components/checkin/qr-code";
-import { buttonClass, ButtonLink } from "@/components/console/button";
+import { ButtonLink } from "@/components/console/button";
 import { Panel, PanelHeading } from "@/components/console/panel";
 import { ProgressMeter, StatusLine } from "@/components/console/progress";
 import { Rail, RailNote } from "@/components/console/rail";
@@ -315,8 +315,17 @@ function CheckInPanel({
         </QrDrawerButton>
 
         {appleWalletAvailable ? (
-          <a href="/wallet/pass" className={buttonClass("outline")}>
-            Add to Apple Wallet
+          <a
+            href="/wallet/pass"
+            aria-label="Add to Apple Wallet"
+            className="inline-flex p-2 max-sm:w-full max-sm:justify-center"
+          >
+            <Image
+              src="/wallet/apple/add-to-apple-wallet.svg"
+              alt="Add to Apple Wallet"
+              width={174}
+              height={55}
+            />
           </a>
         ) : null}
 
