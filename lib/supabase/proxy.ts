@@ -130,7 +130,7 @@ export async function updateSession(request: NextRequest) {
     const sessionUser = await getSessionUserFromClaims(user);
     const destination = destinationForRole(sessionUser?.role ?? "hacker", next);
     return redirectWithSessionCookies(
-      new URL(destination, request.url),
+      new URL(destination, request.nextUrl),
       supabaseResponse,
     );
   }
@@ -139,7 +139,7 @@ export async function updateSession(request: NextRequest) {
     const sessionUser = await getSessionUserFromClaims(user);
     if (sessionUser?.role !== "organizer") {
       return redirectWithSessionCookies(
-        new URL("/dashboard", request.url),
+        new URL("/dashboard", request.nextUrl),
         supabaseResponse,
       );
     }

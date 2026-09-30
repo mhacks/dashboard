@@ -74,13 +74,8 @@ export async function walletPassMergeData(
 ): Promise<Record<string, string>> {
   if (!userId) return {};
 
-  // Production links always use the public host: behind the load balancer the
-  // request host can be an internal AWS address. Elsewhere, link back to the
-  // host that signed them, falling back when a send runs outside a request.
-  const origin =
-    process.env.NODE_ENV === "production"
-      ? WALLET_EVENT.webOrigin
-      : await getRequestOrigin().catch(() => WALLET_EVENT.webOrigin);
+  // Sends can run outside a request (a background sweep), with no headers.
+  const origin = await getRequestOrigin().catch(() => WALLET_EVENT.webOrigin);
   return {
     wallet_pass_url: buildAppleWalletPassUrl(origin, userId) ?? "",
     google_wallet_pass_url: buildGoogleWalletPassUrl(origin, userId) ?? "",

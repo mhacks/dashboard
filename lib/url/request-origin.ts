@@ -1,6 +1,19 @@
 import { headers } from "next/headers";
 
+/**
+ * Behind the load balancer, a production request can carry the container's
+ * internal AWS host, so links and redirects built from it are dead ends.
+ */
+const PUBLIC_ORIGIN = "https://mhacks.org";
+
+/**
+ * The origin for absolute links (emails, passes, redirects): always the public
+ * host in production, otherwise the host this request arrived on, so local and
+ * preview links point back at themselves.
+ */
 export async function getRequestOrigin() {
+  if (process.env.NODE_ENV === "production") return PUBLIC_ORIGIN;
+
   const headerList = await headers();
   const host =
     headerList.get("x-forwarded-host")?.split(",")[0]?.trim() ??
