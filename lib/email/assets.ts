@@ -1,11 +1,16 @@
 const driveImage = (fileId: string, width: number) =>
   `https://drive.google.com/thumbnail?id=${fileId}&sz=w${width}`;
 
+export const appleWalletButtonPath = "/wallet/apple/add-to-apple-wallet.svg";
+export const googleWalletButtonPath = "/wallet/google/add-to-google-wallet.png";
+
 // Temporary Drive-hosted email assets. Keep references centralized so the
 // runtime host can move to mhacks.org or a CDN without touching templates.
 export const emailAssets = {
   logoBadge: driveImage("1l-NaSdmxm4a6uhysDS7O2QAPgSxdsZLf", 160),
   flowerDivider: driveImage("1WJrT_P-BZe-zdO_q-Lxk3ghC3nIdXPhf", 900),
+  appleWalletButton: `https://mhacks.org${appleWalletButtonPath}`,
+  googleWalletButton: `https://mhacks.org${googleWalletButtonPath}`,
   socials: {
     linkedin: driveImage("14fsWSc52IJMFPtyNzM-r0n3esQb2x3kA", 72),
     instagram: driveImage("1F_xnHHxQ0fAjEFMwZWaPWBGCXNGIfPsn", 72),

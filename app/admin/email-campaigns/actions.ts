@@ -30,6 +30,7 @@ import {
   type EmailTemplateUpsertInput,
   type EmailThemeTokens,
 } from "@/lib/email/types";
+import { getRequestOrigin } from "@/lib/url/request-origin";
 
 const emailCampaignsPath = "/admin/email-campaigns";
 
@@ -60,7 +61,7 @@ export async function saveEmailThemeAction(input: EmailThemeTokens) {
 
 export async function renderEmailPreviewAction(input: unknown) {
   await requireOrganizer();
-  return renderEmailPreview(input);
+  return renderEmailPreview(input, { assetOrigin: await getRequestOrigin() });
 }
 
 export async function parseDirectRecipientsAction(input: unknown) {
