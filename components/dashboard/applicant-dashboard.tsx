@@ -58,8 +58,7 @@ export function ApplicantDashboard({
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
   /**
-   * Whether this environment can sign Apple Wallet passes and
-   * APPLE_WALLET_PUBLISHED is on.
+   * Whether this environment can sign Apple Wallet passes.
    */
   appleWalletAvailable: boolean;
   /**
