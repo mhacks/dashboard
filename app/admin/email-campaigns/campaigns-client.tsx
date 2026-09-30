@@ -204,14 +204,14 @@ export default function EmailCampaignsClient({
   initialTemplates,
   initialTheme,
   initialCampaignLimits,
-  googleWalletPublished,
+  googleWalletAvailable,
 }: {
   initialSurface: EmailCampaignSurface;
   initialTemplates: MasterTemplate[];
   initialTheme: EmailThemeTokens;
   initialCampaignLimits: CampaignLimits;
   /** Whether real sends include {{google_wallet_pass_url}} at all. */
-  googleWalletPublished: boolean;
+  googleWalletAvailable: boolean;
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const toastIdRef = useRef(0);
@@ -300,9 +300,9 @@ export default function EmailCampaignsClient({
       ensureMergePreviewData(
         mergeFields,
         mergePreviewData,
-        googleWalletPublished,
+        googleWalletAvailable,
       ),
-    [mergeFields, mergePreviewData, googleWalletPublished],
+    [mergeFields, mergePreviewData, googleWalletAvailable],
   );
 
   useEffect(() => {
@@ -3488,15 +3488,15 @@ function extractMergeFieldsFromValues(values: string[]) {
 function ensureMergePreviewData(
   fields: string[],
   current: Record<string, string>,
-  googleWalletPublished: boolean,
+  googleWalletAvailable: boolean,
 ) {
   const next: Record<string, string> = {};
 
   for (const field of fields) {
-    // Real sends leave the Google link blank, which drops it, until the
-    // issuer is published; previews and test sends match unless overridden.
+    // Real sends leave the Google link blank when credentials are unavailable;
+    // previews and test sends match unless overridden.
     const fallback =
-      field === "google_wallet_pass_url" && !googleWalletPublished
+      field === "google_wallet_pass_url" && !googleWalletAvailable
         ? ""
         : defaultMergeValue(field);
     next[field] = current[field] ?? fallback;

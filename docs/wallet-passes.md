@@ -30,7 +30,6 @@ emails.
    | `GOOGLE_WALLET_ISSUER_ID`           | Numeric issuer ID from the Wallet console                             |
    | `GOOGLE_WALLET_SERVICE_ACCOUNT_KEY` | Base64-encoded service-account JSON                                   |
    | `WALLET_LINK_SECRET`                | At least 32 random characters; shared with emailed Apple Wallet links |
-   | `GOOGLE_WALLET_PUBLISHED`           | `true` once publishing access is granted; plain env, not SSM (below)  |
 
 The first eligible request creates the shared `mhacks_2026` event-ticket class
 and that attendee's deterministic ticket object through the REST API. Repeated
@@ -38,12 +37,10 @@ requests reuse both. The browser then receives a short, signed Save-to-Wallet
 URL that references the object; the service-account key never leaves the
 server.
 
-Until Google grants the issuer publishing access, passes are marked **TEST
-ONLY** and can be saved only by issuer admins, developers, and configured test
-accounts. So the dashboard button and the emailed link stay hidden until
-`GOOGLE_WALLET_PUBLISHED=true`; add it to the `environment` array in
-`task-definition.json` once access is granted. Test accounts can open
-`/wallet/google` directly before then.
+Once the credentials are configured, the dashboard button is visible and email
+campaigns can include signed Google Wallet links. The production issuer is
+assumed to have publishing access, so passes are available to any Google Wallet
+user and do not carry the **TEST ONLY** annotation.
 
 ## Deploying
 

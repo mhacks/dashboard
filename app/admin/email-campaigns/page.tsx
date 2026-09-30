@@ -6,7 +6,7 @@ import {
   getSeedMasterTemplates,
   listMasterTemplates,
 } from "@/lib/email/templates/master-service";
-import { isGoogleWalletPublished } from "@/lib/wallet/google-config";
+import { isGoogleWalletConfigured } from "@/lib/wallet/google-config";
 import EmailCampaignsClient, {
   type EmailCampaignSurface,
 } from "./campaigns-client";
@@ -27,7 +27,7 @@ export default async function EmailCampaignsPage({
         initialTemplates={templates}
         initialTheme={theme}
         initialCampaignLimits={getCampaignLimits()}
-        googleWalletPublished={isGoogleWalletPublished()}
+        googleWalletAvailable={isGoogleWalletConfigured()}
       />
     </AdminPageShell>
   );
