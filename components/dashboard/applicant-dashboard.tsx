@@ -63,8 +63,7 @@ export function ApplicantDashboard({
    */
   appleWalletAvailable: boolean;
   /**
-   * Whether this environment can create and sign Google Wallet passes, and the
-   * issuer has publishing access so any attendee can save one.
+   * Whether this environment can create and sign Google Wallet passes.
    */
   googleWalletAvailable: boolean;
 }) {
