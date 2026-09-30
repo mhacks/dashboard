@@ -64,15 +64,23 @@ Sending signs it into two links, valid through the end of the event:
 - `{{wallet_pass_url}}` — Apple Wallet
 - `{{google_wallet_pass_url}}` — Google Wallet
 
-In a structured email, put the Google link on its own line exactly as shown:
+In a structured email, put each Wallet link on its own line exactly as shown:
 
 ```md
+[Add to Apple Wallet]({{wallet_pass_url}})
 [Add to Google Wallet]({{google_wallet_pass_url}})
 ```
 
-The renderer displays that link using Google's official Add to Google Wallet
-badge. Its PNG is used in email for broad client support; the dashboard keeps
-using the SVG version.
+The renderer displays the links using the platforms' official badges. Apple
+requires its supplied SVG for email; its badge appears next to copy telling
+recipients to open the email on their iPhone to add the pass. Google permits
+PNG and SVG; email uses its PNG for broad client support while the dashboard
+keeps using the SVG. Both badges retain their required clear space, original
+aspect ratios, and equal 55px display heights.
+
+For U.S. Apple Wallet campaigns, use `Apple®` on the first body-copy mention
+and include the applicable Apple/iPhone trademark credit in the footer. Always
+spell out and capitalize `Google Wallet` exactly.
 
 For ineligible recipients or unconfigured platforms, the value is blank and a
 Markdown link using that field is removed by the email renderer. Previews and

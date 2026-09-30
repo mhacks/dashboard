@@ -18,12 +18,14 @@ export function CampaignTemplate({
   previewText,
   theme = defaultEmailTheme,
   variant = "general",
+  appleWalletButtonUrl,
   googleWalletButtonUrl,
 }: {
   content: EmailCampaignContent;
   previewText: string;
   theme?: EmailThemeTokens;
   variant?: CampaignEmailVariant;
+  appleWalletButtonUrl?: string;
   googleWalletButtonUrl?: string;
 }) {
   void variant;
@@ -34,6 +36,7 @@ export function CampaignTemplate({
       body={section.body}
       kind={section.kind}
       theme={theme}
+      appleWalletButtonUrl={appleWalletButtonUrl}
       googleWalletButtonUrl={googleWalletButtonUrl}
     />
   ));

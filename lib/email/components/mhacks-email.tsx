@@ -45,12 +45,14 @@ export function EmailSection({
   body,
   kind = "text",
   theme = defaultEmailTheme,
+  appleWalletButtonUrl = emailAssets.appleWalletButton,
   googleWalletButtonUrl = emailAssets.googleWalletButton,
 }: {
   title?: string;
   body: string;
   kind?: "text" | "code";
   theme?: EmailThemeTokens;
+  appleWalletButtonUrl?: string;
   googleWalletButtonUrl?: string;
 }) {
   return (
@@ -64,11 +66,28 @@ export function EmailSection({
         <Text style={codeBlock(theme)}>{body}</Text>
       ) : (
         body.split("\n").map((line, index) => {
+          const appleWalletUrl = getAppleWalletUrl(line);
+          if (appleWalletUrl) {
+            return (
+              <Section key={`${line}-${index}`} style={walletButtonWrap}>
+                <Link href={appleWalletUrl} style={walletButtonLink}>
+                  <Img
+                    alt="Add to Apple Wallet"
+                    height="55"
+                    src={appleWalletButtonUrl}
+                    style={appleWalletButtonImage}
+                    width="174"
+                  />
+                </Link>
+              </Section>
+            );
+          }
+
           const googleWalletUrl = getGoogleWalletUrl(line);
           if (googleWalletUrl) {
             return (
-              <Section key={`${line}-${index}`} style={googleWalletButtonWrap}>
-                <Link href={googleWalletUrl} style={googleWalletButtonLink}>
+              <Section key={`${line}-${index}`} style={walletButtonWrap}>
+                <Link href={googleWalletUrl} style={walletButtonLink}>
                   <Img
                     alt="Add to Google Wallet"
                     height="55"
@@ -90,6 +109,12 @@ export function EmailSection({
       )}
     </Section>
   );
+}
+
+function getAppleWalletUrl(value: string) {
+  return value.match(
+    /^\s*\[Add to Apple Wallet]\((https?:\/\/[^)]+)\)\s*$/,
+  )?.[1];
 }
 
 function getGoogleWalletUrl(value: string) {
@@ -261,24 +286,34 @@ const inlineLinkStyle = (theme: EmailThemeTokens) => ({
   textDecoration: "underline",
 });
 
-// Google's badge must remain unmodified, be at least 48px high, and retain
-// 8px of clear space on every side. The supplied asset is 199x55.
-const googleWalletButtonWrap = {
+// Both badges remain unmodified at equal heights. Eight pixels exceeds
+// Apple's 0.1X clear-space requirement at 55px and matches Google's 8px
+// requirement. Google's 199px badge is not smaller than Apple's 174px badge.
+const walletButtonWrap = {
   margin: "0 0 8px",
   padding: "8px",
 };
 
-const googleWalletButtonLink = {
+const walletButtonLink = {
   display: "inline-block",
   height: "55px",
   textDecoration: "none",
 };
 
-const googleWalletButtonImage = {
+const walletButtonImage = {
   border: "0",
   display: "block",
   height: "55px",
   outline: "none",
+};
+
+const appleWalletButtonImage = {
+  ...walletButtonImage,
+  width: "174px",
+};
+
+const googleWalletButtonImage = {
+  ...walletButtonImage,
   width: "199px",
 };
 
