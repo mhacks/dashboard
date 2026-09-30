@@ -6,6 +6,8 @@ const driveImage = (fileId: string, width: number) =>
 export const emailAssets = {
   logoBadge: driveImage("1l-NaSdmxm4a6uhysDS7O2QAPgSxdsZLf", 160),
   flowerDivider: driveImage("1WJrT_P-BZe-zdO_q-Lxk3ghC3nIdXPhf", 900),
+  googleWalletButton:
+    "https://mhacks.org/wallet/google/add-to-google-wallet.png",
   socials: {
     linkedin: driveImage("14fsWSc52IJMFPtyNzM-r0n3esQb2x3kA", 72),
     instagram: driveImage("1F_xnHHxQ0fAjEFMwZWaPWBGCXNGIfPsn", 72),

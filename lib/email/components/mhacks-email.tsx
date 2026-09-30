@@ -61,14 +61,39 @@ export function EmailSection({
       {kind === "code" ? (
         <Text style={codeBlock(theme)}>{body}</Text>
       ) : (
-        body.split("\n").map((line, index) => (
-          <Text key={`${line}-${index}`} style={paragraphStyle(theme)}>
-            {renderInlineText(line, theme)}
-          </Text>
-        ))
+        body.split("\n").map((line, index) => {
+          const googleWalletUrl = getGoogleWalletUrl(line);
+          if (googleWalletUrl) {
+            return (
+              <Section key={`${line}-${index}`} style={googleWalletButtonWrap}>
+                <Link href={googleWalletUrl} style={googleWalletButtonLink}>
+                  <Img
+                    alt="Add to Google Wallet"
+                    height="55"
+                    src={emailAssets.googleWalletButton}
+                    style={googleWalletButtonImage}
+                    width="199"
+                  />
+                </Link>
+              </Section>
+            );
+          }
+
+          return (
+            <Text key={`${line}-${index}`} style={paragraphStyle(theme)}>
+              {renderInlineText(line, theme)}
+            </Text>
+          );
+        })
       )}
     </Section>
   );
+}
+
+function getGoogleWalletUrl(value: string) {
+  return value.match(
+    /^\s*\[Add to Google Wallet]\((https?:\/\/[^)]+)\)\s*$/,
+  )?.[1];
 }
 
 function renderInlineText(value: string, theme: EmailThemeTokens) {
@@ -233,6 +258,27 @@ const inlineLinkStyle = (theme: EmailThemeTokens) => ({
   fontWeight: "700",
   textDecoration: "underline",
 });
+
+// Google's badge must remain unmodified, be at least 48px high, and retain
+// 8px of clear space on every side. The supplied asset is 199x55.
+const googleWalletButtonWrap = {
+  margin: "0 0 8px",
+  padding: "8px",
+};
+
+const googleWalletButtonLink = {
+  display: "inline-block",
+  height: "55px",
+  textDecoration: "none",
+};
+
+const googleWalletButtonImage = {
+  border: "0",
+  display: "block",
+  height: "55px",
+  outline: "none",
+  width: "199px",
+};
 
 const smallStyle = (theme: EmailThemeTokens) => ({
   color: theme.muted,

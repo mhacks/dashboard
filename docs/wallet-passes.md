@@ -64,6 +64,16 @@ Sending signs it into two links, valid through the end of the event:
 - `{{wallet_pass_url}}` — Apple Wallet
 - `{{google_wallet_pass_url}}` — Google Wallet
 
+In a structured email, put the Google link on its own line exactly as shown:
+
+```md
+[Add to Google Wallet]({{google_wallet_pass_url}})
+```
+
+The renderer displays that link using Google's official Add to Google Wallet
+badge. Its PNG is used in email for broad client support; the dashboard keeps
+using the SVG version.
+
 For ineligible recipients or unconfigured platforms, the value is blank and a
 Markdown link using that field is removed by the email renderer. Previews and
 test sends use sample links to the organizer's own pass.

@@ -3080,6 +3080,7 @@ function buildAiTemplateContext(
     "- Do not invent applicant segments, audience sources, backend behavior, or sending rules.",
     "- Do not include scripts, event handlers, tracking pixels, external forms, or javascript URLs.",
     "- The cta field is entirely optional, but if you include it, both label and url are required together — never send one without the other. If you don't know the real destination URL, omit the cta field entirely rather than guessing or leaving url blank.",
+    "- To issue a Google Wallet pass, put [Add to Google Wallet]({{google_wallet_pass_url}}) on its own line in a text section body. It renders as Google's official branded button. Do not put this merge field in the cta URL.",
     "- Top-level fields you omit (name, description, subject, previewText) are left unchanged on the current template.",
     "- If you include content (or html), return the COMPLETE block — it replaces the existing one wholesale, it is not merged field by field.",
     "- The imported draft is applied to the current template in place; it will not create a separate template.",
