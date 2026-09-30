@@ -1,7 +1,7 @@
 const driveImage = (fileId: string, width: number) =>
   `https://drive.google.com/thumbnail?id=${fileId}&sz=w${width}`;
 
-export const appleWalletButtonPath = "/wallet/apple/add-to-apple-wallet.svg";
+export const appleWalletButtonPath = "/wallet/apple/add-to-apple-wallet.png";
 export const googleWalletButtonPath = "/wallet/google/add-to-google-wallet.png";
 
 // Temporary Drive-hosted email assets. Keep references centralized so the

@@ -28,6 +28,8 @@ const ticketBackground = path.resolve(
 );
 const googleLogo = path.resolve("scripts/wallet-art/google-pass-logo.png");
 const googleBanner = path.resolve("scripts/wallet-art/google-pass-banner.png");
+const appleOut = path.resolve("public/wallet/apple");
+const appleButton = path.join(appleOut, "add-to-apple-wallet.svg");
 
 /** The pass's backgroundColor, so the icon has no transparent corners. */
 const PAPER = { r: 240, g: 247, b: 250, alpha: 1 };
@@ -95,5 +97,12 @@ for (const scale of [1, 2, 3]) {
     .png({ palette: true, quality: 80, compressionLevel: 9 })
     .toFile(path.join(out, `background${suffix(scale)}.png`));
 }
+
+// Gmail doesn't render SVG images, so email uses this unmodified raster of
+// Apple's badge, at 2x its 174×55 email display size. The dashboard keeps the SVG.
+await sharp(appleButton, { density: 300 })
+  .resize({ height: 110 })
+  .png({ compressionLevel: 9 })
+  .toFile(path.join(appleOut, "add-to-apple-wallet.png"));
 
 console.log(`wrote Wallet pass images to ${path.relative(process.cwd(), out)}`);
