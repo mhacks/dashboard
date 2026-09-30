@@ -69,12 +69,13 @@ In a structured email, put each Wallet link on its own line exactly as shown:
 [Add to Google Wallet]({{google_wallet_pass_url}})
 ```
 
-The renderer displays the links using the platforms' official badges. Apple
-requires its supplied SVG for email; its badge appears next to copy telling
-recipients to open the email on their iPhone to add the pass. Google permits
-PNG and SVG; email uses its PNG for broad client support while the dashboard
-keeps using the SVG. Both badges retain their required clear space, original
-aspect ratios, and equal 55px display heights.
+The renderer displays the links using the platforms' official badges. Its
+Apple badge appears next to copy telling recipients to open the email on their
+iPhone to add the pass. Gmail doesn't render SVG images, so email uses PNGs for
+both: Google's supplied PNG, and an unmodified 2x raster of Apple's supplied
+SVG made by the asset generator. The dashboard keeps using the SVGs. Both
+badges retain their required clear space, original aspect ratios, and equal
+55px display heights.
 
 For U.S. Apple Wallet campaigns, use `Apple®` on the first body-copy mention
 and include the applicable Apple/iPhone trademark credit in the footer. Always
@@ -99,7 +100,8 @@ and fields are in `lib/wallet/pass.ts` and `lib/wallet/google-pass.ts`.
 
 It produces Apple pass images in `public/wallet/pass/` and the Google Wallet
 logo and hero images in `public/wallet/google/`. The official Google button SVG
-is kept alongside them but is not generated.
+is kept alongside them but is not generated. It also renders the email PNG of
+Apple's official badge SVG into `public/wallet/apple/`.
 
 Google downloads class artwork from its own servers at the canonical public
 host. Deploy new artwork before testing it in Wallet; the next pass request
