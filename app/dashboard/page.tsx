@@ -18,7 +18,7 @@ import {
 } from "@/lib/queries/applicant-decision";
 import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
 import { getApplicationAccessForUser } from "@/lib/applications/access";
-import { isAppleWalletPublished } from "@/lib/wallet/config";
+import { isAppleWalletConfigured } from "@/lib/wallet/config";
 import { isGoogleWalletConfigured } from "@/lib/wallet/google-config";
 
 /**
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
       userId={userId}
       canCheckIn={canCheckIn}
       firstName={application?.firstName ?? null}
-      appleWalletAvailable={isAppleWalletPublished()}
+      appleWalletAvailable={isAppleWalletConfigured()}
       googleWalletAvailable={isGoogleWalletConfigured()}
       data={{
         stage: stageFor(application),
