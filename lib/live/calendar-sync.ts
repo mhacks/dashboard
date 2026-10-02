@@ -14,19 +14,28 @@ export type CalendarSyncSummary = {
 };
 
 /**
- * The dashboard's "Sync calendar" button: the same import as
- * `pnpm live:sync --apply --publish`, sharing its parser and SQL so the two
- * can't drift. New events publish to /live; existing publishing, scanners,
- * RSVP settings and attendance are left alone; cancellations archive; events
- * missing from the feed are kept (no --archive-missing). One transaction, so
- * a refusal anywhere — bad feed, conflicting non-calendar event — writes
- * nothing.
+ * The dashboard's "Sync calendar" button. /live follows the calendar: new
+ * events publish, edits overwrite, events deleted or cancelled in the
+ * calendar are archived (hidden, never deleted — check-ins and attendance
+ * stay), and archived events that come back to the calendar are republished.
+ * Scanners, RSVP settings and events not created by the calendar are left
+ * alone.
+ *
+ * Shares its parser and SQL with `pnpm live:sync` so the two can't drift.
+ * One transaction: a refusal anywhere — bad feed, conflicting non-calendar
+ * event, or a sync that would archive most of the schedule at once (a
+ * truncated feed, most likely) — writes nothing.
  */
-export async function syncLiveCalendar(): Promise<CalendarSyncSummary> {
-  const events = parseCalendar(await downloadCalendar());
+export async function syncLiveCalendar(
+  /** The .ics text; downloaded from the public feed when omitted. */
+  source?: string,
+): Promise<CalendarSyncSummary> {
+  const events = parseCalendar(source ?? (await downloadCalendar()));
   const statements: string[] = buildSyncStatements(events, {
     publish: true,
-    archiveMissing: false,
+    archiveMissing: true,
+    restoreArchived: true,
+    guardMassArchive: true,
   });
 
   const rows = await db.transaction(async (tx) => {
