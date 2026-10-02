@@ -1,6 +1,6 @@
 CREATE TABLE "team_settings" (
 	"id" text PRIMARY KEY DEFAULT 'default' NOT NULL,
-	"formation_enabled" boolean DEFAULT true NOT NULL,
+	"formation_enabled" boolean DEFAULT false NOT NULL,
 	"updated_by_user_id" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "team_settings_singleton_check" CHECK ("team_settings"."id" = 'default')

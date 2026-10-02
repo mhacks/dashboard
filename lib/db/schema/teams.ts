@@ -160,7 +160,7 @@ export const teamSettings = pgTable(
   "team_settings",
   {
     id: text().primaryKey().default("default").notNull(),
-    formationEnabled: boolean("formation_enabled").default(true).notNull(),
+    formationEnabled: boolean("formation_enabled").default(false).notNull(),
     updatedByUserId: uuid("updated_by_user_id"),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
       .defaultNow()
