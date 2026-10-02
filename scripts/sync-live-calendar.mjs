@@ -9,7 +9,7 @@ import {
   parseCalendar,
   renderSql,
   SOURCE_PREFIX,
-} from "./lib/live-calendar.mjs";
+} from "../supabase/functions/_shared/live-calendar.mjs";
 
 async function main() {
   const { values: options } = parseArgs({

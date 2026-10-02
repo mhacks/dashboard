@@ -106,3 +106,8 @@ user = "env(AWS_SES_SMTP_USER)"
 pass = "env(AWS_SES_SMTP_PASSWORD)"
 admin_email = "hackathon@mhacks.org"
 sender_name = "MHacks Team"
+
+# Called by pg_cron, which authenticates with the x-cron-secret header rather
+# than a Supabase JWT. See supabase/functions/sync-live-calendar/index.ts.
+[functions.sync-live-calendar]
+verify_jwt = false
