@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { ReservationBoard } from "@/components/reservation/reservation-board";
+import { ReservationBoard } from "@/app/dashboard/teams/reservations/reservation-board";
 import { toParticipantEvent } from "@/lib/db/queries/reservation";
 import { getAdminReservationTables } from "@/lib/queries/admin-reservations";
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MHacksLogo } from "@/components/mhacks-logo";
-import { ReservationBoard } from "@/components/reservation/reservation-board";
+import { ReservationBoard } from "./reservation-board";
 import {
   getParticipantEvents,
   getParticipantReservationUser,
@@ -11,7 +11,7 @@ import { hasAcceptedReservationAccess } from "@/lib/reservation/access";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReservePage({
+export default async function ReservationsPage({
   searchParams,
 }: {
   searchParams: Promise<{ event?: string }>;
@@ -51,10 +51,10 @@ export default async function ReservePage({
             </span>
           </Link>
           <Link
-            href="/"
+            href="/dashboard"
             className="text-sm text-zinc-400 transition-colors hover:text-zinc-700"
           >
-            Back to home
+            Back to dashboard
           </Link>
         </div>
       </header>

@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { EventPicker } from "@/components/reservation/event-picker";
-import { JudgingMap } from "@/components/reservation/judging-map";
+import { EventPicker } from "./event-picker";
+import { JudgingMap } from "./judging-map";
 import { randomlyAssignTable, reserveTable } from "@/lib/actions/reservation";
 import type {
   ParticipantEvent,

@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { JudgingMap } from "@/components/reservation/judging-map";
+import { JudgingMap } from "@/app/dashboard/teams/reservations/judging-map";
 
 type AssignmentTeam = AdminReservationAssignmentsData["teams"][number];
 

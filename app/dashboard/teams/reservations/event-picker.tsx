@@ -28,7 +28,7 @@ export function EventPicker({
       onEventChange(id);
       return;
     }
-    router.push(`/reserve?event=${id}`);
+    router.push(`/dashboard/teams/reservations?event=${id}`);
   }
 
   return (
