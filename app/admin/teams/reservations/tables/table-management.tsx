@@ -368,7 +368,7 @@ function TableCard({
 
         {assigned ? (
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin/reservations/assignments">
+            <Link href="/admin/teams/reservations/assignments">
               Manage assignments
             </Link>
           </Button>
@@ -716,7 +716,7 @@ function TableCountManagement({
           </AlertDialogHeader>
           {reductionBlockers.length > 0 ? (
             <Button asChild variant="outline" size="sm">
-              <Link href="/admin/reservations/assignments">
+              <Link href="/admin/teams/reservations/assignments">
                 Manage assignments
               </Link>
             </Button>

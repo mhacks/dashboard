@@ -15,11 +15,11 @@ export default function ReservationsLayout({
     <AdminPageShell>
       <AdminPageHeader
         variant="workspace"
-        title="Reservations"
-        description="One reservation window for every team."
+        title="Teams and reservations"
+        description="Teams hackers have formed, and the one window where they reserve a table."
         actions={
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin/reservations/preview">
+            <Link href="/admin/teams/reservations/preview">
               <EyeIcon data-icon="inline-start" />
               Preview participant view
             </Link>

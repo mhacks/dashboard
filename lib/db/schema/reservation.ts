@@ -20,7 +20,7 @@ import { users } from "./users";
 
 /**
  * One row, id `default`. Organizers set the reservation window from
- * /admin/reservations. Hackers can claim or move a table only inside it.
+ * /admin/teams/reservations. Hackers can claim or move a table only inside it.
  */
 export const reservationSettings = pgTable(
   "reservation_settings",

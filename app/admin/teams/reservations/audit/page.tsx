@@ -20,7 +20,7 @@ export default async function ReservationAuditPage({
     pageIndex: requestedPage.pageNumber - 1,
   });
   const canonicalHref = getCanonicalAuditPageHref(
-    "/admin/reservations/audit",
+    "/admin/teams/reservations/audit",
     resolvedSearchParams,
     requestedPage,
     auditPage.totalItems,
@@ -28,5 +28,7 @@ export default async function ReservationAuditPage({
   );
   if (canonicalHref) redirect(canonicalHref);
 
-  return <AuditList {...auditPage} basePath="/admin/reservations/audit" />;
+  return (
+    <AuditList {...auditPage} basePath="/admin/teams/reservations/audit" />
+  );
 }

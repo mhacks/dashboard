@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 const LINKS = [
-  { href: "/admin/reservations", label: "Window" },
-  { href: "/admin/reservations/tables", label: "Tables" },
-  { href: "/admin/reservations/assignments", label: "Assignments" },
-  { href: "/admin/reservations/audit", label: "Audit" },
+  { href: "/admin/teams", label: "Teams" },
+  { href: "/admin/teams/reservations", label: "Reservations" },
+  { href: "/admin/teams/reservations/tables", label: "Tables" },
+  { href: "/admin/teams/reservations/assignments", label: "Assignments" },
+  { href: "/admin/teams/reservations/audit", label: "Audit" },
 ];
 
 export function ReservationNav() {
@@ -16,12 +17,13 @@ export function ReservationNav() {
 
   return (
     <nav
-      aria-label="Reservation"
+      aria-label="Teams and reservations"
       className="mt-3 flex flex-wrap items-center gap-1"
     >
       {LINKS.map((link) => {
         const active =
-          link.href === "/admin/reservations"
+          link.href === "/admin/teams" ||
+          link.href === "/admin/teams/reservations"
             ? pathname === link.href
             : pathname === link.href || pathname.startsWith(`${link.href}/`);
 
