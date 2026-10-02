@@ -40,6 +40,7 @@ const ACTION_LABELS: Record<string, string> = {
   "table.created": "Table created",
   "table.deleted": "Table deleted",
   "table.renumbered": "Table renumbered",
+  "window.updated": "Reservation window updated",
 };
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {

@@ -291,24 +291,49 @@ export async function setReservationWindow(
   const reservationsCloseAt = windowTimestamp(parsed.data.reservationsCloseAt);
 
   try {
-    await db
-      .insert(reservationSettings)
-      .values({
-        id: RESERVATION_SETTINGS_ID,
-        reservationsOpenAt,
-        reservationsCloseAt,
-        updatedByUserId: organizer.id,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: reservationSettings.id,
-        set: {
+    await db.transaction(async (tx) => {
+      const [before] = await tx
+        .select({
+          reservationsOpenAt: reservationSettings.reservationsOpenAt,
+          reservationsCloseAt: reservationSettings.reservationsCloseAt,
+        })
+        .from(reservationSettings)
+        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
+        .limit(1);
+
+      await tx
+        .insert(reservationSettings)
+        .values({
+          id: RESERVATION_SETTINGS_ID,
           reservationsOpenAt,
           reservationsCloseAt,
           updatedByUserId: organizer.id,
           updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: reservationSettings.id,
+          set: {
+            reservationsOpenAt,
+            reservationsCloseAt,
+            updatedByUserId: organizer.id,
+            updatedAt: now,
+          },
+        });
+
+      await writeReservationAudit(tx, {
+        actorUserId: organizer.id,
+        actorEmail: organizer.email,
+        action: "window.updated",
+        entityType: "reservation_settings",
+        entityId: null,
+        details: {
+          beforeOpenAt: before?.reservationsOpenAt ?? null,
+          beforeCloseAt: before?.reservationsCloseAt ?? null,
+          afterOpenAt: reservationsOpenAt,
+          afterCloseAt: reservationsCloseAt,
         },
       });
+    });
   } catch (error) {
     const known = knownConstraintFailure(error, {
       unique: "An event with those values already exists.",

@@ -55,7 +55,7 @@ export const reservationSettings = pgTable(
     pgPolicy("reservation_settings_authenticated_select", {
       for: "select",
       to: authenticatedRole,
-      using: sql`true`,
+      using: sql`(select public.is_organizer()) OR (select public.has_accepted_reservation_access())`,
     }),
     pgPolicy("reservation_settings_organizer_all", {
       for: "all",
@@ -88,7 +88,7 @@ export const tables = pgTable(
     pgPolicy("tables_select_authenticated", {
       for: "select",
       to: authenticatedRole,
-      using: sql`true`,
+      using: sql`(select public.is_organizer()) OR (select public.has_accepted_reservation_access())`,
     }),
   ],
 ).enableRLS();
