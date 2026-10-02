@@ -28,7 +28,6 @@ type ParticipantReservationAuth = {
 };
 
 type ReservationFailureCode =
-  | "EVENT_NOT_FOUND"
   | "RESERVATIONS_UNAVAILABLE"
   | "TABLE_NOT_FOUND"
   | "TABLE_TAKEN"
@@ -36,7 +35,6 @@ type ReservationFailureCode =
   | "FULL";
 
 const reservationFailureMessages: Record<ReservationFailureCode, string> = {
-  EVENT_NOT_FOUND: "That event no longer exists.",
   RESERVATIONS_UNAVAILABLE: "Reservations are not open for this event.",
   TABLE_NOT_FOUND: "That table no longer exists.",
   TABLE_TAKEN: "That table was just taken. Pick another.",
@@ -64,11 +62,25 @@ async function requireTeamId(): Promise<
   return { ok: true, teamId: team.teamId, user };
 }
 
-function reservationsAreOpen(event: {
-  reservationsOpenAt?: Date | string | null;
-  reservationsCloseAt?: Date | string | null;
-}) {
-  return getReservationAvailability(event).state === "open";
+type ReservationTransaction = Parameters<
+  Parameters<typeof db.transaction>[0]
+>[0];
+
+async function lockOpenReservationSettings(tx: ReservationTransaction) {
+  // Share-lock the settings row before checking the window. Participant
+  // claims can proceed together; an organizer window update must wait.
+  const [settings] = await tx
+    .select({
+      reservationsOpenAt: reservationSettings.reservationsOpenAt,
+      reservationsCloseAt: reservationSettings.reservationsCloseAt,
+    })
+    .from(reservationSettings)
+    .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
+    .for("share")
+    .limit(1);
+  if (!settings || getReservationAvailability(settings).state !== "open") {
+    throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
+  }
 }
 
 function knownReservationFailure(error: unknown): ActionResult | null {
@@ -112,20 +124,7 @@ export async function reserveTable({
   try {
     assignment = await db.transaction(async (tx) => {
       await lockAcceptedReservationApplicant(tx, user.id);
-      // Share-lock the event before checking availability. Participant claims
-      // can proceed together, while organizer lifecycle updates must wait.
-      const [settings] = await tx
-        .select({
-          reservationsOpenAt: reservationSettings.reservationsOpenAt,
-          reservationsCloseAt: reservationSettings.reservationsCloseAt,
-        })
-        .from(reservationSettings)
-        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
-        .for("share")
-        .limit(1);
-      if (!settings || !reservationsAreOpen(settings)) {
-        throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
-      }
+      await lockOpenReservationSettings(tx);
 
       // Lock the destination and the team's current table together, in id
       // order, so two moves cannot claim the same open table.
@@ -251,18 +250,7 @@ export async function randomlyAssignTable(): Promise<ActionResult> {
   try {
     assigned = await db.transaction(async (tx) => {
       await lockAcceptedReservationApplicant(tx, user.id);
-      const [settings] = await tx
-        .select({
-          reservationsOpenAt: reservationSettings.reservationsOpenAt,
-          reservationsCloseAt: reservationSettings.reservationsCloseAt,
-        })
-        .from(reservationSettings)
-        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
-        .for("share")
-        .limit(1);
-      if (!settings || !reservationsAreOpen(settings)) {
-        throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
-      }
+      await lockOpenReservationSettings(tx);
 
       const [existing] = await tx
         .select({ id: tables.id })

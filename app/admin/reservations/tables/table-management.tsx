@@ -100,13 +100,11 @@ function PendingIcon({ pending }: { pending: boolean }) {
 function TableCard({
   onMutationEnd,
   onMutationStart,
-  readOnly,
   table,
   workspacePending,
 }: {
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
-  readOnly: boolean;
   table: TableWithTeam;
   workspacePending: boolean;
 }) {
@@ -122,7 +120,7 @@ function TableCard({
   const [renumberTarget, setRenumberTarget] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const assigned = Boolean(table.reservedByTeamId);
-  const controlsDisabled = readOnly || workspacePending;
+  const controlsDisabled = workspacePending;
 
   function handleNumberChange(value: string) {
     setNumberValue(value);
@@ -132,7 +130,7 @@ function TableCard({
 
   function handleRenumber(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
-    if (readOnly || workspacePending) return;
+    if (workspacePending) return;
 
     const number = parseWholeNumber(
       numberValue,
@@ -165,7 +163,6 @@ function TableCard({
 
   function confirmRenumber() {
     if (
-      readOnly ||
       workspacePending ||
       renumberTarget === null ||
       !onMutationStart(`renumber:${table.id}`)
@@ -198,7 +195,6 @@ function TableCard({
 
   function handleDelete() {
     if (
-      readOnly ||
       assigned ||
       workspacePending ||
       !onMutationStart(`delete:${table.id}`)
@@ -377,7 +373,7 @@ function TableCard({
               Manage assignments
             </Link>
           </Button>
-        ) : readOnly ? null : (
+        ) : (
           <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
             <AlertDialogTrigger asChild>
               <Button
@@ -436,13 +432,11 @@ function TableCard({
 function TableCountManagement({
   onMutationEnd,
   onMutationStart,
-  readOnly,
   tables,
   workspacePending,
 }: {
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
-  readOnly: boolean;
   tables: TableWithTeam[];
   workspacePending: boolean;
 }) {
@@ -530,7 +524,7 @@ function TableCountManagement({
 
   function handleCountSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
-    if (readOnly || workspacePending) return;
+    if (workspacePending) return;
 
     const count = parseWholeNumber(
       desiredCount,
@@ -603,7 +597,7 @@ function TableCountManagement({
                 max={MAX_RESERVATION_TABLE_COUNT}
                 step={1}
                 value={desiredCount}
-                disabled={readOnly || workspacePending}
+                disabled={workspacePending}
                 aria-invalid={Boolean(countFieldError)}
                 aria-describedby={
                   countFieldError ? `${countInputId}-error` : undefined
@@ -631,9 +625,7 @@ function TableCountManagement({
             <Button
               type="submit"
               disabled={
-                readOnly ||
-                workspacePending ||
-                parsedDesiredCount === tables.length
+                workspacePending || parsedDesiredCount === tables.length
               }
             >
               <PendingIcon pending={isPending} />
@@ -756,7 +748,6 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
   const router = useRouter();
   const addInputId = useId();
   const mutationLockRef = useRef<string | null>(null);
-  const readOnly = false;
   const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
   const openCount = tables.length - assignedCount;
   const [newTableNumber, setNewTableNumber] = useState("");
@@ -781,7 +772,7 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
 
   function handleAddSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
-    if (readOnly || workspacePending) return;
+    if (workspacePending) return;
 
     const number = parseWholeNumber(
       newTableNumber,
@@ -825,18 +816,6 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
 
   return (
     <section className="flex flex-col gap-6">
-      {readOnly ? (
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>Read-only tables</CardTitle>
-            <CardDescription>
-              Archived events are read-only. Restore the event before editing
-              tables.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
-
       <section aria-label="Table summary" className="grid gap-3 sm:grid-cols-3">
         <Card size="sm">
           <CardHeader>
@@ -862,7 +841,6 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
         <TableCountManagement
           onMutationEnd={endMutation}
           onMutationStart={startMutation}
-          readOnly={readOnly}
           tables={tables}
           workspacePending={workspacePending}
         />
@@ -886,7 +864,7 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
                   max={MAX_RESERVATION_TABLE_NUMBER}
                   step={1}
                   value={newTableNumber}
-                  disabled={readOnly || workspacePending}
+                  disabled={workspacePending}
                   aria-invalid={Boolean(addFieldError)}
                   aria-describedby={
                     addFieldError ? `${addInputId}-error` : undefined
@@ -913,7 +891,7 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
               ) : null}
             </CardContent>
             <CardFooter className="justify-end">
-              <Button type="submit" disabled={readOnly || workspacePending}>
+              <Button type="submit" disabled={workspacePending}>
                 <PendingIcon pending={isPending} />
                 Add table
               </Button>
@@ -953,7 +931,6 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
                 key={table.id}
                 onMutationEnd={endMutation}
                 onMutationStart={startMutation}
-                readOnly={readOnly}
                 table={table}
                 workspacePending={workspacePending}
               />

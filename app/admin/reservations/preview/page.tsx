@@ -4,7 +4,7 @@ import { getAdminReservationTables } from "@/lib/queries/admin-reservations";
 export const dynamic = "force-dynamic";
 
 export default async function ReservationPreviewPage() {
-  const data = await getAdminReservationTables();
+  const tables = await getAdminReservationTables();
 
   return (
     <section
@@ -23,7 +23,7 @@ export default async function ReservationPreviewPage() {
         </p>
       </div>
       <JudgingMap
-        tables={data.tables}
+        tables={tables}
         selectedTableId={null}
         teamId={null}
         onSelect={() => {}}

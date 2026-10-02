@@ -4,7 +4,6 @@ import { useId, useState, useTransition } from "react";
 import { Loader2Icon } from "lucide-react";
 import { useMounted } from "@/hooks/use-mounted";
 import { setReservationWindow } from "@/lib/actions/admin-reservations.server.actions";
-import type { AdminReservationDetail } from "@/lib/queries/admin-reservations";
 import type { ReservationEventInput } from "@/lib/reservation/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +11,10 @@ import { Label } from "@/components/ui/label";
 
 type FieldErrors = Record<string, string[] | undefined>;
 
-function toDateTimeLocal(value: Date | string | null | undefined) {
+function toDateTimeLocal(value: string | null) {
   if (!value) return "";
 
-  const date = value instanceof Date ? value : new Date(value);
+  const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
 
   const localDate = new Date(
@@ -47,10 +46,12 @@ function FieldError({
 }
 
 export function ReservationEventForm({
-  event,
+  reservationsOpenAt,
+  reservationsCloseAt,
   onSuccess,
 }: {
-  event: AdminReservationDetail;
+  reservationsOpenAt: string | null;
+  reservationsCloseAt: string | null;
   onSuccess?: (message: string) => void;
 }) {
   const hydrated = useMounted();
@@ -63,22 +64,28 @@ export function ReservationEventForm({
     );
   }
 
-  return <ReservationWindowFields event={event} onSuccess={onSuccess} />;
+  return (
+    <ReservationWindowFields
+      reservationsOpenAt={reservationsOpenAt}
+      reservationsCloseAt={reservationsCloseAt}
+      onSuccess={onSuccess}
+    />
+  );
 }
 
 function ReservationWindowFields({
-  event,
+  reservationsOpenAt,
+  reservationsCloseAt,
   onSuccess,
 }: {
-  event: AdminReservationDetail;
+  reservationsOpenAt: string | null;
+  reservationsCloseAt: string | null;
   onSuccess?: (message: string) => void;
 }) {
   const id = useId();
-  const [opensAt, setOpensAt] = useState(
-    toDateTimeLocal(event.reservationsOpenAt),
-  );
+  const [opensAt, setOpensAt] = useState(toDateTimeLocal(reservationsOpenAt));
   const [closesAt, setClosesAt] = useState(
-    toDateTimeLocal(event.reservationsCloseAt),
+    toDateTimeLocal(reservationsCloseAt),
   );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -103,7 +110,8 @@ function ReservationWindowFields({
           return;
         }
         onSuccess?.(result.message);
-      } catch {
+      } catch (error) {
+        console.error("Unable to update reservation window:", error);
         setFormError("Could not update the reservation. Try again.");
       }
     });

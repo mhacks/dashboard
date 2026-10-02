@@ -9,7 +9,6 @@ import { reservationSettings, tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
-  formatReservationList,
   MAX_RESERVATION_TABLE_NUMBER,
   planTableCountChange,
 } from "@/lib/reservation/domain";
@@ -33,10 +32,6 @@ export type ReservationActionResult<T = never> =
       fieldErrors?: Record<string, string[] | undefined>;
     };
 
-type EventFailureCode = "EVENT_NOT_FOUND" | "ASSIGNMENTS_EXIST";
-
-type EventOperation = "create" | "update";
-
 type TableFailureCode =
   | "TABLE_NOT_FOUND"
   | "TABLE_NUMBER_OCCUPIED"
@@ -54,18 +49,6 @@ type AssignmentFailureCode =
   | "CONFIRMATION_CONFLICT";
 
 type AssignmentOperation = "move" | "unassign";
-
-const eventFailureMessages: Record<
-  Exclude<EventFailureCode, "ASSIGNMENTS_EXIST">,
-  string
-> = {
-  EVENT_NOT_FOUND: "That reservation no longer exists.",
-};
-
-const unexpectedFailureMessages: Record<EventOperation, string> = {
-  create: "Could not create the reservation. Try again.",
-  update: "Could not update the reservation. Try again.",
-};
 
 const unexpectedTableFailureMessages: Record<TableOperation, string> = {
   create: "Could not create the table. Try again.",
@@ -122,15 +105,6 @@ const unassignAssignmentInputSchema = z.object({
   expectedSourceTableNumber: reservationTableNumberSchema,
 });
 
-class EventFailure extends Error {
-  constructor(
-    readonly code: EventFailureCode,
-    readonly context: { occupiedTableNumbers?: number[] } = {},
-  ) {
-    super(code);
-  }
-}
-
 class TableFailure extends Error {
   constructor(
     readonly code: TableFailureCode,
@@ -176,46 +150,20 @@ function knownConstraintFailure(
   }
 }
 
-function knownEventFailure(error: unknown): ReservationActionResult | null {
-  if (error instanceof EventFailure) {
-    if (error.code === "ASSIGNMENTS_EXIST") {
-      const occupied = error.context.occupiedTableNumbers ?? [];
-      const tableLabel = formatReservationList(occupied);
-      return {
-        ok: false,
-        error:
-          occupied.length === 1
-            ? `Unassign the team from occupied table ${tableLabel} before deleting this event.`
-            : `Unassign teams from occupied tables ${tableLabel} before deleting this event.`,
-      };
-    }
-    return { ok: false, error: eventFailureMessages[error.code] };
-  }
-
-  return knownConstraintFailure(error, {
+function windowActionFailure(error: unknown): ReservationActionResult {
+  const known = knownConstraintFailure(error, {
     unique: "An event with those values already exists.",
     check: "The event details conflict with database rules.",
   });
-}
-
-function eventActionFailure(
-  error: unknown,
-  operation: EventOperation,
-): ReservationActionResult {
-  const known = knownEventFailure(error);
   if (known) return known;
-  console.error(`Unable to ${operation} reservation event:`, error);
-  return { ok: false, error: unexpectedFailureMessages[operation] };
+  console.error("Unable to update reservation window:", error);
+  return { ok: false, error: "Could not update the reservation. Try again." };
 }
 
 function tableActionFailure(
   error: unknown,
   operation: TableOperation,
 ): ReservationActionResult {
-  if (error instanceof EventFailure) {
-    const eventFailure = knownEventFailure(error);
-    if (eventFailure) return eventFailure;
-  }
   if (error instanceof TableFailure) {
     switch (error.code) {
       case "TABLE_NOT_FOUND":
@@ -269,10 +217,6 @@ function assignmentActionFailure(
   error: unknown,
   operation: AssignmentOperation,
 ): ReservationActionResult {
-  if (error instanceof EventFailure) {
-    const eventFailure = knownEventFailure(error);
-    if (eventFailure) return eventFailure;
-  }
   if (error instanceof AssignmentFailure) {
     switch (error.code) {
       case "TEAM_NOT_FOUND":
@@ -376,7 +320,7 @@ export async function setReservationWindow(
         },
       });
   } catch (error) {
-    return eventActionFailure(error, "update");
+    return windowActionFailure(error);
   }
 
   revalidateReservationPaths();

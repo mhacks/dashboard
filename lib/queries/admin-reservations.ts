@@ -1,8 +1,9 @@
 import { cache } from "react";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { selectTablesWithTeam } from "@/lib/db/queries/reservation";
 import { reservationAuditLog, tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
 import { getReservationSettings } from "@/lib/queries/reservation-settings";
@@ -21,24 +22,11 @@ const auditPageInputSchema = z.object({
     .default(DEFAULT_AUDIT_PAGE_SIZE),
 });
 
-const tableWithTeamSelection = {
-  id: tables.id,
-  number: tables.number,
-  reservedByTeamId: tables.reservedByTeamId,
-  reservedByTeamName: teams.name,
-};
-
 export type AdminReservationDetail = {
   reservationsOpenAt: string | null;
   reservationsCloseAt: string | null;
-  updatedAt: string;
   tableCount: number;
   assignedCount: number;
-};
-
-export type AdminReservationTablesData = {
-  reservation: AdminReservationDetail;
-  tables: TableWithTeam[];
 };
 
 export type AdminReservationTeam = {
@@ -69,60 +57,33 @@ export type ReservationAuditPage = {
   pageSize: number;
 };
 
-async function loadReservationTables(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-) {
-  return tx
-    .select(tableWithTeamSelection)
-    .from(tables)
-    .leftJoin(teams, eq(tables.reservedByTeamId, teams.id))
-    .orderBy(asc(tables.number), asc(tables.id));
-}
-
-function reservationDetail(
-  settings: Awaited<ReturnType<typeof getReservationSettings>>,
-  reservationTables: readonly TableWithTeam[],
-): AdminReservationDetail {
-  return {
-    reservationsOpenAt: settings?.reservationsOpenAt ?? null,
-    reservationsCloseAt: settings?.reservationsCloseAt ?? null,
-    updatedAt: settings?.updatedAt ?? new Date(0).toISOString(),
-    tableCount: reservationTables.length,
-    assignedCount: reservationTables.filter((table) => table.reservedByTeamId)
-      .length,
-  };
-}
-
 export const getAdminReservation = cache(
   async (): Promise<AdminReservationDetail> => {
     await requireOrganizer();
-    const [settings, reservationTables] = await Promise.all([
+    const [settings, [counts]] = await Promise.all([
       getReservationSettings(),
       db
-        .select(tableWithTeamSelection)
-        .from(tables)
-        .leftJoin(teams, eq(tables.reservedByTeamId, teams.id)),
+        .select({
+          tableCount: sql<number>`count(*)::int`,
+          assignedCount: sql<number>`count(${tables.reservedByTeamId})::int`,
+        })
+        .from(tables),
     ]);
-    return reservationDetail(settings, reservationTables);
+    return {
+      reservationsOpenAt: settings?.reservationsOpenAt ?? null,
+      reservationsCloseAt: settings?.reservationsCloseAt ?? null,
+      tableCount: counts?.tableCount ?? 0,
+      assignedCount: counts?.assignedCount ?? 0,
+    };
   },
 );
 
-export async function getAdminReservationTables(): Promise<AdminReservationTablesData> {
+export async function getAdminReservationTables(): Promise<TableWithTeam[]> {
   await requireOrganizer();
-  return db.transaction(
-    async (tx) => {
-      const reservationTables = await loadReservationTables(tx);
-      const settings = await getReservationSettings();
-      return {
-        reservation: reservationDetail(settings, reservationTables),
-        tables: reservationTables,
-      };
-    },
-    {
-      isolationLevel: "repeatable read",
-      accessMode: "read only",
-    },
-  );
+  return db.transaction(async (tx) => selectTablesWithTeam(tx), {
+    isolationLevel: "repeatable read",
+    accessMode: "read only",
+  });
 }
 
 export async function getAdminReservationAssignments(): Promise<AdminReservationAssignmentsData> {
@@ -138,7 +99,7 @@ export async function getAdminReservationAssignments(): Promise<AdminReservation
         .orderBy(asc(teams.name), asc(teams.id));
       return {
         teams: reservationTeams,
-        tables: await loadReservationTables(tx),
+        tables: await selectTablesWithTeam(tx),
       };
     },
     {

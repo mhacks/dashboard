@@ -26,8 +26,9 @@ export function EventOverview({ event }: { event: AdminReservationDetail }) {
         </CardHeader>
         <CardContent>
           <ReservationEventForm
-            key={event.updatedAt}
-            event={event}
+            key={`${event.reservationsOpenAt ?? ""}|${event.reservationsCloseAt ?? ""}`}
+            reservationsOpenAt={event.reservationsOpenAt}
+            reservationsCloseAt={event.reservationsCloseAt}
             onSuccess={(message) => {
               toast.success(message);
               router.refresh();
