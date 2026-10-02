@@ -33,6 +33,9 @@ export type ScannedAttendee = {
   name: string;
   email: string;
   university: string | null;
+  /** From their RSVP (which writes back to the application); null if the
+   *  application row is gone. Shown so a volunteer can hand over a shirt. */
+  shirtSize: string | null;
 };
 
 export type ScannedEvent = {
@@ -206,6 +209,7 @@ export async function checkInAttendee(
         email: users.email,
         name: personNameSql,
         university: hackerApplicants.university,
+        shirtSize: hackerApplicants.shirtSize,
         decision: hackerApplicants.decision,
         rsvpId: hackerRsvps.id,
       })
@@ -226,6 +230,7 @@ export async function checkInAttendee(
       name: row.name,
       email: row.email,
       university: row.university,
+      shirtSize: row.shirtSize,
     };
 
     // Normal weekend events remain acceptance + RSVP gated. Qualifying and
@@ -382,6 +387,7 @@ async function replayScan(
       email: users.email,
       name: personNameSql,
       university: hackerApplicants.university,
+      shirtSize: hackerApplicants.shirtSize,
     })
     .from(eventScanLog)
     .leftJoin(users, eq(users.id, eventScanLog.userId))
@@ -407,6 +413,7 @@ async function replayScan(
           name: row.name,
           email: row.email,
           university: row.university,
+          shirtSize: row.shirtSize,
         }
       : null;
 
