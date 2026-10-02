@@ -1,0 +1,135 @@
+/* Sticker carousel for the /live hero, ported from the mhacks-live-site
+   prototype. Plain CSS rather than utilities: the masks, clip-path and the
+   per-sticker custom properties the animation loop writes don't map onto
+   Tailwind classes. */
+
+.sticker-hero {
+  position: relative;
+  height: 50vh;
+  height: 50svh;
+  min-height: 280px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 6%,
+    #000 94%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 6%,
+    #000 94%,
+    transparent
+  );
+}
+
+.sticker-track {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2.75rem);
+  width: max-content;
+  height: 100%;
+  padding-inline: clamp(0.5rem, 1.5vw, 1.375rem);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  will-change: transform;
+}
+
+.sticker-track.is-ready {
+  opacity: 1;
+}
+
+.sticker {
+  position: relative;
+  height: 78%;
+  flex: none;
+  transform: rotate(calc(var(--tilt, 0deg) + var(--sway, 0deg)))
+    translateY(var(--lift, 0));
+  transform-origin: 50% 85%;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform; /* own layer, so swaying never re-rasterizes the drop shadows */
+}
+
+.sticker img {
+  display: block;
+  height: 100%;
+  width: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 14px 18px rgba(31, 42, 22, 0.18));
+}
+
+.sticker.is-active {
+  z-index: 2;
+  transform: rotate(var(--sway, 0deg)) translateY(var(--lift, 0)) scale(1.04);
+}
+
+/* Maker tag: a florist's gift tag on a string, hung from the vase. */
+.sticker-tag {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 7px 14px 8px 28px;
+  white-space: nowrap;
+  background: #fbfaf4;
+  color: #1d2412;
+  border-radius: 3px 6px 6px 3px;
+  /* notched hanging end */
+  clip-path: polygon(12px 0, 100% 0, 100% 100%, 12px 100%, 0 50%);
+  filter: drop-shadow(0 6px 10px rgba(31, 42, 22, 0.22));
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: 14px 50%;
+  transform: translate(-10%, 40%) rotate(calc(var(--tag-tilt, 0deg) - 18deg))
+    scale(0.85);
+  transition:
+    opacity 0.16s ease,
+    transform 0.5s cubic-bezier(0.34, 1.7, 0.5, 1);
+}
+
+/* eyelet */
+.sticker-tag::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: #f4f2e8;
+  box-shadow:
+    inset 0 1px 1.5px rgba(29, 36, 18, 0.45),
+    0 0 0 1.5px rgba(68, 87, 33, 0.35);
+}
+
+.sticker.is-active .sticker-tag {
+  opacity: 1;
+  transform: translate(-10%, 40%) rotate(var(--tag-tilt, 0deg)) scale(1);
+}
+
+.sticker-tag-label {
+  font-family: var(--font-red-hat-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(68, 87, 33, 0.8);
+}
+
+.sticker-tag-name {
+  font-family: var(--font-red-hat-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: #1d2412;
+}

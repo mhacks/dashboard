@@ -1021,6 +1021,9 @@
   display: flex;
   gap: 8px;
 }
+.bouquet-app .ep-actions + .ep-actions {
+  margin-top: 8px;
+}
 .bouquet-app .ep-actions .pill {
   flex: 1;
   padding: 11px 15px;
