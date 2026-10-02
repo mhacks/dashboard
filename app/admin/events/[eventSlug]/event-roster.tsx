@@ -92,6 +92,9 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
             <Badge variant="outline">
               {event.requiresRsvp ? "Confirmed RSVPs" : "Any account"}
             </Badge>
+            {event.isCheckIn ? (
+              <Badge variant="outline">Check-in event</Badge>
+            ) : null}
             {allowsRepeats ? (
               <Badge variant="outline">
                 {event.maxCheckins} scans per person

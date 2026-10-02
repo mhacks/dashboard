@@ -23,6 +23,8 @@ import {
   type CheckInOutcome,
 } from "@/lib/checkin/outcomes";
 import {
+  decisionAfterCheckIn,
+  decisionAfterCheckInReverted,
   RSVP_CONFIRMED_DECISIONS,
   RSVP_ELIGIBLE_DECISIONS,
 } from "@/lib/decisions";
@@ -139,6 +141,7 @@ export async function checkInAttendee(
         name: events.name,
         isActive: events.isActive,
         requiresRsvp: events.requiresRsvp,
+        isCheckIn: events.isCheckIn,
         maxCheckins: events.maxCheckins,
       })
       .from(events)
@@ -319,6 +322,10 @@ export async function checkInAttendee(
         .orderBy(desc(eventCheckins.checkedInAt))
         .limit(1);
 
+      // A repeat scan still counts. The flag may have been turned on after
+      // their first scan, and they are at a check-in event either way.
+      if (event.isCheckIn) await promoteCheckedInHacker(tx, row.userId);
+
       await finish("already-checked-in", row.userId);
       return failure("already-checked-in", {
         attendee,
@@ -328,6 +335,8 @@ export async function checkInAttendee(
         scansUsed: existing[0]?.scansUsed,
       });
     }
+
+    if (event.isCheckIn) await promoteCheckedInHacker(tx, row.userId);
 
     await finish("checked-in", row.userId);
 
@@ -344,6 +353,143 @@ export async function checkInAttendee(
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+const revokeCheckinSchema = z.strictObject({
+  slug: eventSlugSchema,
+  userId: z.uuid(),
+});
+
+/**
+ * Undoes a mis-scan. The person's most recent check-in row goes — at an event
+ * allowing several scans, only that one — but a `reverted` entry is appended to
+ * the scan log, because an audit trail you can delete from isn't one.
+ *
+ * Callers must already have established that `organizerId` is an organizer.
+ */
+export async function revertAttendeeCheckIn(
+  organizerId: string,
+  input: unknown,
+): Promise<{ ok: true; slug: string } | { ok: false; message: string }> {
+  const parsed = revokeCheckinSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  const { slug, userId } = parsed.data;
+
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select({ id: events.id, isCheckIn: events.isCheckIn })
+      .from(events)
+      .where(eq(events.slug, slug))
+      .limit(1);
+
+    const event = rows[0];
+    if (!event)
+      return { ok: false as const, message: "That event no longer exists." };
+
+    const latest = await tx
+      .select({ id: eventCheckins.id })
+      .from(eventCheckins)
+      .where(
+        and(
+          eq(eventCheckins.eventId, event.id),
+          eq(eventCheckins.userId, userId),
+        ),
+      )
+      .orderBy(desc(eventCheckins.checkedInAt), desc(eventCheckins.scanNumber))
+      .limit(1);
+
+    const deleted = latest[0]
+      ? await tx
+          .delete(eventCheckins)
+          .where(eq(eventCheckins.id, latest[0].id))
+          .returning({ id: eventCheckins.id })
+      : [];
+
+    if (!deleted[0]) {
+      return {
+        ok: false as const,
+        message: "They aren't checked in to this event.",
+      };
+    }
+
+    await tx.insert(eventScanLog).values({
+      eventId: event.id,
+      userId,
+      scannedBy: organizerId,
+      outcome: "reverted",
+    });
+
+    // A door scan is what put them in checked in. Taking the last one back
+    // returns them to RSVPed. A meal scan never touches the decision, and a
+    // remaining scan at any check-in event keeps it.
+    if (event.isCheckIn) await restoreRsvpIfNoCheckInRemains(tx, userId);
+
+    return { ok: true as const, slug };
+  });
+}
+
+async function restoreRsvpIfNoCheckInRemains(tx: Tx, userId: string) {
+  const [stillCheckedIn] = await tx
+    .select({ id: eventCheckins.id })
+    .from(eventCheckins)
+    .innerJoin(events, eq(events.id, eventCheckins.eventId))
+    .where(and(eq(eventCheckins.userId, userId), eq(events.isCheckIn, true)))
+    .limit(1);
+
+  if (stillCheckedIn) return;
+
+  const [applicant] = await tx
+    .select({ decision: hackerApplicants.decision })
+    .from(hackerApplicants)
+    .where(eq(hackerApplicants.userId, userId))
+    .limit(1);
+
+  const restored = applicant
+    ? decisionAfterCheckInReverted(applicant.decision)
+    : null;
+
+  if (!restored || !applicant) return;
+
+  await tx
+    .update(hackerApplicants)
+    .set({ decision: restored })
+    .where(
+      and(
+        eq(hackerApplicants.userId, userId),
+        eq(hackerApplicants.decision, applicant.decision),
+      ),
+    );
+}
+
+/**
+ * Moves an RSVPed hacker to checked in. Locks the application row first so an
+ * RSVP save in flight cannot write `_rsvped` back over the door scan. The
+ * update is conditional on the decision we just read, so a status that moved
+ * on for some other reason is left alone.
+ */
+async function promoteCheckedInHacker(tx: Tx, userId: string) {
+  const [locked] = await tx
+    .select({ decision: hackerApplicants.decision })
+    .from(hackerApplicants)
+    .where(eq(hackerApplicants.userId, userId))
+    .for("update")
+    .limit(1);
+
+  if (!locked) return;
+
+  const next = decisionAfterCheckIn(locked.decision);
+  if (!next || next === locked.decision) return;
+
+  await tx
+    .update(hackerApplicants)
+    .set({ decision: next })
+    .where(
+      and(
+        eq(hackerApplicants.userId, userId),
+        eq(hackerApplicants.decision, locked.decision),
+      ),
+    );
+}
 
 /**
  * The lowest scan slot this person has not used at this event, or null when

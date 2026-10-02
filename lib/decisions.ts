@@ -9,9 +9,11 @@ export const APPLICATION_DECISIONS = [
   "applied",
   "early_accepted",
   "early_rsvped",
+  "early_checked_in",
   "early_rejected",
   "regular_accepted",
   "regular_rsvped",
+  "regular_checked_in",
   "regular_rejected",
 ] as const;
 
@@ -49,8 +51,10 @@ export function decisionRound(
 export const RSVP_ELIGIBLE_DECISIONS = [
   "early_accepted",
   "early_rsvped",
+  "early_checked_in",
   "regular_accepted",
   "regular_rsvped",
+  "regular_checked_in",
 ] as const satisfies readonly ApplicationDecision[];
 
 /**
@@ -59,20 +63,49 @@ export const RSVP_ELIGIBLE_DECISIONS = [
  * never replied.
  *
  * This is the check-in gate: being offered a spot is not the same as taking
- * one, and only someone who took it gets a code or gets through a door. The
- * SQL-friendly counterpart to `hasRsvped` below.
+ * one, and only someone who took it gets a code or gets through a door. A
+ * checked-in decision still counts. The door scan advances an RSVPed hacker,
+ * and they have to keep getting into meals afterwards.
  *
  * Derived from `hasRsvped` rather than listed out, because it is also spelled
  * in SQL — public.has_confirmed_rsvp(), the function behind the event_checkins
- * insert policy. That one matches on the `_rsvped` suffix for the same reason,
- * so a round added to APPLICATION_DECISIONS reaches both at once instead of
- * relying on someone remembering to edit a list in two languages.
+ * insert policy. That one matches on the `_rsvped` and `_checked_in` suffixes
+ * for the same reason, so a round added to APPLICATION_DECISIONS reaches both
+ * at once instead of relying on someone remembering to edit a list in two
+ * languages.
  */
 export const RSVP_CONFIRMED_DECISIONS: readonly ApplicationDecision[] =
   APPLICATION_DECISIONS.filter(hasRsvped);
 
 export function hasRsvped(decision: ApplicationDecision) {
-  return decision.endsWith("_rsvped");
+  return decision.endsWith("_rsvped") || decision.endsWith("_checked_in");
+}
+
+export function hasCheckedIn(decision: ApplicationDecision) {
+  return decision.endsWith("_checked_in");
+}
+
+/**
+ * The decision a check-in event writes. Only an RSVPed hacker advances.
+ * Someone who was accepted and never replied, or who was rejected, stays put.
+ * Already checked in is a no-op so a second door scan does not rewrite the row.
+ */
+export function decisionAfterCheckIn(
+  decision: ApplicationDecision,
+): ApplicationDecision | null {
+  if (hasCheckedIn(decision)) return decision;
+  if (decision === "early_rsvped") return "early_checked_in";
+  if (decision === "regular_rsvped") return "regular_checked_in";
+  return null;
+}
+
+/** Restored when their last scan at a check-in event is removed. */
+export function decisionAfterCheckInReverted(
+  decision: ApplicationDecision,
+): ApplicationDecision | null {
+  if (decision === "early_checked_in") return "early_rsvped";
+  if (decision === "regular_checked_in") return "regular_rsvped";
+  return null;
 }
 
 export const RSVP_URL: Record<DecisionRound, string> = {

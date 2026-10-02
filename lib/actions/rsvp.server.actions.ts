@@ -123,6 +123,11 @@ function requestedReimbursement(data: unknown) {
 }
 
 function rsvpedDecision(decision: ApplicationDecision): ApplicationDecision {
+  // A door scan already advanced them. Saving the RSVP again must not walk
+  // that back to `_rsvped`.
+  if (decision === "early_checked_in" || decision === "regular_checked_in") {
+    return decision;
+  }
   if (decision === "early_accepted" || decision === "early_rsvped") {
     return "early_rsvped";
   }
@@ -357,7 +362,12 @@ export async function submitRsvp(input: unknown): Promise<RsvpSubmitResult> {
         decision: rsvpedDecision(preflight.applicationDecision),
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(hackerApplicants.id, preflight.applicationId));
+      .where(
+        and(
+          eq(hackerApplicants.id, preflight.applicationId),
+          eq(hackerApplicants.decision, preflight.applicationDecision),
+        ),
+      );
     return {
       alreadySubmitted: true,
       submittedAt: preflight.finalSubmittedAt,

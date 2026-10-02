@@ -42,8 +42,12 @@ function parseApplicationSlug(slug: unknown): string | null {
 }
 
 function acceptedDecision(decision: ApplicationDecision): ApplicationDecision {
-  if (decision === "early_rsvped") return "early_accepted";
-  if (decision === "regular_rsvped") return "regular_accepted";
+  if (decision === "early_rsvped" || decision === "early_checked_in") {
+    return "early_accepted";
+  }
+  if (decision === "regular_rsvped" || decision === "regular_checked_in") {
+    return "regular_accepted";
+  }
   return decision;
 }
 

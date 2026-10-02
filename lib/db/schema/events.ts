@@ -46,6 +46,11 @@ export const events = pgTable(
     // can explicitly open those events to every account.
     requiresRsvp: boolean("requires_rsvp").default(true).notNull(),
 
+    // A door, as opposed to a meal or a workshop. A scan that lets someone in
+    // here moves an RSVPed hacker to the checked-in decision. Leaving this off
+    // records attendance without changing that status.
+    isCheckIn: boolean("is_check_in").default(false).notNull(),
+
     // How many times one person may be scanned in. Almost always 1 — a door
     // is walked through once. A meal with seconds, or a swag table that hands
     // out one item per visit, sets this higher.
