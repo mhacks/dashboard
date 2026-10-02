@@ -11,15 +11,6 @@ CREATE TABLE "reservation_settings" (
 );
 --> statement-breakpoint
 ALTER TABLE "reservation_settings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-INSERT INTO "reservation_settings" ("id", "reservations_open_at", "reservations_close_at")
-SELECT 'default', "reservations_open_at", "reservations_close_at"
-FROM "table_reservations"
-ORDER BY "created_at" ASC
-LIMIT 1;--> statement-breakpoint
-DELETE FROM "tables"
-WHERE "event_id" <> (
-  SELECT "id" FROM "table_reservations" ORDER BY "created_at" ASC LIMIT 1
-);--> statement-breakpoint
 DROP POLICY "table_reservations_select_visible_or_organizer" ON "table_reservations" CASCADE;--> statement-breakpoint
 DROP TABLE "table_reservations" CASCADE;--> statement-breakpoint
 ALTER TABLE "tables" DROP CONSTRAINT "tables_event_number_unique";--> statement-breakpoint
