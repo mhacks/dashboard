@@ -12,6 +12,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { liveBouquets } from "@/lib/db/schema/bouquets";
 import { events } from "@/lib/db/schema/events";
 import {
   liveAnnouncements,
@@ -30,6 +31,10 @@ import type {
   LiveSiteSettings,
   Prize,
 } from "@/lib/live/types";
+import {
+  sharedArrangementSchema,
+  type SharedBouquet,
+} from "@/lib/bouquet/share";
 
 export const DEFAULT_LIVE_SITE_SETTINGS: LiveSiteSettings = {
   eventName: "MHacks Live",
@@ -155,67 +160,114 @@ function mapPrize(row: typeof livePrizes.$inferSelect): Prize {
   };
 }
 
+export const LIVE_BOUQUET_COUNT = 10;
+
+/* A fresh random handful per request — /live is force-dynamic. ORDER BY
+   random() sorts the whole table, which is fine at hackathon scale (one row
+   per hacker at most). Rows are re-validated because the Table Editor can
+   hand-edit one into something renderSticker would choke on. */
+async function getLiveBouquets(): Promise<SharedBouquet[]> {
+  // The strip is decoration: if this query fails, the hero falls back to the
+  // photo rather than taking the schedule down with it.
+  let rows;
+  try {
+    rows = await db
+      .select({
+        id: liveBouquets.id,
+        makerName: liveBouquets.makerName,
+        arrangement: liveBouquets.arrangement,
+      })
+      .from(liveBouquets)
+      .where(eq(liveBouquets.hidden, false))
+      .orderBy(sql`random()`)
+      .limit(LIVE_BOUQUET_COUNT);
+  } catch (error) {
+    console.error("Failed to load live bouquets", error);
+    return [];
+  }
+
+  return rows.flatMap((row) => {
+    const arrangement = sharedArrangementSchema.safeParse(row.arrangement);
+    return arrangement.success
+      ? [
+          {
+            id: row.id,
+            makerName: row.makerName,
+            arrangement: arrangement.data,
+          },
+        ]
+      : [];
+  });
+}
+
 export async function getPublicLiveSiteContent() {
   const now = new Date().toISOString();
 
   // The server connection bypasses RLS, so every content query filters publication.
-  const [settingsRows, eventRows, announcementRows, guideRows, prizeRows] =
-    await Promise.all([
-      db
-        .select()
-        .from(liveSiteSettings)
-        .where(eq(liveSiteSettings.id, "default"))
-        .limit(1),
-      db
-        .select({ event: events, details: liveEventDetails })
-        .from(events)
-        .innerJoin(liveEventDetails, eq(liveEventDetails.eventId, events.id))
-        .where(
-          and(
-            eq(liveEventDetails.status, "published"),
-            isNotNull(events.startsAt),
-          ),
-        )
-        .orderBy(
-          asc(events.startsAt),
-          asc(liveEventDetails.position),
-          asc(events.id),
+  const [
+    settingsRows,
+    eventRows,
+    announcementRows,
+    guideRows,
+    prizeRows,
+    bouquets,
+  ] = await Promise.all([
+    db
+      .select()
+      .from(liveSiteSettings)
+      .where(eq(liveSiteSettings.id, "default"))
+      .limit(1),
+    db
+      .select({ event: events, details: liveEventDetails })
+      .from(events)
+      .innerJoin(liveEventDetails, eq(liveEventDetails.eventId, events.id))
+      .where(
+        and(
+          eq(liveEventDetails.status, "published"),
+          isNotNull(events.startsAt),
         ),
-      db
-        .select()
-        .from(liveAnnouncements)
-        .where(
-          and(
-            eq(liveAnnouncements.status, "published"),
-            or(
-              isNull(liveAnnouncements.publishedAt),
-              lte(liveAnnouncements.publishedAt, now),
-            ),
-            or(
-              isNull(liveAnnouncements.expiresAt),
-              gt(liveAnnouncements.expiresAt, now),
-            ),
+      )
+      .orderBy(
+        asc(events.startsAt),
+        asc(liveEventDetails.position),
+        asc(events.id),
+      ),
+    db
+      .select()
+      .from(liveAnnouncements)
+      .where(
+        and(
+          eq(liveAnnouncements.status, "published"),
+          or(
+            isNull(liveAnnouncements.publishedAt),
+            lte(liveAnnouncements.publishedAt, now),
           ),
-        )
-        .orderBy(
-          asc(liveAnnouncements.position),
-          desc(
-            sql`coalesce(${liveAnnouncements.publishedAt}, ${liveAnnouncements.createdAt})`,
+          or(
+            isNull(liveAnnouncements.expiresAt),
+            gt(liveAnnouncements.expiresAt, now),
           ),
-          asc(liveAnnouncements.id),
-        )
-        .limit(1),
-      db
-        .select()
-        .from(liveGuideLinks)
-        .where(eq(liveGuideLinks.status, "published"))
-        .orderBy(asc(liveGuideLinks.position), asc(liveGuideLinks.title)),
-      db
-        .select()
-        .from(livePrizes)
-        .where(eq(livePrizes.status, "published"))
-        .orderBy(asc(livePrizes.position), asc(livePrizes.title)),
-    ]);
+        ),
+      )
+      .orderBy(
+        asc(liveAnnouncements.position),
+        desc(
+          sql`coalesce(${liveAnnouncements.publishedAt}, ${liveAnnouncements.createdAt})`,
+        ),
+        asc(liveAnnouncements.id),
+      )
+      .limit(1),
+    db
+      .select()
+      .from(liveGuideLinks)
+      .where(eq(liveGuideLinks.status, "published"))
+      .orderBy(asc(liveGuideLinks.position), asc(liveGuideLinks.title)),
+    db
+      .select()
+      .from(livePrizes)
+      .where(eq(livePrizes.status, "published"))
+      .orderBy(asc(livePrizes.position), asc(livePrizes.title)),
+    getLiveBouquets(),
+  ]);
 
   const resourceRows =
     eventRows.length === 0
@@ -241,5 +293,6 @@ export async function getPublicLiveSiteContent() {
     announcements: announcementRows.map(mapAnnouncement),
     guideLinks: guideRows.map(mapGuideLink),
     prizes: prizeRows.map(mapPrize),
+    bouquets,
   } satisfies LiveSiteContent;
 }

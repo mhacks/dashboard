@@ -53,8 +53,9 @@ const audienceCsvColumns = [
   "rsvp_submitted_at",
   // The user id of RSVPed hackers, blank otherwise. Sending signs it into the
   // {{wallet_pass_url}} (Apple) and {{google_wallet_pass_url}} merge fields;
-  // use them in a section body as [Add to Apple Wallet]({{wallet_pass_url}}).
-  // The renderer drops the link entirely for rows where it is blank.
+  // use them in a section body as [Add to Apple Wallet]({{wallet_pass_url}})
+  // or [Add to Google Wallet]({{google_wallet_pass_url}}). Both links render
+  // as their official platform badges; blank links are dropped entirely.
   "wallet_user_id",
 ] as const;
 

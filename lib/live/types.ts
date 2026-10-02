@@ -1,3 +1,5 @@
+import type { SharedBouquet } from "@/lib/bouquet/share";
+
 export const LIVE_CONTENT_STATUSES = [
   "draft",
   "published",
@@ -101,4 +103,5 @@ export type LiveSiteContent = {
   announcements: LiveAnnouncement[];
   guideLinks: GuideLink[];
   prizes: Prize[];
+  bouquets: SharedBouquet[];
 };

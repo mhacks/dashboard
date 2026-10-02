@@ -50,7 +50,12 @@ function shuffled<T>(arr: T[]): T[] {
   return a;
 }
 
-export default function BouquetBuilder() {
+export default function BouquetBuilder({
+  canShare,
+}: {
+  /** Accepted hacker or organizer — see getBouquetSharer. */
+  canShare: boolean;
+}) {
   const [state, dispatch] = useReducer(bouquetReducer, initialState);
   const [activeTab, setActiveTab] = useState<CategoryId>("flowers");
   const [hoveredUid, setHoveredUid] = useState<string | null>(null);
@@ -364,6 +369,7 @@ export default function BouquetBuilder() {
             order={state.order}
             vaseId={state.vaseId}
             borderColor={state.borderColor}
+            canShare={canShare}
             onBorder={(hex) => dispatch({ type: "setBorder", hex })}
             onBack={() => setWrapped(false)}
             onRestart={() => {

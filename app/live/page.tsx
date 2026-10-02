@@ -16,6 +16,7 @@ export default async function LivePage() {
   return (
     <LiveEvents
       announcements={content.announcements}
+      bouquets={content.bouquets}
       events={content.events}
       guideLinks={content.guideLinks}
       prizes={content.prizes}

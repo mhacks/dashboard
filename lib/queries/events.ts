@@ -149,6 +149,8 @@ export type EventRosterEntry = {
   email: string;
   /** Null if the application row is gone; the check-in itself still stands. */
   university: string | null;
+  /** From their RSVP; null if the application row is gone. */
+  shirtSize: string | null;
   /** When they were first let in. */
   checkedInAt: string;
   /** Their most recent scan — the same as checkedInAt unless they have several. */
@@ -216,6 +218,7 @@ export async function getEventRoster(
       name: personNameSql,
       email: users.email,
       university: hackerApplicants.university,
+      shirtSize: hackerApplicants.shirtSize,
       checkedInAt: eventCheckins.checkedInAt,
       method: eventCheckins.method,
       checkedInByName: staff.label,

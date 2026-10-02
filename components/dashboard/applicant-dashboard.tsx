@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { QrCode } from "@/components/checkin/qr-code";
-import { buttonClass, ButtonLink } from "@/components/console/button";
+import { ButtonLink } from "@/components/console/button";
 import { Panel, PanelHeading } from "@/components/console/panel";
 import { ProgressMeter, StatusLine } from "@/components/console/progress";
 import { Rail, RailNote } from "@/components/console/rail";
@@ -18,6 +18,7 @@ import { QrDrawerButton } from "@/app/dashboard/qr-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
 import { isEventStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
+import { WALLET_EVENT } from "@/lib/wallet/event";
 
 /**
  * Where an applicant stands. `stage` chooses the panel and nothing else does,
@@ -57,13 +58,11 @@ export function ApplicantDashboard({
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
   /**
-   * Whether this environment can sign Apple Wallet passes and
-   * APPLE_WALLET_PUBLISHED is on.
+   * Whether this environment can sign Apple Wallet passes.
    */
   appleWalletAvailable: boolean;
   /**
-   * Whether this environment can create and sign Google Wallet passes, and the
-   * issuer has publishing access so any attendee can save one.
+   * Whether this environment can create and sign Google Wallet passes.
    */
   googleWalletAvailable: boolean;
 }) {
@@ -96,6 +95,8 @@ export function ApplicantDashboard({
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
+
+          <HackerHandbook />
 
           {isEventStaff(role) ? <StaffTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
@@ -314,8 +315,17 @@ function CheckInPanel({
         </QrDrawerButton>
 
         {appleWalletAvailable ? (
-          <a href="/wallet/pass" className={buttonClass("outline")}>
-            Add to Apple Wallet
+          <a
+            href="/wallet/pass"
+            aria-label="Add to Apple Wallet"
+            className="inline-flex p-2 max-sm:w-full max-sm:justify-center"
+          >
+            <Image
+              src="/wallet/apple/add-to-apple-wallet.svg"
+              alt="Add to Apple Wallet"
+              width={174}
+              height={55}
+            />
           </a>
         ) : null}
 
@@ -335,6 +345,28 @@ function CheckInPanel({
         ) : null}
       </div>
     </Panel>
+  );
+}
+
+/**
+ * The signed-in portal, not the public live schedule. Every dashboard visitor
+ * can open the handbook; staff tools stay below it.
+ */
+function HackerHandbook() {
+  return (
+    <div className="flex flex-col gap-3.5">
+      <Rail label="WEEKEND" ramp={false} />
+
+      <ToolGrid>
+        <ToolCard
+          eyebrow="GUIDE"
+          name="Hacker handbook"
+          description="Venue, schedule, policies, and what to bring for the weekend."
+          href={WALLET_EVENT.handbookUrl}
+          external
+        />
+      </ToolGrid>
+    </div>
   );
 }
 

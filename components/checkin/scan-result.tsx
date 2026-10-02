@@ -47,6 +47,10 @@ export function ScanResult({
     !result.ok && result.outcome === "already-checked-in" && scanCount
       ? "No scans left"
       : OUTCOME_HEADLINE[result.outcome];
+  const shirtSize =
+    result.ok || result.outcome === "already-checked-in"
+      ? result.attendee?.shirtSize
+      : null;
 
   return (
     <button
@@ -78,6 +82,14 @@ export function ScanResult({
       <span className="max-w-[18ch] text-[30px] leading-[1.1] font-semibold text-balance">
         {result.attendee?.name ?? "Unknown code"}
       </span>
+
+      {/* Big enough to read off the screen while reaching for the right pile.
+          Left off refusals, where nobody should be handed a shirt. */}
+      {shirtSize ? (
+        <span className="border border-white/60 px-3 py-1 font-red-hat-mono text-[18px] tracking-[0.12em] uppercase">
+          Shirt · {shirtSize}
+        </span>
+      ) : null}
 
       {result.event ? (
         // Named on every result so a volunteer who opened the wrong scanner

@@ -98,16 +98,3 @@ export const getGoogleWalletConfig = googleWalletConfig.get;
 
 /** Hide Google Wallet entry points when credentials are absent or invalid. */
 export const isGoogleWalletConfigured = googleWalletConfig.isConfigured;
-
-/**
- * Whether to offer Google Wallet to every attendee: the dashboard button and
- * the emailed link. Until Google grants the issuer publishing access, only
- * issuer admins and test accounts can save passes, so both stay hidden until
- * GOOGLE_WALLET_PUBLISHED=true. /wallet/google itself only needs credentials,
- * so those accounts can still test it by URL.
- */
-export function isGoogleWalletPublished() {
-  return (
-    process.env.GOOGLE_WALLET_PUBLISHED === "true" && isGoogleWalletConfigured()
-  );
-}

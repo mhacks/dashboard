@@ -65,6 +65,8 @@ export type AcceptInvitedApplicantResult =
       decision: ApplicationDecision;
       newlyAccepted: boolean;
       emailSent: boolean;
+      rsvpClosesAt: string | null;
+      rsvpWindowOpened: boolean;
     }
   | { ok: false; message: string };
 

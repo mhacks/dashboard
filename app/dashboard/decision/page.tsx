@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 
 import { ResultsLetter } from "@/components/decision/results-letter";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { isDecided } from "@/lib/decisions";
+import { decisionOutcome, isDecided } from "@/lib/decisions";
 import { getApplicantDecision } from "@/lib/queries/applicant-decision";
+import { getRsvpAccessForUser } from "@/lib/rsvp/access";
 
 export const metadata: Metadata = {
   title: "Your decision · MHacks 2026",
@@ -24,11 +25,29 @@ export default async function DecisionPage() {
   const application = await getApplicantDecision(userId);
   if (!application || !isDecided(application.decision)) redirect("/dashboard");
 
+  const rsvpAccess =
+    decisionOutcome(application.decision) === "accepted"
+      ? await getRsvpAccessForUser({ userId })
+      : null;
+  const rsvpDeadline =
+    rsvpAccess?.source === "exception" && rsvpAccess.closesAt
+      ? new Intl.DateTimeFormat("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: "America/Detroit",
+          timeZoneName: "short",
+        }).format(new Date(rsvpAccess.closesAt))
+      : undefined;
+
   return (
     <ResultsLetter
       decision={application.decision}
       applicantName={application.firstName}
       reimbursementCents={application.reimbursementCents}
+      rsvpDeadline={rsvpDeadline}
     />
   );
 }

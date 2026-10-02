@@ -10,6 +10,7 @@ const COLUMNS: readonly CsvColumn<EventRosterEntry>[] = [
   { header: "Name", value: (row) => row.name },
   { header: "Email", value: (row) => row.email },
   { header: "University", value: (row) => row.university },
+  { header: "T-Shirt Size", value: (row) => row.shirtSize },
   { header: "Checked in at", value: (row) => row.checkedInAt },
   { header: "Scans", value: (row) => row.scanCount },
   { header: "Last scanned at", value: (row) => row.lastScannedAt },

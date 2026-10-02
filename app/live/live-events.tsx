@@ -19,6 +19,7 @@ import {
   CalendarDays,
   ChevronRight,
   ExternalLink,
+  Flower,
   House,
   MapPin,
   Megaphone,
@@ -45,6 +46,7 @@ import {
   LIQUID_GLASS_PANEL_CLASS,
   LIQUID_GLASS_PILL_CLASS,
 } from "@/lib/glass";
+import type { SharedBouquet } from "@/lib/bouquet/share";
 import { useScrollDirection } from "@/lib/landing/useScrollDirection";
 import type {
   GuideLink,
@@ -53,10 +55,15 @@ import type {
   LiveSiteSettings,
   Prize,
 } from "@/lib/live/types";
+import { WALLET_EVENT } from "@/lib/wallet/event";
 import { cn } from "@/lib/utils";
+import { BouquetCarousel } from "./bouquet-carousel";
+
+const BOUQUET_BUILDER_URL = "/dashboard/bouquet";
 
 type LiveEventsProps = {
   announcements: readonly LiveAnnouncement[];
+  bouquets: readonly SharedBouquet[];
   events: readonly LiveEvent[];
   guideLinks: readonly GuideLink[];
   prizes: readonly Prize[];
@@ -197,13 +204,18 @@ function StatusLabel({
   return null;
 }
 
+const QUICK_LINK_CLASS =
+  "liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base";
+
+/** Notion's public page refuses iframes. `/ebd/` is the embeddable copy. */
+function handbookEmbedUrl(pageUrl: string) {
+  return pageUrl.replace(/\/[^/]*?([0-9a-f]{32})$/i, "/ebd/$1");
+}
+
 function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
   return (
     <nav aria-label="Quick links" className="flex flex-wrap gap-2">
-      <Link
-        href="/"
-        className="liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base"
-      >
+      <Link href="/" className={QUICK_LINK_CLASS}>
         <House className="size-4 text-olive" />
         <span>MHacks home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -213,7 +225,7 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
           href={devpostUrl}
           target="_blank"
           rel="noreferrer"
-          className="liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base"
+          className={QUICK_LINK_CLASS}
         >
           <ExternalLink className="size-4 text-olive" />
           <span>Devpost</span>
@@ -332,16 +344,10 @@ function ComingSoonState({
   );
 }
 
-function GuidePanel({
-  emptyState,
-  links,
-}: {
-  emptyState: ComingSoonContent;
-  links: readonly GuideLink[];
-}) {
-  if (links.length === 0) {
-    return <ComingSoonState content={emptyState} icon={BookOpen} />;
-  }
+function GuidePanel({ links }: { links: readonly GuideLink[] }) {
+  const otherLinks = links.filter(
+    (link) => link.href !== WALLET_EVENT.handbookUrl,
+  );
 
   return (
     <section aria-labelledby="guide-heading" className="space-y-4">
@@ -351,33 +357,49 @@ function GuidePanel({
       >
         Hacker guide
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {links.map((link) => (
-          <a
-            key={link.id}
-            href={link.href}
-            target="_blank"
-            rel="noreferrer"
-            className={cn(
-              LIQUID_GLASS_CARD_CLASS,
-              "group rounded-md p-5 transition-transform hover:-translate-y-0.5",
-            )}
-          >
-            <span className="font-red-hat mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-olive/75">
-              {link.category}
-            </span>
-            <span className="flex items-center justify-between gap-3">
-              <span className="font-red-hat text-lg font-semibold text-ink">
-                {link.title}
+      <a
+        href={WALLET_EVENT.handbookUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="font-red-hat inline-flex items-center gap-1.5 text-sm font-semibold text-olive hover:text-moss"
+      >
+        Open in Notion
+        <ExternalLink className="size-3.5" />
+      </a>
+      <iframe
+        title="Hacker handbook"
+        src={handbookEmbedUrl(WALLET_EVENT.handbookUrl)}
+        className="h-[min(80vh,960px)] w-full rounded-md border border-olive/15 bg-white"
+      />
+      {otherLinks.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {otherLinks.map((link) => (
+            <a
+              key={link.id}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                LIQUID_GLASS_CARD_CLASS,
+                "group rounded-md p-5 transition-transform hover:-translate-y-0.5",
+              )}
+            >
+              <span className="font-red-hat mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-olive/75">
+                {link.category}
               </span>
-              <ExternalLink className="size-4 shrink-0 text-olive" />
-            </span>
-            <span className="font-red-hat mt-2 block text-sm leading-6 text-ink/75">
-              {link.description}
-            </span>
-          </a>
-        ))}
-      </div>
+              <span className="flex items-center justify-between gap-3">
+                <span className="font-red-hat text-lg font-semibold text-ink">
+                  {link.title}
+                </span>
+                <ExternalLink className="size-4 shrink-0 text-olive" />
+              </span>
+              <span className="font-red-hat mt-2 block text-sm leading-6 text-ink/75">
+                {link.description}
+              </span>
+            </a>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -468,12 +490,6 @@ function LiveViewTabs({
   interactive?: boolean;
   variant?: "inline" | "floating";
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<Record<LiveView, HTMLButtonElement | null>>({
-    timeline: null,
-    guide: null,
-    prizes: null,
-  });
   const views = [
     {
       id: "timeline" as const,
@@ -495,29 +511,17 @@ function LiveViewTabs({
     },
   ];
 
-  useEffect(() => {
-    const container = containerRef.current;
-    const tab = tabRefs.current[active];
-    if (!container || !tab) return;
-
-    container.scrollTo({
-      behavior: "smooth",
-      left: tab.offsetLeft - (container.clientWidth - tab.offsetWidth) / 2,
-    });
-  }, [active]);
-
   return (
     <div
-      ref={containerRef}
       aria-label={
         variant === "inline" ? "Live page views" : "Floating live page views"
       }
       aria-hidden={!interactive}
       className={cn(
-        "flex gap-3 overflow-x-auto [scrollbar-width:none] sm:gap-10 [&::-webkit-scrollbar]:hidden",
+        "flex w-full min-w-0 justify-between gap-2 overflow-x-clip sm:justify-start sm:gap-10",
         variant === "inline"
-          ? "-mx-5 border-b border-olive/15 px-5 sm:mx-0 sm:px-0"
-          : "gap-2 px-1 sm:justify-center sm:gap-10 sm:px-2",
+          ? "border-b border-olive/15"
+          : "px-1 sm:justify-center sm:px-2",
       )}
       role="tablist"
     >
@@ -528,9 +532,6 @@ function LiveViewTabs({
           <button
             key={id}
             id={idPrefix === "inline" ? `${id}-tab` : `${id}-floating-tab`}
-            ref={(element) => {
-              tabRefs.current[id] = element;
-            }}
             type="button"
             aria-label={label}
             aria-controls={`${id}-panel`}
@@ -538,23 +539,17 @@ function LiveViewTabs({
             onClick={() => onSelect(id)}
             tabIndex={interactive ? 0 : -1}
             className={cn(
-              "font-red-hat relative inline-flex shrink-0 items-center gap-2 px-1 text-sm font-semibold whitespace-nowrap uppercase tracking-[0.14em] transition-colors",
+              "font-red-hat relative inline-flex min-w-0 items-center gap-1.5 px-1 text-sm font-semibold whitespace-nowrap uppercase tracking-[0.14em] transition-colors sm:gap-2",
               variant === "inline"
-                ? "h-12 text-[11px] tracking-[0.08em] sm:h-14 sm:text-base sm:tracking-[0.14em]"
-                : "h-11 gap-1.5 text-[11px] tracking-[0.08em] sm:h-12 sm:gap-2 sm:text-sm sm:tracking-[0.14em]",
+                ? "h-12 text-[11px] tracking-[0.06em] sm:h-14 sm:text-base sm:tracking-[0.14em]"
+                : "h-11 text-[11px] tracking-[0.06em] sm:h-12 sm:text-sm sm:tracking-[0.14em]",
               isActive ? "text-olive" : "text-ink/70 hover:text-ink",
             )}
             role="tab"
           >
             <Icon className="size-3.5 sm:size-4" />
-            {variant === "floating" ? (
-              <>
-                <span className="sm:hidden">{shortLabel}</span>
-                <span className="hidden sm:inline">{label}</span>
-              </>
-            ) : (
-              label
-            )}
+            <span className="sm:hidden">{shortLabel}</span>
+            <span className="hidden sm:inline">{label}</span>
             {isActive ? (
               <motion.span
                 layoutId={`live-view-indicator-${variant}`}
@@ -617,7 +612,7 @@ function EventCategoryFilter({
   return (
     <div
       aria-label="Event categories"
-      className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+      className="flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="group"
       tabIndex={0}
     >
@@ -844,14 +839,51 @@ function getCalendarUrl(event: LiveEvent) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-function getLocationUrl(event: LiveEvent) {
-  if (event.mapUrl) return event.mapUrl;
-  const location = event.location.trim();
-  if (["", "devpost", "tbd", "tba"].includes(location.toLowerCase()))
-    return null;
+const DUDERSTADT_FLOOR_PLANS_URL =
+  "https://www.dc.umich.edu/about-the-dc/maps-floor-plans-hours/";
 
-  const query = encodeURIComponent(`${location}, Ann Arbor, MI`);
-  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+const UNLINKED_LOCATIONS = new Set([
+  "",
+  "devpost",
+  "not provided",
+  "tba",
+  "tbd",
+]);
+
+/** Buildings Google Maps can resolve. Room names and Dude interiors cannot. */
+const VENUE_MAP_QUERIES: Record<string, string> = {
+  bbb: "Bob and Betty Beyster Building, Ann Arbor, MI",
+  cccb: "Central Campus Classroom Building, Ann Arbor, MI",
+  "pierpont commons": "Pierpont Commons, Ann Arbor, MI",
+  "pierpont connector hall": "Pierpont Commons, Ann Arbor, MI",
+  "the grove": "The Grove, Ann Arbor, MI",
+};
+
+function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getLocationUrl(event: LiveEvent) {
+  const explicit = event.mapUrl?.trim() ?? "";
+  if (explicit && isHttpUrl(explicit)) return explicit;
+
+  const location = event.location.trim();
+  if (isHttpUrl(location)) return location;
+
+  const key = location.toLowerCase();
+  if (UNLINKED_LOCATIONS.has(key)) return null;
+
+  const venue = VENUE_MAP_QUERIES[key];
+  if (venue) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue)}`;
+  }
+
+  return DUDERSTADT_FLOOR_PLANS_URL;
 }
 
 function EventCard({
@@ -1088,7 +1120,9 @@ function EventDetailsDrawer({
                     <a href={locationUrl} target="_blank" rel="noreferrer">
                       <span className="inline-flex items-center gap-2">
                         <MapPin className="size-4" />
-                        Open location
+                        {locationUrl === DUDERSTADT_FLOOR_PLANS_URL
+                          ? "Duderstadt map"
+                          : "Open location"}
                       </span>
                       <ExternalLink className="size-3.5 opacity-60" />
                     </a>
@@ -1153,6 +1187,7 @@ function EventDetailsDrawer({
 
 export function LiveEvents({
   announcements,
+  bouquets,
   events,
   guideLinks,
   prizes,
@@ -1165,6 +1200,14 @@ export function LiveEvents({
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDrawerOpen, setEventDrawerOpen] = useState(false);
   const [tabsPassed, setTabsPassed] = useState(false);
+  // Flipped if the carousel couldn't draw a single bouquet, so the page
+  // falls back to the photo hero instead of an empty band.
+  const [bouquetsFailed, setBouquetsFailed] = useState(false);
+  const handleBouquetsUnavailable = useCallback(
+    () => setBouquetsFailed(true),
+    [],
+  );
+  const showBouquets = bouquets.length > 0 && !bouquetsFailed;
   const tabsAnchorRef = useRef<HTMLDivElement>(null);
   const scrollNavVisible = useScrollDirection({ threshold: 6, minScroll: 80 });
   const now = useCurrentTime(30_000);
@@ -1288,62 +1331,102 @@ export function LiveEvents({
     ? (eventsById.get(selectedEventId) ?? null)
     : null;
 
+  const heroAside = (
+    <div className="flex flex-col items-start gap-3 lg:items-end">
+      {scheduleRange ? (
+        <div
+          className={cn(
+            LIQUID_GLASS_PILL_CLASS,
+            "liquid-glass-surface-strong font-red-hat inline-flex w-fit items-center gap-2.5 rounded-md border-olive/15 bg-paper/90 px-4 py-2 text-base text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
+          )}
+        >
+          <CalendarDays className="size-4 opacity-70" />
+          {scheduleRange}
+        </div>
+      ) : null}
+      <NextEventCountdown events={events} />
+      {/* A plain <a>: the builder is behind sign-in, and the proxy's
+          redirect to /login?next= wants a full navigation anyway. */}
+      <a
+        href={BOUQUET_BUILDER_URL}
+        className="font-red-hat inline-flex w-fit items-center gap-2.5 rounded-md bg-olive px-4 py-2 text-base font-semibold text-cream shadow-[0_1px_0_rgba(255,255,255,0.30)_inset,0_6px_16px_-4px_rgba(31,42,22,0.50)] transition-transform duration-200 hover:-translate-y-0.5"
+      >
+        <Flower className="size-4" />
+        Add your own flower
+      </a>
+    </div>
+  );
+
   return (
-    <main className="font-red-hat relative min-h-screen bg-paper text-ink">
+    <main className="font-red-hat relative min-h-screen overflow-x-clip bg-paper text-ink">
       <FloatingLiveNav
         active={activeView}
         onSelect={setActiveView}
         visible={showFloatingNav}
       />
 
-      <section className="relative overflow-hidden">
-        <Image
-          src="/hero_bg_w_overlay.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="scale-[1.025] object-cover object-[65%_center] brightness-[0.82] contrast-[1.15] saturate-[1.3] blur-[3px]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/25 to-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-paper" />
+      {showBouquets ? (
+        <>
+          <BouquetCarousel
+            bouquets={bouquets}
+            onUnavailable={handleBouquetsUnavailable}
+          />
+          <section className="relative">
+            <div className="relative mx-auto flex max-w-5xl flex-col gap-6 px-5 pt-8 pb-10 sm:px-8 sm:pt-10 sm:pb-12 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <h1 className="font-red-hat text-5xl font-black uppercase leading-[0.95] tracking-tight text-ink sm:text-7xl">
+                  {settings.heroTitle}
+                </h1>
+                <p className="font-red-hat mt-3 max-w-xl text-lg font-medium leading-7 text-ink/75 sm:text-xl">
+                  {settings.heroDescription}
+                </p>
+              </div>
+              {heroAside}
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="relative overflow-hidden">
+          <Image
+            src="/hero_bg_w_overlay.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="scale-[1.025] object-cover object-[65%_center] brightness-[0.82] contrast-[1.15] saturate-[1.3] blur-[3px]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/25 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-paper" />
 
-        <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-5 pt-12 pb-20 sm:px-8 sm:pt-20 sm:pb-28 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <span
-              className={cn(
-                LIQUID_GLASS_PILL_CLASS,
-                "liquid-glass-surface-strong font-red-hat inline-flex items-center rounded-full border-olive/15 bg-paper/90 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
-              )}
-            >
-              {settings.eventName}
-            </span>
-            <h1 className="font-red-hat mt-5 text-5xl font-black uppercase leading-[0.95] tracking-tight text-cream drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-7xl">
-              {settings.heroTitle}
-            </h1>
-            <p className="font-red-hat mt-3 max-w-xl text-lg font-medium leading-7 text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] sm:text-xl">
-              {settings.heroDescription}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-start gap-3 lg:items-end">
-            {scheduleRange ? (
-              <div
+          <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-5 pt-12 pb-20 sm:px-8 sm:pt-20 sm:pb-28 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <span
                 className={cn(
                   LIQUID_GLASS_PILL_CLASS,
-                  "liquid-glass-surface-strong font-red-hat inline-flex w-fit items-center gap-2.5 rounded-md border-olive/15 bg-paper/90 px-4 py-2 text-base text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
+                  "liquid-glass-surface-strong font-red-hat inline-flex items-center rounded-full border-olive/15 bg-paper/90 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
                 )}
               >
-                <CalendarDays className="size-4 opacity-70" />
-                {scheduleRange}
-              </div>
-            ) : null}
-            <NextEventCountdown events={events} />
-          </div>
-        </div>
-      </section>
+                {settings.eventName}
+              </span>
+              <h1 className="font-red-hat mt-5 text-5xl font-black uppercase leading-[0.95] tracking-tight text-cream drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-7xl">
+                {settings.heroTitle}
+              </h1>
+              <p className="font-red-hat mt-3 max-w-xl text-lg font-medium leading-7 text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] sm:text-xl">
+                {settings.heroDescription}
+              </p>
+            </div>
 
-      <section className="relative mx-auto -mt-10 max-w-5xl px-5 pb-20 sm:px-8">
+            {heroAside}
+          </div>
+        </section>
+      )}
+
+      <section
+        className={cn(
+          "relative mx-auto max-w-5xl px-5 pb-20 sm:px-8",
+          !showBouquets && "-mt-10",
+        )}
+      >
         <div className="space-y-6 sm:space-y-8">
           <QuickLinks devpostUrl={settings.devpostUrl} />
           <div ref={tabsAnchorRef}>
@@ -1525,14 +1608,7 @@ export function LiveEvents({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              <GuidePanel
-                emptyState={{
-                  eyebrow: "Hacker guide",
-                  title: settings.guideEmptyTitle,
-                  description: settings.guideEmptyDescription,
-                }}
-                links={guideLinks}
-              />
+              <GuidePanel links={guideLinks} />
             </motion.div>
           ) : (
             <motion.div

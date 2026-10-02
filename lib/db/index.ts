@@ -3,6 +3,7 @@ import postgres from "postgres";
 import * as applicationInvitationsSchema from "./schema/application-invitations";
 import * as applicationsSchema from "./schema/applications";
 import * as blacklistSchema from "./schema/blacklist";
+import * as bouquetsSchema from "./schema/bouquets";
 import * as discordSchema from "./schema/discord";
 import * as broadcastsSchema from "./schema/broadcasts";
 import * as emailSchema from "./schema/email";
@@ -26,6 +27,7 @@ export const db = drizzle({
     ...applicationInvitationsSchema,
     ...applicationsSchema,
     ...blacklistSchema,
+    ...bouquetsSchema,
     ...broadcastsSchema,
     ...discordSchema,
     ...emailSchema,

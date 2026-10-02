@@ -6,11 +6,9 @@ hide the corresponding button and omit its email merge field.
 
 ## Apple Wallet visibility
 
-The dashboard's "Add to Apple Wallet" button stays hidden until
-`APPLE_WALLET_PUBLISHED=true` is in the `environment` array in
-`task-definition.json`. Until then, anyone who's RSVPed can still test the pass
-by opening `/wallet/pass` directly, and `{{wallet_pass_url}}` still works in
-emails.
+Once the Apple Wallet signing credentials are configured, the dashboard's "Add
+to Apple Wallet" button is visible and email campaigns can include signed
+`{{wallet_pass_url}}` links.
 
 ## Google Wallet setup
 
@@ -30,7 +28,6 @@ emails.
    | `GOOGLE_WALLET_ISSUER_ID`           | Numeric issuer ID from the Wallet console                             |
    | `GOOGLE_WALLET_SERVICE_ACCOUNT_KEY` | Base64-encoded service-account JSON                                   |
    | `WALLET_LINK_SECRET`                | At least 32 random characters; shared with emailed Apple Wallet links |
-   | `GOOGLE_WALLET_PUBLISHED`           | `true` once publishing access is granted; plain env, not SSM (below)  |
 
 The first eligible request creates the shared `mhacks_2026` event-ticket class
 and that attendee's deterministic ticket object through the REST API. Repeated
@@ -38,12 +35,10 @@ requests reuse both. The browser then receives a short, signed Save-to-Wallet
 URL that references the object; the service-account key never leaves the
 server.
 
-Until Google grants the issuer publishing access, passes are marked **TEST
-ONLY** and can be saved only by issuer admins, developers, and configured test
-accounts. So the dashboard button and the emailed link stay hidden until
-`GOOGLE_WALLET_PUBLISHED=true`; add it to the `environment` array in
-`task-definition.json` once access is granted. Test accounts can open
-`/wallet/google` directly before then.
+Once the credentials are configured, the dashboard button is visible and email
+campaigns can include signed Google Wallet links. The production issuer is
+assumed to have publishing access, so passes are available to any Google Wallet
+user and do not carry the **TEST ONLY** annotation.
 
 ## Deploying
 
@@ -67,6 +62,25 @@ Sending signs it into two links, valid through the end of the event:
 - `{{wallet_pass_url}}` — Apple Wallet
 - `{{google_wallet_pass_url}}` — Google Wallet
 
+In a structured email, put each Wallet link on its own line exactly as shown:
+
+```md
+[Add to Apple Wallet]({{wallet_pass_url}})
+[Add to Google Wallet]({{google_wallet_pass_url}})
+```
+
+The renderer displays the links using the platforms' official badges. Its
+Apple badge appears next to copy telling recipients to open the email on their
+iPhone to add the pass. Gmail doesn't render SVG images, so email uses PNGs for
+both: Google's supplied PNG, and an unmodified 2x raster of Apple's supplied
+SVG made by the asset generator. The dashboard keeps using the SVGs. Both
+badges retain their required clear space, original aspect ratios, and equal
+55px display heights.
+
+For U.S. Apple Wallet campaigns, use `Apple®` on the first body-copy mention
+and include the applicable Apple/iPhone trademark credit in the footer. Always
+spell out and capitalize `Google Wallet` exactly.
+
 For ineligible recipients or unconfigured platforms, the value is blank and a
 Markdown link using that field is removed by the email renderer. Previews and
 test sends use sample links to the organizer's own pass.
@@ -86,7 +100,8 @@ and fields are in `lib/wallet/pass.ts` and `lib/wallet/google-pass.ts`.
 
 It produces Apple pass images in `public/wallet/pass/` and the Google Wallet
 logo and hero images in `public/wallet/google/`. The official Google button SVG
-is kept alongside them but is not generated.
+is kept alongside them but is not generated. It also renders the email PNG of
+Apple's official badge SVG into `public/wallet/apple/`.
 
 Google downloads class artwork from its own servers at the canonical public
 host. Deploy new artwork before testing it in Wallet; the next pass request

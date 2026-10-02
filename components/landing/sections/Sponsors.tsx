@@ -105,17 +105,17 @@ const TIERS: {
       },
       {
         name: "SpaceX",
-        url: "https://www.spacex.com",
+        url: "https://x.ai/",
         file: "spacex",
         width: 1072,
         height: 304,
       },
       {
-        name: "Council",
+        name: "finchnode",
         url: "https://council.health",
         file: "council",
-        width: 1058,
-        height: 408,
+        width: 1278,
+        height: 606,
       },
       {
         name: "Neon",

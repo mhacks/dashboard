@@ -204,14 +204,11 @@ export default function EmailCampaignsClient({
   initialTemplates,
   initialTheme,
   initialCampaignLimits,
-  googleWalletPublished,
 }: {
   initialSurface: EmailCampaignSurface;
   initialTemplates: MasterTemplate[];
   initialTheme: EmailThemeTokens;
   initialCampaignLimits: CampaignLimits;
-  /** Whether real sends include {{google_wallet_pass_url}} at all. */
-  googleWalletPublished: boolean;
 }) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const toastIdRef = useRef(0);
@@ -296,13 +293,8 @@ export default function EmailCampaignsClient({
       serverProcessingRunId === activeSendStatus.runId),
   );
   const effectiveMergePreviewData = useMemo(
-    () =>
-      ensureMergePreviewData(
-        mergeFields,
-        mergePreviewData,
-        googleWalletPublished,
-      ),
-    [mergeFields, mergePreviewData, googleWalletPublished],
+    () => ensureMergePreviewData(mergeFields, mergePreviewData),
+    [mergeFields, mergePreviewData],
   );
 
   useEffect(() => {
@@ -3080,6 +3072,10 @@ function buildAiTemplateContext(
     "- Do not invent applicant segments, audience sources, backend behavior, or sending rules.",
     "- Do not include scripts, event handlers, tracking pixels, external forms, or javascript URLs.",
     "- The cta field is entirely optional, but if you include it, both label and url are required together — never send one without the other. If you don't know the real destination URL, omit the cta field entirely rather than guessing or leaving url blank.",
+    "- To issue an Apple Wallet pass, put [Add to Apple Wallet]({{wallet_pass_url}}) on its own line in a text section body. It renders as Apple's official branded badge. Keep it near the pass copy, tell recipients to open the email on their iPhone to add the pass, and do not put this merge field in the cta URL.",
+    "- For U.S. Apple Wallet email copy, use Apple® on the first body-copy mention and include an Apple/iPhone trademark credit in the footer.",
+    "- To issue a Google Wallet pass, put [Add to Google Wallet]({{google_wallet_pass_url}}) on its own line in a text section body. It renders as Google's official branded button. Do not put this merge field in the cta URL.",
+    "- Always write Google Wallet with that capitalization and never abbreviate the product name.",
     "- Top-level fields you omit (name, description, subject, previewText) are left unchanged on the current template.",
     "- If you include content (or html), return the COMPLETE block — it replaces the existing one wholesale, it is not merged field by field.",
     "- The imported draft is applied to the current template in place; it will not create a separate template.",
@@ -3488,18 +3484,11 @@ function extractMergeFieldsFromValues(values: string[]) {
 function ensureMergePreviewData(
   fields: string[],
   current: Record<string, string>,
-  googleWalletPublished: boolean,
 ) {
   const next: Record<string, string> = {};
 
   for (const field of fields) {
-    // Real sends leave the Google link blank, which drops it, until the
-    // issuer is published; previews and test sends match unless overridden.
-    const fallback =
-      field === "google_wallet_pass_url" && !googleWalletPublished
-        ? ""
-        : defaultMergeValue(field);
-    next[field] = current[field] ?? fallback;
+    next[field] = current[field] ?? defaultMergeValue(field);
   }
 
   return next;

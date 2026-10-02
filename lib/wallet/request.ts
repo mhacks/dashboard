@@ -5,6 +5,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { getCheckInCodeHolder } from "@/lib/queries/check-in";
+import { getRequestOrigin } from "@/lib/url/request-origin";
 import { verifyWalletLinkToken } from "@/lib/wallet/link-token";
 
 export const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -65,7 +66,7 @@ export async function resolveWalletRequest(
         ),
       };
     }
-    const login = new URL("/login", request.url);
+    const login = new URL("/login", await getRequestOrigin());
     login.searchParams.set("next", path);
     return { response: NextResponse.redirect(login) };
   }

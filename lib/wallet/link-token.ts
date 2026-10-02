@@ -7,7 +7,7 @@ import { z } from "zod";
 import { getRequestOrigin } from "@/lib/url/request-origin";
 import { isAppleWalletConfigured } from "@/lib/wallet/config";
 import { WALLET_EVENT, WALLET_EVENT_END_MS } from "@/lib/wallet/event";
-import { isGoogleWalletPublished } from "@/lib/wallet/google-config";
+import { isGoogleWalletConfigured } from "@/lib/wallet/google-config";
 
 /**
  * Signed download links for emailed Wallet passes, so a hacker can add the
@@ -54,7 +54,7 @@ export function buildAppleWalletPassUrl(origin: string, userId: string) {
 }
 
 export function buildGoogleWalletPassUrl(origin: string, userId: string) {
-  if (!isGoogleWalletPublished() || !isLinkSigningConfigured()) return null;
+  if (!isGoogleWalletConfigured() || !isLinkSigningConfigured()) return null;
   const token = signWalletLinkToken(userId, WALLET_EVENT_END_MS);
   return `${origin}/wallet/google?t=${token}`;
 }
