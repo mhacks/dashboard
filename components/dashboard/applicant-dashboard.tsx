@@ -13,6 +13,7 @@ import {
   Masthead,
 } from "@/components/console/shell";
 import { ToolCard, ToolGrid } from "@/components/console/tool-card";
+import { CalendarSyncCard } from "@/components/dashboard/calendar-sync-card";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { QrDrawerButton } from "@/app/dashboard/qr-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
@@ -433,6 +434,7 @@ function OrganizerTools() {
             href={tool.href}
           />
         ))}
+        <CalendarSyncCard />
       </ToolGrid>
     </div>
   );

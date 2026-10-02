@@ -5,8 +5,7 @@ import { parseArgs } from "node:util";
 import postgres from "postgres";
 import {
   buildSyncStatements,
-  CALENDAR_URL,
-  MAX_CALENDAR_BYTES,
+  downloadCalendar,
   parseCalendar,
   renderSql,
   SOURCE_PREFIX,
@@ -46,20 +45,7 @@ See docs/live-site.md for ownership, backups, and production instructions.`);
   if (options.file) {
     source = await readFile(options.file, "utf8");
   } else {
-    const response = await fetch(CALENDAR_URL, {
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok)
-      throw new Error(`Calendar download failed (${response.status}).`);
-    const chunks = [];
-    let size = 0;
-    for await (const chunk of response.body) {
-      size += chunk.length;
-      if (size > MAX_CALENDAR_BYTES)
-        throw new Error("Calendar download exceeded size limit.");
-      chunks.push(chunk);
-    }
-    source = Buffer.concat(chunks).toString("utf8");
+    source = await downloadCalendar();
   }
   const events = parseCalendar(source);
   const active = events.filter((event) => !event.cancelled);

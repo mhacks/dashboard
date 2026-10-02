@@ -78,6 +78,15 @@ IDs when titles or times change. The script uses the calendar UID in a stable
 `gcal-...` slug, so **do not rename imported slugs**. No schema migration is needed.
 The command is a one-time sync, not a background subscription.
 
+**From the dashboard:** organizers can click **Sync calendar** under Organizer
+tools on `/dashboard`. It runs the same import as
+`pnpm live:sync --apply --publish` against the app's own database. New events
+publish, cancellations archive, and events missing from the feed are kept. It
+reports what changed (for example "3 new · 1 updated · 52 unchanged"). Any
+refusal, such as a bad feed or a conflicting non-calendar event, rolls back
+the whole sync and shows the reason. Use the CLI below for a dry-run preview,
+`--archive-missing`, or an SQL export.
+
 ```bash
 pnpm live:sync                       # Download and preview; never writes
 pnpm live:sync --file schedule.ics   # Preview a saved export of the same calendar

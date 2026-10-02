@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { PanelBar } from "./panel";
 
-const CARD_CLASS =
+export const TOOL_CARD_CLASS =
   "group flex flex-col border border-ui-line bg-ui-paper text-ui-ink no-underline transition-[background-color,border-color,transform] duration-200 hover:-translate-y-px hover:border-ui-line-strong hover:bg-ui-selected focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-ink motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
 /**
@@ -49,7 +49,7 @@ export function ToolCard({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={CARD_CLASS}
+        className={TOOL_CARD_CLASS}
       >
         {body}
       </a>
@@ -57,7 +57,7 @@ export function ToolCard({
   }
 
   return (
-    <Link href={href} className={CARD_CLASS}>
+    <Link href={href} className={TOOL_CARD_CLASS}>
       {body}
     </Link>
   );

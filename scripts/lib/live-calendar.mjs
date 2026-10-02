@@ -8,6 +8,24 @@ export const MAX_CALENDAR_BYTES = 2_000_000;
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 export const SOURCE_PREFIX = `gcal-${hash(CALENDAR_ID).slice(0, 16)}-`;
 
+/** Downloads the public feed, refusing anything over MAX_CALENDAR_BYTES. */
+export async function downloadCalendar() {
+  const response = await fetch(CALENDAR_URL, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok)
+    throw new Error(`Calendar download failed (${response.status}).`);
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of response.body) {
+    size += chunk.length;
+    if (size > MAX_CALENDAR_BYTES)
+      throw new Error("Calendar download exceeded size limit.");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 export function parseCalendar(source) {
   if (Buffer.byteLength(source) > MAX_CALENDAR_BYTES) {
     throw new Error("Calendar is too large; refusing import.");
