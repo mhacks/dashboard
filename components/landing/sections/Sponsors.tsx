@@ -111,11 +111,11 @@ const TIERS: {
         height: 304,
       },
       {
-        name: "Council",
+        name: "finchnode",
         url: "https://council.health",
         file: "council",
-        width: 1058,
-        height: 408,
+        width: 1278,
+        height: 606,
       },
       {
         name: "Neon",
