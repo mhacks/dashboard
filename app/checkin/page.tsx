@@ -71,6 +71,7 @@ export default async function CheckInPickerPage() {
                               )
                             : null,
                           event.requiresRsvp ? null : "Any account",
+                          event.isCheckIn ? "Check-in event" : null,
                         ]
                           .filter(Boolean)
                           .join(" · ") || "No time set"}

@@ -13,6 +13,7 @@ export const APPLICATION_DECISIONS = [
   "regular_accepted",
   "regular_rsvped",
   "regular_rejected",
+  "checked_in",
 ] as const;
 
 export type ApplicationDecision = (typeof APPLICATION_DECISIONS)[number];
@@ -32,12 +33,28 @@ export function decisionOutcome(
   return decision.endsWith("_rejected") ? "rejected" : "accepted";
 }
 
-/** Null until a decision is released — an applicant has no round before then. */
+/**
+ * Null until a decision is released — an applicant has no round before then.
+ * `checked_in` is one status for both rounds, so the round has to come from
+ * when they applied (`getApplicationRound`) rather than from this value.
+ */
 export function decisionRound(
   decision: ApplicationDecision,
 ): DecisionRound | null {
-  if (decision === "applied") return null;
+  if (decision === "applied" || decision === "checked_in") return null;
   return decision.startsWith("early_") ? "early" : "regular";
+}
+
+/**
+ * The round a decision belongs to, `checked_in` included. That one does not
+ * record its round, so the caller passes the round they applied in
+ * (`getApplicationRound`).
+ */
+export function decisionRoundFor(
+  decision: ApplicationDecision,
+  appliedRound: DecisionRound | null,
+): DecisionRound | null {
+  return decision === "checked_in" ? appliedRound : decisionRound(decision);
 }
 
 /**
@@ -51,6 +68,7 @@ export const RSVP_ELIGIBLE_DECISIONS = [
   "early_rsvped",
   "regular_accepted",
   "regular_rsvped",
+  "checked_in",
 ] as const satisfies readonly ApplicationDecision[];
 
 /**
@@ -59,20 +77,53 @@ export const RSVP_ELIGIBLE_DECISIONS = [
  * never replied.
  *
  * This is the check-in gate: being offered a spot is not the same as taking
- * one, and only someone who took it gets a code or gets through a door. The
- * SQL-friendly counterpart to `hasRsvped` below.
+ * one, and only someone who took it gets a code or gets through a door. A
+ * checked-in decision still counts. The door scan advances an RSVPed hacker,
+ * and they have to keep getting into meals afterwards.
  *
  * Derived from `hasRsvped` rather than listed out, because it is also spelled
  * in SQL — public.has_confirmed_rsvp(), the function behind the event_checkins
- * insert policy. That one matches on the `_rsvped` suffix for the same reason,
- * so a round added to APPLICATION_DECISIONS reaches both at once instead of
- * relying on someone remembering to edit a list in two languages.
+ * insert policy. That one matches the `_rsvped` suffix, plus the single
+ * `checked_in` value, for the same reason. A round added to
+ * APPLICATION_DECISIONS reaches both at once instead of relying on someone
+ * remembering to edit a list in two languages.
  */
 export const RSVP_CONFIRMED_DECISIONS: readonly ApplicationDecision[] =
   APPLICATION_DECISIONS.filter(hasRsvped);
 
 export function hasRsvped(decision: ApplicationDecision) {
-  return decision.endsWith("_rsvped");
+  return decision.endsWith("_rsvped") || decision === "checked_in";
+}
+
+export function hasCheckedIn(decision: ApplicationDecision) {
+  return decision === "checked_in";
+}
+
+/**
+ * The decision a check-in event writes. Only an RSVPed hacker advances.
+ * Someone who was accepted and never replied, or who was rejected, stays put.
+ * Already checked in is a no-op so a second door scan does not rewrite the row.
+ */
+export function decisionAfterCheckIn(
+  decision: ApplicationDecision,
+): ApplicationDecision | null {
+  if (hasCheckedIn(decision)) return decision;
+  if (decision === "early_rsvped" || decision === "regular_rsvped") {
+    return "checked_in";
+  }
+  return null;
+}
+
+/**
+ * Restored when their last scan at a check-in event is removed. The round is
+ * the one they applied in — `checked_in` itself does not record it.
+ */
+export function decisionAfterCheckInReverted(
+  decision: ApplicationDecision,
+  round: DecisionRound,
+): ApplicationDecision | null {
+  if (decision !== "checked_in") return null;
+  return round === "early" ? "early_rsvped" : "regular_rsvped";
 }
 
 export const RSVP_URL: Record<DecisionRound, string> = {
@@ -198,15 +249,17 @@ const REJECTED: Record<DecisionRound, LetterBody> = {
  * still `applied` — there is nothing to show yet.
  *
  * `reimbursementCents` is the applicant's awarded travel tier in cents, or null
- * if they have no award. Accepted regular-round letters clarify that travel
+ * if they have no award. `appliedRound` is only read for `checked_in`, which
+ * gets the acceptance letter for the round they applied in. Accepted regular-round letters clarify that travel
  * reimbursements were available only during the early round; rejected letters
  * never mention reimbursement.
  */
 export function decisionLetter(
   decision: ApplicationDecision,
   reimbursementCents: number | null = null,
+  appliedRound: DecisionRound | null = null,
 ): DecisionLetter | null {
-  const round = decisionRound(decision);
+  const round = decisionRoundFor(decision, appliedRound);
   if (!round) return null;
 
   const outcome = decisionOutcome(decision);

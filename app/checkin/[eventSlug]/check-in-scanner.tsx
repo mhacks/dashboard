@@ -52,6 +52,7 @@ export function CheckInScanner({
   slug,
   eventName,
   requiresRsvp,
+  isCheckIn,
   maxCheckins,
   initialCheckedInCount,
   initialScanCount,
@@ -59,6 +60,7 @@ export function CheckInScanner({
   slug: string;
   eventName: string;
   requiresRsvp: boolean;
+  isCheckIn: boolean;
   maxCheckins: number;
   initialCheckedInCount: number;
   initialScanCount: number;
@@ -229,6 +231,12 @@ export function CheckInScanner({
 
   return (
     <div className="flex flex-col gap-4">
+      {isCheckIn ? (
+        <p className="border border-sky-500/50 bg-sky-50 px-3 py-2 text-center font-red-hat-mono text-[11.5px] tracking-[0.06em] text-sky-900">
+          Check-in event — an RSVPed hacker scanned here is marked checked in.
+        </p>
+      ) : null}
+
       {!requiresRsvp ? (
         <p className="border border-sky-500/50 bg-sky-50 px-3 py-2 text-center font-red-hat-mono text-[11.5px] tracking-[0.06em] text-sky-900">
           Account event — anyone with an MHacks account can check in.

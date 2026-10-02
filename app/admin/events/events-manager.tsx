@@ -36,6 +36,7 @@ import {
 import {
   createEventAction,
   setEventActiveAction,
+  setEventCheckInAction,
   setEventMaxCheckinsAction,
   setEventRequiresRsvpAction,
 } from "@/lib/actions/events.server.actions";
@@ -50,6 +51,7 @@ const EMPTY_FORM = {
   startsAt: "",
   endsAt: "",
   requiresRsvp: true,
+  isCheckIn: false,
   // A string while it's being typed, so clearing the field doesn't snap it
   // back to a number mid-edit. The action parses and bounds it.
   maxCheckins: "1",
@@ -139,6 +141,22 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
         requiresRsvp
           ? `${name} now requires a confirmed RSVP.`
           : `${name} is now open to every account.`,
+      );
+      router.refresh();
+    });
+  }
+
+  function toggleCheckIn(slug: string, name: string, isCheckIn: boolean) {
+    startTransition(async () => {
+      const result = await setEventCheckInAction({ slug, isCheckIn });
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(
+        isCheckIn
+          ? `${name} now marks RSVPed hackers as checked in, including anyone already scanned.`
+          : `${name} no longer changes hacker status. Hackers checked in only here are back to RSVPed.`,
       );
       router.refresh();
     });
@@ -269,6 +287,23 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                 </div>
               </div>
 
+              <div className="flex items-start gap-2.5 sm:col-span-2">
+                <Checkbox
+                  id="is-check-in"
+                  checked={form.isCheckIn}
+                  onCheckedChange={(checked) =>
+                    set("isCheckIn", checked === true)
+                  }
+                />
+                <div className="grid gap-0.5">
+                  <Label htmlFor="is-check-in">Check-in event</Label>
+                  <p className="text-xs text-muted-foreground">
+                    A successful scan moves an RSVPed hacker to checked in.
+                    Leave this off for meals and workshops.
+                  </p>
+                </div>
+              </div>
+
               <div className="flex justify-end sm:col-span-2">
                 <Button type="submit" disabled={isPending || !form.name.trim()}>
                   {isPending ? "Creating…" : "Create event"}
@@ -311,6 +346,11 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                         <span className="block text-xs text-muted-foreground">
                           {event.location ?? `/checkin/${event.slug}`}
                         </span>
+                        {event.isCheckIn ? (
+                          <Badge variant="outline" className="mt-1">
+                            Check-in event
+                          </Badge>
+                        ) : null}
                       </TableCell>
 
                       <TableCell className="text-sm text-muted-foreground">
@@ -379,6 +419,24 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
                             {event.requiresRsvp
                               ? "Allow accounts"
                               : "Require RSVP"}
+                          </Button>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={isPending}
+                            onClick={() =>
+                              toggleCheckIn(
+                                event.slug,
+                                event.name,
+                                !event.isCheckIn,
+                              )
+                            }
+                          >
+                            {event.isCheckIn
+                              ? "Unmark check-in"
+                              : "Mark check-in"}
                           </Button>
 
                           <Button

@@ -233,6 +233,7 @@ export async function acceptInvitedApplicantAction(
       firstName: accepted.firstName,
       decisionUrl: `${origin}/login?${loginParams.toString()}`,
       reimbursementCents: accepted.reimbursementCents,
+      appliedRound: getApplicationRound(accepted.createdAt),
     });
     await sendEmail({ to: accepted.email, ...message });
   } catch (error) {

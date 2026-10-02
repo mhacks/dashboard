@@ -194,6 +194,10 @@ if (!earlyApplicationsDeadline) {
 const EARLY_APPLICATIONS_DEADLINE_MS = new Date(
   earlyApplicationsDeadline.date,
 ).getTime();
+/** The same cutoff as an ISO timestamp, for comparing `created_at` in SQL. */
+export const EARLY_APPLICATIONS_DEADLINE_ISO = new Date(
+  EARLY_APPLICATIONS_DEADLINE_MS,
+).toISOString();
 
 /** Classifies an application's createdAt against the early-apps-due deadline. */
 export function getApplicationRound(createdAt: string): ApplicationRound {

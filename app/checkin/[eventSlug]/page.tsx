@@ -49,6 +49,7 @@ export default async function CheckInScannerPage({
               slug={event.slug}
               eventName={event.name}
               requiresRsvp={event.requiresRsvp}
+              isCheckIn={event.isCheckIn}
               maxCheckins={event.maxCheckins}
               initialCheckedInCount={counts.people}
               initialScanCount={counts.scans}

@@ -20,10 +20,11 @@ import { TeamSection } from "@/components/decision/team-section";
 import {
   decisionLetter,
   decisionOutcome,
-  decisionRound,
+  decisionRoundFor,
   RSVP_DEADLINE,
   type ApplicationDecision,
 } from "@/lib/decisions";
+import { getApplicationRound } from "@/lib/types/application-reviews";
 
 /**
  * The decision letter, as a page.
@@ -39,6 +40,7 @@ import {
 export function ResultsLetter({
   decision,
   applicantName,
+  appliedAt,
   reimbursementCents = null,
   rsvpDeadline,
   teamsEnabled,
@@ -53,6 +55,8 @@ export function ResultsLetter({
 }: {
   decision: ApplicationDecision;
   applicantName: string;
+  /** When they submitted. Checked-in is one status for both rounds, so the letter uses this to recover early vs regular. */
+  appliedAt?: string;
   reimbursementCents?: number | null;
   rsvpDeadline?: string;
   /** Organizer toggle from /admin/teams. Hides the team band when off. */
@@ -60,8 +64,9 @@ export function ResultsLetter({
   discordInviteUrl?: string;
   bouquetGameUrl?: string;
 }) {
-  const letter = decisionLetter(decision, reimbursementCents);
-  const round = decisionRound(decision);
+  const appliedRound = appliedAt ? getApplicationRound(appliedAt) : null;
+  const round = decisionRoundFor(decision, appliedRound);
+  const letter = decisionLetter(decision, reimbursementCents, appliedRound);
   const outcome = decisionOutcome(decision);
 
   // Nothing to show while the applicant is still `applied`. The route guards

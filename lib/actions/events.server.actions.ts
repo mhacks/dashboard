@@ -1,12 +1,16 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import {
+  revertAttendeeCheckIn,
+  syncCheckInEventDecisions,
+} from "@/lib/actions/check-in.actions";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { eventCheckins, events, eventScanLog } from "@/lib/db/schema/events";
+import { events } from "@/lib/db/schema/events";
 import {
   eventSlugSchema,
   MAX_EVENT_NAME_LENGTH,
@@ -116,6 +120,7 @@ const eventFieldsSchema = z.object({
   startsAt: optionalTimestamp,
   endsAt: optionalTimestamp,
   requiresRsvp: z.boolean(),
+  isCheckIn: z.boolean(),
   maxCheckins: maxCheckinsSchema,
 });
 
@@ -199,6 +204,7 @@ export async function createEventAction(
     startsAt,
     endsAt,
     requiresRsvp,
+    isCheckIn,
     maxCheckins,
   } = parsed.data;
 
@@ -242,6 +248,7 @@ export async function createEventAction(
       startsAt,
       endsAt,
       requiresRsvp,
+      isCheckIn,
       maxCheckins,
       createdBy: organizer.id,
     });
@@ -312,6 +319,46 @@ export async function setEventRequiresRsvpAction(
   return { ok: true, slug: updated[0].slug };
 }
 
+const setCheckInSchema = z.strictObject({
+  slug: eventSlugSchema,
+  isCheckIn: z.boolean(),
+});
+
+/**
+ * Marks whether a successful scan at this event moves an RSVPed hacker to the
+ * checked-in decision. Hackers already scanned here follow the flag both ways:
+ * see `syncCheckInEventDecisions`.
+ */
+export async function setEventCheckInAction(
+  input: unknown,
+): Promise<EventActionResult> {
+  await requireOrganizer();
+
+  const parsed = setCheckInSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(events)
+      .set({ isCheckIn: parsed.data.isCheckIn })
+      .where(eq(events.slug, parsed.data.slug))
+      .returning({ id: events.id, slug: events.slug });
+
+    if (rows[0])
+      await syncCheckInEventDecisions(tx, rows[0].id, parsed.data.isCheckIn);
+    return rows;
+  });
+
+  if (!updated[0])
+    return { ok: false, message: "That event no longer exists." };
+
+  revalidatePath("/admin/events");
+  revalidatePath("/checkin");
+  revalidatePath(`/admin/events/${updated[0].slug}`);
+  revalidatePath(`/checkin/${updated[0].slug}`);
+  return { ok: true, slug: updated[0].slug };
+}
+
 const setMaxCheckinsSchema = z.strictObject({
   slug: eventSlugSchema,
   maxCheckins: maxCheckinsSchema,
@@ -350,11 +397,6 @@ export async function setEventMaxCheckinsAction(
   return { ok: true, slug: updated[0].slug };
 }
 
-const revokeCheckinSchema = z.strictObject({
-  slug: eventSlugSchema,
-  userId: z.uuid(),
-});
-
 /**
  * Undoes a mis-scan. The person's most recent check-in row goes — at an event
  * allowing several scans, only that one — but a `reverted` entry is appended to
@@ -364,62 +406,10 @@ export async function revokeCheckInAction(
   input: unknown,
 ): Promise<EventActionResult> {
   const organizer = await requireOrganizer();
-
-  const parsed = revokeCheckinSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, message: "Invalid request." };
-
-  const { slug, userId } = parsed.data;
-
-  const result = await db.transaction(async (tx) => {
-    const rows = await tx
-      .select({ id: events.id })
-      .from(events)
-      .where(eq(events.slug, slug))
-      .limit(1);
-
-    const event = rows[0];
-    if (!event)
-      return { ok: false as const, message: "That event no longer exists." };
-
-    const latest = await tx
-      .select({ id: eventCheckins.id })
-      .from(eventCheckins)
-      .where(
-        and(
-          eq(eventCheckins.eventId, event.id),
-          eq(eventCheckins.userId, userId),
-        ),
-      )
-      .orderBy(desc(eventCheckins.checkedInAt), desc(eventCheckins.scanNumber))
-      .limit(1);
-
-    const deleted = latest[0]
-      ? await tx
-          .delete(eventCheckins)
-          .where(eq(eventCheckins.id, latest[0].id))
-          .returning({ id: eventCheckins.id })
-      : [];
-
-    if (!deleted[0]) {
-      return {
-        ok: false as const,
-        message: "They aren't checked in to this event.",
-      };
-    }
-
-    await tx.insert(eventScanLog).values({
-      eventId: event.id,
-      userId,
-      scannedBy: organizer.id,
-      outcome: "reverted",
-    });
-
-    return { ok: true as const, slug };
-  });
-
+  const result = await revertAttendeeCheckIn(organizer.id, input);
   if (!result.ok) return result;
 
-  revalidatePath(`/admin/events/${slug}`);
+  revalidatePath(`/admin/events/${result.slug}`);
   revalidatePath("/admin/events");
-  return { ok: true, slug };
+  return { ok: true, slug: result.slug };
 }

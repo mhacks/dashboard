@@ -316,6 +316,13 @@
       "when": 1790938222359,
       "tag": "20261002105022_reservation_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1790961540186,
+      "tag": "20261002171900_checked_in_status",
+      "breakpoints": true
     }
   ]
 }

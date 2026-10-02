@@ -2,10 +2,12 @@ import {
   and,
   asc,
   eq,
+  gte,
   ilike,
   inArray,
   isNotNull,
   isNull,
+  lt,
   ne,
   or,
 } from "drizzle-orm";
@@ -36,7 +38,9 @@ import {
   APPLICATION_DECISIONS,
   hasRsvped,
   type ApplicationDecision,
+  type DecisionRound,
 } from "@/lib/decisions";
+import { EARLY_APPLICATIONS_DEADLINE_ISO } from "@/lib/types/application-reviews";
 import { isDraftStarted } from "@/lib/application-steps";
 
 const audienceCsvColumns = [
@@ -72,8 +76,9 @@ const decisionGroups: Record<SubmittedApplicationGroup, ApplicationDecision[]> =
       "early_rsvped",
       "regular_accepted",
       "regular_rsvped",
+      "checked_in",
     ],
-    rsvped: ["early_rsvped", "regular_rsvped"],
+    rsvped: ["early_rsvped", "regular_rsvped", "checked_in"],
     rejected: ["early_rejected", "regular_rejected"],
     early_accepted_or_rsvped: ["early_accepted", "early_rsvped"],
     regular_accepted_or_rsvped: ["regular_accepted", "regular_rsvped"],
@@ -84,7 +89,29 @@ const decisionGroups: Record<SubmittedApplicationGroup, ApplicationDecision[]> =
     regular_accepted: ["regular_accepted"],
     regular_rsvped: ["regular_rsvped"],
     regular_rejected: ["regular_rejected"],
+    checked_in: ["checked_in"],
   };
+
+// `checked_in` covers both rounds, so a round's RSVPed groups also take the
+// checked-in hackers who applied in that round. Without this, a "Regular
+// RSVPed" send during the event would skip everyone already through the door.
+const checkedInRoundForGroup: Partial<
+  Record<SubmittedApplicationGroup, DecisionRound>
+> = {
+  early_accepted_or_rsvped: "early",
+  early_rsvped: "early",
+  regular_accepted_or_rsvped: "regular",
+  regular_rsvped: "regular",
+};
+
+function checkedInAppliedIn(round: DecisionRound) {
+  return and(
+    eq(hackerApplicants.decision, "checked_in"),
+    round === "early"
+      ? lt(hackerApplicants.createdAt, EARLY_APPLICATIONS_DEADLINE_ISO)
+      : gte(hackerApplicants.createdAt, EARLY_APPLICATIONS_DEADLINE_ISO),
+  );
+}
 
 export async function resolveEmailAudience(input: unknown) {
   await requireOrganizer();
@@ -119,10 +146,14 @@ async function loadAudienceRows(query: EmailAudienceQuery) {
   }
 
   const decisions = decisionGroups[query.decisionGroup];
-  const conditions = [
-    inArray(hackerApplicants.decision, decisions),
-    isNotNull(users.email),
-  ];
+  const checkedInRound = checkedInRoundForGroup[query.decisionGroup];
+  const inDecisionGroup = checkedInRound
+    ? or(
+        inArray(hackerApplicants.decision, decisions),
+        checkedInAppliedIn(checkedInRound),
+      )
+    : inArray(hackerApplicants.decision, decisions);
+  const conditions = [inDecisionGroup, isNotNull(users.email)];
 
   if (query.travelAward === "approved") {
     conditions.push(eq(hackerReimbursements.status, "approved"));

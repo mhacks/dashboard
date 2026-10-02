@@ -129,6 +129,15 @@ export async function deleteAdminRsvpAction(
       };
     }
 
+    // Deleting the RSVP would leave their door scan behind, and an RSVP
+    // submitted later would then sit at `_rsvped` with a check-in on record.
+    if (target.decision === "checked_in") {
+      return {
+        ok: false as const,
+        message: `${target.applicationName} is checked in. Remove their scan at the check-in event first.`,
+      };
+    }
+
     if (confirmationName !== target.applicationName) {
       return {
         ok: false as const,

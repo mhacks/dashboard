@@ -33,6 +33,7 @@ export type AdminEventSummary = {
   endsAt: string | null;
   isActive: boolean;
   requiresRsvp: boolean;
+  isCheckIn: boolean;
   maxCheckins: number;
   /** People checked in. */
   checkinCount: number;
@@ -64,6 +65,7 @@ export async function listEventsForAdmin(): Promise<AdminEventSummary[]> {
       endsAt: events.endsAt,
       isActive: events.isActive,
       requiresRsvp: events.requiresRsvp,
+      isCheckIn: events.isCheckIn,
       maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
       scanCount: scanCountSql,
@@ -79,6 +81,7 @@ export type StaffEventOption = {
   location: string | null;
   startsAt: string | null;
   requiresRsvp: boolean;
+  isCheckIn: boolean;
   maxCheckins: number;
   checkinCount: number;
   scanCount: number;
@@ -100,6 +103,7 @@ export async function getOpenEventsForStaff(): Promise<StaffEventOption[]> {
       location: events.location,
       startsAt: events.startsAt,
       requiresRsvp: events.requiresRsvp,
+      isCheckIn: events.isCheckIn,
       maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
       scanCount: scanCountSql,
@@ -116,6 +120,7 @@ export type StaffEvent = {
   location: string | null;
   isActive: boolean;
   requiresRsvp: boolean;
+  isCheckIn: boolean;
   maxCheckins: number;
 };
 
@@ -134,6 +139,7 @@ export async function getEventForStaff(
       location: events.location,
       isActive: events.isActive,
       requiresRsvp: events.requiresRsvp,
+      isCheckIn: events.isCheckIn,
       maxCheckins: events.maxCheckins,
     })
     .from(events)
@@ -188,6 +194,7 @@ export async function getEventRoster(
       endsAt: events.endsAt,
       isActive: events.isActive,
       requiresRsvp: events.requiresRsvp,
+      isCheckIn: events.isCheckIn,
       maxCheckins: events.maxCheckins,
       checkinCount: checkinCountSql,
       scanCount: scanCountSql,

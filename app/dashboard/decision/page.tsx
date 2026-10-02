@@ -48,6 +48,7 @@ export default async function DecisionPage() {
     <ResultsLetter
       decision={application.decision}
       applicantName={application.firstName}
+      appliedAt={application.createdAt}
       reimbursementCents={application.reimbursementCents}
       rsvpDeadline={rsvpDeadline}
       teamsEnabled={teamsEnabled}
