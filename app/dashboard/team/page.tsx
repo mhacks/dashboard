@@ -15,6 +15,11 @@ import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
 
+// The formation flag is a database read, and it runs before any cookie access.
+// Without this, `next build` tries to prerender the page and fails when CI has
+// no database.
+export const dynamic = "force-dynamic";
+
 // Not wrapped in a swallow-and-degrade try/catch the way apply/page.tsx
 // handles its existing-application check — silently falling back to "no
 // team" on a fetch error here would let a user attempt to create a second
