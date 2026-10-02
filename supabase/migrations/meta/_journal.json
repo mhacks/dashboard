@@ -288,6 +288,13 @@
       "when": 1790907298150,
       "tag": "20261002021458_live_bouquets",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790914088162,
+      "tag": "20261002040808_calendar_sync_cron",
+      "breakpoints": true
     }
   ]
 }

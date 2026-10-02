@@ -76,7 +76,8 @@ database and reload `/live` to confirm the change appears without redeploying.
 The MHacks 2026 calendar can be imported repeatedly without creating new event
 IDs when titles or times change. The script uses the calendar UID in a stable
 `gcal-...` slug, so **do not rename imported slugs**. No schema migration is needed.
-The command is a one-time sync, not a background subscription.
+The CLI is a one-time sync. In production, the same sync as the dashboard
+button also runs every minute (see **Automatic sync** below).
 
 **From the dashboard:** organizers can click **Sync calendar** under Organizer
 tools on `/dashboard`. It makes `/live` match the calendar:
@@ -139,6 +140,28 @@ Review the target project and SQL before executing. This export does not execute
 anything or make the CLI's automatic backup; export the affected event content
 from Supabase before using it to update existing records. The same duplicate
 checks and transactional behavior apply. Refresh `/live` after a successful sync.
+
+### Automatic sync
+
+pg_cron calls the `sync-live-calendar` edge function every minute. The function
+runs the button's sync, using the same module
+(`supabase/functions/_shared/live-calendar.mjs`) and the same safeguards. A
+refused sync writes nothing and returns a 500 status with the reason. Google's
+public `.ics` feed can lag behind calendar edits by a few minutes.
+
+CD sets this up on every push to `main`. It applies the migration that
+schedules the job, sets `CALENDAR_SYNC_SECRET` on the function, deploys the
+function, and then writes the `project_url` and `calendar_sync_secret` Vault
+secrets (`scripts/set-calendar-sync-vault.mjs`). The job sends nothing until
+those Vault secrets exist, so it never calls a function that hasn't been
+deployed yet. The only manual step is the `CALENDAR_SYNC_SECRET` GitHub
+Actions secret (any random string, e.g. `openssl rand -hex 32`).
+
+Check runs with `select * from cron.job_run_details order by start_time desc
+limit 5;` and responses with `select status_code, content from
+net._http_response order by created desc limit 5;`. After the event, stop it
+with `select cron.unschedule('sync-live-calendar');`. The parser rejects
+events outside October 3–4, so the job will fail once the calendar moves on.
 
 ### Ownership and safety
 

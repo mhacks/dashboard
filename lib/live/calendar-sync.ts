@@ -4,7 +4,7 @@ import {
   buildSyncStatements,
   downloadCalendar,
   parseCalendar,
-} from "@/scripts/lib/live-calendar.mjs";
+} from "@/supabase/functions/_shared/live-calendar.mjs";
 
 export type CalendarSyncSummary = {
   scheduled: number;

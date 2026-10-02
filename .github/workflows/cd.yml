@@ -38,6 +38,20 @@ jobs:
       - name: Push Supabase config
         run: pnpm supabase config push --project-ref $SUPABASE_PROJECT_REF
 
+      - name: Deploy calendar sync function
+        run: |
+          pnpm supabase secrets set CALENDAR_SYNC_SECRET="$CALENDAR_SYNC_SECRET" --project-ref $SUPABASE_PROJECT_REF
+          pnpm supabase functions deploy sync-live-calendar --use-api --project-ref $SUPABASE_PROJECT_REF
+        env:
+          CALENDAR_SYNC_SECRET: ${{ secrets.CALENDAR_SYNC_SECRET }}
+
+      # After the deploy: pg_cron sends nothing until these exist.
+      - name: Point calendar sync cron at the function
+        run: node scripts/set-calendar-sync-vault.mjs
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CALENDAR_SYNC_SECRET: ${{ secrets.CALENDAR_SYNC_SECRET }}
+
   deploy:
     needs: deploy-supabase
     runs-on: ubuntu-24.04-arm

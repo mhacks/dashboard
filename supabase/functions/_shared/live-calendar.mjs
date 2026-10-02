@@ -23,11 +23,11 @@ export async function downloadCalendar() {
       throw new Error("Calendar download exceeded size limit.");
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return new Blob(chunks).text();
 }
 
 export function parseCalendar(source) {
-  if (Buffer.byteLength(source) > MAX_CALENDAR_BYTES) {
+  if (new TextEncoder().encode(source).length > MAX_CALENDAR_BYTES) {
     throw new Error("Calendar is too large; refusing import.");
   }
   const calendar = new ICAL.Component(ICAL.parse(source));
