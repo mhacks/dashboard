@@ -1,5 +1,5 @@
 {
-  "id": "39d9b9d5-29de-4fa2-88bb-c9f5e06cf779",
+  "id": "193d72ab-628c-4e32-862e-c90350312eb9",
   "prevId": "10ef8d26-91e6-496c-8024-139e0a796c8c",
   "version": "7",
   "dialect": "postgresql",
@@ -5242,12 +5242,11 @@
         "applied",
         "early_accepted",
         "early_rsvped",
-        "early_checked_in",
         "early_rejected",
         "regular_accepted",
         "regular_rsvped",
-        "regular_checked_in",
-        "regular_rejected"
+        "regular_rejected",
+        "checked_in"
       ]
     },
     "public.application_status": {

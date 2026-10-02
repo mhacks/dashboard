@@ -125,9 +125,7 @@ function requestedReimbursement(data: unknown) {
 function rsvpedDecision(decision: ApplicationDecision): ApplicationDecision {
   // A door scan already advanced them. Saving the RSVP again must not walk
   // that back to `_rsvped`.
-  if (decision === "early_checked_in" || decision === "regular_checked_in") {
-    return decision;
-  }
+  if (decision === "checked_in") return decision;
   if (decision === "early_accepted" || decision === "early_rsvped") {
     return "early_rsvped";
   }

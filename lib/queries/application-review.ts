@@ -662,7 +662,7 @@ async function getBlacklistAnalytics(): Promise<BlacklistAnalytics> {
 async function getReimbursementAnalytics(): Promise<ReimbursementAnalytics> {
   const awardAmount = reimbursementRegions.amountCents;
   const actualSpendFilter = sql`${hackerReimbursements.status} = 'approved'
-    and ${hackerApplicants.decision} in ('early_rsvped', 'early_checked_in')
+    and ${hackerApplicants.decision} in ('early_rsvped', 'checked_in')
     and ${hackerRsvps.travelPlan} = 'reimbursement'`;
 
   const [totals] = await db

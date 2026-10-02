@@ -9,12 +9,11 @@ export const APPLICATION_DECISIONS = [
   "applied",
   "early_accepted",
   "early_rsvped",
-  "early_checked_in",
   "early_rejected",
   "regular_accepted",
   "regular_rsvped",
-  "regular_checked_in",
   "regular_rejected",
+  "checked_in",
 ] as const;
 
 export type ApplicationDecision = (typeof APPLICATION_DECISIONS)[number];
@@ -34,11 +33,15 @@ export function decisionOutcome(
   return decision.endsWith("_rejected") ? "rejected" : "accepted";
 }
 
-/** Null until a decision is released — an applicant has no round before then. */
+/**
+ * Null until a decision is released — an applicant has no round before then.
+ * `checked_in` is one status for both rounds, so the round has to come from
+ * when they applied (`getApplicationRound`) rather than from this value.
+ */
 export function decisionRound(
   decision: ApplicationDecision,
 ): DecisionRound | null {
-  if (decision === "applied") return null;
+  if (decision === "applied" || decision === "checked_in") return null;
   return decision.startsWith("early_") ? "early" : "regular";
 }
 
@@ -51,10 +54,9 @@ export function decisionRound(
 export const RSVP_ELIGIBLE_DECISIONS = [
   "early_accepted",
   "early_rsvped",
-  "early_checked_in",
   "regular_accepted",
   "regular_rsvped",
-  "regular_checked_in",
+  "checked_in",
 ] as const satisfies readonly ApplicationDecision[];
 
 /**
@@ -69,20 +71,20 @@ export const RSVP_ELIGIBLE_DECISIONS = [
  *
  * Derived from `hasRsvped` rather than listed out, because it is also spelled
  * in SQL — public.has_confirmed_rsvp(), the function behind the event_checkins
- * insert policy. That one matches on the `_rsvped` and `_checked_in` suffixes
- * for the same reason, so a round added to APPLICATION_DECISIONS reaches both
- * at once instead of relying on someone remembering to edit a list in two
- * languages.
+ * insert policy. That one matches the `_rsvped` suffix, plus the single
+ * `checked_in` value, for the same reason. A round added to
+ * APPLICATION_DECISIONS reaches both at once instead of relying on someone
+ * remembering to edit a list in two languages.
  */
 export const RSVP_CONFIRMED_DECISIONS: readonly ApplicationDecision[] =
   APPLICATION_DECISIONS.filter(hasRsvped);
 
 export function hasRsvped(decision: ApplicationDecision) {
-  return decision.endsWith("_rsvped") || decision.endsWith("_checked_in");
+  return decision.endsWith("_rsvped") || decision === "checked_in";
 }
 
 export function hasCheckedIn(decision: ApplicationDecision) {
-  return decision.endsWith("_checked_in");
+  return decision === "checked_in";
 }
 
 /**
@@ -94,18 +96,22 @@ export function decisionAfterCheckIn(
   decision: ApplicationDecision,
 ): ApplicationDecision | null {
   if (hasCheckedIn(decision)) return decision;
-  if (decision === "early_rsvped") return "early_checked_in";
-  if (decision === "regular_rsvped") return "regular_checked_in";
+  if (decision === "early_rsvped" || decision === "regular_rsvped") {
+    return "checked_in";
+  }
   return null;
 }
 
-/** Restored when their last scan at a check-in event is removed. */
+/**
+ * Restored when their last scan at a check-in event is removed. The round is
+ * the one they applied in — `checked_in` itself does not record it.
+ */
 export function decisionAfterCheckInReverted(
   decision: ApplicationDecision,
+  round: DecisionRound,
 ): ApplicationDecision | null {
-  if (decision === "early_checked_in") return "early_rsvped";
-  if (decision === "regular_checked_in") return "regular_rsvped";
-  return null;
+  if (decision !== "checked_in") return null;
+  return round === "early" ? "early_rsvped" : "regular_rsvped";
 }
 
 export const RSVP_URL: Record<DecisionRound, string> = {

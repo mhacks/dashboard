@@ -28,6 +28,7 @@ import {
   RSVP_CONFIRMED_DECISIONS,
   RSVP_ELIGIBLE_DECISIONS,
 } from "@/lib/decisions";
+import { getApplicationRound } from "@/lib/types/application-reviews";
 import { eventSlugSchema } from "@/lib/types/events";
 
 export type ScannedAttendee = {
@@ -439,13 +440,19 @@ async function restoreRsvpIfNoCheckInRemains(tx: Tx, userId: string) {
   if (stillCheckedIn) return;
 
   const [applicant] = await tx
-    .select({ decision: hackerApplicants.decision })
+    .select({
+      decision: hackerApplicants.decision,
+      createdAt: hackerApplicants.createdAt,
+    })
     .from(hackerApplicants)
     .where(eq(hackerApplicants.userId, userId))
     .limit(1);
 
   const restored = applicant
-    ? decisionAfterCheckInReverted(applicant.decision)
+    ? decisionAfterCheckInReverted(
+        applicant.decision,
+        getApplicationRound(applicant.createdAt),
+      )
     : null;
 
   if (!restored || !applicant) return;

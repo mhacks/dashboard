@@ -173,12 +173,11 @@ const audienceDecisionOptions = [
   ["applied", "Applied"],
   ["early_accepted", "Early accepted"],
   ["early_rsvped", "Early RSVPed"],
-  ["early_checked_in", "Early checked in"],
   ["early_rejected", "Early rejected"],
   ["regular_accepted", "Regular accepted"],
   ["regular_rsvped", "Regular RSVPed"],
-  ["regular_checked_in", "Regular checked in"],
   ["regular_rejected", "Regular rejected"],
+  ["checked_in", "Checked in"],
 ] satisfies Array<[EmailAudienceQuery["decisionGroup"], string]>;
 const audienceTravelAwardOptions = [
   ["any", "Any travel award"],

@@ -12,6 +12,7 @@ import {
   RSVP_ELIGIBLE_DECISIONS,
   type ApplicationDecision,
 } from "@/lib/decisions";
+import { getApplicationRound } from "@/lib/types/application-reviews";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { hackerRsvps } from "@/lib/db/schema/rsvps";
@@ -41,13 +42,17 @@ function parseApplicationSlug(slug: unknown): string | null {
   return parsed.data;
 }
 
-function acceptedDecision(decision: ApplicationDecision): ApplicationDecision {
-  if (decision === "early_rsvped" || decision === "early_checked_in") {
-    return "early_accepted";
+function acceptedDecision(
+  decision: ApplicationDecision,
+  createdAt: string,
+): ApplicationDecision {
+  if (decision === "checked_in") {
+    return getApplicationRound(createdAt) === "early"
+      ? "early_accepted"
+      : "regular_accepted";
   }
-  if (decision === "regular_rsvped" || decision === "regular_checked_in") {
-    return "regular_accepted";
-  }
+  if (decision === "early_rsvped") return "early_accepted";
+  if (decision === "regular_rsvped") return "regular_accepted";
   return decision;
 }
 
@@ -110,6 +115,7 @@ export async function deleteAdminRsvpAction(
         applicationId: hackerApplicants.id,
         applicationName: sql<string>`trim(${hackerApplicants.firstName} || ' ' || ${hackerApplicants.lastName})`,
         decision: hackerApplicants.decision,
+        createdAt: hackerApplicants.createdAt,
         receiptKey: hackerRsvps.receiptKey,
       })
       .from(hackerApplicants)
@@ -147,7 +153,7 @@ export async function deleteAdminRsvpAction(
     await tx
       .update(hackerApplicants)
       .set({
-        decision: acceptedDecision(target.decision),
+        decision: acceptedDecision(target.decision, target.createdAt),
         updatedAt: new Date().toISOString(),
       })
       .where(eq(hackerApplicants.id, target.applicationId));

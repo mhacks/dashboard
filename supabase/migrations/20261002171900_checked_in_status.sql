@@ -1,5 +1,4 @@
-ALTER TYPE "public"."application_decision" ADD VALUE 'early_checked_in' BEFORE 'early_rejected';--> statement-breakpoint
-ALTER TYPE "public"."application_decision" ADD VALUE 'regular_checked_in' BEFORE 'regular_rejected';--> statement-breakpoint
+ALTER TYPE "public"."application_decision" ADD VALUE 'checked_in';--> statement-breakpoint
 ALTER TABLE "events" ADD COLUMN "is_check_in" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 -- Checked-in hackers already RSVPed. Meals, Discord, and the wallet QR keep
 -- treating them as confirmed, matching hasRsvped() in lib/decisions.ts.
@@ -16,7 +15,7 @@ CREATE OR REPLACE FUNCTION "public"."has_confirmed_rsvp"("hacker_id" uuid) RETUR
     WHERE r.user_id = hacker_id
       AND (
         a.decision::text LIKE '%\_rsvped'
-        OR a.decision::text LIKE '%\_checked_in'
+        OR a.decision::text = 'checked_in'
       )
   );
 $$;--> statement-breakpoint
@@ -32,10 +31,9 @@ CREATE OR REPLACE FUNCTION "public"."has_accepted_reservation_access"() RETURNS 
       AND decision::text IN (
         'early_accepted',
         'early_rsvped',
-        'early_checked_in',
         'regular_accepted',
         'regular_rsvped',
-        'regular_checked_in'
+        'checked_in'
       )
   );
 $$;

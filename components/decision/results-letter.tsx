@@ -24,6 +24,7 @@ import {
   RSVP_DEADLINE,
   type ApplicationDecision,
 } from "@/lib/decisions";
+import { getApplicationRound } from "@/lib/types/application-reviews";
 
 /**
  * The decision letter, as a page.
@@ -39,6 +40,7 @@ import {
 export function ResultsLetter({
   decision,
   applicantName,
+  appliedAt,
   reimbursementCents = null,
   rsvpDeadline,
   teamsEnabled,
@@ -53,6 +55,8 @@ export function ResultsLetter({
 }: {
   decision: ApplicationDecision;
   applicantName: string;
+  /** When they submitted. Checked-in is one status for both rounds, so the letter uses this to recover early vs regular. */
+  appliedAt?: string;
   reimbursementCents?: number | null;
   rsvpDeadline?: string;
   /** Organizer toggle from /admin/teams. Hides the team band when off. */
@@ -60,8 +64,23 @@ export function ResultsLetter({
   discordInviteUrl?: string;
   bouquetGameUrl?: string;
 }) {
-  const letter = decisionLetter(decision, reimbursementCents);
-  const round = decisionRound(decision);
+  const round =
+    decision === "checked_in"
+      ? appliedAt
+        ? getApplicationRound(appliedAt)
+        : null
+      : decisionRound(decision);
+  // The letter copy is round-specific. Checked-in no longer stores the round,
+  // so show the acceptance letter for the round they applied in.
+  const letterDecision =
+    decision === "checked_in"
+      ? round === "early"
+        ? "early_accepted"
+        : round === "regular"
+          ? "regular_accepted"
+          : decision
+      : decision;
+  const letter = decisionLetter(letterDecision, reimbursementCents);
   const outcome = decisionOutcome(decision);
 
   // Nothing to show while the applicant is still `applied`. The route guards

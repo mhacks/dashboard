@@ -70,37 +70,22 @@ const decisionGroups: Record<SubmittedApplicationGroup, ApplicationDecision[]> =
     accepted: [
       "early_accepted",
       "early_rsvped",
-      "early_checked_in",
       "regular_accepted",
       "regular_rsvped",
-      "regular_checked_in",
+      "checked_in",
     ],
-    rsvped: [
-      "early_rsvped",
-      "early_checked_in",
-      "regular_rsvped",
-      "regular_checked_in",
-    ],
+    rsvped: ["early_rsvped", "regular_rsvped", "checked_in"],
     rejected: ["early_rejected", "regular_rejected"],
-    early_accepted_or_rsvped: [
-      "early_accepted",
-      "early_rsvped",
-      "early_checked_in",
-    ],
-    regular_accepted_or_rsvped: [
-      "regular_accepted",
-      "regular_rsvped",
-      "regular_checked_in",
-    ],
+    early_accepted_or_rsvped: ["early_accepted", "early_rsvped"],
+    regular_accepted_or_rsvped: ["regular_accepted", "regular_rsvped"],
     applied: ["applied"],
     early_accepted: ["early_accepted"],
     early_rsvped: ["early_rsvped"],
-    early_checked_in: ["early_checked_in"],
     early_rejected: ["early_rejected"],
     regular_accepted: ["regular_accepted"],
     regular_rsvped: ["regular_rsvped"],
-    regular_checked_in: ["regular_checked_in"],
     regular_rejected: ["regular_rejected"],
+    checked_in: ["checked_in"],
   };
 
 export async function resolveEmailAudience(input: unknown) {
