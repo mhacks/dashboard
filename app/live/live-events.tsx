@@ -60,6 +60,10 @@ import { cn } from "@/lib/utils";
 import { BouquetCarousel } from "./bouquet-carousel";
 
 const BOUQUET_BUILDER_URL = "/dashboard/bouquet";
+const ASI_ONE_MOBILE_URL =
+  "https://asi1.ai/launch?redirectPath=/festivals/mhacks2026/dashboard&utm_source=mhacks2026";
+const ASI_ONE_WEB_URL =
+  "https://asi1.ai/auth/signup?returnTo=%2Ffestival%2Fmhacks2026%2Fdashboard%3Futm_source%3Dmhacks2026";
 
 type LiveEventsProps = {
   announcements: readonly LiveAnnouncement[];
@@ -212,6 +216,42 @@ function handbookEmbedUrl(pageUrl: string) {
   return pageUrl.replace(/\/[^/]*?([0-9a-f]{32})$/i, "/ebd/$1");
 }
 
+function AsiOneLink({
+  href,
+  className,
+  newTab = false,
+}: {
+  href: string;
+  className?: string;
+  newTab?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      target={newTab ? "_blank" : undefined}
+      rel={newTab ? "noreferrer" : undefined}
+      className={cn(QUICK_LINK_CLASS, className)}
+    >
+      <ExternalLink className="size-4 text-olive" />
+      <span>ASI:One</span>
+      <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+    </a>
+  );
+}
+
+function AsiOneQuickLink() {
+  return (
+    <>
+      <AsiOneLink href={ASI_ONE_MOBILE_URL} className="md:hidden" />
+      <AsiOneLink
+        href={ASI_ONE_WEB_URL}
+        className="hidden md:inline-flex"
+        newTab
+      />
+    </>
+  );
+}
+
 function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
   return (
     <nav aria-label="Quick links" className="flex flex-wrap gap-2">
@@ -220,6 +260,7 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
         <span>MHacks home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </Link>
+      <AsiOneQuickLink />
       {devpostUrl ? (
         <a
           href={devpostUrl}
