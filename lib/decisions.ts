@@ -46,6 +46,18 @@ export function decisionRound(
 }
 
 /**
+ * The round a decision belongs to, `checked_in` included. That one does not
+ * record its round, so the caller passes the round they applied in
+ * (`getApplicationRound`).
+ */
+export function decisionRoundFor(
+  decision: ApplicationDecision,
+  appliedRound: DecisionRound | null,
+): DecisionRound | null {
+  return decision === "checked_in" ? appliedRound : decisionRound(decision);
+}
+
+/**
  * The decisions that mean "this person is coming": accepted, whether or not
  * they have RSVPed yet. Shared by the admin RSVP tooling and by check-in, so
  * the set of people who may hold a check-in code can never drift from the set
@@ -237,15 +249,17 @@ const REJECTED: Record<DecisionRound, LetterBody> = {
  * still `applied` — there is nothing to show yet.
  *
  * `reimbursementCents` is the applicant's awarded travel tier in cents, or null
- * if they have no award. Accepted regular-round letters clarify that travel
+ * if they have no award. `appliedRound` is only read for `checked_in`, which
+ * gets the acceptance letter for the round they applied in. Accepted regular-round letters clarify that travel
  * reimbursements were available only during the early round; rejected letters
  * never mention reimbursement.
  */
 export function decisionLetter(
   decision: ApplicationDecision,
   reimbursementCents: number | null = null,
+  appliedRound: DecisionRound | null = null,
 ): DecisionLetter | null {
-  const round = decisionRound(decision);
+  const round = decisionRoundFor(decision, appliedRound);
   if (!round) return null;
 
   const outcome = decisionOutcome(decision);

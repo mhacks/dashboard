@@ -4,7 +4,10 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { revertAttendeeCheckIn } from "@/lib/actions/check-in.actions";
+import {
+  revertAttendeeCheckIn,
+  syncCheckInEventDecisions,
+} from "@/lib/actions/check-in.actions";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema/events";
@@ -323,7 +326,8 @@ const setCheckInSchema = z.strictObject({
 
 /**
  * Marks whether a successful scan at this event moves an RSVPed hacker to the
- * checked-in decision. Turning it off does not walk existing scans back.
+ * checked-in decision. Hackers already scanned here follow the flag both ways:
+ * see `syncCheckInEventDecisions`.
  */
 export async function setEventCheckInAction(
   input: unknown,
@@ -333,11 +337,17 @@ export async function setEventCheckInAction(
   const parsed = setCheckInSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const updated = await db
-    .update(events)
-    .set({ isCheckIn: parsed.data.isCheckIn })
-    .where(eq(events.slug, parsed.data.slug))
-    .returning({ slug: events.slug });
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(events)
+      .set({ isCheckIn: parsed.data.isCheckIn })
+      .where(eq(events.slug, parsed.data.slug))
+      .returning({ id: events.id, slug: events.slug });
+
+    if (rows[0])
+      await syncCheckInEventDecisions(tx, rows[0].id, parsed.data.isCheckIn);
+    return rows;
+  });
 
   if (!updated[0])
     return { ok: false, message: "That event no longer exists." };

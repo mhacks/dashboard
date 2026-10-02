@@ -2,7 +2,7 @@ import { and, desc, eq, gt, isNull } from "drizzle-orm";
 
 import {
   decisionOutcome,
-  decisionRound,
+  decisionRoundFor,
   type ApplicationDecision,
   type DecisionRound,
 } from "@/lib/decisions";
@@ -51,12 +51,10 @@ function roundForRsvp(
   createdAt: string | null | undefined,
 ): DecisionRound | null {
   if (!decision) return null;
-  // One status covers both rounds. The application timestamp is what the
-  // acceptance flow used to pick early vs regular.
-  if (decision === "checked_in") {
-    return createdAt ? getApplicationRound(createdAt) : null;
-  }
-  return decisionRound(decision);
+  return decisionRoundFor(
+    decision,
+    createdAt ? getApplicationRound(createdAt) : null,
+  );
 }
 
 function rsvpAccessFromException(

@@ -23,6 +23,7 @@ import {
   type CheckInOutcome,
 } from "@/lib/checkin/outcomes";
 import {
+  APPLICATION_DECISIONS,
   decisionAfterCheckIn,
   decisionAfterCheckInReverted,
   RSVP_CONFIRMED_DECISIONS,
@@ -429,7 +430,31 @@ export async function revertAttendeeCheckIn(
   });
 }
 
+/**
+ * Puts a checked-in hacker back to RSVPed once no scan at any check-in event
+ * remains. Locks the application row before looking, the same lock a door
+ * scan takes in `promoteCheckedInHacker`, so a scan landing at another door
+ * meanwhile is either seen here or promotes them again after this commits.
+ */
 async function restoreRsvpIfNoCheckInRemains(tx: Tx, userId: string) {
+  const [applicant] = await tx
+    .select({
+      decision: hackerApplicants.decision,
+      createdAt: hackerApplicants.createdAt,
+    })
+    .from(hackerApplicants)
+    .where(eq(hackerApplicants.userId, userId))
+    .for("update")
+    .limit(1);
+
+  if (!applicant) return;
+
+  const restored = decisionAfterCheckInReverted(
+    applicant.decision,
+    getApplicationRound(applicant.createdAt),
+  );
+  if (!restored) return;
+
   const [stillCheckedIn] = await tx
     .select({ id: eventCheckins.id })
     .from(eventCheckins)
@@ -439,27 +464,9 @@ async function restoreRsvpIfNoCheckInRemains(tx: Tx, userId: string) {
 
   if (stillCheckedIn) return;
 
-  const [applicant] = await tx
-    .select({
-      decision: hackerApplicants.decision,
-      createdAt: hackerApplicants.createdAt,
-    })
-    .from(hackerApplicants)
-    .where(eq(hackerApplicants.userId, userId))
-    .limit(1);
-
-  const restored = applicant
-    ? decisionAfterCheckInReverted(
-        applicant.decision,
-        getApplicationRound(applicant.createdAt),
-      )
-    : null;
-
-  if (!restored || !applicant) return;
-
   await tx
     .update(hackerApplicants)
-    .set({ decision: restored })
+    .set({ decision: restored, updatedAt: new Date().toISOString() })
     .where(
       and(
         eq(hackerApplicants.userId, userId),
@@ -489,13 +496,69 @@ async function promoteCheckedInHacker(tx: Tx, userId: string) {
 
   await tx
     .update(hackerApplicants)
-    .set({ decision: next })
+    .set({ decision: next, updatedAt: new Date().toISOString() })
     .where(
       and(
         eq(hackerApplicants.userId, userId),
         eq(hackerApplicants.decision, locked.decision),
       ),
     );
+}
+
+/** The decisions a door scan advances to `checked_in`. */
+const PROMOTABLE_DECISIONS = APPLICATION_DECISIONS.filter(
+  (decision) =>
+    decision !== "checked_in" &&
+    decisionAfterCheckIn(decision) === "checked_in",
+);
+
+/**
+ * Brings decisions in line with an event's check-in flag after it changes.
+ * Call it in the same transaction that writes the flag.
+ *
+ * Turning it on promotes every RSVPed hacker already scanned here, so a door
+ * marked late doesn't leave the people it let in at `_rsvped`. Turning it off
+ * puts the checked-in hackers scanned here back to RSVPed, unless a scan at
+ * another check-in event still holds them there.
+ */
+export async function syncCheckInEventDecisions(
+  tx: Tx,
+  eventId: string,
+  isCheckIn: boolean,
+) {
+  const scannedHere = tx
+    .selectDistinct({ userId: eventCheckins.userId })
+    .from(eventCheckins)
+    .where(eq(eventCheckins.eventId, eventId));
+
+  if (isCheckIn) {
+    // One statement, so each row is locked as it is updated and the decision
+    // is re-checked under that lock, like the per-scan promotion.
+    await tx
+      .update(hackerApplicants)
+      .set({ decision: "checked_in", updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          inArray(hackerApplicants.decision, PROMOTABLE_DECISIONS),
+          inArray(hackerApplicants.userId, scannedHere),
+        ),
+      );
+    return;
+  }
+
+  const checkedIn = await tx
+    .select({ userId: hackerApplicants.userId })
+    .from(hackerApplicants)
+    .where(
+      and(
+        eq(hackerApplicants.decision, "checked_in"),
+        inArray(hackerApplicants.userId, scannedHere),
+      ),
+    );
+
+  for (const { userId } of checkedIn) {
+    await restoreRsvpIfNoCheckInRemains(tx, userId);
+  }
 }
 
 /**

@@ -20,7 +20,7 @@ import { TeamSection } from "@/components/decision/team-section";
 import {
   decisionLetter,
   decisionOutcome,
-  decisionRound,
+  decisionRoundFor,
   RSVP_DEADLINE,
   type ApplicationDecision,
 } from "@/lib/decisions";
@@ -64,23 +64,9 @@ export function ResultsLetter({
   discordInviteUrl?: string;
   bouquetGameUrl?: string;
 }) {
-  const round =
-    decision === "checked_in"
-      ? appliedAt
-        ? getApplicationRound(appliedAt)
-        : null
-      : decisionRound(decision);
-  // The letter copy is round-specific. Checked-in no longer stores the round,
-  // so show the acceptance letter for the round they applied in.
-  const letterDecision =
-    decision === "checked_in"
-      ? round === "early"
-        ? "early_accepted"
-        : round === "regular"
-          ? "regular_accepted"
-          : decision
-      : decision;
-  const letter = decisionLetter(letterDecision, reimbursementCents);
+  const appliedRound = appliedAt ? getApplicationRound(appliedAt) : null;
+  const round = decisionRoundFor(decision, appliedRound);
+  const letter = decisionLetter(decision, reimbursementCents, appliedRound);
   const outcome = decisionOutcome(decision);
 
   // Nothing to show while the applicant is still `applied`. The route guards

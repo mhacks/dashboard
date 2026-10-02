@@ -155,8 +155,8 @@ export function EventsManager({ events }: { events: AdminEventSummary[] }) {
       }
       toast.success(
         isCheckIn
-          ? `${name} now marks RSVPed hackers as checked in.`
-          : `${name} no longer changes hacker status.`,
+          ? `${name} now marks RSVPed hackers as checked in, including anyone already scanned.`
+          : `${name} no longer changes hacker status. Hackers checked in only here are back to RSVPed.`,
       );
       router.refresh();
     });

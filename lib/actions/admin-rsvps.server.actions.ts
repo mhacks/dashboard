@@ -12,7 +12,6 @@ import {
   RSVP_ELIGIBLE_DECISIONS,
   type ApplicationDecision,
 } from "@/lib/decisions";
-import { getApplicationRound } from "@/lib/types/application-reviews";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { hackerRsvps } from "@/lib/db/schema/rsvps";
@@ -42,15 +41,7 @@ function parseApplicationSlug(slug: unknown): string | null {
   return parsed.data;
 }
 
-function acceptedDecision(
-  decision: ApplicationDecision,
-  createdAt: string,
-): ApplicationDecision {
-  if (decision === "checked_in") {
-    return getApplicationRound(createdAt) === "early"
-      ? "early_accepted"
-      : "regular_accepted";
-  }
+function acceptedDecision(decision: ApplicationDecision): ApplicationDecision {
   if (decision === "early_rsvped") return "early_accepted";
   if (decision === "regular_rsvped") return "regular_accepted";
   return decision;
@@ -115,7 +106,6 @@ export async function deleteAdminRsvpAction(
         applicationId: hackerApplicants.id,
         applicationName: sql<string>`trim(${hackerApplicants.firstName} || ' ' || ${hackerApplicants.lastName})`,
         decision: hackerApplicants.decision,
-        createdAt: hackerApplicants.createdAt,
         receiptKey: hackerRsvps.receiptKey,
       })
       .from(hackerApplicants)
@@ -139,6 +129,15 @@ export async function deleteAdminRsvpAction(
       };
     }
 
+    // Deleting the RSVP would leave their door scan behind, and an RSVP
+    // submitted later would then sit at `_rsvped` with a check-in on record.
+    if (target.decision === "checked_in") {
+      return {
+        ok: false as const,
+        message: `${target.applicationName} is checked in. Remove their scan at the check-in event first.`,
+      };
+    }
+
     if (confirmationName !== target.applicationName) {
       return {
         ok: false as const,
@@ -153,7 +152,7 @@ export async function deleteAdminRsvpAction(
     await tx
       .update(hackerApplicants)
       .set({
-        decision: acceptedDecision(target.decision, target.createdAt),
+        decision: acceptedDecision(target.decision),
         updatedAt: new Date().toISOString(),
       })
       .where(eq(hackerApplicants.id, target.applicationId));
