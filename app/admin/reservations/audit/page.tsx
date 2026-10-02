@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
-import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { getReservationAuditPage } from "@/lib/queries/admin-reservations";
 import { AuditList } from "./audit-list";
 import {
@@ -30,13 +28,5 @@ export default async function ReservationAuditPage({
   );
   if (canonicalHref) redirect(canonicalHref);
 
-  return (
-    <AdminPageShell>
-      <AdminPageHeader
-        title="Reservation audit log"
-        description="Review immutable event, table, participant, and assignment activity across all reservation events."
-      />
-      <AuditList {...auditPage} basePath="/admin/reservations/audit" />
-    </AdminPageShell>
-  );
+  return <AuditList {...auditPage} basePath="/admin/reservations/audit" />;
 }

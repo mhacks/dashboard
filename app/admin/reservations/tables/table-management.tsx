@@ -19,7 +19,6 @@ import {
   setReservationTableCount,
   type ReservationActionResult,
 } from "@/lib/actions/admin-reservations.server.actions";
-import type { AdminReservationEventDetail } from "@/lib/queries/admin-reservations";
 import {
   formatReservationList,
   MAX_RESERVATION_TABLE_COUNT,
@@ -55,7 +54,6 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type TableManagementProps = {
-  event: AdminReservationEventDetail;
   tables: TableWithTeam[];
 };
 
@@ -100,14 +98,12 @@ function PendingIcon({ pending }: { pending: boolean }) {
 }
 
 function TableCard({
-  eventId,
   onMutationEnd,
   onMutationStart,
   readOnly,
   table,
   workspacePending,
 }: {
-  eventId: string;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
   readOnly: boolean;
@@ -180,7 +176,6 @@ function TableCard({
     startTransition(async () => {
       try {
         const result = await renumberReservationTable({
-          eventId,
           tableId: table.id,
           number: renumberTarget,
         });
@@ -215,7 +210,6 @@ function TableCard({
     startTransition(async () => {
       try {
         const result = await deleteReservationTable({
-          eventId,
           tableId: table.id,
         });
         if (!result.ok) {
@@ -379,7 +373,7 @@ function TableCard({
 
         {assigned ? (
           <Button asChild variant="outline" size="sm">
-            <Link href={`/admin/reservations/${eventId}/assignments`}>
+            <Link href="/admin/reservations/assignments">
               Manage assignments
             </Link>
           </Button>
@@ -440,14 +434,12 @@ function TableCard({
 }
 
 function TableCountManagement({
-  eventId,
   onMutationEnd,
   onMutationStart,
   readOnly,
   tables,
   workspacePending,
 }: {
-  eventId: string;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
   readOnly: boolean;
@@ -514,7 +506,6 @@ function TableCountManagement({
     startTransition(async () => {
       try {
         const result = await setReservationTableCount({
-          eventId,
           count,
           expectedTables: topologyOf(tables),
         });
@@ -734,7 +725,7 @@ function TableCountManagement({
           </AlertDialogHeader>
           {reductionBlockers.length > 0 ? (
             <Button asChild variant="outline" size="sm">
-              <Link href={`/admin/reservations/${eventId}/assignments`}>
+              <Link href="/admin/reservations/assignments">
                 Manage assignments
               </Link>
             </Button>
@@ -761,11 +752,11 @@ function TableCountManagement({
   );
 }
 
-function TableManagementWorkspace({ event, tables }: TableManagementProps) {
+function TableManagementWorkspace({ tables }: TableManagementProps) {
   const router = useRouter();
   const addInputId = useId();
   const mutationLockRef = useRef<string | null>(null);
-  const readOnly = event.status === "archived";
+  const readOnly = false;
   const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
   const openCount = tables.length - assignedCount;
   const [newTableNumber, setNewTableNumber] = useState("");
@@ -813,7 +804,6 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
     startTransition(async () => {
       try {
         const result = await createReservationTable({
-          eventId: event.id,
           number,
         });
         if (!result.ok) {
@@ -870,7 +860,6 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <TableCountManagement
-          eventId={event.id}
           onMutationEnd={endMutation}
           onMutationStart={startMutation}
           readOnly={readOnly}
@@ -962,7 +951,6 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
             {tables.map((table) => (
               <TableCard
                 key={table.id}
-                eventId={event.id}
                 onMutationEnd={endMutation}
                 onMutationStart={startMutation}
                 readOnly={readOnly}
@@ -978,10 +966,5 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
 }
 
 export function TableManagement(props: TableManagementProps) {
-  return (
-    <TableManagementWorkspace
-      key={`${props.event.id}:${props.event.status}`}
-      {...props}
-    />
-  );
+  return <TableManagementWorkspace key={props.tables.length} {...props} />;
 }

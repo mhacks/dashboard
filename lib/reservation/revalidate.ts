@@ -1,15 +1,13 @@
 import { revalidatePath } from "next/cache";
 
-export function revalidateReservationEventPaths(eventId: string) {
+export function revalidateReservationPaths() {
   for (const path of [
     "/dashboard/team",
     "/admin/reservations",
+    "/admin/reservations/tables",
+    "/admin/reservations/assignments",
     "/admin/reservations/audit",
-    `/admin/reservations/${eventId}`,
-    `/admin/reservations/${eventId}/tables`,
-    `/admin/reservations/${eventId}/assignments`,
-    `/admin/reservations/${eventId}/audit`,
-    `/admin/reservations/${eventId}/preview`,
+    "/admin/reservations/preview",
   ]) {
     revalidatePath(path);
   }

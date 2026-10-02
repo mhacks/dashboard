@@ -71,17 +71,12 @@ function reservationStatus(
   reservations: ParticipantReservationSnapshot,
   teamId: string,
 ): string {
-  const event =
-    reservations.events.length === 1 ? reservations.events[0] : null;
-  if (!event) {
-    return reservations.events.length === 0 ? "No events" : "Choose an event";
-  }
-  const mine = (reservations.tablesByEventId[event.id] ?? []).find(
+  const mine = reservations.tables.find(
     (table) => table.reservedByTeamId === teamId,
   );
   if (mine) return `Table ${mine.number}`;
-  if (event.state === "open") return "Open";
-  if (event.state === "scheduled") return "Not open yet";
+  if (reservations.state === "open") return "Open";
+  if (reservations.state === "scheduled") return "Not open yet";
   return "Closed";
 }
 
@@ -352,8 +347,8 @@ export function TeamView({
                   buttonClassName={ACTION_OUTLINE}
                   primaryClassName={ACTION_PRIMARY}
                   teamId={team.team.id}
-                  events={reservations.events}
-                  tablesByEventId={reservations.tablesByEventId}
+                  state={reservations.state}
+                  tables={reservations.tables}
                 />
               </div>
             </Panel>

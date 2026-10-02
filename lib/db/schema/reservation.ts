@@ -1,8 +1,9 @@
 import {
   check,
+  foreignKey,
+  index,
   integer,
   jsonb,
-  pgEnum,
   pgPolicy,
   pgTable,
   text,
@@ -10,57 +11,57 @@ import {
   unique,
   uniqueIndex,
   uuid,
-  index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { authenticatedRole } from "drizzle-orm/supabase";
-import { RESERVATION_EVENT_STATUSES } from "../../reservation/domain";
 import { isOrganizer } from "./rls";
 import { teams } from "./teams";
 import { users } from "./users";
 
-export const reservationEventStatus = pgEnum(
-  "reservation_event_status",
-  RESERVATION_EVENT_STATUSES,
-);
-
-export const reservationEvents = pgTable(
-  "table_reservations",
+/**
+ * One row, id `default`. Organizers set the reservation window from
+ * /admin/reservations. Hackers can claim or move a table only inside it.
+ */
+export const reservationSettings = pgTable(
+  "reservation_settings",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").notNull(),
-    description: text("description"),
-    startsAt: timestamp("starts_at", { withTimezone: true }),
-    location: text("location"),
-    status: reservationEventStatus("status").notNull().default("draft"),
+    id: text().primaryKey().default("default").notNull(),
     reservationsOpenAt: timestamp("reservations_open_at", {
       withTimezone: true,
+      mode: "string",
     }),
     reservationsCloseAt: timestamp("reservations_close_at", {
       withTimezone: true,
+      mode: "string",
     }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    updatedByUserId: uuid("updated_by_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
   },
-  (event) => [
+  (table) => [
+    check("reservation_settings_singleton_check", sql`${table.id} = 'default'`),
     check(
-      "events_reservation_window_valid",
-      sql`${event.reservationsOpenAt} IS NULL
-        OR ${event.reservationsCloseAt} IS NULL
-        OR ${event.reservationsCloseAt} > ${event.reservationsOpenAt}`,
+      "reservation_settings_window_valid",
+      sql`${table.reservationsOpenAt} IS NULL
+        OR ${table.reservationsCloseAt} IS NULL
+        OR ${table.reservationsCloseAt} > ${table.reservationsOpenAt}`,
     ),
-    index("table_reservations_status_starts_at_idx").on(
-      event.status,
-      event.startsAt,
-    ),
-    pgPolicy("table_reservations_select_visible_or_organizer", {
+    foreignKey({
+      columns: [table.updatedByUserId],
+      foreignColumns: [users.id],
+      name: "reservation_settings_updated_by_user_id_fkey",
+    }).onDelete("set null"),
+    pgPolicy("reservation_settings_authenticated_select", {
       for: "select",
       to: authenticatedRole,
-      using: sql`${isOrganizer} OR ${event.status} IN ('open', 'closed')`,
+      using: sql`true`,
+    }),
+    pgPolicy("reservation_settings_organizer_all", {
+      for: "all",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
     }),
   ],
 ).enableRLS();
@@ -69,9 +70,6 @@ export const tables = pgTable(
   "tables",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => reservationEvents.id, { onDelete: "cascade" }),
     number: integer("number").notNull(),
     reservedByTeamId: uuid("reserved_by_team_id").references(() => teams.id, {
       onDelete: "restrict",
@@ -79,25 +77,18 @@ export const tables = pgTable(
     reservedAt: timestamp("reserved_at", { withTimezone: true }),
   },
   (table) => [
-    unique("tables_event_number_unique").on(table.eventId, table.number),
-    uniqueIndex("tables_event_team_unique").on(
-      table.eventId,
-      table.reservedByTeamId,
-    ),
+    unique("tables_number_unique").on(table.number),
+    uniqueIndex("tables_team_unique").on(table.reservedByTeamId),
     check("tables_number_positive", sql`${table.number} > 0`),
     check(
       "tables_reservation_timestamp_consistent",
       sql`(${table.reservedByTeamId} IS NULL) =
         (${table.reservedAt} IS NULL)`,
     ),
-    pgPolicy("tables_select_visible_or_organizer", {
+    pgPolicy("tables_select_authenticated", {
       for: "select",
       to: authenticatedRole,
-      using: sql`${isOrganizer} OR EXISTS (
-        SELECT 1 FROM public.table_reservations
-        WHERE id = ${table.eventId}
-          AND status IN ('open', 'closed')
-      )`,
+      using: sql`true`,
     }),
   ],
 ).enableRLS();
@@ -106,10 +97,6 @@ export const reservationAuditLog = pgTable(
   "reservation_audit_log",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").references(() => reservationEvents.id, {
-      onDelete: "set null",
-    }),
-    eventName: text("event_name").notNull(),
     actorUserId: uuid("actor_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -126,10 +113,6 @@ export const reservationAuditLog = pgTable(
       .defaultNow(),
   },
   (audit) => [
-    index("reservation_audit_event_created_at_idx").on(
-      audit.eventId,
-      audit.createdAt,
-    ),
     index("reservation_audit_created_at_idx").on(audit.createdAt),
     pgPolicy("reservation_audit_select_organizer", {
       for: "select",
@@ -139,6 +122,6 @@ export const reservationAuditLog = pgTable(
   ],
 ).enableRLS();
 
-export type ReservationEvent = typeof reservationEvents.$inferSelect;
+export type ReservationSettings = typeof reservationSettings.$inferSelect;
 export type Table = typeof tables.$inferSelect;
 export type ReservationAuditLog = typeof reservationAuditLog.$inferSelect;

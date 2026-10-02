@@ -4,7 +4,7 @@ import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
-import { reservationEvents, tables } from "@/lib/db/schema/reservation";
+import { reservationSettings, tables } from "@/lib/db/schema/reservation";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
   ACCEPTED_RESERVATION_ERROR,
@@ -14,7 +14,8 @@ import {
 } from "@/lib/reservation/access";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import { getReservationAvailability } from "@/lib/reservation/domain";
-import { revalidateReservationEventPaths } from "@/lib/reservation/revalidate";
+import { RESERVATION_SETTINGS_ID } from "@/lib/queries/reservation-settings";
+import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import { reservationIdSchema } from "@/lib/reservation/validation";
 
 export type ActionResult =
@@ -64,7 +65,6 @@ async function requireTeamId(): Promise<
 }
 
 function reservationsAreOpen(event: {
-  status: Parameters<typeof getReservationAvailability>[0]["status"];
   reservationsOpenAt?: Date | string | null;
   reservationsCloseAt?: Date | string | null;
 }) {
@@ -105,7 +105,6 @@ export async function reserveTable({
   const selectedTableId = parsedTableId.data;
 
   let assignment: {
-    eventId: string;
     tableNumber: number;
     fromTableNumber: number | null;
     unchanged: boolean;
@@ -115,32 +114,16 @@ export async function reserveTable({
       await lockAcceptedReservationApplicant(tx, user.id);
       // Share-lock the event before checking availability. Participant claims
       // can proceed together, while organizer lifecycle updates must wait.
-      const [target] = await tx
+      const [settings] = await tx
         .select({
-          id: tables.id,
-          eventId: tables.eventId,
-          number: tables.number,
-          eventName: reservationEvents.name,
-          eventStatus: reservationEvents.status,
-          reservationsOpenAt: reservationEvents.reservationsOpenAt,
-          reservationsCloseAt: reservationEvents.reservationsCloseAt,
+          reservationsOpenAt: reservationSettings.reservationsOpenAt,
+          reservationsCloseAt: reservationSettings.reservationsCloseAt,
         })
-        .from(reservationEvents)
-        .innerJoin(tables, eq(tables.eventId, reservationEvents.id))
-        .where(eq(tables.id, selectedTableId))
-        .for("share", { of: reservationEvents })
+        .from(reservationSettings)
+        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
+        .for("share")
         .limit(1);
-
-      if (!target) {
-        throw new ReservationFailure("TABLE_NOT_FOUND");
-      }
-      if (
-        !reservationsAreOpen({
-          status: target.eventStatus,
-          reservationsOpenAt: target.reservationsOpenAt,
-          reservationsCloseAt: target.reservationsCloseAt,
-        })
-      ) {
+      if (!settings || !reservationsAreOpen(settings)) {
         throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
       }
 
@@ -154,12 +137,9 @@ export async function reserveTable({
         })
         .from(tables)
         .where(
-          and(
-            eq(tables.eventId, target.eventId),
-            or(
-              eq(tables.id, selectedTableId),
-              eq(tables.reservedByTeamId, teamId),
-            ),
+          or(
+            eq(tables.id, selectedTableId),
+            eq(tables.reservedByTeamId, teamId),
           ),
         )
         .orderBy(asc(tables.id))
@@ -175,7 +155,6 @@ export async function reserveTable({
       );
       if (current?.id === destination.id) {
         return {
-          eventId: target.eventId,
           tableNumber: destination.number,
           fromTableNumber: null,
           unchanged: true,
@@ -208,8 +187,6 @@ export async function reserveTable({
       }
 
       await writeReservationAudit(tx, {
-        eventId: target.eventId,
-        eventName: target.eventName,
         actorUserId: user.id,
         actorEmail: user.email,
         action: current ? "assignment.moved" : "assignment.reserved",
@@ -233,7 +210,6 @@ export async function reserveTable({
       });
 
       return {
-        eventId: target.eventId,
         tableNumber: destination.number,
         fromTableNumber: current?.number ?? null,
         unchanged: false,
@@ -256,7 +232,7 @@ export async function reserveTable({
     };
   }
 
-  revalidateReservationEventPaths(assignment.eventId);
+  revalidateReservationPaths();
   return {
     ok: true,
     message:
@@ -266,53 +242,32 @@ export async function reserveTable({
   };
 }
 
-export async function randomlyAssignTable({
-  eventId,
-}: {
-  eventId: string;
-}): Promise<ActionResult> {
+export async function randomlyAssignTable(): Promise<ActionResult> {
   const auth = await requireTeamId();
   if (!auth.ok) return auth;
   const { teamId, user } = auth;
-  const parsedEventId = reservationIdSchema.safeParse(eventId);
-  if (!parsedEventId.success) {
-    return { ok: false, error: "Select a valid event and try again." };
-  }
-  const selectedEventId = parsedEventId.data;
 
-  let assigned: { eventId: string; tableNumber: number };
+  let assigned: { tableNumber: number };
   try {
     assigned = await db.transaction(async (tx) => {
       await lockAcceptedReservationApplicant(tx, user.id);
-      // Keep the shared event-before-table lock order used by direct claims.
-      const [event] = await tx
+      const [settings] = await tx
         .select({
-          id: reservationEvents.id,
-          name: reservationEvents.name,
-          status: reservationEvents.status,
-          reservationsOpenAt: reservationEvents.reservationsOpenAt,
-          reservationsCloseAt: reservationEvents.reservationsCloseAt,
+          reservationsOpenAt: reservationSettings.reservationsOpenAt,
+          reservationsCloseAt: reservationSettings.reservationsCloseAt,
         })
-        .from(reservationEvents)
-        .where(eq(reservationEvents.id, selectedEventId))
+        .from(reservationSettings)
+        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
         .for("share")
         .limit(1);
-      if (!event) {
-        throw new ReservationFailure("EVENT_NOT_FOUND");
-      }
-      if (!reservationsAreOpen(event)) {
+      if (!settings || !reservationsAreOpen(settings)) {
         throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
       }
 
       const [existing] = await tx
         .select({ id: tables.id })
         .from(tables)
-        .where(
-          and(
-            eq(tables.eventId, selectedEventId),
-            eq(tables.reservedByTeamId, teamId),
-          ),
-        )
+        .where(eq(tables.reservedByTeamId, teamId))
         .limit(1);
       if (existing) {
         throw new ReservationFailure("TEAM_ALREADY_RESERVED");
@@ -321,12 +276,7 @@ export async function randomlyAssignTable({
       const [candidate] = await tx
         .select({ id: tables.id, number: tables.number })
         .from(tables)
-        .where(
-          and(
-            eq(tables.eventId, selectedEventId),
-            isNull(tables.reservedByTeamId),
-          ),
-        )
+        .where(isNull(tables.reservedByTeamId))
         .orderBy(sql`random()`)
         .limit(1)
         .for("update", { skipLocked: true });
@@ -348,8 +298,6 @@ export async function randomlyAssignTable({
       }
 
       await writeReservationAudit(tx, {
-        eventId: event.id,
-        eventName: event.name,
         actorUserId: user.id,
         actorEmail: user.email,
         action: "assignment.randomly_reserved",
@@ -362,7 +310,6 @@ export async function randomlyAssignTable({
         },
       });
       return {
-        eventId: event.id,
         tableNumber: candidate.number,
       };
     });
@@ -376,6 +323,6 @@ export async function randomlyAssignTable({
     };
   }
 
-  revalidateReservationEventPaths(assigned.eventId);
+  revalidateReservationPaths();
   return { ok: true, message: `Assigned table ${assigned.tableNumber}.` };
 }

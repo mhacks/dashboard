@@ -115,7 +115,6 @@ function intentDescription(intent: MoveIntent): string {
 }
 
 export function AssignmentManagement({
-  event,
   teams,
   tables,
 }: AdminReservationAssignmentsData) {
@@ -132,7 +131,6 @@ export function AssignmentManagement({
     teams.find((team) => team.id === selectedTeamId) ?? teams[0] ?? null;
   const currentTable =
     tables.find((table) => table.reservedByTeamId === selectedTeam?.id) ?? null;
-  const isArchived = event.status === "archived";
   const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
 
   function selectTeam(teamId: string) {
@@ -144,7 +142,7 @@ export function AssignmentManagement({
   }
 
   function prepareMove(destination: TableWithTeam) {
-    if (!selectedTeam || isArchived || isPending) return;
+    if (!selectedTeam || isPending) return;
     if (destination.reservedByTeamId === selectedTeam.id) return;
 
     const displacedTeamName = destination.reservedByTeamName ?? "Unknown team";
@@ -186,13 +184,12 @@ export function AssignmentManagement({
   }
 
   function runMove() {
-    if (!moveIntent || isArchived) return;
+    if (!moveIntent) return;
     setActionError(null);
 
     startTransition(async () => {
       try {
         const result = await moveReservationTeam({
-          eventId: event.id,
           teamId: moveIntent.team.id,
           tableId: moveIntent.destination.id,
           expectedSourceTableId:
@@ -220,13 +217,12 @@ export function AssignmentManagement({
   }
 
   function runUnassign() {
-    if (!unassignIntent || isArchived) return;
+    if (!unassignIntent) return;
     setActionError(null);
 
     startTransition(async () => {
       try {
         const result = await unassignReservationTeam({
-          eventId: event.id,
           teamId: unassignIntent.team.id,
           expectedSourceTableId: unassignIntent.source.id,
           expectedSourceTableNumber: unassignIntent.source.number,
@@ -271,7 +267,7 @@ export function AssignmentManagement({
               selectedTableId={moveIntent?.destination.id ?? null}
               teamId={selectedTeam?.id ?? null}
               onSelect={prepareMove}
-              disabled={isArchived || isPending || !selectedTeam}
+              disabled={isPending || !selectedTeam}
               mode="admin"
             />
           </CardContent>
@@ -281,9 +277,8 @@ export function AssignmentManagement({
           <CardHeader>
             <CardTitle>Team assignment</CardTitle>
             <CardDescription>
-              {isArchived
-                ? "Archived events are read-only. Restore the event to change assignments."
-                : "Moving onto an occupied table will swap or displace its current team."}
+              Moving onto an occupied table will swap or displace its current
+              team.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
@@ -331,19 +326,13 @@ export function AssignmentManagement({
                 </p>
               )}
             </div>
-
-            {isArchived ? (
-              <Badge variant="destructive" className="w-fit">
-                Read-only
-              </Badge>
-            ) : null}
           </CardContent>
           {selectedTeam && currentTable ? (
             <CardFooter>
               <Button
                 type="button"
                 variant="outline"
-                disabled={isArchived || isPending}
+                disabled={isPending}
                 aria-label={`Unassign ${selectedTeam.name}`}
                 onClick={() => {
                   setActionError(null);
@@ -392,7 +381,7 @@ export function AssignmentManagement({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={isPending || isArchived}
+              disabled={isPending}
               onClick={(clickEvent) => {
                 clickEvent.preventDefault();
                 runMove();
@@ -442,7 +431,7 @@ export function AssignmentManagement({
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={isPending || isArchived}
+              disabled={isPending}
               onClick={(clickEvent) => {
                 clickEvent.preventDefault();
                 runUnassign();

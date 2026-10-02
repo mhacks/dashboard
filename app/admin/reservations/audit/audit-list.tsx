@@ -117,7 +117,7 @@ export function AuditList({
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {entry.actorEmail} · {entry.eventName}
+                      {entry.actorEmail}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Entity {entry.entityId ?? "snapshot only"}

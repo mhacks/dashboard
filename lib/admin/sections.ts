@@ -108,7 +108,7 @@ export const ADMIN_AREAS: AdminArea[] = [
         href: "/admin/reservations",
         title: "Table reservations",
         description:
-          "Create judging events, manage tables, and coordinate assignments.",
+          "Set the reservation window, manage tables, and assign teams.",
         icon: CalendarRangeIcon,
       },
       {

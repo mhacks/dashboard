@@ -18,45 +18,36 @@ import {
   reserveTable,
   type ActionResult,
 } from "@/lib/actions/reservation";
-import type { ParticipantReservationChoice } from "@/lib/db/queries/reservation";
+import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
 import type { TableWithTeam } from "@/lib/reservation/types";
-
-const SELECT_CLASS =
-  "w-full rounded-[2px] border border-ui-line-strong bg-ui-paper px-3 py-2 font-red-hat-mono text-[13px] text-ui-ink focus:outline-2 focus:outline-offset-2 focus:outline-ui-ink";
 
 export function ReservationDialog({
   buttonClassName,
   primaryClassName,
   teamId,
-  events,
-  tablesByEventId,
+  state,
+  tables,
 }: {
   buttonClassName: string;
   primaryClassName: string;
   teamId: string;
-  events: ParticipantReservationChoice[];
-  tablesByEventId: Record<string, TableWithTeam[]>;
+  state: ParticipantReservationSnapshot["state"];
+  tables: TableWithTeam[];
 }) {
   const router = useRouter();
-  const [eventId, setEventId] = useState(events[0]?.id ?? "");
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<
     "reserve" | "random" | null
   >(null);
   const [isPending, startTransition] = useTransition();
 
-  const event = events.find((item) => item.id === eventId) ?? events[0];
-  const tables = event ? (tablesByEventId[event.id] ?? []) : [];
   const myTable =
     tables.find((table) => table.reservedByTeamId === teamId) ?? null;
   const selectedTable =
     tables.find((table) => table.id === selectedTableId) ?? null;
-  const canChoose = Boolean(event && event.state === "open");
+  const canChoose = state === "open";
   const moving = Boolean(myTable);
-  const buttonLabel =
-    events.length === 1 && myTable
-      ? `Table ${myTable.number}`
-      : "Choose a table";
+  const buttonLabel = myTable ? `Table ${myTable.number}` : "Choose a table";
 
   function run(
     actionName: "reserve" | "random",
@@ -97,42 +88,20 @@ export function ReservationDialog({
             Reserve a table
           </DialogTitle>
           <DialogDescription className="text-ui-ink-soft">
-            {events.length === 0
-              ? "There are no reservation events right now."
-              : statusCopy(event?.state ?? "closed", myTable?.number ?? null)}
+            {statusCopy(state, myTable?.number ?? null)}
           </DialogDescription>
         </DialogHeader>
 
-        {events.length > 1 && event ? (
-          <select
-            value={event.id}
-            onChange={(change) => {
-              setEventId(change.target.value);
-              setSelectedTableId(null);
-            }}
-            className={SELECT_CLASS}
-            aria-label="Event"
-          >
-            {events.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        ) : null}
-
-        {events.length > 0 ? (
-          <JudgingMap
-            tables={tables}
-            selectedTableId={selectedTableId}
-            teamId={teamId}
-            onSelect={(table) => {
-              if (!canChoose || table.reservedByTeamId) return;
-              setSelectedTableId(table.id);
-            }}
-            disabled={isPending || !canChoose}
-          />
-        ) : null}
+        <JudgingMap
+          tables={tables}
+          selectedTableId={selectedTableId}
+          teamId={teamId}
+          onSelect={(table) => {
+            if (!canChoose || table.reservedByTeamId) return;
+            setSelectedTableId(table.id);
+          }}
+          disabled={isPending || !canChoose}
+        />
 
         {canChoose ? (
           <div className="flex flex-wrap gap-2">
@@ -158,12 +127,9 @@ export function ReservationDialog({
             {moving ? null : (
               <button
                 type="button"
-                disabled={isPending || !event}
+                disabled={isPending}
                 onClick={() => {
-                  if (!event) return;
-                  run("random", () =>
-                    randomlyAssignTable({ eventId: event.id }),
-                  );
+                  run("random", () => randomlyAssignTable());
                 }}
                 className={buttonClassName}
               >
@@ -178,7 +144,7 @@ export function ReservationDialog({
 }
 
 function statusCopy(
-  state: ParticipantReservationChoice["state"],
+  state: ParticipantReservationSnapshot["state"],
   tableNumber: number | null,
 ): string {
   if (tableNumber !== null) {
