@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
@@ -104,7 +104,12 @@ export async function reserveTable({
   }
   const selectedTableId = parsedTableId.data;
 
-  let assignment: { eventId: string; tableNumber: number };
+  let assignment: {
+    eventId: string;
+    tableNumber: number;
+    fromTableNumber: number | null;
+    unchanged: boolean;
+  };
   try {
     assignment = await db.transaction(async (tx) => {
       await lockAcceptedReservationApplicant(tx, user.id);
@@ -139,25 +144,63 @@ export async function reserveTable({
         throw new ReservationFailure("RESERVATIONS_UNAVAILABLE");
       }
 
-      const [existing] = await tx
-        .select({ id: tables.id })
+      // Lock the destination and the team's current table together, in id
+      // order, so two moves cannot claim the same open table.
+      const lockedTables = await tx
+        .select({
+          id: tables.id,
+          number: tables.number,
+          reservedByTeamId: tables.reservedByTeamId,
+        })
         .from(tables)
         .where(
           and(
             eq(tables.eventId, target.eventId),
-            eq(tables.reservedByTeamId, teamId),
+            or(
+              eq(tables.id, selectedTableId),
+              eq(tables.reservedByTeamId, teamId),
+            ),
           ),
         )
-        .limit(1);
-      if (existing) {
-        throw new ReservationFailure("TEAM_ALREADY_RESERVED");
+        .orderBy(asc(tables.id))
+        .for("update");
+      const destination = lockedTables.find(
+        (table) => table.id === selectedTableId,
+      );
+      if (!destination) {
+        throw new ReservationFailure("TABLE_NOT_FOUND");
+      }
+      const current = lockedTables.find(
+        (table) => table.reservedByTeamId === teamId,
+      );
+      if (current?.id === destination.id) {
+        return {
+          eventId: target.eventId,
+          tableNumber: destination.number,
+          fromTableNumber: null,
+          unchanged: true,
+        };
+      }
+      if (
+        destination.reservedByTeamId &&
+        destination.reservedByTeamId !== teamId
+      ) {
+        throw new ReservationFailure("TABLE_TAKEN");
+      }
+
+      const now = new Date();
+      if (current) {
+        await tx
+          .update(tables)
+          .set({ reservedByTeamId: null, reservedAt: null })
+          .where(eq(tables.id, current.id));
       }
 
       const claimed = await tx
         .update(tables)
-        .set({ reservedByTeamId: teamId, reservedAt: new Date() })
+        .set({ reservedByTeamId: teamId, reservedAt: now })
         .where(
-          and(eq(tables.id, selectedTableId), isNull(tables.reservedByTeamId)),
+          and(eq(tables.id, destination.id), isNull(tables.reservedByTeamId)),
         )
         .returning({ id: tables.id });
       if (claimed.length === 0) {
@@ -169,19 +212,31 @@ export async function reserveTable({
         eventName: target.eventName,
         actorUserId: user.id,
         actorEmail: user.email,
-        action: "assignment.reserved",
+        action: current ? "assignment.moved" : "assignment.reserved",
         entityType: "assignment",
-        entityId: target.id,
-        details: {
-          tableId: target.id,
-          tableNumber: target.number,
-          teamId,
-        },
+        entityId: destination.id,
+        details: current
+          ? {
+              teamId,
+              fromTableId: current.id,
+              toTableId: destination.id,
+              fromTableNumber: current.number,
+              tableNumber: destination.number,
+              teamIds: [teamId],
+              tableIds: [current.id, destination.id],
+            }
+          : {
+              tableId: destination.id,
+              tableNumber: destination.number,
+              teamId,
+            },
       });
 
       return {
         eventId: target.eventId,
-        tableNumber: target.number,
+        tableNumber: destination.number,
+        fromTableNumber: current?.number ?? null,
+        unchanged: false,
       };
     });
   } catch (error) {
@@ -190,14 +245,24 @@ export async function reserveTable({
     console.error("Unable to reserve participant table:", error);
     return {
       ok: false,
-      error: "Could not reserve that table. Try again.",
+      error: "Could not update that table. Try again.",
+    };
+  }
+
+  if (assignment.unchanged) {
+    return {
+      ok: true,
+      message: `Your team is already at table ${assignment.tableNumber}.`,
     };
   }
 
   revalidateReservationEventPaths(assignment.eventId);
   return {
     ok: true,
-    message: `Reserved table ${assignment.tableNumber}.`,
+    message:
+      assignment.fromTableNumber === null
+        ? `Reserved table ${assignment.tableNumber}.`
+        : `Moved from table ${assignment.fromTableNumber} to table ${assignment.tableNumber}.`,
   };
 }
 

@@ -51,7 +51,8 @@ export function ReservationDialog({
     tables.find((table) => table.reservedByTeamId === teamId) ?? null;
   const selectedTable =
     tables.find((table) => table.id === selectedTableId) ?? null;
-  const canReserve = Boolean(event && event.state === "open" && !myTable);
+  const canChoose = Boolean(event && event.state === "open");
+  const moving = Boolean(myTable);
   const buttonLabel =
     events.length === 1 && myTable
       ? `Table ${myTable.number}`
@@ -126,14 +127,14 @@ export function ReservationDialog({
             selectedTableId={selectedTableId}
             teamId={teamId}
             onSelect={(table) => {
-              if (!canReserve) return;
+              if (!canChoose || table.reservedByTeamId) return;
               setSelectedTableId(table.id);
             }}
-            disabled={isPending || !canReserve}
+            disabled={isPending || !canChoose}
           />
         ) : null}
 
-        {canReserve ? (
+        {canChoose ? (
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -149,20 +150,26 @@ export function ReservationDialog({
               {pendingAction === "reserve"
                 ? "Saving…"
                 : selectedTable
-                  ? `Reserve table ${selectedTable.number}`
+                  ? moving
+                    ? `Move to table ${selectedTable.number}`
+                    : `Reserve table ${selectedTable.number}`
                   : "Select a table"}
             </button>
-            <button
-              type="button"
-              disabled={isPending || !event}
-              onClick={() => {
-                if (!event) return;
-                run("random", () => randomlyAssignTable({ eventId: event.id }));
-              }}
-              className={buttonClassName}
-            >
-              {pendingAction === "random" ? "Assigning…" : "Assign randomly"}
-            </button>
+            {moving ? null : (
+              <button
+                type="button"
+                disabled={isPending || !event}
+                onClick={() => {
+                  if (!event) return;
+                  run("random", () =>
+                    randomlyAssignTable({ eventId: event.id }),
+                  );
+                }}
+                className={buttonClassName}
+              >
+                {pendingAction === "random" ? "Assigning…" : "Assign randomly"}
+              </button>
+            )}
           </div>
         ) : null}
       </DialogContent>
@@ -175,9 +182,11 @@ function statusCopy(
   tableNumber: number | null,
 ): string {
   if (tableNumber !== null) {
-    return `Your team has table ${tableNumber}. Reservations are final.`;
+    return state === "open"
+      ? `Your team has table ${tableNumber}. Pick an open table to move.`
+      : `Your team has table ${tableNumber}.`;
   }
-  if (state === "open") return "Pick an open table. Reservations are final.";
+  if (state === "open") return "Pick an open table.";
   if (state === "scheduled") return "Reservations have not opened yet.";
   return "Reservations are closed.";
 }

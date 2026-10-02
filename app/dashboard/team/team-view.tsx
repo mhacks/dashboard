@@ -345,7 +345,7 @@ export function TeamView({
               status={reservationStatus(reservations, team.team.id)}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <PanelHeading lede="Claim a judging table for your team. Reservations are final.">
+                <PanelHeading lede="Claim a judging table for your team. You can move to an open table while reservations are open.">
                   Reserve a table
                 </PanelHeading>
                 <ReservationDialog
