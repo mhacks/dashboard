@@ -4133,7 +4133,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "true"
+          "using": "(select public.is_organizer()) OR (select public.has_accepted_reservation_access())"
         },
         "reservation_settings_organizer_all": {
           "name": "reservation_settings_organizer_all",
@@ -4238,7 +4238,7 @@
           "to": [
             "authenticated"
           ],
-          "using": "true"
+          "using": "(select public.is_organizer()) OR (select public.has_accepted_reservation_access())"
         }
       },
       "checkConstraints": {
