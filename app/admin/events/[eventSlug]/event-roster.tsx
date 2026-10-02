@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { revokeCheckInAction } from "@/lib/actions/events.server.actions";
 import type { EventRoster as EventRosterData } from "@/lib/queries/events";
+import { TSHIRT_SIZE_VALUES } from "@/lib/types/rsvps";
 
 export function EventRoster({ roster }: { roster: EventRosterData }) {
   const router = useRouter();
@@ -47,6 +48,20 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
   }, [entries, query]);
 
   const allowsRepeats = event.maxCheckins > 1;
+
+  // Shirts handed out so far, in size order. Sizes from before the RSVP
+  // normalized them sort after the standard ones rather than disappearing.
+  const shirtTally = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of entries) {
+      const size = entry.shirtSize?.trim().toUpperCase() || "Unknown";
+      counts.set(size, (counts.get(size) ?? 0) + 1);
+    }
+    const order: readonly string[] = TSHIRT_SIZE_VALUES;
+    const rank = (size: string) =>
+      order.includes(size) ? order.indexOf(size) : order.length;
+    return [...counts].sort(([a], [b]) => rank(a) - rank(b));
+  }, [entries]);
 
   function revoke(userId: string, name: string, scanCount: number) {
     startTransition(async () => {
@@ -87,6 +102,16 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
             {event.location ? `${event.location} · ` : ""}
             Scanner at <code>/checkin/{event.slug}</code>
           </CardDescription>
+          {shirtTally.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              Shirts:
+              {shirtTally.map(([size, count]) => (
+                <Badge key={size} variant="secondary" className="tabular-nums">
+                  {size} · {count}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 gap-2">
@@ -125,6 +150,7 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Attendee</TableHead>
+                  <TableHead>Shirt</TableHead>
                   <TableHead>Checked in</TableHead>
                   {allowsRepeats ? <TableHead>Scans</TableHead> : null}
                   <TableHead>By</TableHead>
@@ -140,6 +166,10 @@ export function EventRoster({ roster }: { roster: EventRosterData }) {
                         {entry.email}
                         {entry.university ? ` · ${entry.university}` : ""}
                       </span>
+                    </TableCell>
+
+                    <TableCell className="text-sm">
+                      {entry.shirtSize ?? "—"}
                     </TableCell>
 
                     <TableCell className="text-sm">
