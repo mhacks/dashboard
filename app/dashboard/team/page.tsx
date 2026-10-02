@@ -11,6 +11,10 @@ import {
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
+import {
+  getParticipantReservationSnapshot,
+  type ParticipantReservationSnapshot,
+} from "@/lib/db/queries/reservation";
 import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
@@ -54,12 +58,23 @@ async function TeamData() {
     getSentInvitations(userId),
   ]);
 
+  let reservations: ParticipantReservationSnapshot | null = null;
+  if (team) {
+    try {
+      reservations = await getParticipantReservationSnapshot();
+    } catch (err) {
+      const cause = err instanceof Error ? (err.cause ?? err) : err;
+      console.error("[DB] reservation snapshot query failed:", cause);
+    }
+  }
+
   return (
     <TeamView
       currentUserId={userId}
       team={team}
       pendingInvitations={pendingInvitations}
       sentInvitations={sentInvitations}
+      reservations={reservations}
     />
   );
 }

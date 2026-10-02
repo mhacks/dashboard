@@ -36,6 +36,7 @@ import {
   cancelInvitation,
   leaveTeam,
 } from "@/lib/actions/team.server.actions";
+import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
@@ -44,12 +45,14 @@ import {
   type PendingInvitationSummary,
   type SentInvitationSummary,
 } from "@/lib/types/teams";
+import { ReservationDialog } from "./reservation-dialog";
 
 interface TeamViewProps {
   currentUserId: string;
   team: TeamWithMembers | null;
   pendingInvitations: PendingInvitationSummary[];
   sentInvitations: SentInvitationSummary[];
+  reservations: ParticipantReservationSnapshot | null;
 }
 
 const INPUT_CLASS =
@@ -62,6 +65,24 @@ const ACTION_OUTLINE = `${ACTION_BUTTON} border-ui-line-strong bg-transparent te
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString();
+}
+
+function reservationStatus(
+  reservations: ParticipantReservationSnapshot,
+  teamId: string,
+): string {
+  const event =
+    reservations.events.length === 1 ? reservations.events[0] : null;
+  if (!event) {
+    return reservations.events.length === 0 ? "No events" : "Choose an event";
+  }
+  const mine = (reservations.tablesByEventId[event.id] ?? []).find(
+    (table) => table.reservedByTeamId === teamId,
+  );
+  if (mine) return `Table ${mine.number}`;
+  if (event.state === "open") return "Open";
+  if (event.state === "scheduled") return "Not open yet";
+  return "Closed";
 }
 
 function errorMessage(err: unknown, fallback: string) {
@@ -94,6 +115,7 @@ export function TeamView({
   team,
   pendingInvitations,
   sentInvitations,
+  reservations,
 }: TeamViewProps) {
   const [isPending, startTransition] = useTransition();
   // Tracks which specific action is in flight (e.g. "accept:<id>",
@@ -316,6 +338,26 @@ export function TeamView({
               </>
             )}
           </Panel>
+
+          {team && reservations ? (
+            <Panel
+              eyebrow="RESERVATION"
+              status={reservationStatus(reservations, team.team.id)}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <PanelHeading lede="Claim a judging table for your team. Reservations are final.">
+                  Reserve a table
+                </PanelHeading>
+                <ReservationDialog
+                  buttonClassName={ACTION_OUTLINE}
+                  primaryClassName={ACTION_PRIMARY}
+                  teamId={team.team.id}
+                  events={reservations.events}
+                  tablesByEventId={reservations.tablesByEventId}
+                />
+              </div>
+            </Panel>
+          ) : null}
 
           <BackToDashboardLink />
 

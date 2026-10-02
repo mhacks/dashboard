@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
+import { JudgingMap } from "@/app/dashboard/team/judging-map";
 import { Badge } from "@/components/ui/badge";
-import { ReservationBoard } from "@/app/dashboard/teams/reservations/reservation-board";
-import { toParticipantEvent } from "@/lib/db/queries/reservation";
 import { getAdminReservationTables } from "@/lib/queries/admin-reservations";
 
 export const dynamic = "force-dynamic";
@@ -39,12 +38,12 @@ export default async function ReservationParticipantPreviewPage({
         </div>
       </div>
 
-      <ReservationBoard
-        events={[toParticipantEvent(data.event)]}
-        user={null}
+      <JudgingMap
         tables={data.tables}
-        selectedEventId={eventId}
-        readOnly
+        selectedTableId={null}
+        teamId={null}
+        onSelect={() => {}}
+        disabled
       />
     </section>
   );

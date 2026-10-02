@@ -65,6 +65,40 @@ export async function getParticipantReservationUser(): Promise<ParticipantReserv
   };
 }
 
+export type ParticipantReservationChoice = {
+  id: string;
+  name: string;
+  state: "open" | "scheduled" | "closed";
+};
+
+export type ParticipantReservationSnapshot = {
+  events: ParticipantReservationChoice[];
+  tablesByEventId: Record<string, TableWithTeam[]>;
+};
+
+export async function getParticipantReservationSnapshot(): Promise<ParticipantReservationSnapshot> {
+  const events = await getParticipantEvents();
+  if (events.length === 0) return { events: [], tablesByEventId: {} };
+
+  const tableLists = await Promise.all(
+    events.map((event) => getTablesForEvent(event.id)),
+  );
+
+  return {
+    events: events.map((event) => ({
+      id: event.id,
+      name: event.name,
+      state:
+        event.availability.state === "hidden"
+          ? "closed"
+          : event.availability.state,
+    })),
+    tablesByEventId: Object.fromEntries(
+      events.map((event, index) => [event.id, tableLists[index] ?? []]),
+    ),
+  };
+}
+
 export function getTablesForEvent(eventId: string): Promise<TableWithTeam[]> {
   return db
     .select({
