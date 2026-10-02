@@ -21,6 +21,7 @@ import {
   decisionLetter,
   decisionOutcome,
   decisionRoundFor,
+  hasCheckedIn,
   RSVP_DEADLINE,
   type ApplicationDecision,
 } from "@/lib/decisions";
@@ -43,7 +44,6 @@ export function ResultsLetter({
   appliedAt,
   reimbursementCents = null,
   rsvpDeadline,
-  teamsEnabled,
   /**
    * Both are future additions. The bands exist and are wired; supplying a URL
    * is all it takes to turn one on. Discord is deliberately accepted-only —
@@ -59,8 +59,6 @@ export function ResultsLetter({
   appliedAt?: string;
   reimbursementCents?: number | null;
   rsvpDeadline?: string;
-  /** Organizer toggle from /admin/teams. Hides the team band when off. */
-  teamsEnabled: boolean;
   discordInviteUrl?: string;
   bouquetGameUrl?: string;
 }) {
@@ -94,7 +92,7 @@ export function ResultsLetter({
                 letter={letter}
                 applicantName={applicantName}
                 deadline={rsvpDeadline ?? RSVP_DEADLINE[round]}
-                teamsEnabled={teamsEnabled}
+                decision={decision}
                 discordInviteUrl={discordInviteUrl}
                 bouquetGameUrl={bouquetGameUrl}
               />
@@ -116,14 +114,14 @@ function AcceptedBody({
   letter,
   applicantName,
   deadline,
-  teamsEnabled,
+  decision,
   discordInviteUrl,
   bouquetGameUrl,
 }: {
   letter: Letter;
   applicantName: string;
   deadline: string;
-  teamsEnabled: boolean;
+  decision: ApplicationDecision;
   discordInviteUrl?: string;
   bouquetGameUrl?: string;
 }) {
@@ -147,7 +145,7 @@ function AcceptedBody({
         <EventDetails />
       </LetterSection>
 
-      {teamsEnabled ? (
+      {hasCheckedIn(decision) ? (
         <LetterSection>
           <TeamSection />
         </LetterSection>

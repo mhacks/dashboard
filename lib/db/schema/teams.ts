@@ -5,8 +5,6 @@ import {
   uuid,
   text,
   timestamp,
-  boolean,
-  check,
   foreignKey,
   index,
   uniqueIndex,
@@ -148,41 +146,6 @@ export const teamInvitations = pgTable(
           select team_id from team_members where user_id = ${authUid}
         )
         OR ${isOrganizer}`,
-    }),
-  ],
-).enableRLS();
-
-/**
- * One row, id `default`. Organizers flip `formationEnabled` from /admin/teams.
- * Hackers only see the team page while it is on.
- */
-export const teamSettings = pgTable(
-  "team_settings",
-  {
-    id: text().primaryKey().default("default").notNull(),
-    formationEnabled: boolean("formation_enabled").default(false).notNull(),
-    updatedByUserId: uuid("updated_by_user_id"),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    check("team_settings_singleton_check", sql`${table.id} = 'default'`),
-    foreignKey({
-      columns: [table.updatedByUserId],
-      foreignColumns: [users.id],
-      name: "team_settings_updated_by_user_id_fkey",
-    }).onDelete("set null"),
-    pgPolicy("team_settings_authenticated_select", {
-      for: "select",
-      to: authenticatedRole,
-      using: sql`true`,
-    }),
-    pgPolicy("team_settings_organizer_all", {
-      for: "all",
-      to: authenticatedRole,
-      using: isOrganizer,
-      withCheck: isOrganizer,
     }),
   ],
 ).enableRLS();

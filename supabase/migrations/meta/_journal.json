@@ -323,6 +323,13 @@
       "when": 1790961540186,
       "tag": "20261002171900_checked_in_status",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1790981216450,
+      "tag": "20261002224656_drop_team_settings",
+      "breakpoints": true
     }
   ]
 }

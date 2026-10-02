@@ -49,7 +49,7 @@ export function ApplicantDashboard({
   firstName,
   userId,
   canCheckIn,
-  teamsEnabled,
+  checkedIn,
   appleWalletAvailable,
   googleWalletAvailable,
 }: {
@@ -61,10 +61,10 @@ export function ApplicantDashboard({
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
   /**
-   * Organizer toggle from /admin/teams. The team page redirects when this is
-   * off, so the panel stays hidden rather than linking somewhere that bounces.
+   * Application decision is `checked_in`. The team page redirects otherwise,
+   * so the panel stays hidden rather than linking somewhere that bounces.
    */
-  teamsEnabled: boolean;
+  checkedIn: boolean;
   /**
    * Whether this environment can sign Apple Wallet passes.
    */
@@ -102,9 +102,7 @@ export function ApplicantDashboard({
             />
           ) : null}
 
-          {canCheckIn && role === "hacker" && teamsEnabled ? (
-            <TeamPanel />
-          ) : null}
+          {checkedIn && role === "hacker" ? <TeamPanel /> : null}
 
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
@@ -273,15 +271,14 @@ function DecisionReadyPanel() {
 /* ——— team ————————————————————————————————————————————————————— */
 
 /**
- * Sits directly under the check-in panel, for the same people: accepted
- * hackers who have RSVPed. The page itself stays at /dashboard/team; this
- * only points there, the way the decision letter's team band does.
+ * Sits under the check-in panel once this hacker is checked in. The page
+ * itself stays at /dashboard/team; this only points there.
  */
 function TeamPanel() {
   return (
     <Panel eyebrow="TEAM AND SUBMISSION">
       <PanelHeading
-        lede={`Create a team or accept an invite before the weekend starts. Teams can have up to ${MAX_TEAM_SIZE} hackers.`}
+        lede={`Create a team or accept an invite. Teams can have up to ${MAX_TEAM_SIZE} hackers.`}
       >
         Team and submission
       </PanelHeading>

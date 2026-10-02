@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { decisionOutcome } from "@/lib/decisions";
+import { hasCheckedIn } from "@/lib/decisions";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
@@ -29,8 +29,7 @@ import {
 // not RLS-checked per request.
 
 const ALREADY_ON_A_TEAM = "You're already on a team — leave it first.";
-const ACCEPTED_REQUIRED =
-  "An accepted MHacks application is required to manage teams.";
+const CHECKED_IN_REQUIRED = "Check in at MHacks before managing a team.";
 const PENDING_INVITE_EXISTS =
   "They already have a pending invitation from your team.";
 
@@ -45,19 +44,19 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
-function assertAcceptedHacker(
+function assertCheckedInHacker(
   role: string | null | undefined,
   decision: ApplicationDecision | null | undefined,
 ): void {
   if (role !== "hacker") {
     throw new Error("Only hackers can manage teams.");
   }
-  if (!decision || decisionOutcome(decision) !== "accepted") {
-    throw new Error(ACCEPTED_REQUIRED);
+  if (!decision || !hasCheckedIn(decision)) {
+    throw new Error(CHECKED_IN_REQUIRED);
   }
 }
 
-async function loadAcceptedHacker(
+async function loadCheckedInHacker(
   client: TeamQueryClient,
   userId: string,
 ): Promise<void> {
@@ -71,7 +70,7 @@ async function loadAcceptedHacker(
     .where(eq(users.id, userId))
     .limit(1);
 
-  assertAcceptedHacker(row?.role, row?.decision);
+  assertCheckedInHacker(row?.role, row?.decision);
 }
 
 function displayName(
@@ -91,7 +90,7 @@ export async function createTeamForUser(
   const parsedName = teamNameSchema.parse(name);
 
   return db.transaction(async (tx) => {
-    await loadAcceptedHacker(tx, userId);
+    await loadCheckedInHacker(tx, userId);
 
     const [existingMembership] = await tx
       .select({ userId: teamMembers.userId })
@@ -136,7 +135,7 @@ export async function renameTeam(
   const parsedName = teamNameSchema.parse(name);
 
   return db.transaction(async (tx) => {
-    await loadAcceptedHacker(tx, userId);
+    await loadCheckedInHacker(tx, userId);
 
     const [membership] = await tx
       .select({ teamId: teamMembers.teamId })
@@ -226,7 +225,7 @@ export async function inviteToTeam(
       .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
       .where(eq(users.id, userId))
       .limit(1);
-    assertAcceptedHacker(inviter?.role, inviter?.decision);
+    assertCheckedInHacker(inviter?.role, inviter?.decision);
     const inviterName =
       displayName(inviter?.firstName ?? null, inviter?.lastName ?? null) ??
       inviter?.email ??
@@ -251,11 +250,8 @@ export async function inviteToTeam(
     if (invitedUser.role !== "hacker") {
       throw new Error("That account can't join a team.");
     }
-    if (
-      !invitedUser.decision ||
-      decisionOutcome(invitedUser.decision) !== "accepted"
-    ) {
-      throw new Error("They haven't been accepted to MHacks yet.");
+    if (!invitedUser.decision || !hasCheckedIn(invitedUser.decision)) {
+      throw new Error("They need to check in before they can join a team.");
     }
 
     const [invitedMembership] = await tx
@@ -360,7 +356,7 @@ export async function acceptInvitation(
     if (invitation.invitedUserId !== userId) {
       throw new Error("This invitation isn't addressed to you.");
     }
-    await loadAcceptedHacker(tx, userId);
+    await loadCheckedInHacker(tx, userId);
 
     const [existingMembership] = await tx
       .select({ userId: teamMembers.userId })
@@ -430,6 +426,8 @@ export async function declineInvitation(
   userId: string,
   invitationId: string,
 ): Promise<void> {
+  await loadCheckedInHacker(db, userId);
+
   const now = new Date().toISOString();
   const result = await db
     .update(teamInvitations)
@@ -460,7 +458,7 @@ export async function cancelInvitation(
   if (!membership) {
     throw new Error("You're not on a team.");
   }
-  await loadAcceptedHacker(db, userId);
+  await loadCheckedInHacker(db, userId);
 
   const now = new Date().toISOString();
   const result = await db
@@ -482,6 +480,8 @@ export async function cancelInvitation(
 
 export async function leaveTeam(userId: string): Promise<void> {
   await db.transaction(async (tx) => {
+    await loadCheckedInHacker(tx, userId);
+
     const [membership] = await tx
       .select({ teamId: teamMembers.teamId })
       .from(teamMembers)

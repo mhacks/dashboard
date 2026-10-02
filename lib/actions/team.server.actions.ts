@@ -1,5 +1,6 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
 import {
@@ -15,7 +16,9 @@ import {
   getSentInvitations as getSentInvitationsForUser,
 } from "@/lib/actions/team.actions";
 import { sendTeamInviteEmail } from "@/lib/email/send-invite-email";
-import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
+import { hasCheckedIn } from "@/lib/decisions";
+import { db } from "@/lib/db";
+import { hackerApplicants } from "@/lib/db/schema/applications";
 import type { TeamRow } from "@/lib/db/schema/teams";
 import type {
   MemberTeam,
@@ -29,14 +32,20 @@ function toActionError(error: unknown, fallback: string): Error {
   return new Error(error instanceof Error ? error.message : fallback);
 }
 
-async function assertTeamPageEnabled(): Promise<void> {
-  if (!(await isTeamFormationEnabled())) {
-    throw new Error("Team formation is not available right now.");
+/** Reads are not covered by the mutation checks in team.actions. */
+async function assertCallerCheckedIn(userId: string): Promise<void> {
+  const [application] = await db
+    .select({ decision: hackerApplicants.decision })
+    .from(hackerApplicants)
+    .where(eq(hackerApplicants.userId, userId))
+    .limit(1);
+
+  if (!application || !hasCheckedIn(application.decision)) {
+    throw new Error("Check in at MHacks before managing a team.");
   }
 }
 
 export const createTeam = async (name: string): Promise<TeamRow> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     const team = await createTeamForUser(userId, name);
@@ -50,7 +59,6 @@ export const createTeam = async (name: string): Promise<TeamRow> => {
 export const inviteToTeam = async (
   email: string,
 ): Promise<{ id: string; warning?: string }> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   let result;
   try {
@@ -75,7 +83,6 @@ export const inviteToTeam = async (
 };
 
 export const acceptInvitation = async (invitationId: string): Promise<void> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await acceptInvitationForUser(userId, invitationId);
@@ -88,7 +95,6 @@ export const acceptInvitation = async (invitationId: string): Promise<void> => {
 export const declineInvitation = async (
   invitationId: string,
 ): Promise<void> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await declineInvitationForUser(userId, invitationId);
@@ -99,7 +105,6 @@ export const declineInvitation = async (
 };
 
 export const cancelInvitation = async (invitationId: string): Promise<void> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await cancelInvitationForUser(userId, invitationId);
@@ -110,7 +115,6 @@ export const cancelInvitation = async (invitationId: string): Promise<void> => {
 };
 
 export const renameTeam = async (name: string): Promise<MemberTeam> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     const team = await renameTeamForUser(userId, name);
@@ -123,7 +127,6 @@ export const renameTeam = async (name: string): Promise<MemberTeam> => {
 };
 
 export const leaveTeam = async (): Promise<void> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await leaveTeamForUser(userId);
@@ -134,23 +137,23 @@ export const leaveTeam = async (): Promise<void> => {
 };
 
 export const getMyTeam = async (): Promise<TeamWithMembers | null> => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
+  await assertCallerCheckedIn(userId);
   return getMyTeamForUser(userId);
 };
 
 export const getMyPendingInvitations = async (): Promise<
   PendingInvitationSummary[]
 > => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
+  await assertCallerCheckedIn(userId);
   return getMyPendingInvitationsForUser(userId);
 };
 
 export const getSentInvitations = async (): Promise<
   SentInvitationSummary[]
 > => {
-  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
+  await assertCallerCheckedIn(userId);
   return getSentInvitationsForUser(userId);
 };

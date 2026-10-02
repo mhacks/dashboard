@@ -10,18 +10,16 @@ import {
 } from "@/lib/actions/team.actions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
+import { hasCheckedIn, type ApplicationDecision } from "@/lib/decisions";
 import {
   getParticipantReservationSnapshot,
   type ParticipantReservationSnapshot,
 } from "@/lib/db/queries/reservation";
-import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
 
-// The formation flag is a database read, and it runs before any cookie access.
-// Without this, `next build` tries to prerender the page and fails when CI has
-// no database.
+// The check-in gate is a database read. Without this, `next build` tries to
+// prerender the page and fails when CI has no database.
 export const dynamic = "force-dynamic";
 
 // Not wrapped in a swallow-and-degrade try/catch the way apply/page.tsx
@@ -31,11 +29,9 @@ export const dynamic = "force-dynamic";
 // still caught gracefully, just one level up: error.tsx renders it in-shell
 // with a retry instead of Next's default error page.
 async function TeamData() {
-  if (!(await isTeamFormationEnabled())) redirect("/dashboard");
-
   const { id: userId } = await requireHackerPage();
 
-  // Same gate as /dashboard/pass and team mutations: accepted hackers only.
+  // The team page is for hackers whose application decision is checked in.
   let decision: ApplicationDecision | null = null;
   try {
     const [application] = await db
@@ -48,7 +44,7 @@ async function TeamData() {
     const cause = err instanceof Error ? (err.cause ?? err) : err;
     console.error("[DB] hacker_applicants team gate query failed:", cause);
   }
-  if (!decision || decisionOutcome(decision) !== "accepted") {
+  if (!decision || !hasCheckedIn(decision)) {
     redirect("/dashboard");
   }
 

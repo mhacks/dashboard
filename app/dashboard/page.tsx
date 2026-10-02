@@ -11,13 +11,12 @@ import {
   isDraftStarted,
 } from "@/lib/application-steps";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { isDecided } from "@/lib/decisions";
+import { hasCheckedIn, isDecided } from "@/lib/decisions";
 import {
   getApplicantDecision,
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
 import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
-import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { getApplicationAccessForUser } from "@/lib/applications/access";
 import { isAppleWalletConfigured } from "@/lib/wallet/config";
 import { isGoogleWalletConfigured } from "@/lib/wallet/google-config";
@@ -37,17 +36,11 @@ export default async function DashboardPage() {
   const { id: userId, role } = await requireSessionUser();
 
   // Independent of each other, so they overlap rather than queue.
-  const [application, canCheckIn, teamsEnabled, applicationAccess] =
-    await Promise.all([
-      getApplicantDecision(userId),
-      getAttendeeQrEligibility(userId),
-      isTeamFormationEnabled().catch((err: unknown) => {
-        const cause = err instanceof Error ? (err.cause ?? err) : err;
-        console.error("[DB] team formation flag query failed:", cause);
-        return false;
-      }),
-      getApplicationAccessForUser({ userId }),
-    ]);
+  const [application, canCheckIn, applicationAccess] = await Promise.all([
+    getApplicantDecision(userId),
+    getAttendeeQrEligibility(userId),
+    getApplicationAccessForUser({ userId }),
+  ]);
 
   // Only meaningful before submitting — submitting deletes the draft row. Note
   // /apply writes an empty draft on first visit, so progress is measured from
@@ -71,7 +64,7 @@ export default async function DashboardPage() {
       role={role}
       userId={userId}
       canCheckIn={canCheckIn}
-      teamsEnabled={teamsEnabled}
+      checkedIn={application ? hasCheckedIn(application.decision) : false}
       firstName={application?.firstName ?? null}
       appleWalletAvailable={isAppleWalletConfigured()}
       googleWalletAvailable={isGoogleWalletConfigured()}
