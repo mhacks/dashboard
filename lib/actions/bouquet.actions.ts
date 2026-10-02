@@ -14,22 +14,19 @@ const FALLBACK_MAKER_NAME = "An MHacks hacker";
 export class ShareBouquetError extends Error {}
 
 /**
- * Puts `userId`'s bouquet on the /live hero, replacing any they shared before.
+ * Whether `userId` may share to the /live hero, and the name it would show as.
  *
  * Only accepted hackers (and organizers, to try it out) may share: anyone with
  * an email can sign in and fill in an application, and the "Made by" name on
  * a public page comes from it. The name is read here, never from the client,
  * so the tag can't be used to put words in someone else's mouth.
+ *
+ * Also used by the bouquet page to hide the share button from everyone else;
+ * the action re-checks regardless.
  */
-export async function shareBouquetForUser(
+export async function getBouquetSharer(
   userId: string,
-  input: unknown,
-): Promise<void> {
-  const parsed = sharedArrangementSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new ShareBouquetError("That bouquet couldn't be shared.");
-  }
-
+): Promise<{ allowed: boolean; makerName: string }> {
   const [sharer] = await db
     .select({
       role: users.role,
@@ -41,20 +38,36 @@ export async function shareBouquetForUser(
     .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
     .where(eq(users.id, userId))
     .limit(1);
+  if (!sharer) return { allowed: false, makerName: FALLBACK_MAKER_NAME };
 
   const accepted =
-    sharer?.role === "hacker" &&
+    sharer.role === "hacker" &&
     !!sharer.decision &&
     decisionOutcome(sharer.decision) === "accepted";
-  if (!sharer || (!accepted && sharer.role !== "organizer")) {
+  return {
+    allowed: accepted || sharer.role === "organizer",
+    makerName:
+      formatMakerName(sharer.firstName ?? "", sharer.lastName ?? "") ||
+      FALLBACK_MAKER_NAME,
+  };
+}
+
+/** Puts `userId`'s bouquet on the /live hero, replacing any they shared before. */
+export async function shareBouquetForUser(
+  userId: string,
+  input: unknown,
+): Promise<void> {
+  const parsed = sharedArrangementSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ShareBouquetError("That bouquet couldn't be shared.");
+  }
+
+  const { allowed, makerName } = await getBouquetSharer(userId);
+  if (!allowed) {
     throw new ShareBouquetError(
       "Sharing to the live site is open to accepted hackers.",
     );
   }
-
-  const makerName =
-    formatMakerName(sharer.firstName ?? "", sharer.lastName ?? "") ||
-    FALLBACK_MAKER_NAME;
 
   // `hidden` is deliberately left out of the update set: re-sharing must not
   // undo an organizer hiding the previous one.

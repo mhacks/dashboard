@@ -167,16 +167,24 @@ export const LIVE_BOUQUET_COUNT = 10;
    per hacker at most). Rows are re-validated because the Table Editor can
    hand-edit one into something renderSticker would choke on. */
 async function getLiveBouquets(): Promise<SharedBouquet[]> {
-  const rows = await db
-    .select({
-      id: liveBouquets.id,
-      makerName: liveBouquets.makerName,
-      arrangement: liveBouquets.arrangement,
-    })
-    .from(liveBouquets)
-    .where(eq(liveBouquets.hidden, false))
-    .orderBy(sql`random()`)
-    .limit(LIVE_BOUQUET_COUNT);
+  // The strip is decoration: if this query fails, the hero falls back to the
+  // photo rather than taking the schedule down with it.
+  let rows;
+  try {
+    rows = await db
+      .select({
+        id: liveBouquets.id,
+        makerName: liveBouquets.makerName,
+        arrangement: liveBouquets.arrangement,
+      })
+      .from(liveBouquets)
+      .where(eq(liveBouquets.hidden, false))
+      .orderBy(sql`random()`)
+      .limit(LIVE_BOUQUET_COUNT);
+  } catch (error) {
+    console.error("Failed to load live bouquets", error);
+    return [];
+  }
 
   return rows.flatMap((row) => {
     const arrangement = sharedArrangementSchema.safeParse(row.arrangement);

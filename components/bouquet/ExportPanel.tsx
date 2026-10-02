@@ -16,6 +16,8 @@ type Props = {
   order: string[];
   vaseId: string;
   borderColor: string;
+  /** Hides "share to live site" from anyone the action would refuse. */
+  canShare: boolean;
   onBorder: (hex: string) => void;
   onBack: () => void;
   onRestart: () => void;
@@ -27,6 +29,7 @@ export default function ExportPanel({
   order,
   vaseId,
   borderColor,
+  canShare,
   onBorder,
   onBack,
   onRestart,
@@ -260,44 +263,48 @@ export default function ExportPanel({
         </button>
       </div>
 
-      {/* Its own row: three pills abreast don't fit the panel on phones. */}
-      <div className="ep-actions">
-        <button
-          className="pill ghost"
-          onClick={shareToLive}
-          disabled={!bouquet.length || busy || shareResult?.error === null}
-        >
-          {shareResult?.error === null ? "shared!" : "share to live site"}
-        </button>
-      </div>
-
-      {/* Said before the click, not after: the live site is public, and the
-          tag carries part of the hacker's real name. */}
-      {!shareResult && (
-        <p className="ep-meta">
-          shows publicly on the live site as your first name + last initial
-        </p>
-      )}
-
-      {shareResult &&
-        (shareResult.error === null ? (
-          <p className="ep-sent">
-            It&rsquo;s on the{" "}
-            <a
-              className="ep-link"
-              href="/live"
-              target="_blank"
-              rel="noopener noreferrer"
+      {canShare && (
+        <>
+          {/* Its own row: three pills abreast don't fit the panel on phones. */}
+          <div className="ep-actions">
+            <button
+              className="pill ghost"
+              onClick={shareToLive}
+              disabled={!bouquet.length || busy || shareResult?.error === null}
             >
-              live site
-            </a>{" "}
-            now. Sharing again replaces it.
-          </p>
-        ) : (
-          <p className="ep-sent" role="alert">
-            {shareResult.error}
-          </p>
-        ))}
+              {shareResult?.error === null ? "shared!" : "share to live site"}
+            </button>
+          </div>
+
+          {/* Said before the click, not after: the live site is public, and the
+              tag carries part of the hacker's real name. */}
+          {!shareResult && (
+            <p className="ep-meta">
+              shows publicly on the live site as your first name + last initial
+            </p>
+          )}
+
+          {shareResult &&
+            (shareResult.error === null ? (
+              <p className="ep-sent">
+                It&rsquo;s on the{" "}
+                <a
+                  className="ep-link"
+                  href="/live"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  live site
+                </a>{" "}
+                now. Sharing again replaces it.
+              </p>
+            ) : (
+              <p className="ep-sent" role="alert">
+                {shareResult.error}
+              </p>
+            ))}
+        </>
+      )}
 
       {/* Only ever true right after `useOnPass` sends this exact bouquet —
           `sentKey` is cleared implicitly the moment `key` changes underneath
