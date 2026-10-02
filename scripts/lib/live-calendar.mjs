@@ -131,9 +131,24 @@ function literal(value) {
   return `${tag}${text}${tag}`;
 }
 
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.publish] New live entries start published, not draft.
+ * @param {boolean} [options.archiveMissing] Archive calendar events no longer in the feed.
+ * @param {boolean} [options.restoreArchived] Republish archived calendar events
+ *   that are back in the feed, so /live follows the calendar both ways.
+ * @param {boolean} [options.guardMassArchive] Refuse a sync that would archive
+ *   more than half of the calendar's live events (and more than 3) — the shape
+ *   of a truncated feed, not of organizers editing the schedule.
+ */
 export function buildSyncStatements(
   events,
-  { publish = false, archiveMissing = false } = {},
+  {
+    publish = false,
+    archiveMissing = false,
+    restoreArchived = false,
+    guardMassArchive = false,
+  } = {},
 ) {
   if (!events.length) throw new Error("Refusing an empty import.");
   const suffix = randomBytes(6).toString("hex");
@@ -163,6 +178,7 @@ export function buildSyncStatements(
     `CREATE TEMP TABLE ${changes} ON COMMIT DROP AS
       SELECT incoming.slug, incoming.name,
         CASE WHEN existing.id IS NULL THEN 'insert'
+          WHEN ${restoreArchived} AND details.status = 'archived' THEN 'restore'
           WHEN details.event_id IS NULL OR
             (existing.name, existing.description, existing.location, existing.starts_at, existing.ends_at)
             IS DISTINCT FROM
@@ -180,6 +196,21 @@ export function buildSyncStatements(
       LEFT JOIN ${incoming} incoming USING (slug)
       WHERE existing.slug LIKE ${prefix} AND details.status <> 'archived'
         AND (incoming.cancelled OR incoming.slug IS NULL)`,
+    ...(guardMassArchive
+      ? [
+          `DO $mass_archive$
+      DECLARE archiving integer; listed integer;
+      BEGIN
+        SELECT count(*) INTO archiving FROM ${changes} WHERE action = 'archive';
+        SELECT count(*) INTO listed FROM public.events existing
+          JOIN public.live_event_details details ON details.event_id = existing.id
+          WHERE existing.slug LIKE ${prefix} AND details.status <> 'archived';
+        IF archiving > 3 AND archiving * 2 > listed THEN
+          RAISE EXCEPTION 'This sync would remove % of % calendar events from /live, which looks like an incomplete calendar feed. No changes were applied; check the calendar and try again.', archiving, listed;
+        END IF;
+      END $mass_archive$`,
+        ]
+      : []),
     `INSERT INTO public.events (slug, name, description, location, starts_at, ends_at, is_active)
       SELECT slug, name, description, location, starts_at, ends_at, false
       FROM ${incoming} WHERE NOT cancelled
@@ -198,6 +229,9 @@ export function buildSyncStatements(
       FROM public.events existing JOIN ${changes} changes USING (slug)
       WHERE details.event_id = existing.id AND changes.action = 'archive'
         AND details.status <> 'archived'`,
+    `UPDATE public.live_event_details details SET status = 'published'
+      FROM public.events existing JOIN ${changes} changes USING (slug)
+      WHERE details.event_id = existing.id AND changes.action = 'restore'`,
     `SELECT action, count(*)::integer AS count FROM ${changes} GROUP BY action ORDER BY action`,
   ];
 }
