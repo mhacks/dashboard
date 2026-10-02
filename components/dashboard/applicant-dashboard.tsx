@@ -279,16 +279,16 @@ function DecisionReadyPanel() {
  */
 function TeamPanel() {
   return (
-    <Panel eyebrow="TEAM">
+    <Panel eyebrow="TEAM AND SUBMISSION">
       <PanelHeading
         lede={`Create a team or accept an invite before the weekend starts. Teams can have up to ${MAX_TEAM_SIZE} hackers.`}
       >
-        Your team
+        Team and submission
       </PanelHeading>
 
       <div className="flex flex-wrap items-center gap-3.5">
         <ButtonLink href="/dashboard/team" external={false}>
-          Manage your team
+          Manage team and submission
         </ButtonLink>
       </div>
     </Panel>
