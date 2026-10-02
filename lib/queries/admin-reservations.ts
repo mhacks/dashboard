@@ -80,10 +80,7 @@ export const getAdminReservation = cache(
 
 export async function getAdminReservationTables(): Promise<TableWithTeam[]> {
   await requireOrganizer();
-  return db.transaction(async (tx) => selectTablesWithTeam(tx), {
-    isolationLevel: "repeatable read",
-    accessMode: "read only",
-  });
+  return selectTablesWithTeam(db);
 }
 
 export async function getAdminReservationAssignments(): Promise<AdminReservationAssignmentsData> {

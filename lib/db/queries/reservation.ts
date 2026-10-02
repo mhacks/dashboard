@@ -29,12 +29,8 @@ export type ParticipantReservationSnapshot = {
 export async function getParticipantReservationSnapshot(): Promise<ParticipantReservationSnapshot> {
   const [settings, reservationTables] = await Promise.all([
     getReservationSettings(),
-    getTables(),
+    selectTablesWithTeam(db),
   ]);
   const availability = getReservationAvailability(settings ?? {});
   return { state: availability.state, tables: reservationTables };
-}
-
-export function getTables(): Promise<TableWithTeam[]> {
-  return selectTablesWithTeam(db);
 }

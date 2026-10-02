@@ -120,7 +120,6 @@ function TableCard({
   const [renumberTarget, setRenumberTarget] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const assigned = Boolean(table.reservedByTeamId);
-  const controlsDisabled = workspacePending;
 
   function handleNumberChange(value: string) {
     setNumberValue(value);
@@ -279,7 +278,7 @@ function TableCard({
               max={MAX_RESERVATION_TABLE_NUMBER}
               step={1}
               value={numberValue}
-              disabled={controlsDisabled}
+              disabled={workspacePending}
               aria-invalid={Boolean(numberError)}
               aria-describedby={numberError ? `${inputId}-error` : undefined}
               onChange={(inputEvent) =>
@@ -296,7 +295,7 @@ function TableCard({
             type="submit"
             variant="outline"
             size="sm"
-            disabled={controlsDisabled}
+            disabled={workspacePending}
             aria-label={`Renumber table ${table.number}`}
           >
             <PendingIcon pending={isPending} />

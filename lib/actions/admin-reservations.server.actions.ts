@@ -150,16 +150,6 @@ function knownConstraintFailure(
   }
 }
 
-function windowActionFailure(error: unknown): ReservationActionResult {
-  const known = knownConstraintFailure(error, {
-    unique: "An event with those values already exists.",
-    check: "The event details conflict with database rules.",
-  });
-  if (known) return known;
-  console.error("Unable to update reservation window:", error);
-  return { ok: false, error: "Could not update the reservation. Try again." };
-}
-
 function tableActionFailure(
   error: unknown,
   operation: TableOperation,
@@ -320,7 +310,16 @@ export async function setReservationWindow(
         },
       });
   } catch (error) {
-    return windowActionFailure(error);
+    const known = knownConstraintFailure(error, {
+      unique: "An event with those values already exists.",
+      check: "The event details conflict with database rules.",
+    });
+    if (known) return known;
+    console.error("Unable to update reservation window:", error);
+    return {
+      ok: false,
+      error: "Could not update the reservation. Try again.",
+    };
   }
 
   revalidateReservationPaths();
