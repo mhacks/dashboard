@@ -181,3 +181,45 @@ INSERT INTO "public"."live_announcements" (
   0
 )
 ON CONFLICT ("id") DO NOTHING;
+
+-- Checked-in hackers only. Early RSVPs stay unconfirmed at the door.
+-- Accounts are created in seeds/rsvp-demo.sql, which runs before this file.
+DELETE FROM "public"."event_checkins"
+WHERE "event_id" = '10000000-0000-4000-8000-000000000001'
+  AND "user_id" IN (
+    SELECT "id" FROM "public"."users"
+    WHERE "email" IN (
+      'early-rsvped@mhacks.test',
+      'regular-rsvped@mhacks.test',
+      'rsvped-reimbursement@mhacks.test'
+    )
+  );
+
+INSERT INTO "public"."event_checkins" (
+  "id",
+  "event_id",
+  "user_id",
+  "checked_in_at",
+  "checked_in_by",
+  "method",
+  "scan_number"
+)
+SELECT
+  "seed"."id",
+  "events"."id",
+  "users"."id",
+  now() - "seed"."minutes_ago" * interval '1 minute',
+  '00000000-0000-4000-8000-000000000001',
+  'scan',
+  1
+FROM (
+  VALUES
+    ('60000000-0000-4000-8000-000000000324'::uuid, 'checked-in@mhacks.test', 20),
+    ('60000000-0000-4000-8000-000000000325'::uuid, 'checked-in-two@mhacks.test', 6)
+) AS "seed" ("id", "email", "minutes_ago")
+JOIN "public"."users" ON "users"."email" = "seed"."email"
+JOIN "public"."events" ON "events"."id" = '10000000-0000-4000-8000-000000000001'
+ON CONFLICT ("event_id", "user_id", "scan_number") DO UPDATE SET
+  "checked_in_at" = excluded."checked_in_at",
+  "checked_in_by" = excluded."checked_in_by",
+  "method" = excluded."method";

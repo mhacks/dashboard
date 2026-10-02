@@ -11,9 +11,14 @@ import {
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
-import { TEAM_PAGE_ENABLED } from "@/lib/features";
+import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
+
+// The formation flag is a database read, and it runs before any cookie access.
+// Without this, `next build` tries to prerender the page and fails when CI has
+// no database.
+export const dynamic = "force-dynamic";
 
 // Not wrapped in a swallow-and-degrade try/catch the way apply/page.tsx
 // handles its existing-application check — silently falling back to "no
@@ -22,7 +27,7 @@ import { TeamSkeleton } from "./team-skeleton";
 // still caught gracefully, just one level up: error.tsx renders it in-shell
 // with a retry instead of Next's default error page.
 async function TeamData() {
-  if (!TEAM_PAGE_ENABLED) redirect("/dashboard");
+  if (!(await isTeamFormationEnabled())) redirect("/dashboard");
 
   const { id: userId } = await requireHackerPage();
 
