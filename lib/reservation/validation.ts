@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   MAX_RESERVATION_TABLE_COUNT,
   MAX_RESERVATION_TABLE_NUMBER,
-  RESERVATION_EVENT_STATUSES,
 } from "./domain";
 
 const nullableDate = z.preprocess(
@@ -29,28 +28,8 @@ export const reservationTableTopologyEntrySchema = z.object({
 export const reservationTableTopologySchema = z.array(
   reservationTableTopologyEntrySchema,
 );
-export const reservationEventStatusSchema = z.enum(RESERVATION_EVENT_STATUSES);
-export const reservationEditableEventStatusSchema = z.enum([
-  "draft",
-  "open",
-  "closed",
-]);
-
 export const reservationEventInputSchema = z
   .object({
-    name: z.string().trim().min(1).max(200),
-    description: z
-      .string()
-      .trim()
-      .max(2_000)
-      .transform((value) => value || null),
-    location: z
-      .string()
-      .trim()
-      .max(200)
-      .transform((value) => value || null),
-    startsAt: nullableDate,
-    status: reservationEditableEventStatusSchema,
     reservationsOpenAt: nullableDate,
     reservationsCloseAt: nullableDate,
   })

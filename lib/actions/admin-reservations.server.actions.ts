@@ -1,23 +1,19 @@
 "use server";
 
-import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
+import { asc, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { postgresErrorCode } from "@/lib/db/errors";
-import {
-  reservationEvents,
-  tables,
-  type ReservationEvent,
-} from "@/lib/db/schema/reservation";
+import { reservationSettings, tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
-  formatReservationList,
   MAX_RESERVATION_TABLE_NUMBER,
   planTableCountChange,
 } from "@/lib/reservation/domain";
-import { revalidateReservationEventPaths } from "@/lib/reservation/revalidate";
+import { RESERVATION_SETTINGS_ID } from "@/lib/queries/reservation-settings";
+import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import {
   reservationEventInputSchema,
   reservationIdSchema,
@@ -35,15 +31,6 @@ export type ReservationActionResult<T = never> =
       error: string;
       fieldErrors?: Record<string, string[] | undefined>;
     };
-
-type EventFailureCode =
-  | "EVENT_NOT_FOUND"
-  | "ARCHIVED"
-  | "ALREADY_ARCHIVED"
-  | "NOT_ARCHIVED"
-  | "ASSIGNMENTS_EXIST";
-
-type EventOperation = "create" | "update" | "archive" | "restore" | "delete";
 
 type TableFailureCode =
   | "TABLE_NOT_FOUND"
@@ -63,24 +50,6 @@ type AssignmentFailureCode =
 
 type AssignmentOperation = "move" | "unassign";
 
-const eventFailureMessages: Record<
-  Exclude<EventFailureCode, "ASSIGNMENTS_EXIST">,
-  string
-> = {
-  EVENT_NOT_FOUND: "That event no longer exists.",
-  ARCHIVED: "Archived events are read-only. Restore the event before editing.",
-  ALREADY_ARCHIVED: "That event is already archived.",
-  NOT_ARCHIVED: "Only archived events can be restored.",
-};
-
-const unexpectedFailureMessages: Record<EventOperation, string> = {
-  create: "Could not create the event. Try again.",
-  update: "Could not update the event. Try again.",
-  archive: "Could not archive the event. Try again.",
-  restore: "Could not restore the event. Try again.",
-  delete: "Could not delete the event. Try again.",
-};
-
 const unexpectedTableFailureMessages: Record<TableOperation, string> = {
   create: "Could not create the table. Try again.",
   renumber: "Could not renumber the table. Try again.",
@@ -94,12 +63,7 @@ const unexpectedAssignmentFailureMessages: Record<AssignmentOperation, string> =
     unassign: "Could not unassign the team. Try again.",
   };
 
-const eventIdInputSchema = z.object({
-  eventId: reservationIdSchema,
-});
-
 const createTableInputSchema = z.object({
-  eventId: reservationIdSchema,
   number: reservationTableNumberSchema,
 });
 
@@ -108,19 +72,16 @@ const tableMutationInputSchema = createTableInputSchema.extend({
 });
 
 const deleteTableInputSchema = z.object({
-  eventId: reservationIdSchema,
   tableId: reservationIdSchema,
 });
 
 const tableCountInputSchema = z.object({
-  eventId: reservationIdSchema,
   count: reservationTableCountSchema,
   expectedTables: reservationTableTopologySchema,
 });
 
 const moveAssignmentInputSchema = z
   .object({
-    eventId: reservationIdSchema,
     teamId: reservationIdSchema,
     tableId: reservationIdSchema,
     expectedSourceTableId: reservationIdSchema.nullable(),
@@ -139,20 +100,10 @@ const moveAssignmentInputSchema = z
   );
 
 const unassignAssignmentInputSchema = z.object({
-  eventId: reservationIdSchema,
   teamId: reservationIdSchema,
   expectedSourceTableId: reservationIdSchema,
   expectedSourceTableNumber: reservationTableNumberSchema,
 });
-
-class EventFailure extends Error {
-  constructor(
-    readonly code: EventFailureCode,
-    readonly context: { occupiedTableNumbers?: number[] } = {},
-  ) {
-    super(code);
-  }
-}
 
 class TableFailure extends Error {
   constructor(
@@ -199,46 +150,10 @@ function knownConstraintFailure(
   }
 }
 
-function knownEventFailure(error: unknown): ReservationActionResult | null {
-  if (error instanceof EventFailure) {
-    if (error.code === "ASSIGNMENTS_EXIST") {
-      const occupied = error.context.occupiedTableNumbers ?? [];
-      const tableLabel = formatReservationList(occupied);
-      return {
-        ok: false,
-        error:
-          occupied.length === 1
-            ? `Unassign the team from occupied table ${tableLabel} before deleting this event.`
-            : `Unassign teams from occupied tables ${tableLabel} before deleting this event.`,
-      };
-    }
-    return { ok: false, error: eventFailureMessages[error.code] };
-  }
-
-  return knownConstraintFailure(error, {
-    unique: "An event with those values already exists.",
-    check: "The event details conflict with database rules.",
-  });
-}
-
-function eventActionFailure(
-  error: unknown,
-  operation: EventOperation,
-): ReservationActionResult {
-  const known = knownEventFailure(error);
-  if (known) return known;
-  console.error(`Unable to ${operation} reservation event:`, error);
-  return { ok: false, error: unexpectedFailureMessages[operation] };
-}
-
 function tableActionFailure(
   error: unknown,
   operation: TableOperation,
 ): ReservationActionResult {
-  if (error instanceof EventFailure) {
-    const eventFailure = knownEventFailure(error);
-    if (eventFailure) return eventFailure;
-  }
   if (error instanceof TableFailure) {
     switch (error.code) {
       case "TABLE_NOT_FOUND":
@@ -292,10 +207,6 @@ function assignmentActionFailure(
   error: unknown,
   operation: AssignmentOperation,
 ): ReservationActionResult {
-  if (error instanceof EventFailure) {
-    const eventFailure = knownEventFailure(error);
-    if (eventFailure) return eventFailure;
-  }
   if (error instanceof AssignmentFailure) {
     switch (error.code) {
       case "TEAM_NOT_FOUND":
@@ -332,34 +243,18 @@ function assignmentActionFailure(
   };
 }
 
-function eventSnapshot(event: ReservationEvent) {
-  return {
-    id: event.id,
-    name: event.name,
-    description: event.description,
-    startsAt: event.startsAt?.toISOString() ?? null,
-    location: event.location,
-    status: event.status,
-    reservationsOpenAt: event.reservationsOpenAt?.toISOString() ?? null,
-    reservationsCloseAt: event.reservationsCloseAt?.toISOString() ?? null,
-    createdAt: event.createdAt.toISOString(),
-    updatedAt: event.updatedAt.toISOString(),
-  };
-}
-
 type ReservationTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
 >[0];
 
-async function lockReservationTableTopology(
-  tx: ReservationTransaction,
-  eventId: string,
-) {
+async function lockReservationTables(tx: ReservationTransaction) {
   await tx.execute(
-    sql`SELECT pg_advisory_xact_lock(
-      hashtextextended((${eventId}::uuid)::text, 0)
-    )`,
+    sql`SELECT pg_advisory_xact_lock(hashtextextended('reservation', 0))`,
   );
+}
+
+function windowTimestamp(value: Date | null) {
+  return value ? value.toISOString() : null;
 }
 
 function sameTableTopology(
@@ -385,273 +280,93 @@ function sameTableTopology(
   });
 }
 
-async function getLockedEvent(
-  tx: ReservationTransaction,
-  eventId: string,
-): Promise<ReservationEvent> {
-  const [event] = await tx
-    .select()
-    .from(reservationEvents)
-    .where(eq(reservationEvents.id, eventId))
-    .for("update")
-    .limit(1);
-  if (!event) throw new EventFailure("EVENT_NOT_FOUND");
-  return event;
-}
-
-async function getShareLockedEvent(
-  tx: ReservationTransaction,
-  eventId: string,
-): Promise<ReservationEvent> {
-  const [event] = await tx
-    .select()
-    .from(reservationEvents)
-    .where(eq(reservationEvents.id, eventId))
-    .for("share")
-    .limit(1);
-  if (!event) throw new EventFailure("EVENT_NOT_FOUND");
-  return event;
-}
-
-function requireMutableEvent(event: ReservationEvent) {
-  if (event.status === "archived") throw new EventFailure("ARCHIVED");
-}
-
-export async function createReservationEvent(
+export async function setReservationWindow(
   input: ReservationEventInput,
-): Promise<ReservationActionResult<{ eventId: string }>> {
+): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
   const parsed = reservationEventInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-
-  let eventId: string;
-  try {
-    eventId = await db.transaction(async (tx) => {
-      const [event] = await tx
-        .insert(reservationEvents)
-        .values(parsed.data)
-        .returning();
-      await writeReservationAudit(tx, {
-        eventId: event.id,
-        eventName: event.name,
-        actorUserId: organizer.id,
-        actorEmail: organizer.email,
-        action: "event.created",
-        entityType: "event",
-        entityId: event.id,
-        details: { after: eventSnapshot(event) },
-      });
-      return event.id;
-    });
-  } catch (error) {
-    return eventActionFailure(error, "create");
-  }
-
-  revalidateReservationEventPaths(eventId);
-  return {
-    ok: true,
-    message: "Event created.",
-    data: { eventId },
-  };
-}
-
-export async function updateReservationEvent(input: {
-  eventId: string;
-  values: ReservationEventInput;
-}): Promise<ReservationActionResult> {
-  const organizer = await requireOrganizer();
-  const parsedEventId = eventIdInputSchema.safeParse({
-    eventId: input.eventId,
-  });
-  if (!parsedEventId.success) return validationFailure(parsedEventId.error);
-  const parsedValues = reservationEventInputSchema.safeParse(input.values);
-  if (!parsedValues.success) return validationFailure(parsedValues.error);
-  const eventId = parsedEventId.data.eventId;
+  const now = new Date().toISOString();
+  const reservationsOpenAt = windowTimestamp(parsed.data.reservationsOpenAt);
+  const reservationsCloseAt = windowTimestamp(parsed.data.reservationsCloseAt);
 
   try {
     await db.transaction(async (tx) => {
-      const before = await getLockedEvent(tx, eventId);
-      if (before.status === "archived") throw new EventFailure("ARCHIVED");
-      const [after] = await tx
-        .update(reservationEvents)
-        .set({ ...parsedValues.data, updatedAt: new Date() })
-        .where(eq(reservationEvents.id, eventId))
-        .returning();
-      await writeReservationAudit(tx, {
-        eventId,
-        eventName: after.name,
-        actorUserId: organizer.id,
-        actorEmail: organizer.email,
-        action: "event.updated",
-        entityType: "event",
-        entityId: eventId,
-        details: {
-          before: eventSnapshot(before),
-          after: eventSnapshot(after),
-        },
-      });
-    });
-  } catch (error) {
-    return eventActionFailure(error, "update");
-  }
-
-  revalidateReservationEventPaths(eventId);
-  return { ok: true, message: "Event updated." };
-}
-
-export async function archiveReservationEvent(
-  eventId: string,
-): Promise<ReservationActionResult> {
-  const organizer = await requireOrganizer();
-  const parsed = eventIdInputSchema.safeParse({ eventId });
-  if (!parsed.success) return validationFailure(parsed.error);
-
-  try {
-    await db.transaction(async (tx) => {
-      const before = await getLockedEvent(tx, parsed.data.eventId);
-      if (before.status === "archived") {
-        throw new EventFailure("ALREADY_ARCHIVED");
-      }
-      const [after] = await tx
-        .update(reservationEvents)
-        .set({ status: "archived", updatedAt: new Date() })
-        .where(eq(reservationEvents.id, parsed.data.eventId))
-        .returning();
-      await writeReservationAudit(tx, {
-        eventId: after.id,
-        eventName: after.name,
-        actorUserId: organizer.id,
-        actorEmail: organizer.email,
-        action: "event.archived",
-        entityType: "event",
-        entityId: after.id,
-        details: {
-          before: eventSnapshot(before),
-          after: eventSnapshot(after),
-        },
-      });
-    });
-  } catch (error) {
-    return eventActionFailure(error, "archive");
-  }
-
-  revalidateReservationEventPaths(parsed.data.eventId);
-  return { ok: true, message: "Event archived." };
-}
-
-export async function restoreReservationEvent(
-  eventId: string,
-): Promise<ReservationActionResult> {
-  const organizer = await requireOrganizer();
-  const parsed = eventIdInputSchema.safeParse({ eventId });
-  if (!parsed.success) return validationFailure(parsed.error);
-
-  try {
-    await db.transaction(async (tx) => {
-      const before = await getLockedEvent(tx, parsed.data.eventId);
-      if (before.status !== "archived") {
-        throw new EventFailure("NOT_ARCHIVED");
-      }
-      const [after] = await tx
-        .update(reservationEvents)
-        .set({ status: "closed", updatedAt: new Date() })
-        .where(eq(reservationEvents.id, parsed.data.eventId))
-        .returning();
-      await writeReservationAudit(tx, {
-        eventId: after.id,
-        eventName: after.name,
-        actorUserId: organizer.id,
-        actorEmail: organizer.email,
-        action: "event.restored",
-        entityType: "event",
-        entityId: after.id,
-        details: {
-          before: eventSnapshot(before),
-          after: eventSnapshot(after),
-        },
-      });
-    });
-  } catch (error) {
-    return eventActionFailure(error, "restore");
-  }
-
-  revalidateReservationEventPaths(parsed.data.eventId);
-  return { ok: true, message: "Event restored to closed." };
-}
-
-export async function deleteReservationEvent(
-  eventId: string,
-): Promise<ReservationActionResult> {
-  const organizer = await requireOrganizer();
-  const parsed = eventIdInputSchema.safeParse({ eventId });
-  if (!parsed.success) return validationFailure(parsed.error);
-
-  try {
-    await db.transaction(async (tx) => {
-      const event = await getLockedEvent(tx, parsed.data.eventId);
-      const eventTables = await tx
+      const [before] = await tx
         .select({
-          id: tables.id,
-          number: tables.number,
-          reservedByTeamId: tables.reservedByTeamId,
+          reservationsOpenAt: reservationSettings.reservationsOpenAt,
+          reservationsCloseAt: reservationSettings.reservationsCloseAt,
         })
-        .from(tables)
-        .where(eq(tables.eventId, parsed.data.eventId))
-        .orderBy(asc(tables.id))
-        .for("update");
-      const occupiedTableNumbers = eventTables
-        .filter((table) => table.reservedByTeamId)
-        .map((table) => table.number)
-        .sort((left, right) => left - right);
-      if (occupiedTableNumbers.length > 0) {
-        throw new EventFailure("ASSIGNMENTS_EXIST", {
-          occupiedTableNumbers,
+        .from(reservationSettings)
+        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
+        .limit(1);
+
+      await tx
+        .insert(reservationSettings)
+        .values({
+          id: RESERVATION_SETTINGS_ID,
+          reservationsOpenAt,
+          reservationsCloseAt,
+          updatedByUserId: organizer.id,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: reservationSettings.id,
+          set: {
+            reservationsOpenAt,
+            reservationsCloseAt,
+            updatedByUserId: organizer.id,
+            updatedAt: now,
+          },
         });
-      }
 
       await writeReservationAudit(tx, {
-        eventId: event.id,
-        eventName: event.name,
         actorUserId: organizer.id,
         actorEmail: organizer.email,
-        action: "event.deleted",
-        entityType: "event",
-        entityId: event.id,
-        details: { before: eventSnapshot(event) },
+        action: "window.updated",
+        entityType: "reservation_settings",
+        entityId: null,
+        details: {
+          beforeOpenAt: before?.reservationsOpenAt ?? null,
+          beforeCloseAt: before?.reservationsCloseAt ?? null,
+          afterOpenAt: reservationsOpenAt,
+          afterCloseAt: reservationsCloseAt,
+        },
       });
-      await tx
-        .delete(reservationEvents)
-        .where(eq(reservationEvents.id, event.id));
     });
   } catch (error) {
-    return eventActionFailure(error, "delete");
+    const known = knownConstraintFailure(error, {
+      unique: "An event with those values already exists.",
+      check: "The event details conflict with database rules.",
+    });
+    if (known) return known;
+    console.error("Unable to update reservation window:", error);
+    return {
+      ok: false,
+      error: "Could not update the reservation. Try again.",
+    };
   }
 
-  revalidateReservationEventPaths(parsed.data.eventId);
-  return { ok: true, message: "Event deleted." };
+  revalidateReservationPaths();
+  return { ok: true, message: "Reservation window saved." };
 }
 
 export async function createReservationTable(input: {
-  eventId: string;
   number: number;
 }): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
   const parsed = createTableInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const { eventId, number } = parsed.data;
+  const { number } = parsed.data;
 
   try {
     await db.transaction(async (tx) => {
-      await lockReservationTableTopology(tx, eventId);
-      const event = await getShareLockedEvent(tx, eventId);
-      requireMutableEvent(event);
+      await lockReservationTables(tx);
       const [table] = await tx
         .insert(tables)
-        .values({ eventId, number })
+        .values({ number })
         .returning({ id: tables.id, number: tables.number });
       await writeReservationAudit(tx, {
-        eventId,
-        eventName: event.name,
         actorUserId: organizer.id,
         actorEmail: organizer.email,
         action: "table.created",
@@ -667,38 +382,30 @@ export async function createReservationTable(input: {
     return tableActionFailure(error, "create");
   }
 
-  revalidateReservationEventPaths(eventId);
+  revalidateReservationPaths();
   return { ok: true, message: `Table ${number} created.` };
 }
 
 export async function renumberReservationTable(input: {
-  eventId: string;
   tableId: string;
   number: number;
 }): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
   const parsed = tableMutationInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const { eventId, tableId, number } = parsed.data;
+  const { tableId, number } = parsed.data;
   let previousNumber = number;
 
   try {
     await db.transaction(async (tx) => {
-      await lockReservationTableTopology(tx, eventId);
-      const event = await getShareLockedEvent(tx, eventId);
-      requireMutableEvent(event);
+      await lockReservationTables(tx);
       const lockedTables = await tx
         .select({
           id: tables.id,
           number: tables.number,
         })
         .from(tables)
-        .where(
-          and(
-            eq(tables.eventId, eventId),
-            or(eq(tables.id, tableId), eq(tables.number, number)),
-          ),
-        )
+        .where(or(eq(tables.id, tableId), eq(tables.number, number)))
         .orderBy(asc(tables.id))
         .for("update");
       const before = lockedTables.find((table) => table.id === tableId);
@@ -718,8 +425,6 @@ export async function renumberReservationTable(input: {
         .returning({ id: tables.id, number: tables.number });
       previousNumber = before.number;
       await writeReservationAudit(tx, {
-        eventId,
-        eventName: event.name,
         actorUserId: organizer.id,
         actorEmail: organizer.email,
         action: "table.renumbered",
@@ -736,7 +441,7 @@ export async function renumberReservationTable(input: {
     return tableActionFailure(error, "renumber");
   }
 
-  revalidateReservationEventPaths(eventId);
+  revalidateReservationPaths();
   return {
     ok: true,
     message: `Table ${previousNumber} renumbered to ${number}.`,
@@ -744,20 +449,17 @@ export async function renumberReservationTable(input: {
 }
 
 export async function deleteReservationTable(input: {
-  eventId: string;
   tableId: string;
 }): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
   const parsed = deleteTableInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const { eventId, tableId } = parsed.data;
+  const { tableId } = parsed.data;
   let deletedNumber = 0;
 
   try {
     await db.transaction(async (tx) => {
-      await lockReservationTableTopology(tx, eventId);
-      const event = await getShareLockedEvent(tx, eventId);
-      requireMutableEvent(event);
+      await lockReservationTables(tx);
       const [table] = await tx
         .select({
           id: tables.id,
@@ -765,7 +467,7 @@ export async function deleteReservationTable(input: {
           reservedByTeamId: tables.reservedByTeamId,
         })
         .from(tables)
-        .where(and(eq(tables.id, tableId), eq(tables.eventId, eventId)))
+        .where(eq(tables.id, tableId))
         .for("update")
         .limit(1);
       if (!table) throw new TableFailure("TABLE_NOT_FOUND");
@@ -776,8 +478,6 @@ export async function deleteReservationTable(input: {
       }
 
       await writeReservationAudit(tx, {
-        eventId,
-        eventName: event.name,
         actorUserId: organizer.id,
         actorEmail: organizer.email,
         action: "table.deleted",
@@ -795,25 +495,22 @@ export async function deleteReservationTable(input: {
     return tableActionFailure(error, "delete");
   }
 
-  revalidateReservationEventPaths(eventId);
+  revalidateReservationPaths();
   return { ok: true, message: `Table ${deletedNumber} deleted.` };
 }
 
 export async function setReservationTableCount(input: {
-  eventId: string;
   count: number;
   expectedTables: ReservationTableTopology;
 }): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
   const parsed = tableCountInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const { eventId, count, expectedTables } = parsed.data;
+  const { count, expectedTables } = parsed.data;
 
   try {
     await db.transaction(async (tx) => {
-      await lockReservationTableTopology(tx, eventId);
-      const event = await getShareLockedEvent(tx, eventId);
-      requireMutableEvent(event);
+      await lockReservationTables(tx);
       const currentTables = await tx
         .select({
           id: tables.id,
@@ -821,7 +518,6 @@ export async function setReservationTableCount(input: {
           reservedByTeamId: tables.reservedByTeamId,
         })
         .from(tables)
-        .where(eq(tables.eventId, eventId))
         .orderBy(asc(tables.id))
         .for("update");
       if (!sameTableTopology(currentTables, expectedTables)) {
@@ -849,7 +545,6 @@ export async function setReservationTableCount(input: {
               .insert(tables)
               .values(
                 plan.addNumbers.map((number) => ({
-                  eventId,
                   number,
                 })),
               )
@@ -866,13 +561,11 @@ export async function setReservationTableCount(input: {
         currentTables.length + addedTables.length - removedTables.length;
 
       await writeReservationAudit(tx, {
-        eventId,
-        eventName: event.name,
         actorUserId: organizer.id,
         actorEmail: organizer.email,
         action: "table.count_changed",
         entityType: "table",
-        entityId: eventId,
+        entityId: null,
         details: {
           beforeCount: currentTables.length,
           afterCount,
@@ -887,7 +580,7 @@ export async function setReservationTableCount(input: {
     return tableActionFailure(error, "set count");
   }
 
-  revalidateReservationEventPaths(eventId);
+  revalidateReservationPaths();
   return { ok: true, message: `Table count set to ${count}.` };
 }
 
@@ -916,7 +609,6 @@ type MoveAssignmentOutcome =
     };
 
 export async function moveReservationTeam(input: {
-  eventId: string;
   teamId: string;
   tableId: string;
   expectedSourceTableId: string | null;
@@ -928,7 +620,6 @@ export async function moveReservationTeam(input: {
   const parsed = moveAssignmentInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
   const {
-    eventId,
     teamId,
     tableId,
     expectedSourceTableId,
@@ -940,8 +631,7 @@ export async function moveReservationTeam(input: {
 
   try {
     outcome = await db.transaction(async (tx) => {
-      const event = await getShareLockedEvent(tx, eventId);
-      requireMutableEvent(event);
+      await lockReservationTables(tx);
       const [team] = await tx
         .select({ id: teams.id })
         .from(teams)
@@ -959,10 +649,7 @@ export async function moveReservationTeam(input: {
           })
           .from(tables)
           .where(
-            and(
-              eq(tables.eventId, eventId),
-              or(eq(tables.id, tableId), eq(tables.reservedByTeamId, teamId)),
-            ),
+            or(eq(tables.id, tableId), eq(tables.reservedByTeamId, teamId)),
           )
           .orderBy(asc(tables.id))
           .for("update");
@@ -1078,8 +765,6 @@ export async function moveReservationTeam(input: {
       }
 
       await writeReservationAudit(tx, {
-        eventId,
-        eventName: event.name,
         actorUserId: organizer.id,
         actorEmail: organizer.email,
         action,
@@ -1094,7 +779,7 @@ export async function moveReservationTeam(input: {
   }
 
   if (outcome.kind !== "already") {
-    revalidateReservationEventPaths(eventId);
+    revalidateReservationPaths();
   }
   switch (outcome.kind) {
     case "already":
@@ -1126,7 +811,6 @@ export async function moveReservationTeam(input: {
 }
 
 export async function unassignReservationTeam(input: {
-  eventId: string;
   teamId: string;
   expectedSourceTableId: string;
   expectedSourceTableNumber: number;
@@ -1134,14 +818,13 @@ export async function unassignReservationTeam(input: {
   const organizer = await requireOrganizer();
   const parsed = unassignAssignmentInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const { eventId, teamId, expectedSourceTableId, expectedSourceTableNumber } =
+  const { teamId, expectedSourceTableId, expectedSourceTableNumber } =
     parsed.data;
   let tableNumber = 0;
 
   try {
     await db.transaction(async (tx) => {
-      const event = await getShareLockedEvent(tx, eventId);
-      requireMutableEvent(event);
+      await lockReservationTables(tx);
       const [team] = await tx
         .select({ id: teams.id })
         .from(teams)
@@ -1157,12 +840,7 @@ export async function unassignReservationTeam(input: {
             number: tables.number,
           })
           .from(tables)
-          .where(
-            and(
-              eq(tables.eventId, eventId),
-              eq(tables.reservedByTeamId, teamId),
-            ),
-          )
+          .where(eq(tables.reservedByTeamId, teamId))
           .orderBy(asc(tables.id))
           .for("update")
           .limit(1);
@@ -1181,8 +859,6 @@ export async function unassignReservationTeam(input: {
         .set({ reservedByTeamId: null, reservedAt: null })
         .where(eq(tables.id, current.id));
       await writeReservationAudit(tx, {
-        eventId,
-        eventName: event.name,
         actorUserId: organizer.id,
         actorEmail: organizer.email,
         action: "assignment.unassigned",
@@ -1203,7 +879,7 @@ export async function unassignReservationTeam(input: {
     return assignmentActionFailure(error, "unassign");
   }
 
-  revalidateReservationEventPaths(eventId);
+  revalidateReservationPaths();
   return {
     ok: true,
     message: `Unassigned team from table ${tableNumber}.`,

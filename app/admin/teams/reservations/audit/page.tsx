@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
-import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { getReservationAuditPage } from "@/lib/queries/admin-reservations";
 import { AuditList } from "./audit-list";
 import {
@@ -16,13 +14,14 @@ export default async function ReservationAuditPage({
 }: {
   searchParams: Promise<AuditRouteSearchParams>;
 }) {
+  const auditBasePath = "/admin/teams/reservations/audit";
   const resolvedSearchParams = await searchParams;
   const requestedPage = parseRequestedAuditPage(resolvedSearchParams.page);
   const auditPage = await getReservationAuditPage({
     pageIndex: requestedPage.pageNumber - 1,
   });
   const canonicalHref = getCanonicalAuditPageHref(
-    "/admin/reservations/audit",
+    auditBasePath,
     resolvedSearchParams,
     requestedPage,
     auditPage.totalItems,
@@ -30,13 +29,5 @@ export default async function ReservationAuditPage({
   );
   if (canonicalHref) redirect(canonicalHref);
 
-  return (
-    <AdminPageShell>
-      <AdminPageHeader
-        title="Reservation audit log"
-        description="Review immutable event, table, participant, and assignment activity across all reservation events."
-      />
-      <AuditList {...auditPage} basePath="/admin/reservations/audit" />
-    </AdminPageShell>
-  );
+  return <AuditList {...auditPage} basePath={auditBasePath} />;
 }

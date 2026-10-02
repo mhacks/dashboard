@@ -1,5 +1,3 @@
-import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
-import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { getAllTeamsForAdmin } from "@/lib/queries/admin-teams";
 import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { TeamFormationToggle } from "./team-formation-toggle";
@@ -14,13 +12,12 @@ export default async function AdminTeamsPage() {
   ]);
 
   return (
-    <AdminPageShell>
-      <AdminPageHeader
-        title="Teams"
-        description="Every team hackers have formed, who's on it, and any invites still pending. Turn formation on or off for accepted hackers."
-        actions={<TeamFormationToggle enabled={formationEnabled} />}
-      />
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-heading text-xl font-medium">Teams</h2>
+        <TeamFormationToggle enabled={formationEnabled} />
+      </div>
       <TeamsView teams={teams} />
-    </AdminPageShell>
+    </section>
   );
 }

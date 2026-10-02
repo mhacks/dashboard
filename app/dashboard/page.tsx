@@ -17,6 +17,7 @@ import {
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
 import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
+import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { getApplicationAccessForUser } from "@/lib/applications/access";
 import { isAppleWalletConfigured } from "@/lib/wallet/config";
 import { isGoogleWalletConfigured } from "@/lib/wallet/google-config";
@@ -36,11 +37,17 @@ export default async function DashboardPage() {
   const { id: userId, role } = await requireSessionUser();
 
   // Independent of each other, so they overlap rather than queue.
-  const [application, canCheckIn, applicationAccess] = await Promise.all([
-    getApplicantDecision(userId),
-    getAttendeeQrEligibility(userId),
-    getApplicationAccessForUser({ userId }),
-  ]);
+  const [application, canCheckIn, teamsEnabled, applicationAccess] =
+    await Promise.all([
+      getApplicantDecision(userId),
+      getAttendeeQrEligibility(userId),
+      isTeamFormationEnabled().catch((err: unknown) => {
+        const cause = err instanceof Error ? (err.cause ?? err) : err;
+        console.error("[DB] team formation flag query failed:", cause);
+        return false;
+      }),
+      getApplicationAccessForUser({ userId }),
+    ]);
 
   // Only meaningful before submitting — submitting deletes the draft row. Note
   // /apply writes an empty draft on first visit, so progress is measured from
@@ -64,6 +71,7 @@ export default async function DashboardPage() {
       role={role}
       userId={userId}
       canCheckIn={canCheckIn}
+      teamsEnabled={teamsEnabled}
       firstName={application?.firstName ?? null}
       appleWalletAvailable={isAppleWalletConfigured()}
       googleWalletAvailable={isGoogleWalletConfigured()}

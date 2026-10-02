@@ -19,7 +19,6 @@ import {
   setReservationTableCount,
   type ReservationActionResult,
 } from "@/lib/actions/admin-reservations.server.actions";
-import type { AdminReservationEventDetail } from "@/lib/queries/admin-reservations";
 import {
   formatReservationList,
   MAX_RESERVATION_TABLE_COUNT,
@@ -54,8 +53,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+const ASSIGNMENTS_HREF = "/admin/teams/reservations/assignments";
+
 export type TableManagementProps = {
-  event: AdminReservationEventDetail;
   tables: TableWithTeam[];
 };
 
@@ -100,17 +100,13 @@ function PendingIcon({ pending }: { pending: boolean }) {
 }
 
 function TableCard({
-  eventId,
   onMutationEnd,
   onMutationStart,
-  readOnly,
   table,
   workspacePending,
 }: {
-  eventId: string;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
-  readOnly: boolean;
   table: TableWithTeam;
   workspacePending: boolean;
 }) {
@@ -126,7 +122,6 @@ function TableCard({
   const [renumberTarget, setRenumberTarget] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const assigned = Boolean(table.reservedByTeamId);
-  const controlsDisabled = readOnly || workspacePending;
 
   function handleNumberChange(value: string) {
     setNumberValue(value);
@@ -136,7 +131,7 @@ function TableCard({
 
   function handleRenumber(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
-    if (readOnly || workspacePending) return;
+    if (workspacePending) return;
 
     const number = parseWholeNumber(
       numberValue,
@@ -169,7 +164,6 @@ function TableCard({
 
   function confirmRenumber() {
     if (
-      readOnly ||
       workspacePending ||
       renumberTarget === null ||
       !onMutationStart(`renumber:${table.id}`)
@@ -180,7 +174,6 @@ function TableCard({
     startTransition(async () => {
       try {
         const result = await renumberReservationTable({
-          eventId,
           tableId: table.id,
           number: renumberTarget,
         });
@@ -203,7 +196,6 @@ function TableCard({
 
   function handleDelete() {
     if (
-      readOnly ||
       assigned ||
       workspacePending ||
       !onMutationStart(`delete:${table.id}`)
@@ -215,7 +207,6 @@ function TableCard({
     startTransition(async () => {
       try {
         const result = await deleteReservationTable({
-          eventId,
           tableId: table.id,
         });
         if (!result.ok) {
@@ -289,7 +280,7 @@ function TableCard({
               max={MAX_RESERVATION_TABLE_NUMBER}
               step={1}
               value={numberValue}
-              disabled={controlsDisabled}
+              disabled={workspacePending}
               aria-invalid={Boolean(numberError)}
               aria-describedby={numberError ? `${inputId}-error` : undefined}
               onChange={(inputEvent) =>
@@ -306,7 +297,7 @@ function TableCard({
             type="submit"
             variant="outline"
             size="sm"
-            disabled={controlsDisabled}
+            disabled={workspacePending}
             aria-label={`Renumber table ${table.number}`}
           >
             <PendingIcon pending={isPending} />
@@ -379,11 +370,9 @@ function TableCard({
 
         {assigned ? (
           <Button asChild variant="outline" size="sm">
-            <Link href={`/admin/reservations/${eventId}/assignments`}>
-              Manage assignments
-            </Link>
+            <Link href={ASSIGNMENTS_HREF}>Manage assignments</Link>
           </Button>
-        ) : readOnly ? null : (
+        ) : (
           <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
             <AlertDialogTrigger asChild>
               <Button
@@ -440,17 +429,13 @@ function TableCard({
 }
 
 function TableCountManagement({
-  eventId,
   onMutationEnd,
   onMutationStart,
-  readOnly,
   tables,
   workspacePending,
 }: {
-  eventId: string;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
-  readOnly: boolean;
   tables: TableWithTeam[];
   workspacePending: boolean;
 }) {
@@ -514,7 +499,6 @@ function TableCountManagement({
     startTransition(async () => {
       try {
         const result = await setReservationTableCount({
-          eventId,
           count,
           expectedTables: topologyOf(tables),
         });
@@ -539,7 +523,7 @@ function TableCountManagement({
 
   function handleCountSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
-    if (readOnly || workspacePending) return;
+    if (workspacePending) return;
 
     const count = parseWholeNumber(
       desiredCount,
@@ -612,7 +596,7 @@ function TableCountManagement({
                 max={MAX_RESERVATION_TABLE_COUNT}
                 step={1}
                 value={desiredCount}
-                disabled={readOnly || workspacePending}
+                disabled={workspacePending}
                 aria-invalid={Boolean(countFieldError)}
                 aria-describedby={
                   countFieldError ? `${countInputId}-error` : undefined
@@ -640,9 +624,7 @@ function TableCountManagement({
             <Button
               type="submit"
               disabled={
-                readOnly ||
-                workspacePending ||
-                parsedDesiredCount === tables.length
+                workspacePending || parsedDesiredCount === tables.length
               }
             >
               <PendingIcon pending={isPending} />
@@ -734,9 +716,7 @@ function TableCountManagement({
           </AlertDialogHeader>
           {reductionBlockers.length > 0 ? (
             <Button asChild variant="outline" size="sm">
-              <Link href={`/admin/reservations/${eventId}/assignments`}>
-                Manage assignments
-              </Link>
+              <Link href={ASSIGNMENTS_HREF}>Manage assignments</Link>
             </Button>
           ) : null}
           <AlertDialogFooter>
@@ -761,11 +741,10 @@ function TableCountManagement({
   );
 }
 
-function TableManagementWorkspace({ event, tables }: TableManagementProps) {
+function TableManagementWorkspace({ tables }: TableManagementProps) {
   const router = useRouter();
   const addInputId = useId();
   const mutationLockRef = useRef<string | null>(null);
-  const readOnly = event.status === "archived";
   const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
   const openCount = tables.length - assignedCount;
   const [newTableNumber, setNewTableNumber] = useState("");
@@ -790,7 +769,7 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
 
   function handleAddSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
-    if (readOnly || workspacePending) return;
+    if (workspacePending) return;
 
     const number = parseWholeNumber(
       newTableNumber,
@@ -813,7 +792,6 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
     startTransition(async () => {
       try {
         const result = await createReservationTable({
-          eventId: event.id,
           number,
         });
         if (!result.ok) {
@@ -835,18 +813,6 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
 
   return (
     <section className="flex flex-col gap-6">
-      {readOnly ? (
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>Read-only tables</CardTitle>
-            <CardDescription>
-              Archived events are read-only. Restore the event before editing
-              tables.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
-
       <section aria-label="Table summary" className="grid gap-3 sm:grid-cols-3">
         <Card size="sm">
           <CardHeader>
@@ -870,10 +836,8 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <TableCountManagement
-          eventId={event.id}
           onMutationEnd={endMutation}
           onMutationStart={startMutation}
-          readOnly={readOnly}
           tables={tables}
           workspacePending={workspacePending}
         />
@@ -897,7 +861,7 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
                   max={MAX_RESERVATION_TABLE_NUMBER}
                   step={1}
                   value={newTableNumber}
-                  disabled={readOnly || workspacePending}
+                  disabled={workspacePending}
                   aria-invalid={Boolean(addFieldError)}
                   aria-describedby={
                     addFieldError ? `${addInputId}-error` : undefined
@@ -924,7 +888,7 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
               ) : null}
             </CardContent>
             <CardFooter className="justify-end">
-              <Button type="submit" disabled={readOnly || workspacePending}>
+              <Button type="submit" disabled={workspacePending}>
                 <PendingIcon pending={isPending} />
                 Add table
               </Button>
@@ -962,10 +926,8 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
             {tables.map((table) => (
               <TableCard
                 key={table.id}
-                eventId={event.id}
                 onMutationEnd={endMutation}
                 onMutationStart={startMutation}
-                readOnly={readOnly}
                 table={table}
                 workspacePending={workspacePending}
               />
@@ -978,10 +940,5 @@ function TableManagementWorkspace({ event, tables }: TableManagementProps) {
 }
 
 export function TableManagement(props: TableManagementProps) {
-  return (
-    <TableManagementWorkspace
-      key={`${props.event.id}:${props.event.status}`}
-      {...props}
-    />
-  );
+  return <TableManagementWorkspace key={props.tables.length} {...props} />;
 }

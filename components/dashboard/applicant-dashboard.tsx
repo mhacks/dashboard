@@ -19,6 +19,7 @@ import { QrDrawerButton } from "@/app/dashboard/qr-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
 import { isEventStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
+import { MAX_TEAM_SIZE } from "@/lib/types/teams";
 import { WALLET_EVENT } from "@/lib/wallet/event";
 
 /**
@@ -48,6 +49,7 @@ export function ApplicantDashboard({
   firstName,
   userId,
   canCheckIn,
+  teamsEnabled,
   appleWalletAvailable,
   googleWalletAvailable,
 }: {
@@ -58,6 +60,11 @@ export function ApplicantDashboard({
   userId: string;
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
+  /**
+   * Organizer toggle from /admin/teams. The team page redirects when this is
+   * off, so the panel stays hidden rather than linking somewhere that bounces.
+   */
+  teamsEnabled: boolean;
   /**
    * Whether this environment can sign Apple Wallet passes.
    */
@@ -81,6 +88,8 @@ export function ApplicantDashboard({
             }
           />
 
+          {role === "hacker" ? <HandbookPanel /> : null}
+
           {/* Above the application panels, because it outranks them: anyone
               who can see this has already been accepted and RSVPed, so their
               decision is settled news and the code is the thing they came to
@@ -93,11 +102,13 @@ export function ApplicantDashboard({
             />
           ) : null}
 
+          {canCheckIn && role === "hacker" && teamsEnabled ? (
+            <TeamPanel />
+          ) : null}
+
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
-
-          <HackerHandbook />
 
           {isEventStaff(role) ? <StaffTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
@@ -259,6 +270,31 @@ function DecisionReadyPanel() {
   );
 }
 
+/* ——— team ————————————————————————————————————————————————————— */
+
+/**
+ * Sits directly under the check-in panel, for the same people: accepted
+ * hackers who have RSVPed. The page itself stays at /dashboard/team; this
+ * only points there, the way the decision letter's team band does.
+ */
+function TeamPanel() {
+  return (
+    <Panel eyebrow="TEAM AND SUBMISSION">
+      <PanelHeading
+        lede={`Create a team or accept an invite before the weekend starts. Teams can have up to ${MAX_TEAM_SIZE} hackers.`}
+      >
+        Team and submission
+      </PanelHeading>
+
+      <div className="flex flex-wrap items-center gap-3.5">
+        <ButtonLink href="/dashboard/team" external={false}>
+          Manage team and submission
+        </ButtonLink>
+      </div>
+    </Panel>
+  );
+}
+
 /* ——— check-in ————————————————————————————————————————————————— */
 
 /**
@@ -350,24 +386,23 @@ function CheckInPanel({
 }
 
 /**
- * The signed-in portal, not the public live schedule. Every dashboard visitor
- * can open the handbook; staff tools stay below it.
+ * Hackers only. Same paper box as the panels below it, so it isn't a bare
+ * line under the greeting. The button sits beside the copy on wide screens.
  */
-function HackerHandbook() {
+function HandbookPanel() {
   return (
-    <div className="flex flex-col gap-3.5">
-      <Rail label="WEEKEND" ramp={false} />
-
-      <ToolGrid>
-        <ToolCard
-          eyebrow="GUIDE"
-          name="Hacker handbook"
-          description="Venue, schedule, policies, and what to bring for the weekend."
-          href={WALLET_EVENT.handbookUrl}
-          external
-        />
-      </ToolGrid>
-    </div>
+    <Panel eyebrow="GUIDE">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+        <PanelHeading lede="Venue, schedule, policies, and what to bring for the weekend.">
+          Hacker handbook
+        </PanelHeading>
+        <div className="w-full shrink-0 sm:w-auto">
+          <ButtonLink href={WALLET_EVENT.handbookUrl}>
+            Open the handbook
+          </ButtonLink>
+        </div>
+      </div>
+    </Panel>
   );
 }
 

@@ -1,44 +1,12 @@
-export const RESERVATION_EVENT_STATUSES = [
-  "draft",
-  "open",
-  "closed",
-  "archived",
-] as const;
-
 export const MAX_RESERVATION_TABLE_COUNT = 500;
 export const MAX_RESERVATION_TABLE_NUMBER = 2_147_483_647;
 
-export type ReservationEventStatus =
-  (typeof RESERVATION_EVENT_STATUSES)[number];
-
-export const RESERVATION_EVENT_STATUS_LABELS: Record<
-  ReservationEventStatus,
-  string
-> = {
-  draft: "Draft",
-  open: "Open",
-  closed: "Closed",
-  archived: "Archived",
-};
-
-export const RESERVATION_EVENT_STATUS_BADGE_VARIANTS: Record<
-  ReservationEventStatus,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  draft: "outline",
-  open: "default",
-  closed: "secondary",
-  archived: "destructive",
-};
-
 type ReservationWindow = {
-  status: ReservationEventStatus;
   reservationsOpenAt?: Date | string | null;
   reservationsCloseAt?: Date | string | null;
 };
 
 export type ReservationAvailability =
-  | { state: "hidden" }
   | { state: "scheduled"; boundary: Date }
   | { state: "closed" }
   | { state: "open" };
@@ -47,13 +15,6 @@ export function getReservationAvailability(
   event: ReservationWindow,
   now: Date = new Date(),
 ): ReservationAvailability {
-  if (event.status === "draft" || event.status === "archived") {
-    return { state: "hidden" };
-  }
-  if (event.status === "closed") {
-    return { state: "closed" };
-  }
-
   const opensAt = event.reservationsOpenAt
     ? new Date(event.reservationsOpenAt)
     : null;
@@ -61,10 +22,13 @@ export function getReservationAvailability(
     ? new Date(event.reservationsCloseAt)
     : null;
 
-  if (opensAt && now < opensAt) {
+  if (!opensAt || Number.isNaN(opensAt.getTime())) {
+    return { state: "closed" };
+  }
+  if (now < opensAt) {
     return { state: "scheduled", boundary: opensAt };
   }
-  if (closesAt && now >= closesAt) {
+  if (closesAt && !Number.isNaN(closesAt.getTime()) && now >= closesAt) {
     return { state: "closed" };
   }
   return { state: "open" };

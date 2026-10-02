@@ -2,7 +2,6 @@ import {
   BarChart3Icon,
   CalendarCheck2Icon,
   CalendarPlusIcon,
-  CalendarRangeIcon,
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
@@ -105,13 +104,6 @@ export const ADMIN_AREAS: AdminArea[] = [
         icon: CalendarPlusIcon,
       },
       {
-        href: "/admin/reservations",
-        title: "Table reservations",
-        description:
-          "Create judging events, manage tables, and coordinate assignments.",
-        icon: CalendarRangeIcon,
-      },
-      {
         // The one link here that isn't under /admin — volunteers use it too,
         // so it can't live behind the organizer gate.
         href: "/checkin",
@@ -122,14 +114,16 @@ export const ADMIN_AREAS: AdminArea[] = [
     ],
   },
   {
-    title: "Hacker Teams",
-    description: "See the teams hackers have formed and who's on them.",
+    title: "Teams and reservations",
+    description:
+      "See the teams hackers have formed, and manage the tables they reserve.",
     icon: Users2Icon,
     links: [
       {
         href: "/admin/teams",
-        title: "All teams",
-        description: "Browse every team, its members, and pending invites.",
+        title: "Teams and reservations",
+        description:
+          "See every team, turn formation on or off, and manage table reservations.",
         icon: Users2Icon,
       },
     ],

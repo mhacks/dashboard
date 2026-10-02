@@ -40,6 +40,7 @@ const ACTION_LABELS: Record<string, string> = {
   "table.created": "Table created",
   "table.deleted": "Table deleted",
   "table.renumbered": "Table renumbered",
+  "window.updated": "Reservation window updated",
 };
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -117,7 +118,7 @@ export function AuditList({
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {entry.actorEmail} · {entry.eventName}
+                      {entry.actorEmail}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Entity {entry.entityId ?? "snapshot only"}
