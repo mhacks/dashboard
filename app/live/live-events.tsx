@@ -19,6 +19,7 @@ import {
   CalendarDays,
   ChevronRight,
   ExternalLink,
+  Flower,
   House,
   MapPin,
   Megaphone,
@@ -45,6 +46,7 @@ import {
   LIQUID_GLASS_PANEL_CLASS,
   LIQUID_GLASS_PILL_CLASS,
 } from "@/lib/glass";
+import type { SharedBouquet } from "@/lib/bouquet/share";
 import { useScrollDirection } from "@/lib/landing/useScrollDirection";
 import type {
   GuideLink,
@@ -55,9 +57,13 @@ import type {
 } from "@/lib/live/types";
 import { WALLET_EVENT } from "@/lib/wallet/event";
 import { cn } from "@/lib/utils";
+import { BouquetCarousel } from "./bouquet-carousel";
+
+const BOUQUET_BUILDER_URL = "/dashboard/bouquet";
 
 type LiveEventsProps = {
   announcements: readonly LiveAnnouncement[];
+  bouquets: readonly SharedBouquet[];
   events: readonly LiveEvent[];
   guideLinks: readonly GuideLink[];
   prizes: readonly Prize[];
@@ -1178,6 +1184,7 @@ function EventDetailsDrawer({
 
 export function LiveEvents({
   announcements,
+  bouquets,
   events,
   guideLinks,
   prizes,
@@ -1190,6 +1197,14 @@ export function LiveEvents({
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDrawerOpen, setEventDrawerOpen] = useState(false);
   const [tabsPassed, setTabsPassed] = useState(false);
+  // Flipped if the carousel couldn't draw a single bouquet, so the page
+  // falls back to the photo hero instead of an empty band.
+  const [bouquetsFailed, setBouquetsFailed] = useState(false);
+  const handleBouquetsUnavailable = useCallback(
+    () => setBouquetsFailed(true),
+    [],
+  );
+  const showBouquets = bouquets.length > 0 && !bouquetsFailed;
   const tabsAnchorRef = useRef<HTMLDivElement>(null);
   const scrollNavVisible = useScrollDirection({ threshold: 6, minScroll: 80 });
   const now = useCurrentTime(30_000);
@@ -1314,6 +1329,32 @@ export function LiveEvents({
     ? (eventsById.get(selectedEventId) ?? null)
     : null;
 
+  const heroAside = (
+    <div className="flex flex-col items-start gap-3 lg:items-end">
+      {scheduleRange ? (
+        <div
+          className={cn(
+            LIQUID_GLASS_PILL_CLASS,
+            "liquid-glass-surface-strong font-red-hat inline-flex w-fit items-center gap-2.5 rounded-md border-olive/15 bg-paper/90 px-4 py-2 text-base text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
+          )}
+        >
+          <CalendarDays className="size-4 opacity-70" />
+          {scheduleRange}
+        </div>
+      ) : null}
+      <NextEventCountdown events={events} />
+      {/* A plain <a>: the builder is behind sign-in, and the proxy's
+          redirect to /login?next= wants a full navigation anyway. */}
+      <a
+        href={BOUQUET_BUILDER_URL}
+        className="font-red-hat inline-flex w-fit items-center gap-2.5 rounded-md bg-olive px-4 py-2 text-base font-semibold text-cream shadow-[0_1px_0_rgba(255,255,255,0.30)_inset,0_6px_16px_-4px_rgba(31,42,22,0.50)] transition-transform duration-200 hover:-translate-y-0.5"
+      >
+        <Flower className="size-4" />
+        Add your own flower
+      </a>
+    </div>
+  );
+
   return (
     <main className="font-red-hat relative min-h-screen overflow-x-clip bg-paper text-ink">
       <FloatingLiveNav
@@ -1322,54 +1363,68 @@ export function LiveEvents({
         visible={showFloatingNav}
       />
 
-      <section className="relative overflow-hidden">
-        <Image
-          src="/hero_bg_w_overlay.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="scale-[1.025] object-cover object-[65%_center] brightness-[0.82] contrast-[1.15] saturate-[1.3] blur-[3px]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/25 to-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-paper" />
+      {showBouquets ? (
+        <>
+          <BouquetCarousel
+            bouquets={bouquets}
+            onUnavailable={handleBouquetsUnavailable}
+          />
+          <section className="relative">
+            <div className="relative mx-auto flex max-w-5xl flex-col gap-6 px-5 pt-8 pb-10 sm:px-8 sm:pt-10 sm:pb-12 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <h1 className="font-red-hat text-5xl font-black uppercase leading-[0.95] tracking-tight text-ink sm:text-7xl">
+                  {settings.heroTitle}
+                </h1>
+                <p className="font-red-hat mt-3 max-w-xl text-lg font-medium leading-7 text-ink/75 sm:text-xl">
+                  {settings.heroDescription}
+                </p>
+              </div>
+              {heroAside}
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="relative overflow-hidden">
+          <Image
+            src="/hero_bg_w_overlay.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="scale-[1.025] object-cover object-[65%_center] brightness-[0.82] contrast-[1.15] saturate-[1.3] blur-[3px]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/25 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-paper" />
 
-        <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-5 pt-12 pb-20 sm:px-8 sm:pt-20 sm:pb-28 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <span
-              className={cn(
-                LIQUID_GLASS_PILL_CLASS,
-                "liquid-glass-surface-strong font-red-hat inline-flex items-center rounded-full border-olive/15 bg-paper/90 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
-              )}
-            >
-              {settings.eventName}
-            </span>
-            <h1 className="font-red-hat mt-5 text-5xl font-black uppercase leading-[0.95] tracking-tight text-cream drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-7xl">
-              {settings.heroTitle}
-            </h1>
-            <p className="font-red-hat mt-3 max-w-xl text-lg font-medium leading-7 text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] sm:text-xl">
-              {settings.heroDescription}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-start gap-3 lg:items-end">
-            {scheduleRange ? (
-              <div
+          <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-5 pt-12 pb-20 sm:px-8 sm:pt-20 sm:pb-28 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <span
                 className={cn(
                   LIQUID_GLASS_PILL_CLASS,
-                  "liquid-glass-surface-strong font-red-hat inline-flex w-fit items-center gap-2.5 rounded-md border-olive/15 bg-paper/90 px-4 py-2 text-base text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
+                  "liquid-glass-surface-strong font-red-hat inline-flex items-center rounded-full border-olive/15 bg-paper/90 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-olive shadow-[0_10px_30px_-14px_rgba(31,42,22,0.45)]",
                 )}
               >
-                <CalendarDays className="size-4 opacity-70" />
-                {scheduleRange}
-              </div>
-            ) : null}
-            <NextEventCountdown events={events} />
-          </div>
-        </div>
-      </section>
+                {settings.eventName}
+              </span>
+              <h1 className="font-red-hat mt-5 text-5xl font-black uppercase leading-[0.95] tracking-tight text-cream drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-7xl">
+                {settings.heroTitle}
+              </h1>
+              <p className="font-red-hat mt-3 max-w-xl text-lg font-medium leading-7 text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] sm:text-xl">
+                {settings.heroDescription}
+              </p>
+            </div>
 
-      <section className="relative mx-auto -mt-10 max-w-5xl px-5 pb-20 sm:px-8">
+            {heroAside}
+          </div>
+        </section>
+      )}
+
+      <section
+        className={cn(
+          "relative mx-auto max-w-5xl px-5 pb-20 sm:px-8",
+          !showBouquets && "-mt-10",
+        )}
+      >
         <div className="space-y-6 sm:space-y-8">
           <QuickLinks devpostUrl={settings.devpostUrl} />
           <div ref={tabsAnchorRef}>

@@ -52,6 +52,18 @@ must be refreshed to see edits.
   specific reason to set them. Never edit Supabase's internal `auth` or `storage`
   tables to manage live-site content.
 
+### Hacker bouquets
+
+The hero's sticker strip shows up to 10 random rows from `live_bouquets`, picked
+again on every page load. Hackers add rows themselves with **share to live site**
+in the bouquet game (`/dashboard/bouquet`). Each user has one row, and sharing
+again replaces their arrangement. The "Made by" name comes from their
+application ("Rebecca S."). With no visible rows, the page shows the photo hero.
+
+- To pull a bouquet, set `hidden = true`. Re-sharing never clears `hidden`.
+- `arrangement` is validated against the flower catalog when the page reads it.
+  A row edited into an invalid shape is skipped rather than breaking the page.
+
 ## Smoke test
 
 Check signed-out access, day selection, search, event details, and links on both

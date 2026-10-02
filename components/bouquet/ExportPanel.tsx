@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { shareBouquet } from "@/lib/actions/bouquet.server.actions";
 import { STICKER_BORDERS, TICKET_URL } from "@/lib/bouquet/catalog";
 import type { PlacedStem } from "@/lib/bouquet/geometry";
+import { toSharedArrangement } from "@/lib/bouquet/share";
 import { canvasToBlob, renderSticker } from "@/lib/bouquet/sticker";
 import { sanitizeBouquetName, writeBouquetHandoff } from "@/lib/pass/handoff";
 import { BOUQUET_NAME_MAX } from "@/lib/pass/limits";
@@ -14,6 +16,8 @@ type Props = {
   order: string[];
   vaseId: string;
   borderColor: string;
+  /** Hides "share to live site" from anyone the action would refuse. */
+  canShare: boolean;
   onBorder: (hex: string) => void;
   onBack: () => void;
   onRestart: () => void;
@@ -25,6 +29,7 @@ export default function ExportPanel({
   order,
   vaseId,
   borderColor,
+  canShare,
   onBorder,
   onBack,
   onRestart,
@@ -41,6 +46,12 @@ export default function ExportPanel({
   // the arrangement or the name — after sending clears the confirmation
   // instead of it lying about a stale bouquet.
   const [sentKey, setSentKey] = useState<string | null>(null);
+  /* Same tagging for the live-site share, against `key` alone — the name
+     isn't shared, so renaming doesn't make a shared bouquet stale. */
+  const [share, setShare] = useState<{
+    key: string;
+    error: string | null;
+  } | null>(null);
 
   /*
     True only when this tab was opened, script-wise, from a pass tab that's
@@ -108,6 +119,7 @@ export default function ExportPanel({
   const cleanName = sanitizeBouquetName(name);
   const sendKey = `${cleanName}\u0000${key}`;
   const sent = sentKey === sendKey;
+  const shareResult = share?.key === key ? share : null;
 
   async function download() {
     setBusy(true);
@@ -139,6 +151,21 @@ export default function ExportPanel({
       const cv = await build(2); // supersampled, same as download
       writeBouquetHandoff(cv.toDataURL("image/png"), cleanName);
       setSentKey(sendKey);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function shareToLive() {
+    setBusy(true);
+    try {
+      const { error } = await shareBouquet(
+        toSharedArrangement(bouquet, order, vaseId, borderColor),
+      );
+      setShare({ key, error });
+    } catch {
+      // signed out mid-session, network gone, …
+      setShare({ key, error: "Couldn't share your bouquet. Try again." });
     } finally {
       setBusy(false);
     }
@@ -235,6 +262,49 @@ export default function ExportPanel({
           download
         </button>
       </div>
+
+      {canShare && (
+        <>
+          {/* Its own row: three pills abreast don't fit the panel on phones. */}
+          <div className="ep-actions">
+            <button
+              className="pill ghost"
+              onClick={shareToLive}
+              disabled={!bouquet.length || busy || shareResult?.error === null}
+            >
+              {shareResult?.error === null ? "shared!" : "share to live site"}
+            </button>
+          </div>
+
+          {/* Said before the click, not after: the live site is public, and the
+              tag carries part of the hacker's real name. */}
+          {!shareResult && (
+            <p className="ep-meta">
+              shows publicly on the live site as your first name + last initial
+            </p>
+          )}
+
+          {shareResult &&
+            (shareResult.error === null ? (
+              <p className="ep-sent">
+                It&rsquo;s on the{" "}
+                <a
+                  className="ep-link"
+                  href="/live"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  live site
+                </a>{" "}
+                now. Sharing again replaces it.
+              </p>
+            ) : (
+              <p className="ep-sent" role="alert">
+                {shareResult.error}
+              </p>
+            ))}
+        </>
+      )}
 
       {/* Only ever true right after `useOnPass` sends this exact bouquet —
           `sentKey` is cleared implicitly the moment `key` changes underneath
