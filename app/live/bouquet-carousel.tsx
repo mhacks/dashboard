@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
 
+import { getImage, loadAssets } from "@/lib/bouquet/images";
 import { toPlacedStems, type SharedBouquet } from "@/lib/bouquet/share";
 import { renderSticker } from "@/lib/bouquet/sticker";
 import "./bouquet-carousel.css";
 
 /* Ported from the mhacks-live-site prototype's buildCarousel(). The strip is
-   a flywheel: it drifts at rest, a mouse wheel spins it (scroll up → right),
-   hovering eases it to a stop, and the sticker under the pointer shows who
-   made it. Motion is driven from one rAF loop that writes styles directly, so
+   a flywheel: it drifts at rest, a sideways swipe (or shift+wheel) spins it,
+   hovering or the pause button eases it to a stop, and the sticker under the
+   pointer shows who made it. Plain vertical scrolling is left to the page —
+   the prototype spun on it, which trapped trackpad users in a hero half the
+   screen tall. Motion is driven from one rAF loop that writes styles directly, so
    none of it goes through React state. */
 
 const TILTS = [-4, 3, -2, 5, -5, 2];
@@ -39,12 +43,23 @@ type Rendered = { id: string; makerName: string; src: string };
 
 export function BouquetCarousel({
   bouquets,
+  onUnavailable,
 }: {
   bouquets: readonly SharedBouquet[];
+  /** Called once if not one bouquet could be drawn, so the page can fall back. */
+  onUnavailable: () => void;
 }) {
   const [rendered, setRendered] = useState<Rendered[] | null>(null);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(paused);
+  const onUnavailableRef = useRef(onUnavailable);
   const heroRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+    onUnavailableRef.current = onUnavailable;
+  });
 
   // Canvas rendering needs `document`, so it happens after mount. All at
   // once, so the strip fades in whole instead of reflowing per sticker.
@@ -54,6 +69,12 @@ export function BouquetCarousel({
       bouquets.map(async (b) => {
         try {
           const a = b.arrangement;
+          // loadAssets swallows a failed fetch, and renderSticker skips any
+          // art it doesn't have — so a missing image would otherwise come
+          // out as a blank or half-drawn sticker rather than an error.
+          await loadAssets();
+          const art = [a.vaseId, ...a.stems.map((s) => s.flowerId)];
+          if (!art.every((id) => getImage(id))) return null;
           const cv = await renderSticker(
             toPlacedStems(a),
             a.order,
@@ -72,7 +93,10 @@ export function BouquetCarousel({
         }
       }),
     ).then((out) => {
-      if (!cancelled) setRendered(out.filter((r) => r !== null));
+      if (cancelled) return;
+      const ok = out.filter((r) => r !== null);
+      setRendered(ok);
+      if (!ok.length) onUnavailableRef.current();
     });
     return () => {
       cancelled = true;
@@ -107,6 +131,7 @@ export function BouquetCarousel({
     let active: Element | null = null;
     let lastSway = "";
     let raf = 0;
+    let running = false;
 
     // Loop length = distance from the first sticker to its repeat (the track
     // box doesn't size to its percentage-height children, so its width can't
@@ -160,14 +185,23 @@ export function BouquetCarousel({
       src.start(now);
     };
 
-    // ---- wheel → push on the flywheel. Scroll up spins right, down spins left. ----
+    // ---- sideways swipe / shift+wheel → push on the flywheel ----
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return; // leave horizontal swipes alone
-      e.preventDefault();
-      const dy =
-        e.deltaY *
-        (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? hero.clientHeight : 1);
-      const push = -Math.sign(dy) * INPUT_GAIN * Math.abs(dy) ** INPUT_CURVE;
+      // Vertical scrolling belongs to the page. Some browsers already turn
+      // shift+wheel into deltaX; the rest report it on deltaY.
+      const raw =
+        Math.abs(e.deltaX) > Math.abs(e.deltaY)
+          ? e.deltaX
+          : e.shiftKey
+            ? e.deltaY
+            : 0;
+      if (!raw) return;
+      e.preventDefault(); // also stops a sideways swipe from navigating back
+      const d =
+        raw *
+        (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? hero.clientWidth : 1);
+      // swiping towards the left moves the strip left, like dragging it
+      const push = -Math.sign(d) * INPUT_GAIN * Math.abs(d) ** INPUT_CURVE;
       if (reduceMotion)
         x += push * 0.12; // no momentum: just nudge
       else pending += push;
@@ -223,8 +257,8 @@ export function BouquetCarousel({
       }
       if (!boost && !pending) detentTravel = 0;
 
-      driftScale +=
-        ((hovering || reduceMotion ? 0 : 1) - driftScale) * Math.min(1, dt * 4);
+      const still = hovering || reduceMotion || pausedRef.current;
+      driftScale += ((still ? 0 : 1) - driftScale) * Math.min(1, dt * 4);
       const drift = loopW ? -(loopW / DRIFT_SECONDS) * driftScale : 0;
       x += (drift + boost) * dt;
 
@@ -246,10 +280,28 @@ export function BouquetCarousel({
 
       raf = requestAnimationFrame(frame);
     };
-    raf = requestAnimationFrame(frame);
+
+    // Only animate while the strip is on screen: /live stays open on laptops
+    // and TVs all weekend, mostly scrolled down to the schedule.
+    const start = () => {
+      if (running) return;
+      running = true;
+      prev = performance.now();
+      raf = requestAnimationFrame(frame);
+    };
+    const halt = () => {
+      running = false;
+      cancelAnimationFrame(raf);
+    };
+    const visibility = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) start();
+      else halt();
+    });
+    visibility.observe(hero);
 
     return () => {
-      cancelAnimationFrame(raf);
+      halt();
+      visibility.disconnect();
       window.removeEventListener("resize", measure);
       for (const img of imgs) img.removeEventListener("load", measure);
       for (const t of unlockEvents) {
@@ -308,6 +360,26 @@ export function BouquetCarousel({
           );
         })}
       </div>
+      {/* Motion that runs on its own needs a way to stop it for people who
+          can't hover (keyboard, touch). Reduced-motion users never get the
+          drift, so they don't need the button. */}
+      {loop.length ? (
+        <button
+          type="button"
+          className="sticker-pause"
+          onClick={() => setPaused((p) => !p)}
+          aria-pressed={paused}
+          aria-label={
+            paused ? "Play bouquet carousel" : "Pause bouquet carousel"
+          }
+        >
+          {paused ? (
+            <Play className="size-3.5" aria-hidden />
+          ) : (
+            <Pause className="size-3.5" aria-hidden />
+          )}
+        </button>
+      ) : null}
     </section>
   );
 }

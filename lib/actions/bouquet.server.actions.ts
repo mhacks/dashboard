@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { shareBouquetForUser } from "@/lib/actions/bouquet.actions";
+import {
+  ShareBouquetError,
+  shareBouquetForUser,
+} from "@/lib/actions/bouquet.actions";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
 
@@ -24,6 +27,7 @@ export const shareBouquet = async (
   try {
     await shareBouquetForUser(userId, arrangement);
   } catch (error) {
+    if (error instanceof ShareBouquetError) return { error: error.message };
     console.error("Failed to share bouquet", error);
     return { error: "Couldn't share your bouquet. Try again in a moment." };
   }

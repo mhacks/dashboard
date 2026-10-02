@@ -1197,6 +1197,14 @@ export function LiveEvents({
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDrawerOpen, setEventDrawerOpen] = useState(false);
   const [tabsPassed, setTabsPassed] = useState(false);
+  // Flipped if the carousel couldn't draw a single bouquet, so the page
+  // falls back to the photo hero instead of an empty band.
+  const [bouquetsFailed, setBouquetsFailed] = useState(false);
+  const handleBouquetsUnavailable = useCallback(
+    () => setBouquetsFailed(true),
+    [],
+  );
+  const showBouquets = bouquets.length > 0 && !bouquetsFailed;
   const tabsAnchorRef = useRef<HTMLDivElement>(null);
   const scrollNavVisible = useScrollDirection({ threshold: 6, minScroll: 80 });
   const now = useCurrentTime(30_000);
@@ -1355,9 +1363,12 @@ export function LiveEvents({
         visible={showFloatingNav}
       />
 
-      {bouquets.length > 0 ? (
+      {showBouquets ? (
         <>
-          <BouquetCarousel bouquets={bouquets} />
+          <BouquetCarousel
+            bouquets={bouquets}
+            onUnavailable={handleBouquetsUnavailable}
+          />
           <section className="relative">
             <div className="relative mx-auto flex max-w-5xl flex-col gap-6 px-5 pt-8 pb-10 sm:px-8 sm:pt-10 sm:pb-12 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
@@ -1411,7 +1422,7 @@ export function LiveEvents({
       <section
         className={cn(
           "relative mx-auto max-w-5xl px-5 pb-20 sm:px-8",
-          bouquets.length === 0 && "-mt-10",
+          !showBouquets && "-mt-10",
         )}
       >
         <div className="space-y-6 sm:space-y-8">

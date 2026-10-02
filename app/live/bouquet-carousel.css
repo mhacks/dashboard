@@ -133,3 +133,37 @@
   line-height: 1.1;
   color: #1d2412;
 }
+
+.sticker-pause {
+  position: absolute;
+  right: max(1rem, 7%); /* clear of the mask's fade */
+  bottom: 0.75rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(68, 87, 33, 0.2);
+  background: rgba(251, 250, 244, 0.85);
+  color: #445721;
+  box-shadow: 0 4px 12px -4px rgba(31, 42, 22, 0.35);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.sticker-pause:hover {
+  background: #fbfaf4;
+}
+
+.sticker-pause:focus-visible {
+  outline: 2px solid #445721;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticker-pause {
+    display: none;
+  }
+}

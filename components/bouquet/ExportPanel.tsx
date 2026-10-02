@@ -271,6 +271,14 @@ export default function ExportPanel({
         </button>
       </div>
 
+      {/* Said before the click, not after: the live site is public, and the
+          tag carries part of the hacker's real name. */}
+      {!shareResult && (
+        <p className="ep-meta">
+          shows publicly on the live site as your first name + last initial
+        </p>
+      )}
+
       {shareResult &&
         (shareResult.error === null ? (
           <p className="ep-sent">
