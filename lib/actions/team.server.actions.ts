@@ -15,7 +15,7 @@ import {
   getSentInvitations as getSentInvitationsForUser,
 } from "@/lib/actions/team.actions";
 import { sendTeamInviteEmail } from "@/lib/email/send-invite-email";
-import { TEAM_PAGE_ENABLED } from "@/lib/features";
+import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import type { TeamRow } from "@/lib/db/schema/teams";
 import type {
   MemberTeam,
@@ -29,14 +29,14 @@ function toActionError(error: unknown, fallback: string): Error {
   return new Error(error instanceof Error ? error.message : fallback);
 }
 
-function assertTeamPageEnabled(): void {
-  if (!TEAM_PAGE_ENABLED) {
+async function assertTeamPageEnabled(): Promise<void> {
+  if (!(await isTeamFormationEnabled())) {
     throw new Error("Team formation is not available right now.");
   }
 }
 
 export const createTeam = async (name: string): Promise<TeamRow> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     const team = await createTeamForUser(userId, name);
@@ -50,7 +50,7 @@ export const createTeam = async (name: string): Promise<TeamRow> => {
 export const inviteToTeam = async (
   email: string,
 ): Promise<{ id: string; warning?: string }> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   let result;
   try {
@@ -75,7 +75,7 @@ export const inviteToTeam = async (
 };
 
 export const acceptInvitation = async (invitationId: string): Promise<void> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await acceptInvitationForUser(userId, invitationId);
@@ -88,7 +88,7 @@ export const acceptInvitation = async (invitationId: string): Promise<void> => {
 export const declineInvitation = async (
   invitationId: string,
 ): Promise<void> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await declineInvitationForUser(userId, invitationId);
@@ -99,7 +99,7 @@ export const declineInvitation = async (
 };
 
 export const cancelInvitation = async (invitationId: string): Promise<void> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await cancelInvitationForUser(userId, invitationId);
@@ -110,7 +110,7 @@ export const cancelInvitation = async (invitationId: string): Promise<void> => {
 };
 
 export const renameTeam = async (name: string): Promise<MemberTeam> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     const team = await renameTeamForUser(userId, name);
@@ -123,7 +123,7 @@ export const renameTeam = async (name: string): Promise<MemberTeam> => {
 };
 
 export const leaveTeam = async (): Promise<void> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   try {
     await leaveTeamForUser(userId);
@@ -134,7 +134,7 @@ export const leaveTeam = async (): Promise<void> => {
 };
 
 export const getMyTeam = async (): Promise<TeamWithMembers | null> => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   return getMyTeamForUser(userId);
 };
@@ -142,7 +142,7 @@ export const getMyTeam = async (): Promise<TeamWithMembers | null> => {
 export const getMyPendingInvitations = async (): Promise<
   PendingInvitationSummary[]
 > => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   return getMyPendingInvitationsForUser(userId);
 };
@@ -150,7 +150,7 @@ export const getMyPendingInvitations = async (): Promise<
 export const getSentInvitations = async (): Promise<
   SentInvitationSummary[]
 > => {
-  assertTeamPageEnabled();
+  await assertTeamPageEnabled();
   const { id: userId } = await requireSessionUser();
   return getSentInvitationsForUser(userId);
 };

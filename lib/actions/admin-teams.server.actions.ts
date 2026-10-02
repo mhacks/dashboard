@@ -6,7 +6,8 @@ import { z } from "zod";
 
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { teams } from "@/lib/db/schema/teams";
+import { teamSettings, teams } from "@/lib/db/schema/teams";
+import { TEAM_SETTINGS_ID } from "@/lib/queries/team-settings";
 import { teamRenameReasonSchema } from "@/lib/types/teams";
 
 // The identity performing the request is resolved here, not accepted as a
@@ -41,4 +42,32 @@ export async function requestTeamRename(
   }
 
   revalidatePath("/admin/teams");
+}
+
+export async function setTeamFormationEnabled(enabled: boolean): Promise<void> {
+  const organizer = await requireOrganizer();
+  const formationEnabled = z.boolean().parse(enabled);
+  const now = new Date().toISOString();
+
+  await db
+    .insert(teamSettings)
+    .values({
+      id: TEAM_SETTINGS_ID,
+      formationEnabled,
+      updatedByUserId: organizer.id,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: teamSettings.id,
+      set: {
+        formationEnabled,
+        updatedByUserId: organizer.id,
+        updatedAt: now,
+      },
+    });
+
+  revalidatePath("/admin/teams");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/team");
+  revalidatePath("/dashboard/decision");
 }
