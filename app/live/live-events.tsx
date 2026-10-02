@@ -222,7 +222,7 @@ function AsiOneLink({
   newTab = false,
 }: {
   href: string;
-  className: string;
+  className?: string;
   newTab?: boolean;
 }) {
   return (
@@ -239,6 +239,19 @@ function AsiOneLink({
   );
 }
 
+function AsiOneQuickLink() {
+  return (
+    <>
+      <AsiOneLink href={ASI_ONE_MOBILE_URL} className="md:hidden" />
+      <AsiOneLink
+        href={ASI_ONE_WEB_URL}
+        className="hidden md:inline-flex"
+        newTab
+      />
+    </>
+  );
+}
+
 function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
   return (
     <nav aria-label="Quick links" className="flex flex-wrap gap-2">
@@ -247,14 +260,7 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
         <span>MHacks home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </Link>
-      {/* Phones and tablets open the app in this tab so the OS can hand the
-          tap to ASI:One. A fine pointer uses the web app. */}
-      <AsiOneLink href={ASI_ONE_MOBILE_URL} className="pointer-fine:hidden" />
-      <AsiOneLink
-        href={ASI_ONE_WEB_URL}
-        className="hidden pointer-fine:inline-flex"
-        newTab
-      />
+      <AsiOneQuickLink />
       {devpostUrl ? (
         <a
           href={devpostUrl}
