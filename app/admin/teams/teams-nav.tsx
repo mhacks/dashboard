@@ -5,14 +5,18 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 const LINKS = [
-  { href: "/admin/teams", label: "Teams" },
-  { href: "/admin/teams/reservations", label: "Reservations" },
-  { href: "/admin/teams/reservations/tables", label: "Tables" },
-  { href: "/admin/teams/reservations/assignments", label: "Assignments" },
-  { href: "/admin/teams/reservations/audit", label: "Audit" },
+  { href: "/admin/teams", label: "Teams", exact: true },
+  { href: "/admin/teams/reservations", label: "Reservations", exact: true },
+  { href: "/admin/teams/reservations/tables", label: "Tables", exact: false },
+  {
+    href: "/admin/teams/reservations/assignments",
+    label: "Assignments",
+    exact: false,
+  },
+  { href: "/admin/teams/reservations/audit", label: "Audit", exact: false },
 ];
 
-export function ReservationNav() {
+export function TeamsNav() {
   const pathname = usePathname();
 
   return (
@@ -21,11 +25,9 @@ export function ReservationNav() {
       className="mt-3 flex flex-wrap items-center gap-1"
     >
       {LINKS.map((link) => {
-        const active =
-          link.href === "/admin/teams" ||
-          link.href === "/admin/teams/reservations"
-            ? pathname === link.href
-            : pathname === link.href || pathname.startsWith(`${link.href}/`);
+        const active = link.exact
+          ? pathname === link.href
+          : pathname === link.href || pathname.startsWith(`${link.href}/`);
 
         return (
           <Button

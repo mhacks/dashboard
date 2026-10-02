@@ -53,6 +53,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+const ASSIGNMENTS_HREF = "/admin/teams/reservations/assignments";
+
 export type TableManagementProps = {
   tables: TableWithTeam[];
 };
@@ -368,9 +370,7 @@ function TableCard({
 
         {assigned ? (
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin/teams/reservations/assignments">
-              Manage assignments
-            </Link>
+            <Link href={ASSIGNMENTS_HREF}>Manage assignments</Link>
           </Button>
         ) : (
           <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
@@ -716,9 +716,7 @@ function TableCountManagement({
           </AlertDialogHeader>
           {reductionBlockers.length > 0 ? (
             <Button asChild variant="outline" size="sm">
-              <Link href="/admin/teams/reservations/assignments">
-                Manage assignments
-              </Link>
+              <Link href={ASSIGNMENTS_HREF}>Manage assignments</Link>
             </Button>
           ) : null}
           <AlertDialogFooter>

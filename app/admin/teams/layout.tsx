@@ -4,13 +4,9 @@ import { EyeIcon } from "lucide-react";
 import { AdminPageHeader } from "@/app/admin/components/admin-page-header";
 import { AdminPageShell } from "@/app/admin/components/admin-page-shell";
 import { Button } from "@/components/ui/button";
-import { ReservationNav } from "./reservation-nav";
+import { TeamsNav } from "./teams-nav";
 
-export default function ReservationsLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function TeamsLayout({ children }: { children: ReactNode }) {
   return (
     <AdminPageShell>
       <AdminPageHeader
@@ -25,7 +21,7 @@ export default function ReservationsLayout({
             </Link>
           </Button>
         }
-        footer={<ReservationNav />}
+        footer={<TeamsNav />}
       />
       {children}
     </AdminPageShell>

@@ -14,13 +14,14 @@ export default async function ReservationAuditPage({
 }: {
   searchParams: Promise<AuditRouteSearchParams>;
 }) {
+  const auditBasePath = "/admin/teams/reservations/audit";
   const resolvedSearchParams = await searchParams;
   const requestedPage = parseRequestedAuditPage(resolvedSearchParams.page);
   const auditPage = await getReservationAuditPage({
     pageIndex: requestedPage.pageNumber - 1,
   });
   const canonicalHref = getCanonicalAuditPageHref(
-    "/admin/teams/reservations/audit",
+    auditBasePath,
     resolvedSearchParams,
     requestedPage,
     auditPage.totalItems,
@@ -28,7 +29,5 @@ export default async function ReservationAuditPage({
   );
   if (canonicalHref) redirect(canonicalHref);
 
-  return (
-    <AuditList {...auditPage} basePath="/admin/teams/reservations/audit" />
-  );
+  return <AuditList {...auditPage} basePath={auditBasePath} />;
 }
