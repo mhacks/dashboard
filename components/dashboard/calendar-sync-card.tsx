@@ -13,9 +13,9 @@ function describe(changes: Record<string, number>) {
   const labels: [string, string][] = [
     ["insert", "new"],
     ["update", "updated"],
-    ["archive", "archived"],
+    ["restore", "restored"],
+    ["archive", "removed"],
     ["unchanged", "unchanged"],
-    ["missing (kept)", "missing from calendar (kept)"],
   ];
   const parts = labels
     .filter(([key]) => changes[key])
@@ -25,7 +25,7 @@ function describe(changes: Record<string, number>) {
 
 /**
  * Organizer tool that pulls the MHacks Google Calendar into the /live
- * schedule — the same import as `pnpm live:sync --apply --publish`. Lives in
+ * schedule (see syncLiveCalendar for exactly what it changes). Lives in
  * the tool grid as a card like its neighbours, but it's an action, not a
  * link, so the bar shows its state instead of ↗.
  */
@@ -81,7 +81,7 @@ export function CalendarSyncCard() {
         >
           {result
             ? result.text
-            : "Pull the MHacks Google Calendar into the /live schedule. New events publish; nothing is deleted."}
+            : "Make the /live schedule match the MHacks Google Calendar: adds, updates and removes events."}
         </p>
       </div>
     </button>

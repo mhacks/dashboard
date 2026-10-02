@@ -79,13 +79,26 @@ IDs when titles or times change. The script uses the calendar UID in a stable
 The command is a one-time sync, not a background subscription.
 
 **From the dashboard:** organizers can click **Sync calendar** under Organizer
-tools on `/dashboard`. It runs the same import as
-`pnpm live:sync --apply --publish` against the app's own database. New events
-publish, cancellations archive, and events missing from the feed are kept. It
-reports what changed (for example "3 new · 1 updated · 52 unchanged"). Any
-refusal, such as a bad feed or a conflicting non-calendar event, rolls back
-the whole sync and shows the reason. Use the CLI below for a dry-run preview,
-`--archive-missing`, or an SQL export.
+tools on `/dashboard`. It makes `/live` match the calendar:
+
+- New calendar events are added and published, and edits overwrite.
+- Events deleted or cancelled in the calendar are archived, which hides them
+  from `/live`. Nothing is deleted, so check-ins and attendance remain.
+- Archived calendar events that reappear in the calendar are republished. To
+  keep an event off `/live`, remove it from the calendar. Archiving it in
+  Supabase only lasts until the next sync.
+- Events not created by the calendar, scanner settings and RSVP settings are
+  never touched.
+
+The card reports what changed, for example "3 new · 1 updated · 1 removed ·
+52 unchanged". The sync runs in one transaction. A bad feed or a conflicting
+non-calendar event makes the whole sync refuse, and so does a sync that would
+remove more than half of the calendar's events at once (more than 3), which
+usually means the feed came back incomplete. In each case it shows the reason
+and changes nothing. If a large removal is intended, use the CLI with
+`--archive-missing`, which has no such limit. The CLI's defaults are
+unchanged: preview first, keep missing events, and leave archived events
+archived.
 
 ```bash
 pnpm live:sync                       # Download and preview; never writes
