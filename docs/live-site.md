@@ -159,9 +159,12 @@ Actions secret (any random string, e.g. `openssl rand -hex 32`).
 
 Check runs with `select * from cron.job_run_details order by start_time desc
 limit 5;` and responses with `select status_code, content from
-net._http_response order by created desc limit 5;`. After the event, stop it
-with `select cron.unschedule('sync-live-calendar');`. The parser rejects
-events outside October 3–4, so the job will fail once the calendar moves on.
+net._http_response order by created desc limit 5;`. The job stops calling
+the function at 8 PM ET on October 4 and unschedules itself on its next run.
+To stop it sooner, run `select cron.unschedule('sync-live-calendar');`.
+Re-running CD won't bring it back, because migrations that already ran are
+skipped. To restart it, run the migration's `cron.schedule(...)` statement in
+the SQL Editor.
 
 ### Ownership and safety
 

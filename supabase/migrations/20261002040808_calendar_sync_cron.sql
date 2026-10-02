@@ -4,7 +4,9 @@
 -- a fresh project) the job runs but sends nothing:
 --   select vault.create_secret('https://<ref>.supabase.co', 'project_url');
 --   select vault.create_secret('<CALENDAR_SYNC_SECRET>', 'calendar_sync_secret');
--- Stop it with: select cron.unschedule('sync-live-calendar');
+-- The job unschedules itself after the event ends (8 PM ET, Oct 4); the
+-- parser rejects events outside Oct 3-4 anyway. Stop it early with:
+--   select cron.unschedule('sync-live-calendar');
 CREATE EXTENSION IF NOT EXISTS pg_cron;--> statement-breakpoint
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;--> statement-breakpoint
 SELECT cron.schedule(
@@ -18,5 +20,8 @@ SELECT cron.schedule(
   )
   FROM vault.decrypted_secrets url, vault.decrypted_secrets secret
   WHERE url.name = 'project_url' AND secret.name = 'calendar_sync_secret'
+    AND now() < '2026-10-04 20:00 America/Detroit'::timestamptz;
+  SELECT cron.unschedule('sync-live-calendar')
+  WHERE now() >= '2026-10-04 20:00 America/Detroit'::timestamptz;
   $job$
 );
