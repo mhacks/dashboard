@@ -216,12 +216,20 @@ function handbookEmbedUrl(pageUrl: string) {
   return pageUrl.replace(/\/[^/]*?([0-9a-f]{32})$/i, "/ebd/$1");
 }
 
-function AsiOneLink({ href, className }: { href: string; className: string }) {
+function AsiOneLink({
+  href,
+  className,
+  newTab = false,
+}: {
+  href: string;
+  className: string;
+  newTab?: boolean;
+}) {
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noreferrer"
+      target={newTab ? "_blank" : undefined}
+      rel={newTab ? "noreferrer" : undefined}
       className={cn(QUICK_LINK_CLASS, className)}
     >
       <ExternalLink className="size-4 text-olive" />
@@ -239,11 +247,13 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
         <span>MHacks home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </Link>
-      {/* Phones and tablets open the app. A fine pointer (mouse, trackpad) uses the web app. */}
+      {/* Phones and tablets open the app in this tab so the OS can hand the
+          tap to ASI:One. A fine pointer uses the web app. */}
       <AsiOneLink href={ASI_ONE_MOBILE_URL} className="pointer-fine:hidden" />
       <AsiOneLink
         href={ASI_ONE_WEB_URL}
         className="hidden pointer-fine:inline-flex"
+        newTab
       />
       {devpostUrl ? (
         <a
