@@ -11,11 +11,15 @@ import {
 } from "lucide-react";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+  // `forcedTheme` first: the app forces light, but `theme` still reports the
+  // stored preference ("system"). Passing that through made Sonner use its
+  // dark palette on a dark-mode OS — near-white descriptions on the light
+  // --popover background below.
+  const { forcedTheme, theme = "system" } = useTheme();
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={(forcedTheme ?? theme) as ToasterProps["theme"]}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
@@ -35,6 +39,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: "cn-toast",
+          // Tie the description to the same tokens as the background, like the
+          // title already is, so the two can't drift apart again.
+          description: "!text-muted-foreground",
         },
       }}
       {...props}
