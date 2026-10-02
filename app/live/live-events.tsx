@@ -233,7 +233,7 @@ function AsiOneLink({
       className={cn(QUICK_LINK_CLASS, className)}
     >
       <ExternalLink className="size-4 text-olive" />
-      <span>ASI:One</span>
+      <span>AI Concierge - ASI:One</span>
       <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
     </a>
   );
@@ -257,7 +257,7 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
     <nav aria-label="Quick links" className="flex flex-wrap gap-2">
       <Link href="/" className={QUICK_LINK_CLASS}>
         <House className="size-4 text-olive" />
-        <span>MHacks home</span>
+        <span>Home</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </Link>
       <AsiOneQuickLink />
