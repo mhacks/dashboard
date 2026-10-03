@@ -48,6 +48,7 @@
     "input-otp": "^1.4.2",
     "jotai": "^2.20.2",
     "jsqr": "^1.4.0",
+    "leaflet": "^1.9.4",
     "lenis": "^1.3.25",
     "liquid-glass-react": "^1.1.1",
     "lucide-react": "^0.577.0",
@@ -78,6 +79,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.2.17",

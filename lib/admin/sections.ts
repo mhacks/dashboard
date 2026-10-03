@@ -6,6 +6,7 @@ import {
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
+  MapPinIcon,
   MegaphoneIcon,
   QrCodeIcon,
   TrophyIcon,
@@ -111,6 +112,13 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Scanner",
         description: "Scan attendee codes for whichever event is running.",
         icon: QrCodeIcon,
+      },
+      {
+        // Not under /admin: checked-in hackers use the same page.
+        href: "/find-my-organizer",
+        title: "Find my organizer",
+        description: "Share your location and see where other organizers are.",
+        icon: MapPinIcon,
       },
     ],
   },

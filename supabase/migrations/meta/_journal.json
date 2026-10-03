@@ -365,6 +365,13 @@
       "when": 1791054487845,
       "tag": "20261003190807_judge_map_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1791062026011,
+      "tag": "20261003211346_organizer_locations",
+      "breakpoints": true
     }
   ]
 }

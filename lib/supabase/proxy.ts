@@ -51,7 +51,10 @@ function isPublicPath(pathname: string) {
     // Only the claim endpoint. /discord_auth itself stays private on purpose:
     // the redirect below is exactly how a member gets sent to log in and then
     // returned to the page with the token intact.
-    isPathOrChild(pathname, "/discord_auth/claim")
+    isPathOrChild(pathname, "/discord_auth/claim") ||
+    // The OwnTracks app on an organizer's phone has no session; the route
+    // checks the organizer's own Basic-auth password instead.
+    pathname === "/api/owntracks"
   );
 }
 
