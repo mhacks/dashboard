@@ -34,7 +34,7 @@ const OVERFLOW_COLOR = "#8a8a84";
 
 /**
  * Slots go by a stable ID, not list position, so someone keeps their color
- * when others start or stop sharing between refreshes.
+ * when others appear or drop off between refreshes.
  */
 export function personColors(ids: string[]) {
   const colors = new Map<string, string>();

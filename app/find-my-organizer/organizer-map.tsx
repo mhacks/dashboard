@@ -11,7 +11,7 @@ import type { MappedPerson } from "@/lib/queries/organizer-locations";
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-// North Campus, where the event is, until someone is sharing.
+// North Campus, where the event is, until a phone reports in.
 const DEFAULT_VIEW: Leaflet.LatLngTuple = [42.2929, -83.7165];
 const CLOSE_ZOOM = 18;
 const SURFACE = "#ffffff";

@@ -1,5 +1,5 @@
 {
-  "id": "e3d654ea-b3bc-4a09-bdcc-30a05c981a12",
+  "id": "2c7a87d6-5973-4657-b710-319d8bd8771f",
   "prevId": "4ebf3291-875b-4109-8cb2-94315facb301",
   "version": "7",
   "dialect": "postgresql",
@@ -3738,83 +3738,13 @@
       },
       "isRLSEnabled": true
     },
-    "public.organizer_location_sharing": {
-      "name": "organizer_location_sharing",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "display_name": {
-          "name": "display_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "token_hash": {
-          "name": "token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "organizer_location_sharing_user_id_fkey": {
-          "name": "organizer_location_sharing_user_id_fkey",
-          "tableFrom": "organizer_location_sharing",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "organizer_location_sharing_token_hash_unique": {
-          "name": "organizer_location_sharing_token_hash_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
-        }
-      },
-      "policies": {
-        "organizer_location_sharing_organizer_select": {
-          "name": "organizer_location_sharing_organizer_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "(select public.is_organizer())"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
     "public.organizer_locations": {
       "name": "organizer_locations",
       "schema": "",
       "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
+        "name": {
+          "name": "name",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -3873,26 +3803,12 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "organizer_locations_user_id_fkey": {
-          "name": "organizer_locations_user_id_fkey",
-          "tableFrom": "organizer_locations",
-          "tableTo": "organizer_location_sharing",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {
         "organizer_locations_pkey": {
           "name": "organizer_locations_pkey",
           "columns": [
-            "user_id",
+            "name",
             "recorded_at"
           ]
         }

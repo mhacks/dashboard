@@ -1,13 +1,10 @@
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
+import { asc, desc, eq, gt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import {
-  organizerLocationSharing,
-  organizerLocations,
-} from "@/lib/db/schema/organizer-locations";
-import { users, type UserEntry } from "@/lib/db/schema/users";
+import { organizerLocations } from "@/lib/db/schema/organizer-locations";
+import type { UserEntry } from "@/lib/db/schema/users";
 import { hasCheckedIn } from "@/lib/decisions";
 import {
   PUBLIC_WINDOW_MINUTES,
@@ -15,7 +12,7 @@ import {
 } from "@/lib/organizer-locations/display";
 
 /**
- * - organizer: everyone sharing, with trails, battery, and stale positions.
+ * - organizer: everyone on the map, with trails, battery, and stale positions.
  * - attendee: volunteers, judges, and checked-in hackers. Recent positions
  *   only, no trail or battery — enough to walk over to someone.
  * - none: everyone else, including hackers who haven't checked in. The page
@@ -47,7 +44,7 @@ export type TrailPoint = {
 };
 
 export type MappedPerson = {
-  /** Opaque and stable; never the user ID, which attendees have no use for. */
+  /** Stable across refreshes, so a person keeps their color. */
   id: string;
   name: string;
   latitude: number;
@@ -66,50 +63,29 @@ export type OrganizerMapSnapshot = {
   readAt: string;
 };
 
-function opaqueId(userId: string) {
-  return createHash("sha256").update(userId).digest("hex").slice(0, 12);
+function opaqueId(name: string) {
+  return createHash("sha256").update(name).digest("hex").slice(0, 12);
 }
 
-/** Each sharing organizer's newest fix, optionally only recent ones. */
-async function latestFixes(withinMinutes: number | null) {
-  return (
-    db
-      .selectDistinctOn([organizerLocations.userId], {
-        userId: organizerLocations.userId,
-        name: organizerLocationSharing.displayName,
-        latitude: organizerLocations.latitude,
-        longitude: organizerLocations.longitude,
-        accuracy: organizerLocations.accuracy,
-        battery: organizerLocations.battery,
-        recordedAt: organizerLocations.recordedAt,
-      })
-      .from(organizerLocations)
-      .innerJoin(
-        organizerLocationSharing,
-        eq(organizerLocationSharing.userId, organizerLocations.userId),
-      )
-      // Someone who stops being an organizer drops off without having to stop
-      // sharing first.
-      .innerJoin(
-        users,
-        and(
-          eq(users.id, organizerLocations.userId),
-          eq(users.role, "organizer"),
-        ),
-      )
-      .where(
-        withinMinutes === null
-          ? undefined
-          : gt(
-              organizerLocations.recordedAt,
-              sql`now() - make_interval(mins => ${withinMinutes})`,
-            ),
-      )
-      .orderBy(
-        asc(organizerLocations.userId),
-        desc(organizerLocations.recordedAt),
-      )
-  );
+/** Each person's newest fix within the window. */
+async function latestFixes(withinMinutes: number) {
+  return db
+    .selectDistinctOn([organizerLocations.name], {
+      name: organizerLocations.name,
+      latitude: organizerLocations.latitude,
+      longitude: organizerLocations.longitude,
+      accuracy: organizerLocations.accuracy,
+      battery: organizerLocations.battery,
+      recordedAt: organizerLocations.recordedAt,
+    })
+    .from(organizerLocations)
+    .where(
+      gt(
+        organizerLocations.recordedAt,
+        sql`now() - make_interval(mins => ${withinMinutes})`,
+      ),
+    )
+    .orderBy(asc(organizerLocations.name), desc(organizerLocations.recordedAt));
 }
 
 async function serverNow() {
@@ -124,10 +100,11 @@ const byName = (a: MappedPerson, b: MappedPerson) =>
 
 async function readOrganizerView(): Promise<OrganizerMapSnapshot> {
   const [latest, trail, readAt] = await Promise.all([
-    latestFixes(null),
+    // The same window as the trail: the ingest route deletes anything older.
+    latestFixes(TRAIL_HOURS * 60),
     db
       .select({
-        userId: organizerLocations.userId,
+        name: organizerLocations.name,
         latitude: organizerLocations.latitude,
         longitude: organizerLocations.longitude,
         recordedAt: organizerLocations.recordedAt,
@@ -140,23 +117,23 @@ async function readOrganizerView(): Promise<OrganizerMapSnapshot> {
         ),
       )
       .orderBy(
-        asc(organizerLocations.userId),
+        asc(organizerLocations.name),
         asc(organizerLocations.recordedAt),
       ),
     serverNow(),
   ]);
 
   const trails = new Map<string, TrailPoint[]>();
-  for (const { userId, ...point } of trail) {
-    const points = trails.get(userId) ?? [];
+  for (const { name, ...point } of trail) {
+    const points = trails.get(name) ?? [];
     points.push(point);
-    trails.set(userId, points);
+    trails.set(name, points);
   }
 
-  const people = latest.map(({ userId, ...fix }) => ({
+  const people = latest.map((fix) => ({
     ...fix,
-    id: opaqueId(userId),
-    trail: trails.get(userId) ?? [],
+    id: opaqueId(fix.name),
+    trail: trails.get(fix.name) ?? [],
   }));
   return { people: people.sort(byName), readAt };
 }
@@ -167,7 +144,7 @@ async function readAttendeeView(): Promise<OrganizerMapSnapshot> {
     serverNow(),
   ]);
   const people = latest.map((fix) => ({
-    id: opaqueId(fix.userId),
+    id: opaqueId(fix.name),
     name: fix.name,
     latitude: fix.latitude,
     longitude: fix.longitude,
@@ -209,29 +186,4 @@ export function getOrganizerMap(
   access: Exclude<FindOrganizerAccess, "none">,
 ): Promise<OrganizerMapSnapshot> {
   return access === "organizer" ? readOrganizerView() : cachedAttendeeView();
-}
-
-export type MySharing = {
-  displayName: string;
-  createdAt: string;
-  lastFixAt: string | null;
-};
-
-export async function getMySharing(userId: string): Promise<MySharing | null> {
-  const [row] = await db
-    .select({
-      displayName: organizerLocationSharing.displayName,
-      createdAt: organizerLocationSharing.createdAt,
-      lastFixAt: sql<
-        string | null
-      >`(select max(${organizerLocations.recordedAt})::text from ${organizerLocations} where ${organizerLocations.userId} = ${organizerLocationSharing.userId})`,
-    })
-    .from(organizerLocationSharing)
-    .where(eq(organizerLocationSharing.userId, userId))
-    .limit(1);
-  if (!row) return null;
-  return {
-    ...row,
-    lastFixAt: row.lastFixAt ? new Date(row.lastFixAt).toISOString() : null,
-  };
 }

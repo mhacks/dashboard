@@ -1,15 +1,11 @@
-import { and, eq, lt, sql } from "drizzle-orm";
+import { lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import {
-  organizerLocationSharing,
-  organizerLocations,
-} from "@/lib/db/schema/organizer-locations";
-import { users } from "@/lib/db/schema/users";
+import { organizerLocations } from "@/lib/db/schema/organizer-locations";
 import { TRAIL_HOURS } from "@/lib/organizer-locations/display";
 import {
-  basicAuthPassword,
-  hashSharingToken,
+  basicAuthCredentials,
+  isOwntracksPassword,
   parseOwntracksLocation,
 } from "@/lib/organizer-locations/owntracks";
 
@@ -23,7 +19,7 @@ const MAX_BODY_BYTES = 16 * 1024;
   200 with a JSON array back; anything else and it keeps the message queued and
   retries. So every message we choose not to store (transitions, waypoints,
   malformed fixes) still gets `[]`, and only a bad password gets an error the
-  organizer will see in the app.
+  phone will show in the app.
 */
 function acknowledge() {
   return Response.json([]);
@@ -37,23 +33,13 @@ function unauthorized() {
 }
 
 export async function POST(request: Request) {
-  const password = basicAuthPassword(request.headers.get("authorization"));
-  if (!password) return unauthorized();
-
-  const [sharer] = await db
-    .select({ userId: organizerLocationSharing.userId })
-    .from(organizerLocationSharing)
-    // A demoted organizer's password stops working without them stopping.
-    .innerJoin(
-      users,
-      and(
-        eq(users.id, organizerLocationSharing.userId),
-        eq(users.role, "organizer"),
-      ),
-    )
-    .where(eq(organizerLocationSharing.tokenHash, hashSharingToken(password)))
-    .limit(1);
-  if (!sharer) return unauthorized();
+  const credentials = basicAuthCredentials(
+    request.headers.get("authorization"),
+  );
+  if (!credentials || !isOwntracksPassword(credentials.password)) {
+    return unauthorized();
+  }
+  const { name } = credentials;
 
   const body = await request.text();
   if (body.length > MAX_BODY_BYTES) return acknowledge();
@@ -70,27 +56,21 @@ export async function POST(request: Request) {
 
   await db.transaction(async (tx) => {
     // The app resends queued fixes after a dropped connection; the primary key
-    // on (user, recorded_at) makes a repeat a no-op.
+    // on (name, recorded_at) makes a repeat a no-op.
     await tx
       .insert(organizerLocations)
-      .values({ userId: sharer.userId, ...fix })
+      .values({ name, ...fix })
       .onConflictDoNothing();
 
-    // Trim to the trail window, but never delete someone's newest fix: a phone
-    // that has been off for hours should still show where it was last seen.
+    // Trim everyone, not just this phone, to the trail window: someone who
+    // turns the app off sends nothing more, so their fixes would otherwise
+    // never age out. Indexed on recorded_at, so this stays cheap.
     await tx
       .delete(organizerLocations)
       .where(
-        and(
-          eq(organizerLocations.userId, sharer.userId),
-          lt(
-            organizerLocations.recordedAt,
-            sql`now() - make_interval(hours => ${TRAIL_HOURS})`,
-          ),
-          lt(
-            organizerLocations.recordedAt,
-            sql`(select max(${organizerLocations.recordedAt}) from ${organizerLocations} where ${organizerLocations.userId} = ${sharer.userId})`,
-          ),
+        lt(
+          organizerLocations.recordedAt,
+          sql`now() - make_interval(hours => ${TRAIL_HOURS})`,
         ),
       );
   });

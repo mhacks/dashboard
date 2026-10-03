@@ -53,7 +53,7 @@ function isPublicPath(pathname: string) {
     // returned to the page with the token intact.
     isPathOrChild(pathname, "/discord_auth/claim") ||
     // The OwnTracks app on an organizer's phone has no session; the route
-    // checks the organizer's own Basic-auth password instead.
+    // checks the shared Basic-auth password instead.
     pathname === "/api/owntracks"
   );
 }

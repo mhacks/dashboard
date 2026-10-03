@@ -1,9 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 /*
-  The OwnTracks side of find my organizer: the per-organizer password, the
-  app's config link, and parsing what the app POSTs.
-  Field names follow https://owntracks.org/booklet/tech/json/.
+  The OwnTracks side of find my organizer: checking the shared password and
+  parsing what the app POSTs. Field names follow
+  https://owntracks.org/booklet/tech/json/.
 */
 
 /** Path the app POSTs to. Public in proxy.ts; the route checks the password. */
@@ -12,65 +12,38 @@ export const OWNTRACKS_PATH = "/api/owntracks";
 /** Fixes stamped this far in the future are a broken phone clock, not data. */
 const MAX_CLOCK_SKEW_MS = 5 * 60_000;
 const MAX_ACCURACY_M = 100_000;
+export const MAX_NAME_LENGTH = 40;
 
-export function newSharingToken() {
-  return randomBytes(32).toString("base64url");
-}
-
-export function hashSharingToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-/** The password from an `Authorization: Basic` header. OwnTracks' username is ignored. */
-export function basicAuthPassword(header: string | null): string | null {
+/**
+ * The username and password from an `Authorization: Basic` header. The
+ * username is the name shown on the map, so it is trimmed and its whitespace
+ * collapsed; null if either part is missing or the name is too long.
+ */
+export function basicAuthCredentials(
+  header: string | null,
+): { name: string; password: string } | null {
   const match = header?.match(/^Basic\s+(\S+)$/i);
   if (!match) return null;
   const decoded = Buffer.from(match[1], "base64").toString("utf8");
   const separator = decoded.indexOf(":");
   if (separator < 0) return null;
-  return decoded.slice(separator + 1) || null;
+  const name = decoded.slice(0, separator).trim().replace(/\s+/g, " ");
+  const password = decoded.slice(separator + 1);
+  if (!name || name.length > MAX_NAME_LENGTH || !password) return null;
+  return { name, password };
 }
 
-/** Two-letter tracker ID the app shows on its own map. */
-function trackerId(displayName: string) {
-  // Letters and digits only: "Alex (Logistics)" is AL, not A(.
-  const initials = displayName
-    .split(/\s+/)
-    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, "")[0])
-    .filter(Boolean)
-    .join("");
-  return (initials || "MH").slice(0, 2).toUpperCase();
-}
+const digest = (value: string) => createHash("sha256").update(value).digest();
 
 /**
- * A link that configures the iOS or Android app in one tap: HTTP mode
- * (mode 3), our endpoint, and this organizer's password. Significant-change
- * monitoring (1) is the battery-friendly default; organizers can switch to
- * Move in the app while on shift.
+ * Whether `password` is OWNTRACKS_PASSWORD. Unset means nobody can post, so a
+ * missing env var fails closed rather than opening the map to anyone.
  */
-export function owntracksConfigLink({
-  origin,
-  username,
-  token,
-  displayName,
-}: {
-  origin: string;
-  username: string;
-  token: string;
-  displayName: string;
-}) {
-  const config = {
-    _type: "configuration",
-    mode: 3,
-    url: `${origin}${OWNTRACKS_PATH}`,
-    auth: true,
-    username,
-    password: token,
-    tid: trackerId(displayName),
-    monitoring: 1,
-  };
-  const inline = Buffer.from(JSON.stringify(config)).toString("base64");
-  return `owntracks:///config?inline=${encodeURIComponent(inline)}`;
+export function isOwntracksPassword(password: string) {
+  const expected = process.env.OWNTRACKS_PASSWORD;
+  if (!expected) return false;
+  // Hashing first gives equal lengths, which timingSafeEqual requires.
+  return timingSafeEqual(digest(password), digest(expected));
 }
 
 export type OwntracksFix = {
