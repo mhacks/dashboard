@@ -6,16 +6,14 @@ import { judgingSettings } from "@/lib/db/schema/reservation";
 export const JUDGING_SETTINGS_ID = "default";
 
 /**
- * The single judging row: table-reservation window and project submission
- * deadline. A missing row means reservations are closed, matching an unset
- * open time. A missing deadline does not close submissions.
+ * The single table-reservation window. A missing row means reservations are
+ * closed, matching an unset open time.
  */
 export async function getJudgingSettings() {
   const [row] = await db
     .select({
       reservationsOpenAt: judgingSettings.reservationsOpenAt,
       reservationsCloseAt: judgingSettings.reservationsCloseAt,
-      submissionDeadline: judgingSettings.submissionDeadline,
       updatedAt: judgingSettings.updatedAt,
     })
     .from(judgingSettings)

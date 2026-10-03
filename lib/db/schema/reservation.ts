@@ -19,10 +19,9 @@ import { teams } from "./teams";
 import { users } from "./users";
 
 /**
- * One row, id `default`. Organizers set the table-reservation window and the
- * project submission deadline from /admin/teams/reservations. Hackers can
- * claim or move a table only inside the window. A Devpost link can be saved
- * only before the deadline, and only once the team has a table.
+ * One row, id `default`. Organizers set the table-reservation window from
+ * /admin/teams/reservations. Hackers can claim or move a table only inside
+ * the window. A missing row is closed.
  */
 export const judgingSettings = pgTable(
   "judging_settings",
@@ -33,10 +32,6 @@ export const judgingSettings = pgTable(
       mode: "string",
     }),
     reservationsCloseAt: timestamp("reservations_close_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
-    submissionDeadline: timestamp("submission_deadline", {
       withTimezone: true,
       mode: "string",
     }),

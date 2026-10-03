@@ -12,9 +12,14 @@ import {
 } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { judgingSettings, tables } from "@/lib/db/schema/reservation";
-import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
-import { isBeforeSubmissionDeadline } from "@/lib/reservation/domain";
+import { tables } from "@/lib/db/schema/reservation";
+import {
+  submissionSettings,
+  teamRegistrationSettings,
+} from "@/lib/db/schema/teams";
+import { SUBMISSION_SETTINGS_ID } from "@/lib/queries/submission-settings";
+import { TEAM_REGISTRATION_SETTINGS_ID } from "@/lib/queries/team-registration-settings";
+import { getWindowAvailability } from "@/lib/reservation/domain";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
@@ -36,8 +41,13 @@ const ALREADY_ON_A_TEAM = "You're already on a team — leave it first.";
 const CHECKED_IN_REQUIRED = "Check in at MHacks before managing a team.";
 const PENDING_INVITE_EXISTS =
   "They already have a pending invitation from your team.";
+const REGISTRATION_NOT_OPEN = "Team registration has not opened yet.";
+const REGISTRATION_CLOSED = "Team registration is closed.";
+const SUBMISSION_NOT_OPEN = "Project submissions have not opened yet.";
+const SUBMISSION_CLOSED = "Project submissions are closed.";
 
 type TeamQueryClient = Pick<typeof db, "select">;
+type TeamTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function isUniqueViolation(err: unknown): boolean {
   return (
@@ -60,10 +70,7 @@ function assertCheckedInHacker(
   }
 }
 
-async function loadCheckedInHacker(
-  client: TeamQueryClient,
-  userId: string,
-): Promise<void> {
+async function loadHackerAccess(client: TeamQueryClient, userId: string) {
   const [row] = await client
     .select({
       role: users.role,
@@ -74,7 +81,77 @@ async function loadCheckedInHacker(
     .where(eq(users.id, userId))
     .limit(1);
 
+  return row ?? null;
+}
+
+async function loadCheckedInHacker(
+  client: TeamQueryClient,
+  userId: string,
+): Promise<void> {
+  const row = await loadHackerAccess(client, userId);
   assertCheckedInHacker(row?.role, row?.decision);
+}
+
+async function hackerIsCheckedIn(
+  client: TeamQueryClient,
+  userId: string,
+): Promise<boolean> {
+  const row = await loadHackerAccess(client, userId);
+  return Boolean(
+    row?.role === "hacker" && row.decision && hasCheckedIn(row.decision),
+  );
+}
+
+function windowClosedError(
+  state: "scheduled" | "open" | "closed",
+  scheduled: string,
+  closed: string,
+): string {
+  return state === "scheduled" ? scheduled : closed;
+}
+
+async function assertRegistrationWindowOpen(
+  tx: TeamTransaction,
+): Promise<void> {
+  const [settings] = await tx
+    .select({
+      opensAt: teamRegistrationSettings.opensAt,
+      closesAt: teamRegistrationSettings.closesAt,
+    })
+    .from(teamRegistrationSettings)
+    .where(eq(teamRegistrationSettings.id, TEAM_REGISTRATION_SETTINGS_ID))
+    .for("share")
+    .limit(1);
+  const state = getWindowAvailability({
+    opensAt: settings?.opensAt,
+    closesAt: settings?.closesAt,
+  }).state;
+  if (state !== "open") {
+    throw new Error(
+      windowClosedError(state, REGISTRATION_NOT_OPEN, REGISTRATION_CLOSED),
+    );
+  }
+}
+
+async function assertSubmissionWindowOpen(tx: TeamTransaction): Promise<void> {
+  const [settings] = await tx
+    .select({
+      opensAt: submissionSettings.opensAt,
+      closesAt: submissionSettings.closesAt,
+    })
+    .from(submissionSettings)
+    .where(eq(submissionSettings.id, SUBMISSION_SETTINGS_ID))
+    .for("share")
+    .limit(1);
+  const state = getWindowAvailability({
+    opensAt: settings?.opensAt,
+    closesAt: settings?.closesAt,
+  }).state;
+  if (state !== "open") {
+    throw new Error(
+      windowClosedError(state, SUBMISSION_NOT_OPEN, SUBMISSION_CLOSED),
+    );
+  }
 }
 
 function displayName(
@@ -94,6 +171,7 @@ export async function createTeamForUser(
   const parsedName = teamNameSchema.parse(name);
 
   return db.transaction(async (tx) => {
+    await assertRegistrationWindowOpen(tx);
     await loadCheckedInHacker(tx, userId);
 
     const [existingMembership] = await tx
@@ -139,6 +217,7 @@ export async function renameTeam(
   const parsedName = teamNameSchema.parse(name);
 
   return db.transaction(async (tx) => {
+    await assertRegistrationWindowOpen(tx);
     await loadCheckedInHacker(tx, userId);
 
     const [membership] = await tx
@@ -207,6 +286,8 @@ export async function inviteToTeam(
   const normalizedEmail = inviteEmailSchema.parse(email);
 
   return db.transaction(async (tx) => {
+    await assertRegistrationWindowOpen(tx);
+
     const [membership] = await tx
       .select({ teamId: teamMembers.teamId })
       .from(teamMembers)
@@ -346,6 +427,8 @@ export async function acceptInvitation(
   invitationId: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    await assertRegistrationWindowOpen(tx);
+
     const [invitation] = await tx
       .select()
       .from(teamInvitations)
@@ -430,62 +513,74 @@ export async function declineInvitation(
   userId: string,
   invitationId: string,
 ): Promise<void> {
-  await loadCheckedInHacker(db, userId);
+  await db.transaction(async (tx) => {
+    await assertRegistrationWindowOpen(tx);
+    await loadCheckedInHacker(tx, userId);
 
-  const now = new Date().toISOString();
-  const result = await db
-    .update(teamInvitations)
-    .set({ status: "declined", respondedAt: now })
-    .where(
-      and(
-        eq(teamInvitations.id, invitationId),
-        eq(teamInvitations.invitedUserId, userId),
-        eq(teamInvitations.status, "pending"),
-      ),
-    )
-    .returning({ id: teamInvitations.id });
+    const now = new Date().toISOString();
+    const result = await tx
+      .update(teamInvitations)
+      .set({ status: "declined", respondedAt: now })
+      .where(
+        and(
+          eq(teamInvitations.id, invitationId),
+          eq(teamInvitations.invitedUserId, userId),
+          eq(teamInvitations.status, "pending"),
+        ),
+      )
+      .returning({ id: teamInvitations.id });
 
-  if (result.length === 0) {
-    throw new Error("Invitation not found or already handled.");
-  }
+    if (result.length === 0) {
+      throw new Error("Invitation not found or already handled.");
+    }
+  });
 }
 
 export async function cancelInvitation(
   userId: string,
   invitationId: string,
 ): Promise<void> {
-  const [membership] = await db
-    .select({ teamId: teamMembers.teamId })
-    .from(teamMembers)
-    .where(eq(teamMembers.userId, userId))
-    .limit(1);
-  if (!membership) {
-    throw new Error("You're not on a team.");
-  }
-  await loadCheckedInHacker(db, userId);
+  await db.transaction(async (tx) => {
+    await assertRegistrationWindowOpen(tx);
+    await loadCheckedInHacker(tx, userId);
 
-  const now = new Date().toISOString();
-  const result = await db
-    .update(teamInvitations)
-    .set({ status: "cancelled", respondedAt: now })
-    .where(
-      and(
-        eq(teamInvitations.id, invitationId),
-        eq(teamInvitations.teamId, membership.teamId),
-        eq(teamInvitations.status, "pending"),
-      ),
-    )
-    .returning({ id: teamInvitations.id });
+    const [membership] = await tx
+      .select({ teamId: teamMembers.teamId })
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, userId))
+      .limit(1);
+    if (!membership) {
+      throw new Error("You're not on a team.");
+    }
 
-  if (result.length === 0) {
-    throw new Error("Invitation not found or already handled.");
-  }
+    const now = new Date().toISOString();
+    const result = await tx
+      .update(teamInvitations)
+      .set({ status: "cancelled", respondedAt: now })
+      .where(
+        and(
+          eq(teamInvitations.id, invitationId),
+          eq(teamInvitations.teamId, membership.teamId),
+          eq(teamInvitations.status, "pending"),
+        ),
+      )
+      .returning({ id: teamInvitations.id });
+
+    if (result.length === 0) {
+      throw new Error("Invitation not found or already handled.");
+    }
+  });
 }
 
 export async function leaveTeam(userId: string): Promise<void> {
   await db.transaction(async (tx) => {
     // Check-in is required to join or manage a team, not to leave one. A
-    // reverted door scan must not trap someone on a team.
+    // reverted door scan must not trap someone on a team, even after the
+    // registration window has locked.
+    if (await hackerIsCheckedIn(tx, userId)) {
+      await assertRegistrationWindowOpen(tx);
+    }
+
     const [membership] = await tx
       .select({ teamId: teamMembers.teamId })
       .from(teamMembers)
@@ -676,6 +771,7 @@ export async function saveTeamDevpostUrl(
   }
 
   return db.transaction(async (tx) => {
+    await assertSubmissionWindowOpen(tx);
     await loadCheckedInHacker(tx, userId);
 
     const [membership] = await tx
@@ -694,17 +790,6 @@ export async function saveTeamDevpostUrl(
       .limit(1);
     if (!reservedTable) {
       throw new Error("Reserve a table before submitting your Devpost link.");
-    }
-
-    const [settings] = await tx
-      .select({
-        submissionDeadline: judgingSettings.submissionDeadline,
-      })
-      .from(judgingSettings)
-      .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
-      .limit(1);
-    if (!isBeforeSubmissionDeadline(settings?.submissionDeadline)) {
-      throw new Error("Project submissions are closed.");
     }
 
     const now = new Date().toISOString();

@@ -7,6 +7,8 @@ import { selectTablesWithTeam } from "@/lib/db/queries/reservation";
 import { reservationAuditLog, tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
 import { getJudgingSettings } from "@/lib/queries/judging-settings";
+import { getSubmissionSettings } from "@/lib/queries/submission-settings";
+import { getTeamRegistrationSettings } from "@/lib/queries/team-registration-settings";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 const DEFAULT_AUDIT_PAGE_SIZE = 20;
@@ -22,10 +24,15 @@ const auditPageInputSchema = z.object({
     .default(DEFAULT_AUDIT_PAGE_SIZE),
 });
 
+export type AdminWindow = {
+  opensAt: string | null;
+  closesAt: string | null;
+};
+
 export type AdminReservationDetail = {
-  reservationsOpenAt: string | null;
-  reservationsCloseAt: string | null;
-  submissionDeadline: string | null;
+  registration: AdminWindow;
+  reservation: AdminWindow;
+  submission: AdminWindow;
   tableCount: number;
   assignedCount: number;
 };
@@ -61,19 +68,32 @@ export type ReservationAuditPage = {
 export const getAdminReservation = cache(
   async (): Promise<AdminReservationDetail> => {
     await requireOrganizer();
-    const [settings, [counts]] = await Promise.all([
-      getJudgingSettings(),
-      db
-        .select({
-          tableCount: sql<number>`count(*)::int`,
-          assignedCount: sql<number>`count(${tables.reservedByTeamId})::int`,
-        })
-        .from(tables),
-    ]);
+    const [registration, reservation, submission, [counts]] = await Promise.all(
+      [
+        getTeamRegistrationSettings(),
+        getJudgingSettings(),
+        getSubmissionSettings(),
+        db
+          .select({
+            tableCount: sql<number>`count(*)::int`,
+            assignedCount: sql<number>`count(${tables.reservedByTeamId})::int`,
+          })
+          .from(tables),
+      ],
+    );
     return {
-      reservationsOpenAt: settings?.reservationsOpenAt ?? null,
-      reservationsCloseAt: settings?.reservationsCloseAt ?? null,
-      submissionDeadline: settings?.submissionDeadline ?? null,
+      registration: {
+        opensAt: registration?.opensAt ?? null,
+        closesAt: registration?.closesAt ?? null,
+      },
+      reservation: {
+        opensAt: reservation?.reservationsOpenAt ?? null,
+        closesAt: reservation?.reservationsCloseAt ?? null,
+      },
+      submission: {
+        opensAt: submission?.opensAt ?? null,
+        closesAt: submission?.closesAt ?? null,
+      },
       tableCount: counts?.tableCount ?? 0,
       assignedCount: counts?.assignedCount ?? 0,
     };

@@ -28,27 +28,22 @@ export const reservationTableTopologyEntrySchema = z.object({
 export const reservationTableTopologySchema = z.array(
   reservationTableTopologyEntrySchema,
 );
-export const reservationEventInputSchema = z
+export const windowInputSchema = z
   .object({
-    reservationsOpenAt: nullableDate,
-    reservationsCloseAt: nullableDate,
-    submissionDeadline: nullableDate,
+    opensAt: nullableDate,
+    closesAt: nullableDate,
   })
   .superRefine((value, context) => {
-    if (
-      value.reservationsOpenAt &&
-      value.reservationsCloseAt &&
-      value.reservationsCloseAt <= value.reservationsOpenAt
-    ) {
+    if (value.opensAt && value.closesAt && value.closesAt <= value.opensAt) {
       context.addIssue({
         code: "custom",
-        path: ["reservationsCloseAt"],
+        path: ["closesAt"],
         message: "Closing time must be after opening time.",
       });
     }
   });
 
-export type ReservationEventInput = z.input<typeof reservationEventInputSchema>;
+export type WindowInput = z.input<typeof windowInputSchema>;
 export type ReservationTableTopology = z.infer<
   typeof reservationTableTopologySchema
 >;

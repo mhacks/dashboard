@@ -1,4 +1,5 @@
 import {
+  check,
   pgTable,
   pgEnum,
   pgPolicy,
@@ -183,6 +184,93 @@ export const teamSubmissions = pgTable(
         where team_members.team_id = ${table.teamId}
           and team_members.user_id = ${authUid}
       ) OR ${isOrganizer}`,
+    }),
+  ],
+).enableRLS();
+
+/**
+ * One row, id `default`. Organizers set when hackers can create a team, invite,
+ * accept, decline, cancel, rename, or leave. A missing row is closed.
+ */
+export const teamRegistrationSettings = pgTable(
+  "team_registration_settings",
+  {
+    id: text().primaryKey().default("default").notNull(),
+    opensAt: timestamp("opens_at", { withTimezone: true, mode: "string" }),
+    closesAt: timestamp("closes_at", { withTimezone: true, mode: "string" }),
+    updatedByUserId: uuid("updated_by_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "team_registration_settings_singleton_check",
+      sql`${table.id} = 'default'`,
+    ),
+    check(
+      "team_registration_settings_window_valid",
+      sql`${table.opensAt} IS NULL
+        OR ${table.closesAt} IS NULL
+        OR ${table.closesAt} > ${table.opensAt}`,
+    ),
+    foreignKey({
+      columns: [table.updatedByUserId],
+      foreignColumns: [users.id],
+      name: "team_registration_settings_updated_by_user_id_fkey",
+    }).onDelete("set null"),
+    pgPolicy("team_registration_settings_authenticated_select", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`(select public.is_organizer()) OR (select public.has_accepted_reservation_access())`,
+    }),
+    pgPolicy("team_registration_settings_organizer_all", {
+      for: "all",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
+    }),
+  ],
+).enableRLS();
+
+/**
+ * One row, id `default`. Organizers set when a team can save its Devpost link.
+ * A missing row is closed. The team must also hold a table.
+ */
+export const submissionSettings = pgTable(
+  "submission_settings",
+  {
+    id: text().primaryKey().default("default").notNull(),
+    opensAt: timestamp("opens_at", { withTimezone: true, mode: "string" }),
+    closesAt: timestamp("closes_at", { withTimezone: true, mode: "string" }),
+    updatedByUserId: uuid("updated_by_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check("submission_settings_singleton_check", sql`${table.id} = 'default'`),
+    check(
+      "submission_settings_window_valid",
+      sql`${table.opensAt} IS NULL
+        OR ${table.closesAt} IS NULL
+        OR ${table.closesAt} > ${table.opensAt}`,
+    ),
+    foreignKey({
+      columns: [table.updatedByUserId],
+      foreignColumns: [users.id],
+      name: "submission_settings_updated_by_user_id_fkey",
+    }).onDelete("set null"),
+    pgPolicy("submission_settings_authenticated_select", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`(select public.is_organizer()) OR (select public.has_accepted_reservation_access())`,
+    }),
+    pgPolicy("submission_settings_organizer_all", {
+      for: "all",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
     }),
   ],
 ).enableRLS();

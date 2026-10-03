@@ -12,7 +12,7 @@ export default function TeamsLayout({ children }: { children: ReactNode }) {
       <AdminPageHeader
         variant="workspace"
         title="Teams and reservations"
-        description="Teams hackers have formed, when they can reserve a table, and when project submissions close."
+        description="Teams hackers have formed, and the windows for registration, table reservation, and Devpost submission."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href="/admin/teams/reservations/preview">

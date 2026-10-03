@@ -1,51 +1,101 @@
 export const MAX_RESERVATION_TABLE_COUNT = 500;
 export const MAX_RESERVATION_TABLE_NUMBER = 2_147_483_647;
 
+export type TimedWindow = {
+  opensAt?: Date | string | null;
+  closesAt?: Date | string | null;
+};
+
+export type WindowState = "scheduled" | "open" | "closed";
+
+export type WindowAvailability = {
+  state: WindowState;
+  opensAt: Date | null;
+  closesAt: Date | null;
+};
+
 type ReservationWindow = {
   reservationsOpenAt?: Date | string | null;
   reservationsCloseAt?: Date | string | null;
 };
 
-export type ReservationAvailability =
-  | { state: "scheduled"; boundary: Date }
-  | { state: "closed" }
-  | { state: "open" };
+function parseWindowInstant(
+  value: Date | string | null | undefined,
+): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 /**
- * An empty deadline does not close submissions. A set deadline is closed at
- * that instant and after.
+ * Open only while `now` is in `[opensAt, closesAt)`. No open time, a missing
+ * or invalid close time, or a close at or before the open time is closed.
+ * Before the open time is scheduled.
  */
-export function isBeforeSubmissionDeadline(
-  deadline: Date | string | null | undefined,
+export function getWindowAvailability(
+  window: TimedWindow,
   now: Date = new Date(),
-): boolean {
-  if (!deadline) return true;
-  const closesAt = new Date(deadline);
-  if (Number.isNaN(closesAt.getTime())) return true;
-  return now < closesAt;
+): WindowAvailability {
+  const opensAt = parseWindowInstant(window.opensAt);
+  const closesAt = parseWindowInstant(window.closesAt);
+
+  if (!opensAt || (closesAt && closesAt <= opensAt)) {
+    return { state: "closed", opensAt, closesAt };
+  }
+  if (now < opensAt) {
+    return { state: "scheduled", opensAt, closesAt };
+  }
+  if (!closesAt || now >= closesAt) {
+    return { state: "closed", opensAt, closesAt };
+  }
+  return { state: "open", opensAt, closesAt };
 }
 
 export function getReservationAvailability(
   event: ReservationWindow,
   now: Date = new Date(),
-): ReservationAvailability {
-  const opensAt = event.reservationsOpenAt
-    ? new Date(event.reservationsOpenAt)
-    : null;
-  const closesAt = event.reservationsCloseAt
-    ? new Date(event.reservationsCloseAt)
-    : null;
+): WindowAvailability {
+  return getWindowAvailability(
+    {
+      opensAt: event.reservationsOpenAt,
+      closesAt: event.reservationsCloseAt,
+    },
+    now,
+  );
+}
 
-  if (!opensAt || Number.isNaN(opensAt.getTime())) {
-    return { state: "closed" };
+export function formatWindowInstant(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Detroit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
+/** Scheduled, Open, or Locked, plus the boundary a hacker needs to see. */
+export function describeWindow(
+  availability: WindowAvailability,
+  now: Date = new Date(),
+): string {
+  if (availability.state === "scheduled" && availability.opensAt) {
+    const opens = formatWindowInstant(availability.opensAt);
+    return availability.closesAt
+      ? `Scheduled. Opens ${opens}. Closes ${formatWindowInstant(availability.closesAt)}.`
+      : `Scheduled. Opens ${opens}.`;
   }
-  if (now < opensAt) {
-    return { state: "scheduled", boundary: opensAt };
+  if (availability.state === "open" && availability.closesAt) {
+    return `Open. Closes ${formatWindowInstant(availability.closesAt)}.`;
   }
-  if (closesAt && !Number.isNaN(closesAt.getTime()) && now >= closesAt) {
-    return { state: "closed" };
+  if (
+    availability.closesAt &&
+    availability.closesAt.getTime() <= now.getTime()
+  ) {
+    return `Locked. Closed ${formatWindowInstant(availability.closesAt)}.`;
   }
-  return { state: "open" };
+  return "Locked.";
 }
 
 export function formatReservationList(

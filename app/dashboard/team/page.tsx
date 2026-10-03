@@ -16,7 +16,7 @@ import {
   getParticipantReservationSnapshot,
   type ParticipantReservationSnapshot,
 } from "@/lib/db/queries/reservation";
-import { getJudgingSettings } from "@/lib/queries/judging-settings";
+import { getHackWindows } from "@/lib/queries/hack-windows";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
 
@@ -47,17 +47,13 @@ async function TeamData() {
   }
   const checkedIn = Boolean(decision && hasCheckedIn(decision));
 
-  const [team, pendingInvitations, sentInvitations, devpostUrl, settings] =
+  const [team, pendingInvitations, sentInvitations, devpostUrl, windows] =
     await Promise.all([
       getMyTeam(userId),
       getMyPendingInvitations(userId),
       getSentInvitations(userId),
       getMyTeamSubmission(userId),
-      getJudgingSettings().catch((err: unknown) => {
-        const cause = err instanceof Error ? (err.cause ?? err) : err;
-        console.error("[DB] judging settings query failed:", cause);
-        return undefined;
-      }),
+      getHackWindows(),
     ]);
 
   // Checked-in hackers manage the team. Anyone still on a team after a
@@ -88,10 +84,9 @@ async function TeamData() {
       reservations={reservations}
       reservationsAvailable={reservationsAvailable}
       devpostUrl={devpostUrl}
-      submissionDeadline={
-        settings === undefined ? null : (settings?.submissionDeadline ?? null)
-      }
-      submissionScheduleAvailable={settings !== undefined}
+      registration={windows.registration}
+      reservationWindow={windows.reservation}
+      submission={windows.submission}
     />
   );
 }

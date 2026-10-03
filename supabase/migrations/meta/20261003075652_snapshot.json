@@ -1,6 +1,6 @@
 {
-  "id": "7522d865-1007-4c23-84c5-04bb3c5a1ffa",
-  "prevId": "9afcdead-c57c-41ef-9f5b-ae2e00933cf2",
+  "id": "50988958-4acb-446c-8834-355b6e8d7e48",
+  "prevId": "28c1f3a7-a2c9-4033-9098-0e911f21873a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3996,12 +3996,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "submission_deadline": {
-          "name": "submission_deadline",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
           "type": "uuid",
@@ -4661,6 +4655,94 @@
       },
       "isRLSEnabled": true
     },
+    "public.submission_settings": {
+      "name": "submission_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'default'"
+        },
+        "opens_at": {
+          "name": "opens_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closes_at": {
+          "name": "closes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "submission_settings_updated_by_user_id_fkey": {
+          "name": "submission_settings_updated_by_user_id_fkey",
+          "tableFrom": "submission_settings",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "submission_settings_authenticated_select": {
+          "name": "submission_settings_authenticated_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer()) OR (select public.has_accepted_reservation_access())"
+        },
+        "submission_settings_organizer_all": {
+          "name": "submission_settings_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "submission_settings_singleton_check": {
+          "name": "submission_settings_singleton_check",
+          "value": "\"submission_settings\".\"id\" = 'default'"
+        },
+        "submission_settings_window_valid": {
+          "name": "submission_settings_window_valid",
+          "value": "\"submission_settings\".\"opens_at\" IS NULL\n        OR \"submission_settings\".\"closes_at\" IS NULL\n        OR \"submission_settings\".\"closes_at\" > \"submission_settings\".\"opens_at\""
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.team_invitations": {
       "name": "team_invitations",
       "schema": "",
@@ -4906,6 +4988,94 @@
         }
       },
       "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.team_registration_settings": {
+      "name": "team_registration_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'default'"
+        },
+        "opens_at": {
+          "name": "opens_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closes_at": {
+          "name": "closes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "team_registration_settings_updated_by_user_id_fkey": {
+          "name": "team_registration_settings_updated_by_user_id_fkey",
+          "tableFrom": "team_registration_settings",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "team_registration_settings_authenticated_select": {
+          "name": "team_registration_settings_authenticated_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer()) OR (select public.has_accepted_reservation_access())"
+        },
+        "team_registration_settings_organizer_all": {
+          "name": "team_registration_settings_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "team_registration_settings_singleton_check": {
+          "name": "team_registration_settings_singleton_check",
+          "value": "\"team_registration_settings\".\"id\" = 'default'"
+        },
+        "team_registration_settings_window_valid": {
+          "name": "team_registration_settings_window_valid",
+          "value": "\"team_registration_settings\".\"opens_at\" IS NULL\n        OR \"team_registration_settings\".\"closes_at\" IS NULL\n        OR \"team_registration_settings\".\"closes_at\" > \"team_registration_settings\".\"opens_at\""
+        }
+      },
       "isRLSEnabled": true
     },
     "public.team_submissions": {
