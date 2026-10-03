@@ -27,10 +27,16 @@ function parseWindowInstant(
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function isMissingWindowInstant(
+  value: Date | string | null | undefined,
+): boolean {
+  return value == null || value === "";
+}
+
 /**
- * Open only while `now` is in `[opensAt, closesAt)`. No open time, a missing
- * or invalid close time, or a close at or before the open time is closed.
- * Before the open time is scheduled.
+ * Open while `now` is in `[opensAt, closesAt)`. No open time, an unparseable
+ * close time, or a close at or before the open time is closed. A missing close
+ * time stays open after the open time. Before the open time is scheduled.
  */
 export function getWindowAvailability(
   window: TimedWindow,
@@ -38,14 +44,19 @@ export function getWindowAvailability(
 ): WindowAvailability {
   const opensAt = parseWindowInstant(window.opensAt);
   const closesAt = parseWindowInstant(window.closesAt);
+  const closeMissing = isMissingWindowInstant(window.closesAt);
 
-  if (!opensAt || (closesAt && closesAt <= opensAt)) {
+  if (
+    !opensAt ||
+    (!closeMissing && !closesAt) ||
+    (closesAt !== null && closesAt <= opensAt)
+  ) {
     return { state: "closed", opensAt, closesAt };
   }
   if (now < opensAt) {
     return { state: "scheduled", opensAt, closesAt };
   }
-  if (!closesAt || now >= closesAt) {
+  if (closesAt !== null && now >= closesAt) {
     return { state: "closed", opensAt, closesAt };
   }
   return { state: "open", opensAt, closesAt };
@@ -86,8 +97,10 @@ export function describeWindow(
       ? `Scheduled. Opens ${opens}. Closes ${formatWindowInstant(availability.closesAt)}.`
       : `Scheduled. Opens ${opens}.`;
   }
-  if (availability.state === "open" && availability.closesAt) {
-    return `Open. Closes ${formatWindowInstant(availability.closesAt)}.`;
+  if (availability.state === "open") {
+    return availability.closesAt
+      ? `Open. Closes ${formatWindowInstant(availability.closesAt)}.`
+      : "Open.";
   }
   if (
     availability.closesAt &&

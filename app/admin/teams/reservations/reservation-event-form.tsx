@@ -155,8 +155,9 @@ function WindowFields({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Both times are required. Hackers are locked out before open and at the
-        close time. The team page shows these deadlines in America/Detroit.
+        Leave close empty to keep the window open. Hackers are locked out before
+        the opening time and at the close time. The team page shows these
+        deadlines in America/Detroit.
       </p>
       {formError ? (
         <p role="alert" className="text-sm text-destructive">
