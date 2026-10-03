@@ -26,6 +26,7 @@ import {
   reservationIdSchema,
   reservationMapSizeSchema,
   reservationTableCountSchema,
+  reservationTableGeometriesSchema,
   reservationTableGeometrySchema,
   reservationTableNumberSchema,
   reservationTableOriginSchema,
@@ -841,6 +842,91 @@ export async function updateReservationTableGeometry(input: {
 
   revalidateReservationPaths();
   return { ok: true, message: `Table ${tableNumber} layout saved.` };
+}
+
+export async function updateReservationTableGeometries(input: {
+  tables: {
+    tableId: string;
+    originX: number;
+    originY: number;
+    width: number;
+    height: number;
+  }[];
+}): Promise<ReservationActionResult> {
+  const organizer = await requireOrganizer();
+  const parsed = reservationTableGeometriesSchema.safeParse(input);
+  if (!parsed.success) return validationFailure(parsed.error);
+  const updates = parsed.data.tables;
+  let changed = 0;
+  let singleNumber = 0;
+
+  try {
+    await db.transaction(async (tx) => {
+      await lockReservationTables(tx);
+      for (const update of updates) {
+        const [before] = await tx
+          .select({
+            id: tables.id,
+            number: tables.number,
+            originX: tables.originX,
+            originY: tables.originY,
+            width: tables.width,
+            height: tables.height,
+          })
+          .from(tables)
+          .where(eq(tables.id, update.tableId))
+          .for("update")
+          .limit(1);
+        if (!before) throw new TableFailure("TABLE_NOT_FOUND");
+        const unchanged =
+          before.originX === update.originX &&
+          before.originY === update.originY &&
+          before.width === update.width &&
+          before.height === update.height;
+        if (unchanged) continue;
+
+        await tx
+          .update(tables)
+          .set({
+            originX: update.originX,
+            originY: update.originY,
+            width: update.width,
+            height: update.height,
+          })
+          .where(eq(tables.id, update.tableId));
+        changed += 1;
+        singleNumber = before.number;
+        await writeReservationAudit(tx, {
+          actorUserId: organizer.id,
+          actorEmail: organizer.email,
+          action: "table.layout_updated",
+          entityType: "table",
+          entityId: before.id,
+          details: {
+            tableId: before.id,
+            tableNumber: before.number,
+            beforeOriginX: before.originX,
+            beforeOriginY: before.originY,
+            beforeWidth: before.width,
+            beforeHeight: before.height,
+            afterOriginX: update.originX,
+            afterOriginY: update.originY,
+            afterWidth: update.width,
+            afterHeight: update.height,
+          },
+        });
+      }
+    });
+  } catch (error) {
+    return tableActionFailure(error, "layout");
+  }
+
+  revalidateReservationPaths();
+  if (changed === 0) return { ok: true, message: "Layout unchanged." };
+  if (changed === 1) {
+    return { ok: true, message: `Table ${singleNumber} layout saved.` };
+  }
+  return { ok: true, message: `Saved layout for ${changed} tables.` };
 }
 
 export async function updateReservationMapSize(input: {

@@ -19,7 +19,7 @@ import {
   deleteReservationTable,
   renumberReservationTable,
   updateReservationMapSize,
-  updateReservationTableGeometry,
+  updateReservationTableGeometries,
   type ReservationActionResult,
 } from "@/lib/actions/admin-reservations.server.actions";
 import {
@@ -54,13 +54,16 @@ type FloorPlanMenu =
 
 type DragMode = "move" | "resize";
 
+type GeometryDraft = TableGeometry & { tableId: string };
+
 type DragSession = {
-  tableId: string;
+  anchorId: string;
   mode: DragMode;
   pointerId: number;
   moved: boolean;
   startCell: { col: number; row: number };
-  start: TableGeometry;
+  anchorStart: TableGeometry;
+  group: { tableId: string; start: TableGeometry }[];
 };
 
 function parseWholeNumber(value: string, minimum: number, maximum: number) {
@@ -103,26 +106,63 @@ function cellFromPointer(grid: HTMLElement, clientX: number, clientY: number) {
   };
 }
 
-function geometryFromDrag(
+function groupGeometry(
   session: DragSession,
   col: number,
   row: number,
-): TableGeometry {
+): GeometryDraft[] {
   if (session.mode === "resize") {
-    return {
-      originX: session.start.originX,
-      originY: session.start.originY,
-      width: Math.max(1, col - session.start.originX + 1),
-      height: Math.max(1, row - session.start.originY + 1),
-    };
+    const rawWidth = col - session.anchorStart.originX + 1;
+    const rawHeight = row - session.anchorStart.originY + 1;
+    let widthDelta = rawWidth - session.anchorStart.width;
+    let heightDelta = rawHeight - session.anchorStart.height;
+    const minWidth = Math.min(...session.group.map((item) => item.start.width));
+    const minHeight = Math.min(
+      ...session.group.map((item) => item.start.height),
+    );
+    if (minWidth + widthDelta < 1) widthDelta = 1 - minWidth;
+    if (minHeight + heightDelta < 1) heightDelta = 1 - minHeight;
+    return session.group.map((item) => ({
+      tableId: item.tableId,
+      originX: item.start.originX,
+      originY: item.start.originY,
+      width: item.start.width + widthDelta,
+      height: item.start.height + heightDelta,
+    }));
   }
 
-  return {
-    originX: Math.max(0, session.start.originX + col - session.startCell.col),
-    originY: Math.max(0, session.start.originY + row - session.startCell.row),
-    width: session.start.width,
-    height: session.start.height,
-  };
+  let originDeltaX = col - session.startCell.col;
+  let originDeltaY = row - session.startCell.row;
+  const minOriginX = Math.min(
+    ...session.group.map((item) => item.start.originX),
+  );
+  const minOriginY = Math.min(
+    ...session.group.map((item) => item.start.originY),
+  );
+  if (minOriginX + originDeltaX < 0) originDeltaX = -minOriginX;
+  if (minOriginY + originDeltaY < 0) originDeltaY = -minOriginY;
+  return session.group.map((item) => ({
+    tableId: item.tableId,
+    originX: item.start.originX + originDeltaX,
+    originY: item.start.originY + originDeltaY,
+    width: item.start.width,
+    height: item.start.height,
+  }));
+}
+
+function sameDrafts(
+  left: readonly GeometryDraft[],
+  right: readonly GeometryDraft[],
+) {
+  if (left.length !== right.length) return false;
+  return left.every((draft, index) => {
+    const other = right[index];
+    return (
+      other !== undefined &&
+      draft.tableId === other.tableId &&
+      sameGeometry(draft, other)
+    );
+  });
 }
 
 export function TableLayoutEditor({
@@ -130,18 +170,14 @@ export function TableLayoutEditor({
   disabled,
   onMutationEnd,
   onMutationStart,
-  onSelect,
   rows,
-  selectedTableId,
   tables,
 }: {
   columns: number;
   disabled: boolean;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
-  onSelect: (tableId: string | null) => void;
   rows: number;
-  selectedTableId: string | null;
   tables: TableWithTeam[];
 }) {
   const router = useRouter();
@@ -153,10 +189,11 @@ export function TableLayoutEditor({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [cellSize, setCellSize] = useState<number | null>(null);
   const sessionRef = useRef<DragSession | null>(null);
-  const draftRef = useRef<(TableGeometry & { tableId: string }) | null>(null);
-  const [draft, setDraft] = useState<
-    (TableGeometry & { tableId: string }) | null
-  >(null);
+  const draftRef = useRef<GeometryDraft[] | null>(null);
+  const [drafts, setDrafts] = useState<GeometryDraft[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [sizeDraft, setSizeDraft] = useState<{
     columns: number;
     rows: number;
@@ -183,9 +220,17 @@ export function TableLayoutEditor({
       ? sizeDraft.rowValue
       : String(rows);
 
-  const displayed = tables.map((table) =>
-    draft?.tableId === table.id ? { ...table, ...draft } : table,
+  const activeDrafts = drafts?.filter((draft) => {
+    const persisted = tables.find((table) => table.id === draft.tableId);
+    return persisted === undefined || !sameGeometry(persisted, draft);
+  });
+  const draftById = new Map(
+    activeDrafts?.map((draft) => [draft.tableId, draft]),
   );
+  const displayed = tables.map((table) => {
+    const draft = draftById.get(table.id);
+    return draft ? { ...table, ...draft } : table;
+  });
   const extent = reservationGridExtent(displayed, columns, rows);
   const persistedExtent = reservationGridExtent(tables, columns, rows);
   const cellCount = extent.columns * extent.rows;
@@ -278,7 +323,6 @@ export function TableLayoutEditor({
     event.preventDefault();
     event.stopPropagation();
     if (disabled) return;
-    onSelect(table.id);
     openMenu(
       {
         kind: "table",
@@ -401,7 +445,12 @@ export function TableLayoutEditor({
           setMenuError(result.error);
           return;
         }
-        onSelect(null);
+        setSelectedIds((current) => {
+          if (!current.has(tableId)) return current;
+          const next = new Set(current);
+          next.delete(tableId);
+          return next;
+        });
         toast.success(result.message);
         setMenu(null);
         router.refresh();
@@ -424,36 +473,52 @@ export function TableLayoutEditor({
       toast.error("Could not change full screen. Try again.");
     }
   }
-  const selected =
-    displayed.find((table) => table.id === selectedTableId) ?? null;
+  const selection = [...selectedIds].every((id) =>
+    tables.some((table) => table.id === id),
+  )
+    ? selectedIds
+    : new Set(
+        [...selectedIds].filter((id) =>
+          tables.some((table) => table.id === id),
+        ),
+      );
+  const selected = displayed.filter((table) => selection.has(table.id));
   const menuTable =
     menu?.kind === "table"
       ? (tables.find((table) => table.id === menu.tableId) ?? null)
       : null;
 
-  useEffect(() => {
-    const current = draftRef.current;
-    if (!current) return;
-    const persisted = tables.find((table) => table.id === current.tableId);
-    if (persisted && sameGeometry(persisted, current)) {
-      draftRef.current = null;
-      setDraft(null);
-    }
-  }, [tables]);
-
-  function rememberDraft(next: TableGeometry & { tableId: string }) {
+  function rememberDrafts(next: GeometryDraft[]) {
     draftRef.current = next;
-    setDraft(next);
+    setDrafts(next);
   }
 
-  function clearDraft() {
+  function clearDrafts() {
     draftRef.current = null;
-    setDraft(null);
+    setDrafts(null);
   }
 
   function displayedGeometry(table: TableWithTeam): TableGeometry {
-    if (draftRef.current?.tableId === table.id) return draftRef.current;
-    return table;
+    const draft = draftRef.current?.find((item) => item.tableId === table.id);
+    return draft ?? table;
+  }
+
+  function clearSelection(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || selection.size === 0) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest("[data-floor-table]")) {
+      return;
+    }
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelected(tableId: string) {
+    setSelectedIds(() => {
+      const next = new Set(selection);
+      if (next.has(tableId)) next.delete(tableId);
+      else next.add(tableId);
+      return next;
+    });
   }
 
   function beginDrag(
@@ -466,16 +531,31 @@ export function TableLayoutEditor({
     if (!grid) return;
     event.preventDefault();
     event.stopPropagation();
-    onSelect(table.id);
+    if (mode === "move" && (event.shiftKey || event.metaKey || event.ctrlKey)) {
+      toggleSelected(table.id);
+      return;
+    }
+
+    const groupIds = selection.has(table.id) ? selection : new Set([table.id]);
+    if (!selection.has(table.id)) setSelectedIds(groupIds);
+    const group = displayed
+      .filter((item) => groupIds.has(item.id))
+      .map((item) => ({
+        tableId: item.id,
+        start: displayedGeometry(item),
+      }));
+    const anchor = group.find((item) => item.tableId === table.id);
+    if (!anchor) return;
     const startCell = cellFromPointer(grid, event.clientX, event.clientY);
     event.currentTarget.setPointerCapture(event.pointerId);
     sessionRef.current = {
-      tableId: table.id,
+      anchorId: table.id,
       mode,
       pointerId: event.pointerId,
       moved: false,
       startCell,
-      start: displayedGeometry(table),
+      anchorStart: anchor.start,
+      group,
     };
   }
 
@@ -484,13 +564,14 @@ export function TableLayoutEditor({
     const grid = gridRef.current;
     if (!session || !grid || session.pointerId !== event.pointerId) return;
     const cell = cellFromPointer(grid, event.clientX, event.clientY);
-    const next = {
-      tableId: session.tableId,
-      ...geometryFromDrag(session, cell.col, cell.row),
-    };
-    if (sameGeometry(next, session.start)) return;
+    const next = groupGeometry(session, cell.col, cell.row);
+    const start = session.group.map((item) => ({
+      tableId: item.tableId,
+      ...item.start,
+    }));
+    if (sameDrafts(next, start)) return;
     session.moved = true;
-    rememberDraft(next);
+    rememberDrafts(next);
   }
 
   function endDrag(
@@ -500,51 +581,46 @@ export function TableLayoutEditor({
     const session = sessionRef.current;
     if (!session || session.pointerId !== event.pointerId) return;
     sessionRef.current = null;
-    if (!session.moved || session.tableId !== tableId) return;
+    if (!session.moved || session.anchorId !== tableId) return;
 
-    const persisted = tables.find((table) => table.id === tableId);
     const next = draftRef.current;
-    if (
-      !persisted ||
-      !next ||
-      next.tableId !== tableId ||
-      sameGeometry(next, persisted)
-    ) {
-      if (
-        next?.tableId === tableId &&
-        persisted &&
-        sameGeometry(next, persisted)
-      ) {
-        clearDraft();
-      }
+    if (!next) return;
+    const changed = next.filter((draft) => {
+      const persisted = tables.find((table) => table.id === draft.tableId);
+      return persisted === undefined || !sameGeometry(persisted, draft);
+    });
+    if (changed.length === 0) {
+      clearDrafts();
       return;
     }
-    if (!onMutationStart(`layout:${tableId}`)) {
-      clearDraft();
+    if (!onMutationStart("layout")) {
+      clearDrafts();
       return;
     }
 
     startTransition(async () => {
       try {
-        const result = await updateReservationTableGeometry({
-          tableId,
-          originX: next.originX,
-          originY: next.originY,
-          width: next.width,
-          height: next.height,
+        const result = await updateReservationTableGeometries({
+          tables: changed.map((draft) => ({
+            tableId: draft.tableId,
+            originX: draft.originX,
+            originY: draft.originY,
+            width: draft.width,
+            height: draft.height,
+          })),
         });
         if (!result.ok) {
-          clearDraft();
+          clearDrafts();
           toast.error(result.error);
           return;
         }
         toast.success(result.message);
         router.refresh();
       } catch {
-        clearDraft();
+        clearDrafts();
         toast.error("Could not save the table layout. Try again.");
       } finally {
-        onMutationEnd(`layout:${tableId}`);
+        onMutationEnd("layout");
       }
     });
   }
@@ -604,9 +680,9 @@ export function TableLayoutEditor({
       <CardHeader>
         <CardTitle>Floor plan</CardTitle>
         <CardDescription>
-          Drag a table to move it, and drag the corner to resize it. Right-click
-          a table to change its number or delete it. Right-click an empty cell
-          to add a table.
+          Shift-click or command-click to select more than one table, then drag
+          them to move or resize together. Right-click a table to change its
+          number or delete it, or an empty cell to add one.
         </CardDescription>
         <CardAction>
           <Button
@@ -713,13 +789,16 @@ export function TableLayoutEditor({
         ) : null}
 
         <p className="text-sm text-muted-foreground">
-          {selected
-            ? `Table ${selected.number}: column ${selected.originX + 1}, row ${selected.originY + 1}, ${selected.width} × ${selected.height}.`
-            : "Right-click an empty cell to add a table."}
+          {selected.length === 1 && selected[0]
+            ? `Table ${selected[0].number}: column ${selected[0].originX + 1}, row ${selected[0].originY + 1}, ${selected[0].width} × ${selected[0].height}.`
+            : selected.length > 1
+              ? `${selected.length} tables selected. Drag to move them together, or drag a corner to resize them together.`
+              : "Right-click an empty cell to add a table."}
         </p>
 
         <div
           ref={mapFrameRef}
+          onPointerDown={clearSelection}
           className={cn(
             "overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8",
             isFullscreen && "min-h-0 flex-1",
@@ -750,7 +829,7 @@ export function TableLayoutEditor({
               </span>
             ))}
             {displayed.map((table) => {
-              const selectedTable = table.id === selectedTableId;
+              const selectedTable = selection.has(table.id);
               return (
                 <div
                   key={table.id}

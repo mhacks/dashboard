@@ -44,6 +44,12 @@ export const reservationTableGeometrySchema = z.object({
   width: reservationTableSpanSchema,
   height: reservationTableSpanSchema,
 });
+export const reservationTableGeometriesSchema = z.object({
+  tables: z
+    .array(reservationTableGeometrySchema)
+    .min(1)
+    .max(MAX_RESERVATION_TABLE_COUNT),
+});
 export const reservationMapSizeSchema = z.object({
   columns: reservationMapDimensionSchema,
   rows: reservationMapDimensionSchema,

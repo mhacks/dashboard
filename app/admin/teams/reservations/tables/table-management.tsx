@@ -416,7 +416,6 @@ function TableManagementWorkspace({
   const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
   const openCount = tables.length - assignedCount;
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const workspacePending = activeMutation !== null;
 
   function startMutation(mutationId: string) {
@@ -439,9 +438,7 @@ function TableManagementWorkspace({
         disabled={workspacePending}
         onMutationEnd={endMutation}
         onMutationStart={startMutation}
-        onSelect={setSelectedTableId}
         rows={rows}
-        selectedTableId={selectedTableId}
         tables={tables}
       />
 
