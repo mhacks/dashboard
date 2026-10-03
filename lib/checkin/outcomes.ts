@@ -88,13 +88,14 @@ export function countsAsScan(result: { outcome: CheckInOutcome }): boolean {
 
 /**
  * "Scan 2 of 3" for events that allow repeats, null for the usual one-scan
- * event where the count would only be noise.
+ * event where the count would only be noise — and for an organizer past the
+ * cap, where "Scan 4 of 3" would read as an error.
  */
 export function describeScanCount(
   used: number | undefined,
   allowed: number | undefined,
 ): string | null {
-  if (!used || !allowed || allowed <= 1) return null;
+  if (!used || !allowed || allowed <= 1 || used > allowed) return null;
   return `Scan ${used} of ${allowed}`;
 }
 
