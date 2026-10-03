@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import type * as Leaflet from "leaflet";
 import { useEffect, useRef, useState } from "react";
 
+import { EVENT_TIME_ZONE } from "@/lib/organizer-locations/display";
 import type { MappedPerson } from "@/lib/queries/organizer-locations";
 
 // Standard OpenStreetMap tiles: free for light, attributed use.
@@ -19,6 +20,7 @@ const SURFACE = "#ffffff";
 const timeFormat = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit",
+  timeZone: EVENT_TIME_ZONE,
 });
 
 function escapeHtml(value: string) {

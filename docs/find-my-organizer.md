@@ -25,6 +25,10 @@ mode, this site's endpoint, and a personal password), plus the same settings to
 enter by hand. The password is shown once; only its SHA-256 is stored. Making a
 new link replaces it.
 
+`/api/owntracks` is rate limited per minute: 300 requests per client address
+before the password check, and 60 per organizer after it. A limited phone gets
+a 429 and keeps the message queued to retry.
+
 **Stop sharing** revokes the password and deletes every point that organizer
 sent. Losing the organizer role also stops their password working and hides
 them from the map.

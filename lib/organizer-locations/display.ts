@@ -9,6 +9,11 @@ export const TRAIL_HOURS = 3;
 /** Hackers only see organizers whose last fix is newer than this. */
 export const PUBLIC_WINDOW_MINUTES = 15;
 export const FRESH_WITHIN_MINUTES = 5;
+/**
+ * Clock times show in the venue's zone. Without one, the server renders UTC and
+ * the browser re-renders local time, and hydration trips over the difference.
+ */
+export const EVENT_TIME_ZONE = "America/Detroit";
 
 const MINUTE_MS = 60_000;
 

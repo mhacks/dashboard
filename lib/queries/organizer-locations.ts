@@ -66,6 +66,14 @@ export type OrganizerMapSnapshot = {
   readAt: string;
 };
 
+/*
+  Timestamps come back from Postgres as text like "2026-10-03 21:00:00.12+00",
+  which Node parses but Safari doesn't. Everything sent to the browser is ISO.
+*/
+function toIso(timestamp: string) {
+  return new Date(timestamp).toISOString();
+}
+
 function opaqueId(userId: string) {
   return createHash("sha256").update(userId).digest("hex").slice(0, 12);
 }
@@ -116,7 +124,7 @@ async function serverNow() {
   const [{ now }] = await db.execute<{ now: string }>(
     sql`select now()::text as now`,
   );
-  return new Date(now).toISOString();
+  return toIso(now);
 }
 
 const byName = (a: MappedPerson, b: MappedPerson) =>
@@ -147,14 +155,15 @@ async function readOrganizerView(): Promise<OrganizerMapSnapshot> {
   ]);
 
   const trails = new Map<string, TrailPoint[]>();
-  for (const { userId, ...point } of trail) {
+  for (const { userId, recordedAt, ...point } of trail) {
     const points = trails.get(userId) ?? [];
-    points.push(point);
+    points.push({ ...point, recordedAt: toIso(recordedAt) });
     trails.set(userId, points);
   }
 
   const people = latest.map(({ userId, ...fix }) => ({
     ...fix,
+    recordedAt: toIso(fix.recordedAt),
     id: opaqueId(userId),
     trail: trails.get(userId) ?? [],
   }));
@@ -172,7 +181,7 @@ async function readAttendeeView(): Promise<OrganizerMapSnapshot> {
     latitude: fix.latitude,
     longitude: fix.longitude,
     accuracy: fix.accuracy,
-    recordedAt: fix.recordedAt,
+    recordedAt: toIso(fix.recordedAt),
     battery: null,
     trail: [],
   }));
@@ -232,6 +241,7 @@ export async function getMySharing(userId: string): Promise<MySharing | null> {
   if (!row) return null;
   return {
     ...row,
-    lastFixAt: row.lastFixAt ? new Date(row.lastFixAt).toISOString() : null,
+    createdAt: toIso(row.createdAt),
+    lastFixAt: row.lastFixAt ? toIso(row.lastFixAt) : null,
   };
 }

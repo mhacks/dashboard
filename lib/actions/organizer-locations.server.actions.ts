@@ -35,10 +35,19 @@ type Result<T> = { data: T; error: null } | { data: null; error: string };
  * its hash is stored.
  */
 export async function startSharingLocation(
-  displayName: string,
+  displayName: unknown,
 ): Promise<Result<SharingSetup>> {
   const user = await requireOrganizer();
-  const name = displayName.trim().replace(/\s+/g, " ");
+  // Server actions take whatever the caller posts, not what the type says.
+  if (typeof displayName !== "string") {
+    return { data: null, error: "Enter the name hackers will see." };
+  }
+  // Control and format characters (bidi overrides, zero-width joiners) could
+  // make a name on the map read as something else.
+  const name = displayName
+    .replace(/\s+/g, " ")
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .trim();
   if (!name) return { data: null, error: "Enter the name hackers will see." };
   if (name.length > MAX_DISPLAY_NAME) {
     return {

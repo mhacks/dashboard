@@ -19,6 +19,7 @@ import {
 
 import { buttonClass } from "@/components/console/button";
 import {
+  EVENT_TIME_ZONE,
   FRESH_WITHIN_MINUTES,
   FRESHNESS_LABEL,
   type Freshness,
@@ -41,6 +42,7 @@ const LOW_BATTERY_PERCENT = 20;
 const timeFormat = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit",
+  timeZone: EVENT_TIME_ZONE,
 });
 
 // The console states status in words; the icon makes it scannable without

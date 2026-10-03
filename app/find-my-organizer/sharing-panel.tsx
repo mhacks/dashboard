@@ -14,6 +14,7 @@ import {
 } from "@/lib/actions/organizer-locations.server.actions";
 import { QR_QUIET_ZONE, qrPath } from "@/lib/checkin/qr";
 import {
+  EVENT_TIME_ZONE,
   PUBLIC_WINDOW_MINUTES,
   TRAIL_HOURS,
 } from "@/lib/organizer-locations/display";
@@ -23,6 +24,7 @@ const dateTimeFormat = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   hour: "numeric",
   minute: "2-digit",
+  timeZone: EVENT_TIME_ZONE,
 });
 
 function SetupQr({ value }: { value: string }) {
