@@ -7,14 +7,16 @@ nothing to turn on in the dashboard.
 
 ## Who sees what
 
-| Viewer                                 | Sees                                                                                               |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Organizers                             | Everyone who has reported in the last 3 hours, including stale positions, each trail, and battery. |
-| Volunteers, judges, checked-in hackers | Name and position of people whose last update is under 15 minutes old. No trail, no battery.       |
-| Everyone else                          | A note that the page opens after check-in.                                                         |
+| Viewer                                 | Sees                                                                                   |
+| -------------------------------------- | -------------------------------------------------------------------------------------- |
+| Organizers                             | Everyone who has reported in the last 3 hours, including stale positions, and battery. |
+| Volunteers, judges, checked-in hackers | Name and position of people whose last update is under 15 minutes old. No battery.     |
+| Everyone else                          | A note that the page opens after check-in.                                             |
 
-The filtering happens on the server, so hackers' browsers never receive trails
-or battery levels. The attendee view is cached per server task for 10 seconds,
+The filtering happens on the server, so hackers' browsers never receive stale
+positions or battery levels. For the same reason the page doesn't read Supabase
+from the browser: it re-renders through the server every 2 minutes, and right
+away when a hidden tab comes back. The attendee view is cached per server task for 10 seconds,
 so a hall full of open pages costs one read per task, not one per hacker.
 
 ## Setting up a phone
@@ -41,7 +43,9 @@ There is no stop button. Turning OwnTracks off, or switching it out of HTTP
 mode, stops the updates. Hackers stop seeing that person 15 minutes after their
 last fix. Organizers see them until it is 3 hours old.
 
-Every new fix, from anyone, deletes all fixes older than 3 hours. Once every
+The table holds one row per username: each update replaces that person's
+previous position, unless it is older (the app delivers queued fixes late).
+Every update, from anyone, also deletes rows older than 3 hours. Once every
 phone is off, the last few hours stay in the table. To remove someone right
 away, or to clear everything after the event:
 

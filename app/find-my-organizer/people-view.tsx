@@ -6,24 +6,16 @@ import {
   CircleCheckIcon,
   ClockIcon,
   ExternalLinkIcon,
-  RefreshCwIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useTransition,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { buttonClass } from "@/components/console/button";
 import {
   FRESH_WITHIN_MINUTES,
   FRESHNESS_LABEL,
   type Freshness,
   PUBLIC_WINDOW_MINUTES,
-  TRAIL_HOURS,
+  ORGANIZER_WINDOW_HOURS,
   freshness,
   mapsUrl,
   personColors,
@@ -33,8 +25,11 @@ import type { OrganizerMapSnapshot } from "@/lib/queries/organizer-locations";
 import { cn } from "@/lib/utils";
 import { OrganizerMap } from "./organizer-map";
 
-/** Re-reads the table. Attendee reads are cached server-side for 10 seconds. */
-const REFRESH_MS = 30_000;
+/**
+ * How often the page re-reads locations. The read goes through the server,
+ * not straight to Supabase, so hackers never receive what the server strips.
+ */
+const REFRESH_MS = 2 * 60_000;
 const CLOCK_TICK_MS = 15_000;
 const LOW_BATTERY_PERCENT = 20;
 
@@ -72,30 +67,24 @@ function useServerNow(readAt: string) {
   return Date.parse(readAt) + (elapsed.readAt === readAt ? elapsed.ms : 0);
 }
 
-/** Re-renders the server page on an interval, paused while the tab is hidden. */
+/**
+ * Re-renders the server page on an interval, and as soon as a hidden tab comes
+ * back. Paused while the tab is hidden.
+ */
 function useAutoRefresh() {
   const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
-
-  const refresh = useCallback(() => {
-    startRefresh(() => router.refresh());
-  }, [router]);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
-    }, REFRESH_MS);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
+    const refresh = () => {
+      if (document.visibilityState === "visible") router.refresh();
     };
-    document.addEventListener("visibilitychange", onVisible);
+    const id = window.setInterval(refresh, REFRESH_MS);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", refresh);
     };
-  }, [refresh]);
-
-  return { refresh, refreshing };
+  }, [router]);
 }
 
 export function PeopleView({
@@ -107,7 +96,7 @@ export function PeopleView({
 }) {
   const { people, readAt } = snapshot;
   const now = useServerNow(readAt);
-  const { refresh, refreshing } = useAutoRefresh();
+  useAutoRefresh();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const colors = useMemo(
@@ -121,32 +110,15 @@ export function PeopleView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p
-          className="font-red-hat-mono text-xs tracking-[0.04em] text-ui-ink-soft"
-          aria-live="polite"
-        >
-          {people.length === 0
-            ? "Nobody on the map"
-            : `${people.length} on the map`}
-          {" · "}checked {seenAgo(readAt, now)}
-        </p>
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={refreshing}
-          className={buttonClass(
-            "outline",
-            "px-3.5 py-2 max-sm:w-auto disabled:opacity-60",
-          )}
-        >
-          <RefreshCwIcon
-            className={cn("size-3.5", refreshing && "animate-spin")}
-            aria-hidden
-          />
-          Refresh
-        </button>
-      </div>
+      <p
+        className="font-red-hat-mono text-xs tracking-[0.04em] text-ui-ink-soft"
+        aria-live="polite"
+      >
+        {people.length === 0
+          ? "Nobody on the map"
+          : `${people.length} on the map`}
+        {" · "}checked {seenAgo(readAt, now)}, updates every 2 minutes
+      </p>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <OrganizerMap
@@ -259,7 +231,7 @@ export function PeopleView({
         older time. Indoors, positions can be off by tens of meters and
         don&apos;t know which floor.
         {organizerView
-          ? ` Organizers also see positions older than ${PUBLIC_WINDOW_MINUTES} minutes and the last ${TRAIL_HOURS} hours of each trail; hackers see neither.`
+          ? ` Organizers also see positions up to ${ORGANIZER_WINDOW_HOURS} hours old and battery levels; hackers see neither.`
           : null}
       </p>
     </div>

@@ -4,8 +4,8 @@
   import from client components: nothing here touches the server.
 */
 
-/** How far back organizers see each person's path. Hackers see no trail. */
-export const TRAIL_HOURS = 3;
+/** How long organizers keep seeing someone after their last fix. */
+export const ORGANIZER_WINDOW_HOURS = 3;
 /** Hackers only see organizers whose last fix is newer than this. */
 export const PUBLIC_WINDOW_MINUTES = 15;
 export const FRESH_WITHIN_MINUTES = 5;

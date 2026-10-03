@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { asc, desc, eq, gt, sql } from "drizzle-orm";
+import { eq, gt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
@@ -8,13 +8,13 @@ import type { UserEntry } from "@/lib/db/schema/users";
 import { hasCheckedIn } from "@/lib/decisions";
 import {
   PUBLIC_WINDOW_MINUTES,
-  TRAIL_HOURS,
+  ORGANIZER_WINDOW_HOURS,
 } from "@/lib/organizer-locations/display";
 
 /**
- * - organizer: everyone on the map, with trails, battery, and stale positions.
+ * - organizer: everyone on the map, with battery and stale positions.
  * - attendee: volunteers, judges, and checked-in hackers. Recent positions
- *   only, no trail or battery — enough to walk over to someone.
+ *   only, no battery — enough to walk over to someone.
  * - none: everyone else, including hackers who haven't checked in. The page
  *   is for finding help at the venue, not for following organizers home.
  */
@@ -37,12 +37,6 @@ export async function findOrganizerAccess(
     : "none";
 }
 
-export type TrailPoint = {
-  latitude: number;
-  longitude: number;
-  recordedAt: string;
-};
-
 export type MappedPerson = {
   /** Stable across refreshes, so a person keeps their color. */
   id: string;
@@ -53,8 +47,6 @@ export type MappedPerson = {
   recordedAt: string;
   /** Organizer view only. */
   battery: number | null;
-  /** Organizer view only; oldest first, ending at the latest fix. */
-  trail: TrailPoint[];
 };
 
 export type OrganizerMapSnapshot = {
@@ -67,10 +59,10 @@ function opaqueId(name: string) {
   return createHash("sha256").update(name).digest("hex").slice(0, 12);
 }
 
-/** Each person's newest fix within the window. */
+/** Everyone whose latest fix is within the window. */
 async function latestFixes(withinMinutes: number) {
   return db
-    .selectDistinctOn([organizerLocations.name], {
+    .select({
       name: organizerLocations.name,
       latitude: organizerLocations.latitude,
       longitude: organizerLocations.longitude,
@@ -84,8 +76,7 @@ async function latestFixes(withinMinutes: number) {
         organizerLocations.recordedAt,
         sql`now() - make_interval(mins => ${withinMinutes})`,
       ),
-    )
-    .orderBy(asc(organizerLocations.name), desc(organizerLocations.recordedAt));
+    );
 }
 
 async function serverNow() {
@@ -99,42 +90,12 @@ const byName = (a: MappedPerson, b: MappedPerson) =>
   a.name.localeCompare(b.name);
 
 async function readOrganizerView(): Promise<OrganizerMapSnapshot> {
-  const [latest, trail, readAt] = await Promise.all([
-    // The same window as the trail: the ingest route deletes anything older.
-    latestFixes(TRAIL_HOURS * 60),
-    db
-      .select({
-        name: organizerLocations.name,
-        latitude: organizerLocations.latitude,
-        longitude: organizerLocations.longitude,
-        recordedAt: organizerLocations.recordedAt,
-      })
-      .from(organizerLocations)
-      .where(
-        gt(
-          organizerLocations.recordedAt,
-          sql`now() - make_interval(hours => ${TRAIL_HOURS})`,
-        ),
-      )
-      .orderBy(
-        asc(organizerLocations.name),
-        asc(organizerLocations.recordedAt),
-      ),
+  const [latest, readAt] = await Promise.all([
+    // The same window as the ingest route's cleanup.
+    latestFixes(ORGANIZER_WINDOW_HOURS * 60),
     serverNow(),
   ]);
-
-  const trails = new Map<string, TrailPoint[]>();
-  for (const { name, ...point } of trail) {
-    const points = trails.get(name) ?? [];
-    points.push(point);
-    trails.set(name, points);
-  }
-
-  const people = latest.map((fix) => ({
-    ...fix,
-    id: opaqueId(fix.name),
-    trail: trails.get(fix.name) ?? [],
-  }));
+  const people = latest.map((fix) => ({ ...fix, id: opaqueId(fix.name) }));
   return { people: people.sort(byName), readAt };
 }
 
@@ -151,7 +112,6 @@ async function readAttendeeView(): Promise<OrganizerMapSnapshot> {
     accuracy: fix.accuracy,
     recordedAt: fix.recordedAt,
     battery: null,
-    trail: [],
   }));
   return { people: people.sort(byName), readAt };
 }

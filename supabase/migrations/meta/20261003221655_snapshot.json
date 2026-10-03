@@ -1,5 +1,5 @@
 {
-  "id": "2c7a87d6-5973-4657-b710-319d8bd8771f",
+  "id": "3c280c80-9834-424b-b67c-5fa35b1d408f",
   "prevId": "4ebf3291-875b-4109-8cb2-94315facb301",
   "version": "7",
   "dialect": "postgresql",
@@ -3745,7 +3745,7 @@
         "name": {
           "name": "name",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "latitude": {
@@ -3804,15 +3804,7 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "organizer_locations_pkey": {
-          "name": "organizer_locations_pkey",
-          "columns": [
-            "name",
-            "recorded_at"
-          ]
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {
         "organizer_locations_organizer_select": {

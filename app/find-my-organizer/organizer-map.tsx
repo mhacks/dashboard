@@ -16,11 +16,6 @@ const DEFAULT_VIEW: Leaflet.LatLngTuple = [42.2929, -83.7165];
 const CLOSE_ZOOM = 18;
 const SURFACE = "#ffffff";
 
-const timeFormat = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-});
-
 function escapeHtml(value: string) {
   return value.replace(
     /[&<>"']/g,
@@ -41,7 +36,7 @@ function markerIcon(
   color: string,
   selected: boolean,
 ) {
-  // The white ring keeps the dot readable over the trail and the basemap, and
+  // The white ring keeps the dot readable over the basemap, and
   // the always-visible name means color never identifies anyone alone.
   const size = selected ? 18 : 14;
   return L.divIcon({
@@ -102,7 +97,7 @@ export function OrganizerMap({
     if (!ready || !L || !map || !layers) return;
 
     layers.clearLayers();
-    // The selected person is drawn last so their trail and label sit on top.
+    // The selected person is drawn last so their label sits on top.
     const ordered = [...people].sort(
       (a, b) => Number(a.id === selectedId) - Number(b.id === selectedId),
     );
@@ -125,32 +120,6 @@ export function OrganizerMap({
         }).addTo(layers);
       }
 
-      if (person.trail.length > 1) {
-        L.polyline(
-          person.trail.map((point) => [point.latitude, point.longitude]),
-          { color, weight: 2, opacity: dimmed ? 0.25 : 0.85 },
-        ).addTo(layers);
-      }
-
-      // Earlier fixes along the trail, each hoverable for its time. The newest
-      // is the main marker, so it is skipped here.
-      for (const point of person.trail.slice(0, -1)) {
-        L.circleMarker([point.latitude, point.longitude], {
-          radius: 4,
-          color: SURFACE,
-          weight: 2,
-          fillColor: color,
-          fillOpacity: dimmed ? 0.3 : 1,
-          opacity: dimmed ? 0.3 : 1,
-        })
-          .bindTooltip(
-            `${escapeHtml(person.name)} · ${timeFormat.format(new Date(point.recordedAt))}`,
-            { direction: "top", offset: [0, -4] },
-          )
-          .on("click", () => onSelect(person.id))
-          .addTo(layers);
-      }
-
       L.marker(position, {
         icon: markerIcon(L, person.name, color, selected),
         opacity: dimmed ? 0.55 : 1,
@@ -163,7 +132,7 @@ export function OrganizerMap({
     }
 
     // Frame everyone once. After that, refreshes leave the viewport alone so
-    // someone who has zoomed in isn't yanked back out every 30 seconds.
+    // someone who has zoomed in isn't yanked back out every 2 minutes.
     if (!fittedRef.current && people.length > 0) {
       fittedRef.current = true;
       map.fitBounds(

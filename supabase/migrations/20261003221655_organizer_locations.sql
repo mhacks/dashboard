@@ -1,12 +1,11 @@
 CREATE TABLE "organizer_locations" (
-	"name" text NOT NULL,
+	"name" text PRIMARY KEY NOT NULL,
 	"latitude" double precision NOT NULL,
 	"longitude" double precision NOT NULL,
 	"accuracy" integer,
 	"battery" smallint,
 	"recorded_at" timestamp with time zone NOT NULL,
-	"received_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "organizer_locations_pkey" PRIMARY KEY("name","recorded_at")
+	"received_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "organizer_locations" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

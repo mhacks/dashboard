@@ -2,7 +2,7 @@ import { lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { organizerLocations } from "@/lib/db/schema/organizer-locations";
-import { TRAIL_HOURS } from "@/lib/organizer-locations/display";
+import { ORGANIZER_WINDOW_HOURS } from "@/lib/organizer-locations/display";
 import {
   basicAuthCredentials,
   isOwntracksPassword,
@@ -54,26 +54,34 @@ export async function POST(request: Request) {
   const fix = parseOwntracksLocation(payload);
   if (!fix) return acknowledge();
 
-  await db.transaction(async (tx) => {
-    // The app resends queued fixes after a dropped connection; the primary key
-    // on (name, recorded_at) makes a repeat a no-op.
-    await tx
-      .insert(organizerLocations)
-      .values({ name, ...fix })
-      .onConflictDoNothing();
+  // One row per person. The app delivers queued fixes late and resends them
+  // after a dropped connection, so an older fix never replaces a newer one.
+  await db
+    .insert(organizerLocations)
+    .values({ name, ...fix })
+    .onConflictDoUpdate({
+      target: organizerLocations.name,
+      set: {
+        latitude: sql`excluded.latitude`,
+        longitude: sql`excluded.longitude`,
+        accuracy: sql`excluded.accuracy`,
+        battery: sql`excluded.battery`,
+        recordedAt: sql`excluded.recorded_at`,
+        receivedAt: sql`now()`,
+      },
+      setWhere: sql`excluded.recorded_at > ${organizerLocations.recordedAt}`,
+    });
 
-    // Trim everyone, not just this phone, to the trail window: someone who
-    // turns the app off sends nothing more, so their fixes would otherwise
-    // never age out. Indexed on recorded_at, so this stays cheap.
-    await tx
-      .delete(organizerLocations)
-      .where(
-        lt(
-          organizerLocations.recordedAt,
-          sql`now() - make_interval(hours => ${TRAIL_HOURS})`,
-        ),
-      );
-  });
+  // Someone who turns the app off sends nothing more, so their row is cleared
+  // by whoever posts next. Indexed on recorded_at, so this stays cheap.
+  await db
+    .delete(organizerLocations)
+    .where(
+      lt(
+        organizerLocations.recordedAt,
+        sql`now() - make_interval(hours => ${ORGANIZER_WINDOW_HOURS})`,
+      ),
+    );
 
   return acknowledge();
 }
