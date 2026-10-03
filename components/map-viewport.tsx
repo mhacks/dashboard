@@ -14,6 +14,10 @@ const DEFAULT_CELL_PX = 40;
 const MIN_CELL_PX = 20;
 const MAX_CELL_PX = 160;
 const PAN_THRESHOLD_PX = 4;
+const GRID_GAP_PX = 8;
+const FRONT_DESK_CELLS = 6;
+const FRONT_DESK_HEIGHT_CELLS = 2;
+const FRONT_DESK_GAP_CELLS = 0.35;
 
 type ZoomAnchor = {
   ratioX: number;
@@ -100,12 +104,11 @@ export function MapViewport({
       if (innerWidth <= 0 || innerHeight <= 0 || columns < 1 || rows < 1) {
         return;
       }
-      const grid = frame.querySelector<HTMLElement>(".grid");
-      const gap = grid
-        ? Number.parseFloat(getComputedStyle(grid).columnGap) || 8
-        : 8;
+      const gap = GRID_GAP_PX;
       const fromWidth = (innerWidth - gap * Math.max(0, columns - 1)) / columns;
-      const fromHeight = (innerHeight - gap * Math.max(0, rows - 1)) / rows;
+      const fromHeight =
+        (innerHeight - gap * Math.max(0, rows - 1)) /
+        (rows + FRONT_DESK_HEIGHT_CELLS + FRONT_DESK_GAP_CELLS);
       const fitted = Math.floor(Math.min(fromWidth, fromHeight));
       if (!Number.isFinite(fitted) || fitted <= 0) return;
       const next = Math.min(MAX_CELL_PX, fitted);
@@ -222,6 +225,9 @@ export function MapViewport({
     onBackgroundClick?.();
   }
 
+  const deskSpan = Math.min(Math.max(columns, 1), FRONT_DESK_CELLS);
+  const deskStart = Math.floor((Math.max(columns, 1) - deskSpan) / 2);
+
   return (
     <div
       ref={frameRef}
@@ -229,10 +235,30 @@ export function MapViewport({
       onPointerMove={movePan}
       onPointerUp={endPan}
       onPointerCancel={endPan}
-      className="h-[min(70vh,40rem)] w-full min-w-0 max-w-full touch-none overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8"
+      className="mx-auto aspect-square w-[min(100%,70vh,40rem)] min-w-0 max-w-full touch-none overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8"
       style={{ "--cell": `${cellSize}px` } as CSSProperties}
     >
-      <div ref={contentRef}>{children}</div>
+      <div
+        ref={contentRef}
+        className="relative w-max"
+        style={{
+          paddingTop: `${cellSize * (FRONT_DESK_HEIGHT_CELLS + FRONT_DESK_GAP_CELLS)}px`,
+        }}
+      >
+        <div
+          data-front-desk=""
+          className="pointer-events-none absolute top-0 flex items-center justify-center rounded-md bg-[#3A4A26]/90 font-semibold uppercase tracking-[0.22em] text-white"
+          style={{
+            left: `${deskStart * (cellSize + GRID_GAP_PX)}px`,
+            width: `${deskSpan * cellSize + (deskSpan - 1) * GRID_GAP_PX}px`,
+            height: `${cellSize * FRONT_DESK_HEIGHT_CELLS}px`,
+            fontSize: `${cellSize * 0.72}px`,
+          }}
+        >
+          Front desk
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

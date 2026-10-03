@@ -72,7 +72,7 @@ export function JudgingMap({
   return (
     <div className="flex flex-col gap-5">
       <MapViewport columns={extent.columns} rows={extent.rows}>
-        <div className="mx-auto w-fit min-w-full">
+        <div className="w-fit">
           <div
             className="grid gap-2"
             style={{
