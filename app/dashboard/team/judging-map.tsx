@@ -1,5 +1,6 @@
 "use client";
 
+import { MapViewport } from "@/components/map-viewport";
 import { cn } from "@/lib/utils";
 import { reservationGridExtent } from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
@@ -70,16 +71,10 @@ export function JudgingMap({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8">
+      <MapViewport>
         <div className="mx-auto w-fit min-w-full">
-          <div className="mb-6 flex justify-center">
-            <div className="rounded-md bg-[#3A4A26]/90 px-10 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.3em] text-white sm:px-20">
-              Judging Stage
-            </div>
-          </div>
-
           <div
-            className="grid gap-2 [--cell:2.25rem] sm:[--cell:2.5rem]"
+            className="grid gap-2"
             style={{
               gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
               gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
@@ -134,8 +129,11 @@ export function JudgingMap({
             })}
           </div>
         </div>
-      </div>
+      </MapViewport>
 
+      <p className="text-xs text-zinc-500">
+        Scroll or pinch to zoom. Drag empty space to look around.
+      </p>
       <Legend mode={mode} />
     </div>
   );
