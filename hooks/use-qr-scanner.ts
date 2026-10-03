@@ -23,8 +23,8 @@ export type TorchControl = {
   toggle: () => void;
 };
 
-/** Roughly 9fps when requestVideoFrameCallback isn't available. */
-const FALLBACK_INTERVAL_MS = 110;
+/** About 9 scans per second is enough for a moving check-in line. */
+const DECODE_INTERVAL_MS = 110;
 
 /** How long a torch-off write gets before the track is stopped regardless. */
 const TORCH_OFF_TIMEOUT_MS = 250;
@@ -61,6 +61,7 @@ export function useQrScanner({
   const decoderRef = useRef<Decoder | null>(null);
   const frameRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastDecodeAtRef = useRef<number | null>(null);
   const busyRef = useRef(false);
   const runningRef = useRef(false);
   /** Whether the camera was live when the page was last backgrounded. */
@@ -126,6 +127,7 @@ export function useQrScanner({
     startAbortRef.current?.abort();
     startAbortRef.current = null;
     cancelFrame();
+    lastDecodeAtRef.current = null;
 
     const stream = streamRef.current;
     streamRef.current = null;
@@ -197,7 +199,9 @@ export function useQrScanner({
           facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          frameRate: { ideal: 30 },
+          // The preview does not need 30fps, and camera capture itself uses
+          // power even when decoding is paused for a result.
+          frameRate: { ideal: 15 },
         },
       });
 
@@ -277,13 +281,32 @@ export function useQrScanner({
       const video = videoRef.current;
       if (!video) return;
 
-      // requestVideoFrameCallback fires only on genuinely new frames. The
-      // timeout fallback is deliberately not rAF: 60fps through jsQR pegs the
-      // CPU and cooks a phone within an hour of a check-in shift.
+      // A verdict keeps the camera warm for the next person, but there is no
+      // reason to subscribe to every preview frame while decoding is paused.
+      if (pausedRef.current) {
+        timerRef.current = setTimeout(scheduleFrame, DECODE_INTERVAL_MS);
+        return;
+      }
+
+      // requestVideoFrameCallback fires only on genuinely new frames, but at
+      // the camera's full rate. Wait between callbacks so both paths decode
+      // at roughly the same rate, including when a camera ignores our ideal
+      // frame rate. Avoid rAF: 60fps through jsQR heats up a phone quickly.
       if (typeof video.requestVideoFrameCallback === "function") {
-        frameRef.current = video.requestVideoFrameCallback(() => void tick());
+        const elapsed =
+          lastDecodeAtRef.current === null
+            ? DECODE_INTERVAL_MS
+            : performance.now() - lastDecodeAtRef.current;
+        if (elapsed < DECODE_INTERVAL_MS) {
+          timerRef.current = setTimeout(
+            scheduleFrame,
+            DECODE_INTERVAL_MS - elapsed,
+          );
+        } else {
+          frameRef.current = video.requestVideoFrameCallback(() => void tick());
+        }
       } else {
-        timerRef.current = setTimeout(() => void tick(), FALLBACK_INTERVAL_MS);
+        timerRef.current = setTimeout(() => void tick(), DECODE_INTERVAL_MS);
       }
     }
 
@@ -299,6 +322,7 @@ export function useQrScanner({
       }
 
       busyRef.current = true;
+      lastDecodeAtRef.current = performance.now();
       try {
         const text = await decode(video);
         if (text) onCodeRef.current(text);
