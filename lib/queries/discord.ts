@@ -30,9 +30,9 @@ export interface DiscordMember {
  * them.
  *
  * Organizers carry no RSVP condition because they have nothing to RSVP to — they
- * run the event. admin and judge stay refused, matching requireOrganizer in
- * lib/auth/guards.ts and the isEventStaff RLS predicate: the enum values exist
- * but nothing in this app grants them anything.
+ * run the event. Judges can open the judging floor, and that does not grant a
+ * Discord role. admin stays refused: the enum value still grants nothing, and
+ * Discord eligibility is hacker, organizer, and volunteer only.
  *
  * fullName deliberately has no email fallback, unlike personNameSql in
  * lib/db/person-name.ts: the bot sets this as a Discord nickname, and a nickname

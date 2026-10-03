@@ -51,6 +51,28 @@ export async function requireEventStaffPage(): Promise<UserEntry> {
   return user;
 }
 
+/**
+ * Who may compare projects. Organizers judge alongside invited judges.
+ * CSV upload, start/stop, rankings, and the SQLite reset stay on
+ * `requireOrganizer` — that is the admin portal, and the unused `admin`
+ * enum still grants nothing.
+ */
+export function isJudgingStaff(role: UserRole) {
+  return role === "organizer" || role === "judge";
+}
+
+export async function requireJudgingStaff(): Promise<UserEntry> {
+  const user = await requireSessionUser();
+  if (!isJudgingStaff(user.role)) throw new Error("Forbidden");
+  return user;
+}
+
+export async function requireJudgingStaffPage(): Promise<UserEntry> {
+  const user = await requireSessionUser();
+  if (!isJudgingStaff(user.role)) redirect("/dashboard");
+  return user;
+}
+
 export async function requireHackerPage(): Promise<UserEntry> {
   const user = await requireSessionUser();
   if (user.role !== "hacker") redirect("/apply");

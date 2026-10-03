@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
+  },
   allowedDevOrigins: ["172.16.0.49", "127.0.0.1"],
   output: "standalone",
   serverExternalPackages: ["rate-limiter-flexible"],

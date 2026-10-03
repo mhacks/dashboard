@@ -17,7 +17,7 @@ import { CalendarSyncCard } from "@/components/dashboard/calendar-sync-card";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { QrDrawerButton } from "@/app/dashboard/qr-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
-import { isEventStaff } from "@/lib/auth/guards";
+import { isEventStaff, isJudgingStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
 import { MAX_TEAM_SIZE } from "@/lib/types/teams";
 
@@ -119,6 +119,7 @@ export function ApplicantDashboard({
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
 
+          {isJudgingStaff(role) ? <JudgeTools /> : null}
           {isEventStaff(role) ? <StaffTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
 
@@ -429,6 +430,27 @@ function HandbookPanel() {
         </div>
       </div>
     </Panel>
+  );
+}
+
+function JudgeTools() {
+  return (
+    <div className="flex flex-col gap-3.5">
+      <Rail
+        label="JUDGING"
+        ramp={false}
+        trailing={<RailNote>Organizers and judges</RailNote>}
+      />
+
+      <ToolGrid>
+        <ToolCard
+          eyebrow="FLOOR"
+          name="Compare projects"
+          description="Judge a pair, see the floor plan, and filter projects by track."
+          href="/judge"
+        />
+      </ToolGrid>
+    </div>
   );
 }
 

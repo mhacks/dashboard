@@ -13,7 +13,12 @@
         }
       ],
       "essential": true,
-      "environment": [],
+      "environment": [
+        {
+          "name": "MDREDD_BASE_URL",
+          "value": "https://mdredd.mhacks.org"
+        }
+      ],
       "mountPoints": [],
       "volumesFrom": [],
       "secrets": [
@@ -96,6 +101,10 @@
         {
           "name": "WALLET_LINK_SECRET",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/WALLET_LINK_SECRET"
+        },
+        {
+          "name": "MDREDD_API_TOKEN",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/MDREDD_API_TOKEN"
         }
       ],
       "logConfiguration": {

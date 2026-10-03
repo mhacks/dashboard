@@ -7,6 +7,7 @@ import {
   MailIcon,
   MegaphoneIcon,
   QrCodeIcon,
+  ScaleIcon,
   TrophyIcon,
   Users2Icon,
   UsersRoundIcon,
@@ -125,6 +126,20 @@ export const ADMIN_AREAS: AdminArea[] = [
         description:
           "See every team, and set the registration, table, and Devpost windows.",
         icon: Users2Icon,
+      },
+    ],
+  },
+  {
+    title: "Judging",
+    description: "Run pairwise judging and read the current rankings.",
+    icon: ScaleIcon,
+    links: [
+      {
+        href: "/admin/judging",
+        title: "Judging controls",
+        description:
+          "Upload the Devpost CSV, start or reset judging, and read rankings.",
+        icon: ScaleIcon,
       },
     ],
   },
