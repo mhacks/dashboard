@@ -44,6 +44,8 @@ function isPublicPath(pathname: string) {
     // Public docs page explaining how to connect an AI agent to the MCP
     // server — needs to be readable before/without logging in.
     isPathOrChild(pathname, "/how-to-mcp") ||
+    // Linked from the public /live page; anyone can play.
+    isPathOrChild(pathname, "/scavenger-hunt") ||
     // The Discord bot authenticates this one by HMAC, not cookies, so it must
     // reach the route instead of being redirected to /login — a 307 here turns
     // into a silent failure the bot reports as a generic error.

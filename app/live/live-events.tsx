@@ -18,6 +18,7 @@ import {
   CalendarPlus,
   CalendarDays,
   ChevronRight,
+  Compass,
   ExternalLink,
   Flower,
   House,
@@ -276,6 +277,11 @@ function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
           </span>
         </span>
       )}
+      <Link href="/scavenger-hunt" className={QUICK_LINK_CLASS}>
+        <Compass className="size-4 text-olive" />
+        <span>Scavenger Hunt</span>
+        <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+      </Link>
     </nav>
   );
 }

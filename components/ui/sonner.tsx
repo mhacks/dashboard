@@ -1,6 +1,5 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import {
   CircleCheckIcon,
@@ -11,15 +10,12 @@ import {
 } from "lucide-react";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  // `forcedTheme` first: the app forces light, but `theme` still reports the
-  // stored preference ("system"). Passing that through made Sonner use its
-  // dark palette on a dark-mode OS — near-white descriptions on the light
-  // --popover background below.
-  const { forcedTheme, theme = "system" } = useTheme();
-
+  // Pinned to light: the app has no dark mode. Leaving Sonner on "system" made
+  // it use its dark palette on a dark-mode OS — near-white descriptions on the
+  // light --popover background below.
   return (
     <Sonner
-      theme={(forcedTheme ?? theme) as ToasterProps["theme"]}
+      theme="light"
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

@@ -272,8 +272,7 @@ export default function BouquetBuilder({
         className={wrapped ? "wrapped" : ""}
         data-mobile={isMobile || undefined}
         // The blocking script below sets `style.transform` before hydration
-        // runs, same technique next-themes uses on <html> in app/layout.tsx
-        // for the dark-mode flash. React never renders a `style` prop here,
+        // runs. React never renders a `style` prop here,
         // so it has nothing to reconcile that attribute against — without
         // this, React logs a hydration-mismatch warning for an attribute it
         // was never going to own in the first place.
@@ -286,8 +285,6 @@ export default function BouquetBuilder({
             loading, let alone hydrated. This blocking script runs while the
             HTML is still being parsed, before that first paint, so the
             correct scale is already applied when the page becomes visible.
-            Same technique next-themes uses in app/layout.tsx to avoid a
-            dark/light flash.
 
             Gated on the same 1024px breakpoint as the effect, and for the
             same reason: on mobile there is no fixed diorama to fit, so

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { LayoutGridIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "./theme-toggle";
 
 /**
  * The way back out of a tool. Points at /dashboard rather than /admin: the
@@ -20,7 +19,6 @@ export function AdminHeaderActions() {
           <span className="hidden sm:inline">Dashboard</span>
         </Link>
       </Button>
-      <ThemeToggle />
     </div>
   );
 }
