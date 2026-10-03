@@ -40,10 +40,14 @@ function isMapControl(target: EventTarget | null) {
 
 export function MapViewport({
   children,
+  columns,
   onBackgroundClick,
+  rows,
 }: {
   children: ReactNode;
+  columns: number;
   onBackgroundClick?: () => void;
+  rows: number;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -51,6 +55,8 @@ export function MapViewport({
   const pinchRef = useRef<{ distance: number } | null>(null);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pendingZoomRef = useRef<ZoomAnchor | null>(null);
+  const fitSizeRef = useRef(DEFAULT_CELL_PX);
+  const userZoomedRef = useRef(false);
   const [cellSize, setCellSize] = useState(DEFAULT_CELL_PX);
 
   function applyZoom(clientX: number, clientY: number, factor: number) {
@@ -67,14 +73,53 @@ export function MapViewport({
       localY: clientY - frameRect.top,
     };
     setCellSize((current) => {
-      const next = Math.min(
-        MAX_CELL_PX,
-        Math.max(MIN_CELL_PX, current * factor),
-      );
+      const lower = Math.min(MIN_CELL_PX, fitSizeRef.current);
+      const next = Math.min(MAX_CELL_PX, Math.max(lower, current * factor));
       pendingZoomRef.current = next === current ? null : anchor;
+      if (next !== current) userZoomedRef.current = true;
       return next;
     });
   }
+
+  useLayoutEffect(() => {
+    userZoomedRef.current = false;
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const fit = () => {
+      if (userZoomedRef.current) return;
+      const styles = getComputedStyle(frame);
+      const padX =
+        (Number.parseFloat(styles.paddingLeft) || 0) +
+        (Number.parseFloat(styles.paddingRight) || 0);
+      const padY =
+        (Number.parseFloat(styles.paddingTop) || 0) +
+        (Number.parseFloat(styles.paddingBottom) || 0);
+      const innerWidth = frame.clientWidth - padX;
+      const innerHeight = frame.clientHeight - padY;
+      if (innerWidth <= 0 || innerHeight <= 0 || columns < 1 || rows < 1) {
+        return;
+      }
+      const grid = frame.querySelector<HTMLElement>(".grid");
+      const gap = grid
+        ? Number.parseFloat(getComputedStyle(grid).columnGap) || 8
+        : 8;
+      const fromWidth = (innerWidth - gap * Math.max(0, columns - 1)) / columns;
+      const fromHeight = (innerHeight - gap * Math.max(0, rows - 1)) / rows;
+      const fitted = Math.floor(Math.min(fromWidth, fromHeight));
+      if (!Number.isFinite(fitted) || fitted <= 0) return;
+      const next = Math.min(MAX_CELL_PX, fitted);
+      fitSizeRef.current = next;
+      frame.scrollLeft = 0;
+      frame.scrollTop = 0;
+      setCellSize(next);
+    };
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [columns, rows]);
 
   useLayoutEffect(() => {
     const frame = frameRef.current;

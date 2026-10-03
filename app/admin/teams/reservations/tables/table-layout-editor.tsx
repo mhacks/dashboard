@@ -686,6 +686,8 @@ export function TableLayoutEditor({
         </p>
 
         <MapViewport
+          columns={extent.columns}
+          rows={extent.rows}
           onBackgroundClick={() => {
             if (selection.size === 0) return;
             setSelectedIds(new Set());
