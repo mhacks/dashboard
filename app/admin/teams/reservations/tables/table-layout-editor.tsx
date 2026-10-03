@@ -4,6 +4,7 @@ import {
   type FormEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useEffect,
   useId,
   useRef,
@@ -32,6 +33,7 @@ import {
 import type { TableWithTeam } from "@/lib/reservation/types";
 import { MapViewport } from "@/components/map-viewport";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -153,6 +155,7 @@ function groupGeometry(
 
 export function TableLayoutEditor({
   columns,
+  controls,
   disabled,
   onMutationEnd,
   onMutationStart,
@@ -160,6 +163,7 @@ export function TableLayoutEditor({
   tables,
 }: {
   columns: number;
+  controls?: ReactNode;
   disabled: boolean;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
@@ -577,299 +581,324 @@ export function TableLayoutEditor({
     });
   }
 
+  const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
+
   return (
-    <Card ref={planRef}>
-      <CardHeader>
-        <CardTitle>Floor plan</CardTitle>
-        <CardDescription>
-          Scroll or pinch to zoom, and drag empty space to look around.
-          Shift-click or command-click to select more than one table, then drag
-          them to move or resize together. Right-click a table to change its
-          number or delete it, or an empty cell to add one.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <form
-          noValidate
-          onSubmit={handleSizeSubmit}
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
-        >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={columnsInputId}>Columns</Label>
-            <Input
-              id={columnsInputId}
-              type="number"
-              inputMode="numeric"
-              min={MIN_MAP_DIMENSION}
-              max={MAX_MAP_DIMENSION}
-              step={1}
-              value={columnValue}
-              disabled={disabled}
-              aria-invalid={Boolean(columnError)}
-              aria-describedby={
-                columnError ? `${columnsInputId}-error` : undefined
-              }
-              onChange={(inputEvent) => {
-                setSizeDraft({
-                  columns,
-                  rows,
-                  columnValue: inputEvent.target.value,
-                  rowValue,
-                });
-                setSizeError(null);
-                setColumnError(null);
-              }}
-              className="w-28"
-            />
-            {columnError ? (
-              <p
-                id={`${columnsInputId}-error`}
-                className="text-xs text-destructive"
-              >
-                {columnError}
-              </p>
-            ) : null}
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+      <Card ref={planRef}>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <CardTitle>Floor plan</CardTitle>
+              <CardDescription>
+                Scroll or pinch to zoom, and drag empty space to look around.
+                Shift-click or command-click to select more than one table, then
+                drag them to move or resize together. Right-click a table to
+                change its number or delete it, or an empty cell to add one.
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{tables.length} total</Badge>
+              <Badge variant="secondary">{assignedCount} assigned</Badge>
+            </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={rowsInputId}>Rows</Label>
-            <Input
-              id={rowsInputId}
-              type="number"
-              inputMode="numeric"
-              min={MIN_MAP_DIMENSION}
-              max={MAX_MAP_DIMENSION}
-              step={1}
-              value={rowValue}
-              disabled={disabled}
-              aria-invalid={Boolean(rowError)}
-              aria-describedby={rowError ? `${rowsInputId}-error` : undefined}
-              onChange={(inputEvent) => {
-                setSizeDraft({
-                  columns,
-                  rows,
-                  columnValue,
-                  rowValue: inputEvent.target.value,
-                });
-                setSizeError(null);
-                setRowError(null);
-              }}
-              className="w-28"
-            />
-            {rowError ? (
-              <p
-                id={`${rowsInputId}-error`}
-                className="text-xs text-destructive"
-              >
-                {rowError}
-              </p>
-            ) : null}
-          </div>
-          <Button type="submit" disabled={disabled} variant="outline">
-            {sizePending ? (
-              <Loader2Icon data-icon="inline-start" className="animate-spin" />
-            ) : null}
-            Save map size
-          </Button>
-        </form>
-        {sizeError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {sizeError}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <p className="text-sm text-muted-foreground">
+            {selected.length === 1 && selected[0]
+              ? `Table ${selected[0].number}: column ${selected[0].originX + 1}, row ${selected[0].originY + 1}, ${selected[0].width} × ${selected[0].height}.`
+              : selected.length > 1
+                ? `${selected.length} tables selected. Drag to move them together, or drag a corner to resize them together.`
+                : "Right-click an empty cell to add a table."}
           </p>
-        ) : null}
 
-        <p className="text-sm text-muted-foreground">
-          {selected.length === 1 && selected[0]
-            ? `Table ${selected[0].number}: column ${selected[0].originX + 1}, row ${selected[0].originY + 1}, ${selected[0].width} × ${selected[0].height}.`
-            : selected.length > 1
-              ? `${selected.length} tables selected. Drag to move them together, or drag a corner to resize them together.`
-              : "Right-click an empty cell to add a table."}
-        </p>
-
-        <MapViewport
-          columns={extent.columns}
-          rows={extent.rows}
-          onBackgroundClick={() => {
-            if (selection.size === 0) return;
-            setSelectedIds(new Set());
-          }}
-        >
-          <div
-            ref={gridRef}
-            onContextMenu={openAddMenu}
-            className="grid w-fit gap-2"
-            style={{
-              gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
-              gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
+          <MapViewport
+            columns={extent.columns}
+            rows={extent.rows}
+            onBackgroundClick={() => {
+              if (selection.size === 0) return;
+              setSelectedIds(new Set());
             }}
           >
-            {Array.from({ length: cellCount }, (_, index) => (
-              <span
-                key={`cell-${index}`}
-                data-map-cell=""
-                aria-hidden
-                className="pointer-events-none flex items-center justify-center"
-                style={{
-                  gridColumn: (index % extent.columns) + 1,
-                  gridRow: Math.floor(index / extent.columns) + 1,
-                }}
-              >
-                <span className="size-1.5 rounded-full bg-zinc-300/80" />
-              </span>
-            ))}
-            {displayed.map((table) => {
-              const selectedTable = selection.has(table.id);
-              return (
-                <div
-                  key={table.id}
-                  data-floor-table=""
-                  onContextMenu={(event) => openTableMenu(event, table)}
-                  className={cn("relative z-10", selectedTable && "z-20")}
+            <div
+              ref={gridRef}
+              onContextMenu={openAddMenu}
+              className="grid w-fit gap-2"
+              style={{
+                gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
+                gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
+              }}
+            >
+              {Array.from({ length: cellCount }, (_, index) => (
+                <span
+                  key={`cell-${index}`}
+                  data-map-cell=""
+                  aria-hidden
+                  className="pointer-events-none flex items-center justify-center"
                   style={{
-                    gridColumn: `${table.originX + 1} / span ${table.width}`,
-                    gridRow: `${table.originY + 1} / span ${table.height}`,
+                    gridColumn: (index % extent.columns) + 1,
+                    gridRow: Math.floor(index / extent.columns) + 1,
                   }}
                 >
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    aria-pressed={selectedTable}
-                    aria-label={`Table ${table.number}, column ${table.originX + 1}, row ${table.originY + 1}, ${table.width} by ${table.height}`}
-                    title={
-                      table.reservedByTeamName
-                        ? `Table ${table.number} — ${table.reservedByTeamName}`
-                        : `Table ${table.number}`
-                    }
-                    onPointerDown={(event) => beginDrag(event, table, "move")}
-                    onPointerMove={moveDrag}
-                    onPointerUp={(event) => endDrag(event, table.id)}
-                    onPointerCancel={(event) => endDrag(event, table.id)}
-                    className={cn(
-                      "absolute inset-0 flex touch-none items-center justify-center rounded-md border text-xs font-semibold",
-                      selectedTable
-                        ? "border-[#445721] bg-[#445721] text-white shadow-sm"
-                        : table.reservedByTeamId
-                          ? "border-[#445721]/40 bg-[#445721]/10 text-[#3A4A26]"
-                          : "border-zinc-300 bg-white text-zinc-700 hover:border-[#445721]",
-                      disabled
-                        ? "cursor-not-allowed"
-                        : "cursor-grab active:cursor-grabbing",
-                    )}
+                  <span className="size-1.5 rounded-full bg-zinc-300/80" />
+                </span>
+              ))}
+              {displayed.map((table) => {
+                const selectedTable = selection.has(table.id);
+                return (
+                  <div
+                    key={table.id}
+                    data-floor-table=""
+                    onContextMenu={(event) => openTableMenu(event, table)}
+                    className={cn("relative z-10", selectedTable && "z-20")}
+                    style={{
+                      gridColumn: `${table.originX + 1} / span ${table.width}`,
+                      gridRow: `${table.originY + 1} / span ${table.height}`,
+                    }}
                   >
-                    {table.number}
-                  </button>
-                  {selectedTable ? (
                     <button
                       type="button"
                       disabled={disabled}
-                      aria-label={`Resize table ${table.number}`}
-                      onPointerDown={(event) =>
-                        beginDrag(event, table, "resize")
+                      aria-pressed={selectedTable}
+                      aria-label={`Table ${table.number}, column ${table.originX + 1}, row ${table.originY + 1}, ${table.width} by ${table.height}`}
+                      title={
+                        table.reservedByTeamName
+                          ? `Table ${table.number} — ${table.reservedByTeamName}`
+                          : `Table ${table.number}`
                       }
+                      onPointerDown={(event) => beginDrag(event, table, "move")}
                       onPointerMove={moveDrag}
                       onPointerUp={(event) => endDrag(event, table.id)}
                       onPointerCancel={(event) => endDrag(event, table.id)}
-                      className="absolute right-1 bottom-1 z-30 size-3 touch-none cursor-nwse-resize rounded-sm border border-white bg-[#3A4A26] shadow disabled:cursor-not-allowed"
+                      className={cn(
+                        "absolute inset-0 flex touch-none items-center justify-center rounded-md border text-xs font-semibold",
+                        selectedTable
+                          ? "border-[#445721] bg-[#445721] text-white shadow-sm"
+                          : table.reservedByTeamId
+                            ? "border-[#445721]/40 bg-[#445721]/10 text-[#3A4A26]"
+                            : "border-zinc-300 bg-white text-zinc-700 hover:border-[#445721]",
+                        disabled
+                          ? "cursor-not-allowed"
+                          : "cursor-grab active:cursor-grabbing",
+                      )}
+                    >
+                      {table.number}
+                    </button>
+                    {selectedTable ? (
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        aria-label={`Resize table ${table.number}`}
+                        onPointerDown={(event) =>
+                          beginDrag(event, table, "resize")
+                        }
+                        onPointerMove={moveDrag}
+                        onPointerUp={(event) => endDrag(event, table.id)}
+                        onPointerCancel={(event) => endDrag(event, table.id)}
+                        className="absolute right-1 bottom-1 z-30 size-3 touch-none cursor-nwse-resize rounded-sm border border-white bg-[#3A4A26] shadow disabled:cursor-not-allowed"
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </MapViewport>
+        </CardContent>
+        <CardFooter className="text-xs text-muted-foreground">
+          The reference cell is the top-left corner of the rectangle.
+        </CardFooter>
+        {menu && (menu.kind === "add" || menuTable) ? (
+          <div
+            ref={menuRef}
+            role="dialog"
+            aria-label={
+              menu.kind === "add"
+                ? `Add a table at column ${menu.originX + 1}, row ${menu.originY + 1}`
+                : `Modify table ${menuTable?.number}`
+            }
+            className="fixed z-50 w-64 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+            style={{ left: menu.x, top: menu.y }}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <form
+              noValidate
+              className="flex flex-col gap-3"
+              onSubmit={submitMenuNumber}
+            >
+              <p className="text-sm font-medium">
+                {menu.kind === "add"
+                  ? `Add a table at column ${menu.originX + 1}, row ${menu.originY + 1}`
+                  : `Table ${menuTable?.number}`}
+              </p>
+              {menuTable?.reservedByTeamId ? (
+                <p className="text-xs text-muted-foreground">
+                  Assigned to {menuTable.reservedByTeamName ?? "a team"}.
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="floor-plan-table-number">Table number</Label>
+                <Input
+                  id="floor-plan-table-number"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_RESERVATION_TABLE_NUMBER}
+                  step={1}
+                  value={numberDraft}
+                  disabled={disabled || menuPending}
+                  autoFocus
+                  onChange={(inputEvent) => {
+                    setNumberDraft(inputEvent.target.value);
+                    setMenuError(null);
+                  }}
+                />
+              </div>
+              {menuError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {menuError}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={disabled || menuPending}
+                >
+                  {menuPending ? (
+                    <Loader2Icon
+                      data-icon="inline-start"
+                      className="animate-spin"
                     />
                   ) : null}
-                </div>
-              );
-            })}
+                  {menu.kind === "add" ? "Add table" : "Change number"}
+                </Button>
+                {menu.kind === "table" &&
+                menuTable &&
+                !menuTable.reservedByTeamId ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={disabled || menuPending}
+                    onClick={submitMenuDelete}
+                  >
+                    Delete
+                  </Button>
+                ) : null}
+              </div>
+              {menuTable?.reservedByTeamId ? (
+                <Link
+                  href={ASSIGNMENTS_HREF}
+                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  Unassign the team before deleting this table.
+                </Link>
+              ) : null}
+            </form>
           </div>
-        </MapViewport>
-      </CardContent>
-      <CardFooter className="text-xs text-muted-foreground">
-        The reference cell is the top-left corner of the rectangle.
-      </CardFooter>
-      {menu && (menu.kind === "add" || menuTable) ? (
-        <div
-          ref={menuRef}
-          role="dialog"
-          aria-label={
-            menu.kind === "add"
-              ? `Add a table at column ${menu.originX + 1}, row ${menu.originY + 1}`
-              : `Modify table ${menuTable?.number}`
-          }
-          className="fixed z-50 w-64 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
-          style={{ left: menu.x, top: menu.y }}
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          <form
-            noValidate
-            className="flex flex-col gap-3"
-            onSubmit={submitMenuNumber}
-          >
-            <p className="text-sm font-medium">
-              {menu.kind === "add"
-                ? `Add a table at column ${menu.originX + 1}, row ${menu.originY + 1}`
-                : `Table ${menuTable?.number}`}
-            </p>
-            {menuTable?.reservedByTeamId ? (
-              <p className="text-xs text-muted-foreground">
-                Assigned to {menuTable.reservedByTeamName ?? "a team"}.
-              </p>
-            ) : null}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="floor-plan-table-number">Table number</Label>
-              <Input
-                id="floor-plan-table-number"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={MAX_RESERVATION_TABLE_NUMBER}
-                step={1}
-                value={numberDraft}
-                disabled={disabled || menuPending}
-                autoFocus
-                onChange={(inputEvent) => {
-                  setNumberDraft(inputEvent.target.value);
-                  setMenuError(null);
-                }}
-              />
-            </div>
-            {menuError ? (
-              <p role="alert" className="text-xs text-destructive">
-                {menuError}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={disabled || menuPending}
-              >
-                {menuPending ? (
+        ) : null}
+      </Card>
+      <div className="flex flex-col gap-5">
+        <form noValidate onSubmit={handleSizeSubmit}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Map size</CardTitle>
+              <CardDescription>
+                Set how many columns and rows the floor plan contains.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={columnsInputId}>Columns</Label>
+                <Input
+                  id={columnsInputId}
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_MAP_DIMENSION}
+                  max={MAX_MAP_DIMENSION}
+                  step={1}
+                  value={columnValue}
+                  disabled={disabled}
+                  aria-invalid={Boolean(columnError)}
+                  aria-describedby={
+                    columnError ? `${columnsInputId}-error` : undefined
+                  }
+                  onChange={(inputEvent) => {
+                    setSizeDraft({
+                      columns,
+                      rows,
+                      columnValue: inputEvent.target.value,
+                      rowValue,
+                    });
+                    setSizeError(null);
+                    setColumnError(null);
+                  }}
+                />
+                {columnError ? (
+                  <p
+                    id={`${columnsInputId}-error`}
+                    className="text-xs text-destructive"
+                  >
+                    {columnError}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={rowsInputId}>Rows</Label>
+                <Input
+                  id={rowsInputId}
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_MAP_DIMENSION}
+                  max={MAX_MAP_DIMENSION}
+                  step={1}
+                  value={rowValue}
+                  disabled={disabled}
+                  aria-invalid={Boolean(rowError)}
+                  aria-describedby={
+                    rowError ? `${rowsInputId}-error` : undefined
+                  }
+                  onChange={(inputEvent) => {
+                    setSizeDraft({
+                      columns,
+                      rows,
+                      columnValue,
+                      rowValue: inputEvent.target.value,
+                    });
+                    setSizeError(null);
+                    setRowError(null);
+                  }}
+                />
+                {rowError ? (
+                  <p
+                    id={`${rowsInputId}-error`}
+                    className="text-xs text-destructive"
+                  >
+                    {rowError}
+                  </p>
+                ) : null}
+              </div>
+              {sizeError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {sizeError}
+                </p>
+              ) : null}
+            </CardContent>
+            <CardFooter className="justify-end">
+              <Button type="submit" disabled={disabled} variant="outline">
+                {sizePending ? (
                   <Loader2Icon
                     data-icon="inline-start"
                     className="animate-spin"
                   />
                 ) : null}
-                {menu.kind === "add" ? "Add table" : "Change number"}
+                Save map size
               </Button>
-              {menu.kind === "table" &&
-              menuTable &&
-              !menuTable.reservedByTeamId ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  disabled={disabled || menuPending}
-                  onClick={submitMenuDelete}
-                >
-                  Delete
-                </Button>
-              ) : null}
-            </div>
-            {menuTable?.reservedByTeamId ? (
-              <Link
-                href={ASSIGNMENTS_HREF}
-                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-              >
-                Unassign the team before deleting this table.
-              </Link>
-            ) : null}
-          </form>
-        </div>
-      ) : null}
-    </Card>
+            </CardFooter>
+          </Card>
+        </form>
+        {controls}
+      </div>
+    </div>
   );
 }

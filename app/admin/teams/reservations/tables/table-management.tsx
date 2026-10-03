@@ -413,8 +413,6 @@ function TableManagementWorkspace({
   tables,
 }: TableManagementProps) {
   const mutationLockRef = useRef<string | null>(null);
-  const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
-  const openCount = tables.length - assignedCount;
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
   const workspacePending = activeMutation !== null;
 
@@ -432,44 +430,22 @@ function TableManagementWorkspace({
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <TableLayoutEditor
-        columns={columns}
-        disabled={workspacePending}
-        onMutationEnd={endMutation}
-        onMutationStart={startMutation}
-        rows={rows}
-        tables={tables}
-      />
-
-      <section aria-label="Table summary" className="grid gap-3 sm:grid-cols-3">
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>{tables.length} total</CardTitle>
-            <CardDescription>Total tables</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>{assignedCount} assigned</CardTitle>
-            <CardDescription>Reserved by teams</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>{openCount} open</CardTitle>
-            <CardDescription>Available to assign</CardDescription>
-          </CardHeader>
-        </Card>
-      </section>
-
-      <TableCountManagement
-        onMutationEnd={endMutation}
-        onMutationStart={startMutation}
-        tables={tables}
-        workspacePending={workspacePending}
-      />
-    </section>
+    <TableLayoutEditor
+      columns={columns}
+      controls={
+        <TableCountManagement
+          onMutationEnd={endMutation}
+          onMutationStart={startMutation}
+          tables={tables}
+          workspacePending={workspacePending}
+        />
+      }
+      disabled={workspacePending}
+      onMutationEnd={endMutation}
+      onMutationStart={startMutation}
+      rows={rows}
+      tables={tables}
+    />
   );
 }
 
