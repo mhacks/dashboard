@@ -17,7 +17,7 @@ import { CalendarSyncCard } from "@/components/dashboard/calendar-sync-card";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 import { QrDrawerButton } from "@/app/dashboard/qr-button";
 import { ADMIN_AREAS } from "@/lib/admin/sections";
-import { isEventStaff } from "@/lib/auth/guards";
+import { canJudge, isEventStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
 import { MAX_TEAM_SIZE } from "@/lib/types/teams";
 
@@ -120,6 +120,7 @@ export function ApplicantDashboard({
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
 
           {isEventStaff(role) ? <StaffTools /> : null}
+          {canJudge(role) ? <JudgeTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
 
           <ConsoleFooterRule />
@@ -456,6 +457,31 @@ function StaffTools() {
           name="Scanner"
           description="Scan attendee codes at the door and at meals."
           href="/checkin"
+        />
+      </ToolGrid>
+    </div>
+  );
+}
+
+/**
+ * The judging page, for judges and for organizers who fill in. A judge has no
+ * other tool on this dashboard, so without this they would have no way in.
+ */
+function JudgeTools() {
+  return (
+    <div className="flex flex-col gap-3.5">
+      <Rail
+        label="JUDGING"
+        ramp={false}
+        trailing={<RailNote>Judges and organizers</RailNote>}
+      />
+
+      <ToolGrid>
+        <ToolCard
+          eyebrow="JUDGING"
+          name="Judge projects"
+          description="Get two projects at a time, visit their tables, and pick the stronger one."
+          href="/judge"
         />
       </ToolGrid>
     </div>

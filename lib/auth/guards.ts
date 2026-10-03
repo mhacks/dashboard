@@ -51,6 +51,26 @@ export async function requireEventStaffPage(): Promise<UserEntry> {
   return user;
 }
 
+/**
+ * Who may judge projects at /judge. Organizers are included so they can test
+ * the flow and fill in for a judge. Each user's id is their MDredd judge id.
+ */
+export function canJudge(role: UserRole) {
+  return role === "judge" || role === "organizer";
+}
+
+export async function requireJudge(): Promise<UserEntry> {
+  const user = await requireSessionUser();
+  if (!canJudge(user.role)) throw new Error("Forbidden");
+  return user;
+}
+
+export async function requireJudgePage(): Promise<UserEntry> {
+  const user = await requireSessionUser();
+  if (!canJudge(user.role)) redirect("/dashboard");
+  return user;
+}
+
 export async function requireHackerPage(): Promise<UserEntry> {
   const user = await requireSessionUser();
   if (user.role !== "hacker") redirect("/apply");

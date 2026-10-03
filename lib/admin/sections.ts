@@ -2,6 +2,7 @@ import {
   BarChart3Icon,
   CalendarCheck2Icon,
   CalendarPlusIcon,
+  GavelIcon,
   ClipboardCheckIcon,
   KeyRoundIcon,
   MailIcon,
@@ -125,6 +126,13 @@ export const ADMIN_AREAS: AdminArea[] = [
         description:
           "See every team, and set the registration, table, and Devpost windows.",
         icon: Users2Icon,
+      },
+      {
+        href: "/admin/teams/judging",
+        title: "Judging",
+        description:
+          "Upload Devpost projects, run judging, and see rankings by table.",
+        icon: GavelIcon,
       },
     ],
   },

@@ -9,13 +9,18 @@ import {
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 export type TableStatus = "available" | "selected" | "mine" | "taken";
-export type JudgingMapMode = "participant" | "admin";
+export type JudgingMapMode = "participant" | "admin" | "judge";
 
 function statusOf(
   table: TableWithTeam,
   selectedTableId: string | null,
   teamId: string | null,
+  highlightedTableIds: readonly string[] | null,
 ): TableStatus {
+  // Judges see only the tables they are sent to; every other table recedes.
+  if (highlightedTableIds) {
+    return highlightedTableIds.includes(table.id) ? "selected" : "taken";
+  }
   if (table.id === selectedTableId) return "selected";
   if (table.reservedByTeamId) {
     return teamId && table.reservedByTeamId === teamId ? "mine" : "taken";
@@ -28,6 +33,11 @@ function tableAriaLabel(
   status: TableStatus,
   mode: JudgingMapMode,
 ): string {
+  if (mode === "judge") {
+    return status === "selected"
+      ? `Table ${table.number}, a project to judge`
+      : `Table ${table.number}`;
+  }
   if (mode === "admin") {
     if (status === "mine") {
       return `Table ${table.number}, selected team's table`;
@@ -59,6 +69,7 @@ export function JudgingMap({
   onSelect,
   disabled = false,
   mode = "participant",
+  highlightedTableIds,
 }: {
   tables: TableWithTeam[];
   columns: number;
@@ -68,6 +79,8 @@ export function JudgingMap({
   onSelect?: (table: TableWithTeam) => void;
   disabled?: boolean;
   mode?: JudgingMapMode;
+  /** Judge mode only: the tables to point the judge at. */
+  highlightedTableIds?: readonly string[];
 }) {
   const placed = tables.filter(fitsReservationMap);
   const extent = reservationGridExtent(placed, columns, rows);
@@ -104,9 +117,15 @@ export function JudgingMap({
               </span>
             ))}
             {placed.map((table) => {
-              const status = statusOf(table, selectedTableId, teamId);
+              const status = statusOf(
+                table,
+                selectedTableId,
+                teamId,
+                mode === "judge" ? (highlightedTableIds ?? []) : null,
+              );
               const interactive =
                 !disabled &&
+                mode !== "judge" &&
                 (mode === "admin"
                   ? status !== "mine"
                   : status === "available" || status === "selected");
@@ -130,7 +149,11 @@ export function JudgingMap({
                   className={cn(
                     "z-10 flex h-full w-full items-center justify-center rounded-md border text-[11px] font-semibold transition-colors sm:text-xs",
                     seatStyles[status],
-                    interactive ? "cursor-pointer" : "cursor-not-allowed",
+                    interactive
+                      ? "cursor-pointer"
+                      : mode === "judge"
+                        ? "cursor-default"
+                        : "cursor-not-allowed",
                   )}
                 >
                   {table.number}
@@ -149,22 +172,30 @@ export function JudgingMap({
   );
 }
 
+const JUDGE_LEGEND = [
+  { label: "Projects to judge", className: "border-[#445721] bg-[#445721]" },
+  { label: "Other tables", className: "border-zinc-200 bg-zinc-100" },
+];
+
 function Legend({ mode }: { mode: JudgingMapMode }) {
-  const items: { label: string; className: string }[] = [
-    { label: "Available", className: "border-zinc-300 bg-white" },
-    {
-      label: mode === "admin" ? "Selected destination" : "Selected",
-      className: "border-[#445721] bg-[#445721]",
-    },
-    {
-      label: mode === "admin" ? "Selected team's table" : "Your table",
-      className: "border-[#445721]/50 bg-[#445721]/15",
-    },
-    {
-      label: mode === "admin" ? "Occupied" : "Reserved",
-      className: "border-zinc-200 bg-zinc-100",
-    },
-  ];
+  const items: { label: string; className: string }[] =
+    mode === "judge"
+      ? JUDGE_LEGEND
+      : [
+          { label: "Available", className: "border-zinc-300 bg-white" },
+          {
+            label: mode === "admin" ? "Selected destination" : "Selected",
+            className: "border-[#445721] bg-[#445721]",
+          },
+          {
+            label: mode === "admin" ? "Selected team's table" : "Your table",
+            className: "border-[#445721]/50 bg-[#445721]/15",
+          },
+          {
+            label: mode === "admin" ? "Occupied" : "Reserved",
+            className: "border-zinc-200 bg-zinc-100",
+          },
+        ];
 
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500">
