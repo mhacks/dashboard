@@ -14,7 +14,7 @@ const DEFAULT_CELL_PX = 40;
 const MIN_CELL_PX = 20;
 const MAX_CELL_PX = 160;
 const PAN_THRESHOLD_PX = 4;
-const GRID_GAP_PX = 8;
+const GRID_GAP_RATIO = 0.12;
 const FRONT_DESK_CELLS = 6;
 const FRONT_DESK_HEIGHT_CELLS = 2;
 const FRONT_DESK_GAP_CELLS = 0.35;
@@ -104,11 +104,14 @@ export function MapViewport({
       if (innerWidth <= 0 || innerHeight <= 0 || columns < 1 || rows < 1) {
         return;
       }
-      const gap = GRID_GAP_PX;
-      const fromWidth = (innerWidth - gap * Math.max(0, columns - 1)) / columns;
+      const fromWidth =
+        innerWidth / (columns + Math.max(0, columns - 1) * GRID_GAP_RATIO);
       const fromHeight =
-        (innerHeight - gap * Math.max(0, rows - 1)) /
-        (rows + FRONT_DESK_HEIGHT_CELLS + FRONT_DESK_GAP_CELLS);
+        innerHeight /
+        (rows +
+          Math.max(0, rows - 1) * GRID_GAP_RATIO +
+          FRONT_DESK_HEIGHT_CELLS +
+          FRONT_DESK_GAP_CELLS);
       const fitted = Math.floor(Math.min(fromWidth, fromHeight));
       if (!Number.isFinite(fitted) || fitted <= 0) return;
       const next = Math.min(MAX_CELL_PX, fitted);
@@ -227,6 +230,7 @@ export function MapViewport({
 
   const deskSpan = Math.min(Math.max(columns, 1), FRONT_DESK_CELLS);
   const deskStart = Math.floor((Math.max(columns, 1) - deskSpan) / 2);
+  const gapPx = cellSize * GRID_GAP_RATIO;
 
   return (
     <div
@@ -236,7 +240,12 @@ export function MapViewport({
       onPointerUp={endPan}
       onPointerCancel={endPan}
       className="mx-auto aspect-square w-[min(100%,70vh,40rem)] min-w-0 max-w-full touch-none overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8"
-      style={{ "--cell": `${cellSize}px` } as CSSProperties}
+      style={
+        {
+          "--cell": `${cellSize}px`,
+          "--map-gap": `${gapPx}px`,
+        } as CSSProperties
+      }
     >
       <div
         ref={contentRef}
@@ -249,8 +258,8 @@ export function MapViewport({
           data-front-desk=""
           className="pointer-events-none absolute top-0 flex items-center justify-center rounded-md bg-[#3A4A26]/90 font-semibold uppercase tracking-[0.22em] text-white"
           style={{
-            left: `${deskStart * (cellSize + GRID_GAP_PX)}px`,
-            width: `${deskSpan * cellSize + (deskSpan - 1) * GRID_GAP_PX}px`,
+            left: `${deskStart * (cellSize + gapPx)}px`,
+            width: `${deskSpan * cellSize + (deskSpan - 1) * gapPx}px`,
             height: `${cellSize * FRONT_DESK_HEIGHT_CELLS}px`,
             fontSize: `${cellSize * 0.72}px`,
           }}

@@ -74,8 +74,9 @@ export function JudgingMap({
       <MapViewport columns={extent.columns} rows={extent.rows}>
         <div className="w-fit">
           <div
-            className="grid gap-2"
+            className="grid"
             style={{
+              gap: "var(--map-gap)",
               gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
               gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
             }}
@@ -90,7 +91,7 @@ export function JudgingMap({
                   gridRow: Math.floor(index / extent.columns) + 1,
                 }}
               >
-                <span className="size-1.5 rounded-full bg-zinc-300/80" />
+                <span className="size-[12%] rounded-full bg-zinc-400/25" />
               </span>
             ))}
             {tables.map((table) => {

@@ -623,8 +623,9 @@ export function TableLayoutEditor({
             <div
               ref={gridRef}
               onContextMenu={openAddMenu}
-              className="grid w-fit gap-2"
+              className="grid w-fit"
               style={{
+                gap: "var(--map-gap)",
                 gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
                 gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
               }}
@@ -640,7 +641,7 @@ export function TableLayoutEditor({
                     gridRow: Math.floor(index / extent.columns) + 1,
                   }}
                 >
-                  <span className="size-1.5 rounded-full bg-zinc-300/80" />
+                  <span className="size-[12%] rounded-full bg-zinc-400/25" />
                 </span>
               ))}
               {displayed.map((table) => {
