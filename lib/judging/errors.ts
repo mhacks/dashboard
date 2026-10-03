@@ -38,8 +38,7 @@ const MESSAGES: Record<string, string> = {
   INCORRECT_PAIR_FORMAT: "Pick one of the two projects.",
   TOO_FEW_ENTITIES:
     "The CSV needs at least two submitted projects (drafts are skipped).",
-  INVALID_COLUMNS:
-    "The CSV is missing columns from the Devpost projects export.",
+  INVALID_COLUMNS: "The CSV's columns don't match the Devpost projects export.",
   DEVPOST_UNRESOLVED:
     "Some submission links could not be followed on Devpost. Nothing was uploaded.",
   UNKNOWN_ROW: "That project no longer exists.",
@@ -72,9 +71,17 @@ export function judgingFailure(
     message = `${message} Try again in ${Math.ceil(retryAfterMs / 1000)}s.`;
   }
   if (error.code === "INVALID_COLUMNS" && Array.isArray(error.detail.names)) {
-    const names = error.detail.names.filter((name) => typeof name === "string");
-    if (names.length > 0)
-      message = `${message} Problem columns: ${names.join(", ")}.`;
+    const names = error.detail.names.filter(
+      (name): name is string => typeof name === "string",
+    );
+    const named = names.filter((name) => name.trim());
+    const blank = names.length - named.length;
+    if (named.length > 0) {
+      message = `${message} Missing or repeated: ${named.join(", ")}.`;
+    }
+    if (blank > 0) {
+      message = `${message} ${blank} ${blank === 1 ? "column has" : "columns have"} no header. Upload the file as downloaded from Devpost, without re-saving it in a spreadsheet.`;
+    }
   }
   return { ok: false, error: message, code: error.code, retryAfterMs };
 }
