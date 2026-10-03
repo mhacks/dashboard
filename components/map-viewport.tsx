@@ -45,11 +45,16 @@ function isMapControl(target: EventTarget | null) {
 export function MapViewport({
   children,
   columns,
+  fitColumns = columns,
+  fitRows = rows,
   onBackgroundClick,
   rows,
 }: {
   children: ReactNode;
   columns: number;
+  /** Saved map size. Dragging grows `columns`/`rows` and must not refit. */
+  fitColumns?: number;
+  fitRows?: number;
   onBackgroundClick?: () => void;
   rows: number;
 }) {
@@ -61,7 +66,12 @@ export function MapViewport({
   const pendingZoomRef = useRef<ZoomAnchor | null>(null);
   const fitSizeRef = useRef(DEFAULT_CELL_PX);
   const userZoomedRef = useRef(false);
+  const gridSizeRef = useRef({ columns, rows });
   const [cellSize, setCellSize] = useState(DEFAULT_CELL_PX);
+
+  useLayoutEffect(() => {
+    gridSizeRef.current = { columns, rows };
+  }, [columns, rows]);
 
   function applyZoom(clientX: number, clientY: number, factor: number) {
     const frame = frameRef.current;
@@ -86,12 +96,11 @@ export function MapViewport({
   }
 
   useLayoutEffect(() => {
-    userZoomedRef.current = false;
     const frame = frameRef.current;
     if (!frame) return;
 
     const fit = () => {
-      if (userZoomedRef.current) return;
+      const { columns: gridColumns, rows: gridRows } = gridSizeRef.current;
       const styles = getComputedStyle(frame);
       const padX =
         (Number.parseFloat(styles.paddingLeft) || 0) +
@@ -101,21 +110,28 @@ export function MapViewport({
         (Number.parseFloat(styles.paddingBottom) || 0);
       const innerWidth = frame.clientWidth - padX;
       const innerHeight = frame.clientHeight - padY;
-      if (innerWidth <= 0 || innerHeight <= 0 || columns < 1 || rows < 1) {
+      if (
+        innerWidth <= 0 ||
+        innerHeight <= 0 ||
+        gridColumns < 1 ||
+        gridRows < 1
+      ) {
         return;
       }
       const fromWidth =
-        innerWidth / (columns + Math.max(0, columns - 1) * GRID_GAP_RATIO);
+        innerWidth /
+        (gridColumns + Math.max(0, gridColumns - 1) * GRID_GAP_RATIO);
       const fromHeight =
         innerHeight /
-        (rows +
-          Math.max(0, rows - 1) * GRID_GAP_RATIO +
+        (gridRows +
+          Math.max(0, gridRows - 1) * GRID_GAP_RATIO +
           FRONT_DESK_HEIGHT_CELLS +
           FRONT_DESK_GAP_CELLS);
       const fitted = Math.floor(Math.min(fromWidth, fromHeight));
       if (!Number.isFinite(fitted) || fitted <= 0) return;
       const next = Math.min(MAX_CELL_PX, fitted);
       fitSizeRef.current = next;
+      if (userZoomedRef.current) return;
       frame.scrollLeft = 0;
       frame.scrollTop = 0;
       setCellSize(next);
@@ -125,7 +141,7 @@ export function MapViewport({
     const observer = new ResizeObserver(fit);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [columns, rows]);
+  }, [fitColumns, fitRows]);
 
   useLayoutEffect(() => {
     const frame = frameRef.current;

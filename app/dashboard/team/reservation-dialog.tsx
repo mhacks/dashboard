@@ -92,7 +92,7 @@ export function ReservationDialog({
           {buttonLabel}
         </button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[2px] border-ui-line bg-ui-paper text-ui-ink ring-ui-line sm:max-w-3xl">
+      <DialogContent className="grid-cols-1 max-h-[90vh] min-w-0 overflow-y-auto rounded-[2px] border-ui-line bg-ui-paper font-red-hat text-ui-ink ring-ui-line sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="font-red-hat-mono text-lg font-bold tracking-[-0.01em]">
             Reserve a table

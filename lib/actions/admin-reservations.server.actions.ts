@@ -14,10 +14,16 @@ import {
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
   DEFAULT_MAP_COLUMNS,
+  MAX_MAP_DIMENSION,
   MAX_RESERVATION_TABLE_NUMBER,
   defaultTableGeometry,
   planTableCountChange,
+  tableGeometryAt,
 } from "@/lib/reservation/domain";
+import {
+  JUDGE_TABLE_HEIGHT,
+  JUDGE_TABLE_WIDTH,
+} from "@/lib/reservation/judge-map";
 import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
 import { SUBMISSION_SETTINGS_ID } from "@/lib/queries/submission-settings";
 import { TEAM_REGISTRATION_SETTINGS_ID } from "@/lib/queries/team-registration-settings";
@@ -88,6 +94,24 @@ const createTableInputSchema = z
     {
       path: ["originX"],
       message: "Set both a column and a row, or neither.",
+    },
+  )
+  .refine(
+    (value) =>
+      value.originX === undefined ||
+      value.originX + JUDGE_TABLE_WIDTH <= MAX_MAP_DIMENSION,
+    {
+      path: ["originX"],
+      message: "Keep the table inside the 40 by 40 map.",
+    },
+  )
+  .refine(
+    (value) =>
+      value.originY === undefined ||
+      value.originY + JUDGE_TABLE_HEIGHT <= MAX_MAP_DIMENSION,
+    {
+      path: ["originY"],
+      message: "Keep the table inside the 40 by 40 map.",
     },
   );
 
@@ -542,7 +566,7 @@ export async function createReservationTable(input: {
         .from(tables);
       const geometry =
         originX !== undefined && originY !== undefined
-          ? { originX, originY, width: 1, height: 1 }
+          ? tableGeometryAt(originX, originY)
           : defaultTableGeometry(tableCount ?? 0, await readMapColumns(tx));
       const [table] = await tx
         .insert(tables)

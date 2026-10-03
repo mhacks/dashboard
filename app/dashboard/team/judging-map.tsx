@@ -2,7 +2,10 @@
 
 import { MapViewport } from "@/components/map-viewport";
 import { cn } from "@/lib/utils";
-import { reservationGridExtent } from "@/lib/reservation/domain";
+import {
+  fitsReservationMap,
+  reservationGridExtent,
+} from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 export type TableStatus = "available" | "selected" | "mine" | "taken";
@@ -66,12 +69,18 @@ export function JudgingMap({
   disabled?: boolean;
   mode?: JudgingMapMode;
 }) {
-  const extent = reservationGridExtent(tables, columns, rows);
+  const placed = tables.filter(fitsReservationMap);
+  const extent = reservationGridExtent(placed, columns, rows);
   const cellCount = extent.columns * extent.rows;
 
   return (
-    <div className="flex flex-col gap-5">
-      <MapViewport columns={extent.columns} rows={extent.rows}>
+    <div className="flex min-w-0 flex-col gap-5">
+      <MapViewport
+        columns={extent.columns}
+        rows={extent.rows}
+        fitColumns={columns}
+        fitRows={rows}
+      >
         <div className="w-fit">
           <div
             className="grid"
@@ -94,7 +103,7 @@ export function JudgingMap({
                 <span className="size-[12%] rounded-full bg-zinc-400/25" />
               </span>
             ))}
-            {tables.map((table) => {
+            {placed.map((table) => {
               const status = statusOf(table, selectedTableId, teamId);
               const interactive =
                 !disabled &&

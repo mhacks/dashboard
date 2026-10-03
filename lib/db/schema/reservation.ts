@@ -113,6 +113,10 @@ export const tables = pgTable(
       "tables_size_positive",
       sql`${table.width} >= 1 AND ${table.height} >= 1`,
     ),
+    check(
+      "tables_geometry_within_map",
+      sql`${table.originX} + ${table.width} <= 40 AND ${table.originY} + ${table.height} <= 40`,
+    ),
     pgPolicy("tables_select_authenticated", {
       for: "select",
       to: authenticatedRole,

@@ -27,6 +27,7 @@ import {
   MAX_MAP_DIMENSION,
   MAX_RESERVATION_TABLE_NUMBER,
   MIN_MAP_DIMENSION,
+  fitsReservationMap,
   reservationGridExtent,
   type TableGeometry,
 } from "@/lib/reservation/domain";
@@ -125,6 +126,18 @@ function groupGeometry(
     );
     if (minWidth + widthDelta < 1) widthDelta = 1 - minWidth;
     if (minHeight + heightDelta < 1) heightDelta = 1 - minHeight;
+    const widthRoom = Math.min(
+      ...session.group.map(
+        (item) => MAX_MAP_DIMENSION - item.start.originX - item.start.width,
+      ),
+    );
+    const heightRoom = Math.min(
+      ...session.group.map(
+        (item) => MAX_MAP_DIMENSION - item.start.originY - item.start.height,
+      ),
+    );
+    if (widthDelta > widthRoom) widthDelta = widthRoom;
+    if (heightDelta > heightRoom) heightDelta = heightRoom;
     return session.group.map((item) => ({
       tableId: item.tableId,
       originX: item.start.originX,
@@ -144,6 +157,18 @@ function groupGeometry(
   );
   if (minOriginX + originDeltaX < 0) originDeltaX = -minOriginX;
   if (minOriginY + originDeltaY < 0) originDeltaY = -minOriginY;
+  const shiftRoomX = Math.min(
+    ...session.group.map(
+      (item) => MAX_MAP_DIMENSION - item.start.width - item.start.originX,
+    ),
+  );
+  const shiftRoomY = Math.min(
+    ...session.group.map(
+      (item) => MAX_MAP_DIMENSION - item.start.height - item.start.originY,
+    ),
+  );
+  if (originDeltaX > shiftRoomX) originDeltaX = shiftRoomX;
+  if (originDeltaY > shiftRoomY) originDeltaY = shiftRoomY;
   return session.group.map((item) => ({
     tableId: item.tableId,
     originX: item.start.originX + originDeltaX,
@@ -615,6 +640,8 @@ export function TableLayoutEditor({
           <MapViewport
             columns={extent.columns}
             rows={extent.rows}
+            fitColumns={columns}
+            fitRows={rows}
             onBackgroundClick={() => {
               if (selection.size === 0) return;
               setSelectedIds(new Set());
@@ -644,7 +671,7 @@ export function TableLayoutEditor({
                   <span className="size-[12%] rounded-full bg-zinc-400/25" />
                 </span>
               ))}
-              {displayed.map((table) => {
+              {displayed.filter(fitsReservationMap).map((table) => {
                 const selectedTable = selection.has(table.id);
                 return (
                   <div

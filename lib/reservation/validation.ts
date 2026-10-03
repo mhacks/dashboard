@@ -35,15 +35,42 @@ export const reservationMapDimensionSchema = z.coerce
   .int()
   .min(MIN_MAP_DIMENSION)
   .max(MAX_MAP_DIMENSION);
-export const reservationTableOriginSchema = z.number().int().nonnegative();
-export const reservationTableSpanSchema = z.number().int().positive();
-export const reservationTableGeometrySchema = z.object({
-  tableId: reservationIdSchema,
-  originX: reservationTableOriginSchema,
-  originY: reservationTableOriginSchema,
-  width: reservationTableSpanSchema,
-  height: reservationTableSpanSchema,
-});
+const MAP_BOUNDS_MESSAGE = "Keep the table inside the 40 by 40 map.";
+
+export const reservationTableOriginSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(MAX_MAP_DIMENSION - 1, { message: MAP_BOUNDS_MESSAGE });
+export const reservationTableSpanSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(MAX_MAP_DIMENSION, { message: MAP_BOUNDS_MESSAGE });
+export const reservationTableGeometrySchema = z
+  .object({
+    tableId: reservationIdSchema,
+    originX: reservationTableOriginSchema,
+    originY: reservationTableOriginSchema,
+    width: reservationTableSpanSchema,
+    height: reservationTableSpanSchema,
+  })
+  .superRefine((value, context) => {
+    if (value.originX + value.width > MAX_MAP_DIMENSION) {
+      context.addIssue({
+        code: "custom",
+        path: ["width"],
+        message: MAP_BOUNDS_MESSAGE,
+      });
+    }
+    if (value.originY + value.height > MAX_MAP_DIMENSION) {
+      context.addIssue({
+        code: "custom",
+        path: ["height"],
+        message: MAP_BOUNDS_MESSAGE,
+      });
+    }
+  });
 export const reservationTableGeometriesSchema = z.object({
   tables: z
     .array(reservationTableGeometrySchema)
