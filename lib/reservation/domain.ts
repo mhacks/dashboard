@@ -1,7 +1,14 @@
+import {
+  JUDGE_MAP_COLUMNS,
+  JUDGE_MAP_ROWS,
+  JUDGE_TABLE_HEIGHT,
+  JUDGE_TABLE_WIDTH,
+} from "./judge-map";
+
 export const MAX_RESERVATION_TABLE_COUNT = 500;
 export const MAX_RESERVATION_TABLE_NUMBER = 2_147_483_647;
-export const DEFAULT_MAP_COLUMNS = 16;
-export const DEFAULT_MAP_ROWS = 10;
+export const DEFAULT_MAP_COLUMNS = JUDGE_MAP_COLUMNS;
+export const DEFAULT_MAP_ROWS = JUDGE_MAP_ROWS;
 export const MIN_MAP_DIMENSION = 1;
 export const MAX_MAP_DIMENSION = 40;
 
@@ -12,7 +19,7 @@ export type TableGeometry = {
   height: number;
 };
 
-/** 1×1 cell in row-major order. Does not look for an empty cell. */
+/** 2×1 cell in row-major order. Does not look for an empty cell. */
 export function defaultTableGeometry(
   index: number,
   columns: number,
@@ -22,8 +29,8 @@ export function defaultTableGeometry(
   return {
     originX: safeIndex % span,
     originY: Math.floor(safeIndex / span),
-    width: 1,
-    height: 1,
+    width: JUDGE_TABLE_WIDTH,
+    height: JUDGE_TABLE_HEIGHT,
   };
 }
 

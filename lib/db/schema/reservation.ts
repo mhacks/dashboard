@@ -15,6 +15,11 @@ import {
 import { sql } from "drizzle-orm";
 import { authenticatedRole } from "drizzle-orm/supabase";
 import { isOrganizer } from "./rls";
+import {
+  JUDGE_MAP_COLUMNS,
+  JUDGE_MAP_ROWS,
+  JUDGE_TABLE_WIDTH,
+} from "@/lib/reservation/judge-map";
 import { teams } from "./teams";
 import { users } from "./users";
 
@@ -39,8 +44,8 @@ export const judgingSettings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
-    mapColumns: integer("map_columns").notNull().default(16),
-    mapRows: integer("map_rows").notNull().default(10),
+    mapColumns: integer("map_columns").notNull().default(JUDGE_MAP_COLUMNS),
+    mapRows: integer("map_rows").notNull().default(JUDGE_MAP_ROWS),
   },
   (table) => [
     check("judging_settings_singleton_check", sql`${table.id} = 'default'`),
@@ -88,7 +93,7 @@ export const tables = pgTable(
     reservedAt: timestamp("reserved_at", { withTimezone: true }),
     originX: integer("origin_x").notNull().default(0),
     originY: integer("origin_y").notNull().default(0),
-    width: integer("width").notNull().default(1),
+    width: integer("width").notNull().default(JUDGE_TABLE_WIDTH),
     height: integer("height").notNull().default(1),
   },
   (table) => [
