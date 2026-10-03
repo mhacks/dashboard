@@ -28,13 +28,13 @@ export const WALLET_EVENT = {
     },
     {
       startDate: "2026-10-04T07:00:00-04:00",
-      endDate: "2026-10-05T00:00:00-04:00",
+      endDate: "2026-10-04T16:00:00-04:00",
     },
   ],
   // Central campus. Wallet also surfaces the pass near the event location.
   location: { latitude: 42.27792, longitude: -83.73401 },
   /** After this the pass greys out in Wallet and emailed links stop working. */
-  endsAt: "2026-10-06T00:00:00-04:00",
+  endsAt: "2026-10-04T16:00:00-04:00",
   supportEmail: "hackathon-org@umich.edu",
   handbookUrl:
     "https://safe-banon-80d.notion.site/2026-Hacker-Handbook-3ca24ca0c81b80fb8adee2e26c8508af",
