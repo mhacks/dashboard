@@ -16,6 +16,7 @@ import {
   getApplicantDecision,
   type ApplicantDecisionRow,
 } from "@/lib/queries/applicant-decision";
+import { getMyTeam } from "@/lib/actions/team.actions";
 import { getAttendeeQrEligibility } from "@/lib/queries/check-in";
 import { getApplicationAccessForUser } from "@/lib/applications/access";
 import { isAppleWalletConfigured } from "@/lib/wallet/config";
@@ -59,12 +60,25 @@ export default async function DashboardPage() {
     }
   }
 
+  const checkedIn = application ? hasCheckedIn(application.decision) : false;
+  let strandedTeamName: string | null = null;
+  if (role === "hacker" && !checkedIn) {
+    try {
+      const membership = await getMyTeam(userId);
+      strandedTeamName = membership?.team.name ?? null;
+    } catch (err) {
+      const cause = err instanceof Error ? (err.cause ?? err) : err;
+      console.error("[DB] team membership query failed:", cause);
+    }
+  }
+
   return (
     <ApplicantDashboard
       role={role}
       userId={userId}
       canCheckIn={canCheckIn}
-      checkedIn={application ? hasCheckedIn(application.decision) : false}
+      checkedIn={checkedIn}
+      strandedTeamName={strandedTeamName}
       firstName={application?.firstName ?? null}
       appleWalletAvailable={isAppleWalletConfigured()}
       googleWalletAvailable={isGoogleWalletConfigured()}

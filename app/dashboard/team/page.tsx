@@ -33,7 +33,6 @@ export const dynamic = "force-dynamic";
 async function TeamData() {
   const { id: userId } = await requireHackerPage();
 
-  // The team page is for hackers whose application decision is checked in.
   let decision: ApplicationDecision | null = null;
   try {
     const [application] = await db
@@ -46,9 +45,7 @@ async function TeamData() {
     const cause = err instanceof Error ? (err.cause ?? err) : err;
     console.error("[DB] hacker_applicants team gate query failed:", cause);
   }
-  if (!decision || !hasCheckedIn(decision)) {
-    redirect("/dashboard");
-  }
+  const checkedIn = Boolean(decision && hasCheckedIn(decision));
 
   const [team, pendingInvitations, sentInvitations, devpostUrl, settings] =
     await Promise.all([
@@ -58,15 +55,23 @@ async function TeamData() {
       getMyTeamSubmission(userId),
       getJudgingSettings().catch((err: unknown) => {
         const cause = err instanceof Error ? (err.cause ?? err) : err;
-        console.error("[DB] reservation settings query failed:", cause);
+        console.error("[DB] judging settings query failed:", cause);
         return undefined;
       }),
     ]);
 
+  // Checked-in hackers manage the team. Anyone still on a team after a
+  // reverted scan can open the page to leave, and nobody else.
+  if (!checkedIn && !team) {
+    redirect("/dashboard");
+  }
+
   let reservations: ParticipantReservationSnapshot | null = null;
-  if (team) {
+  let reservationsAvailable = false;
+  if (team && checkedIn) {
     try {
       reservations = await getParticipantReservationSnapshot();
+      reservationsAvailable = true;
     } catch (err) {
       const cause = err instanceof Error ? (err.cause ?? err) : err;
       console.error("[DB] reservation snapshot query failed:", cause);
@@ -77,9 +82,11 @@ async function TeamData() {
     <TeamView
       currentUserId={userId}
       team={team}
+      checkedIn={checkedIn}
       pendingInvitations={pendingInvitations}
       sentInvitations={sentInvitations}
       reservations={reservations}
+      reservationsAvailable={reservationsAvailable}
       devpostUrl={devpostUrl}
       submissionDeadline={
         settings === undefined ? null : (settings?.submissionDeadline ?? null)

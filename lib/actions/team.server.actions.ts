@@ -131,6 +131,7 @@ export const leaveTeam = async (): Promise<void> => {
   const { id: userId } = await requireSessionUser();
   try {
     await leaveTeamForUser(userId);
+    revalidatePath("/dashboard");
     revalidatePath("/dashboard/team");
   } catch (error) {
     throw toActionError(error, "Failed to leave team");

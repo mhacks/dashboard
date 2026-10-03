@@ -54,9 +54,13 @@ import { ReservationDialog } from "./reservation-dialog";
 interface TeamViewProps {
   currentUserId: string;
   team: TeamWithMembers | null;
+  /** False when a reverted check-in left them on a team they can only leave. */
+  checkedIn: boolean;
   pendingInvitations: PendingInvitationSummary[];
   sentInvitations: SentInvitationSummary[];
   reservations: ParticipantReservationSnapshot | null;
+  /** False when the table list could not be loaded. */
+  reservationsAvailable: boolean;
   devpostUrl: string | null;
   /** Null when no cutoff is configured. */
   submissionDeadline: string | null;
@@ -120,9 +124,11 @@ function BackToDashboardLink() {
 export function TeamView({
   currentUserId,
   team,
+  checkedIn,
   pendingInvitations,
   sentInvitations,
   reservations,
+  reservationsAvailable,
   devpostUrl,
   submissionDeadline,
   submissionScheduleAvailable,
@@ -249,14 +255,16 @@ export function TeamView({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <PanelHeading
                   lede={
-                    team.members.length >= MAX_TEAM_SIZE
-                      ? "Your team is full."
-                      : `Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
+                    !checkedIn
+                      ? "Check-in is required to manage this team. You can still leave."
+                      : team.members.length >= MAX_TEAM_SIZE
+                        ? "Your team is full."
+                        : `Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
                   }
                 >
                   {team.team.name}
                 </PanelHeading>
-                {!isRenaming ? (
+                {checkedIn && !isRenaming ? (
                   <button
                     type="button"
                     onClick={openRename}
@@ -275,11 +283,11 @@ export function TeamView({
 
             {team ? (
               <>
-                {team.team.renameRequestedAt ? (
+                {checkedIn && team.team.renameRequestedAt ? (
                   <RenameRequestBanner reason={team.team.renameRequestReason} />
                 ) : null}
 
-                {isRenaming ? (
+                {checkedIn && isRenaming ? (
                   <RenameTeamForm
                     form={renameForm}
                     onSubmit={onRenameTeam}
@@ -294,7 +302,7 @@ export function TeamView({
                   currentUserId={currentUserId}
                 />
 
-                {team.members.length < MAX_TEAM_SIZE ? (
+                {checkedIn && team.members.length < MAX_TEAM_SIZE ? (
                   <InviteForm
                     form={inviteForm}
                     onSubmit={onInvite}
@@ -303,7 +311,7 @@ export function TeamView({
                   />
                 ) : null}
 
-                {sentInvitations.length > 0 ? (
+                {checkedIn && sentInvitations.length > 0 ? (
                   <SentInvitationsList
                     invitations={sentInvitations}
                     isPending={isPending}
@@ -350,7 +358,7 @@ export function TeamView({
             )}
           </Panel>
 
-          {team && reservations ? (
+          {checkedIn && team && reservations ? (
             <Panel
               eyebrow="RESERVATION"
               status={reservationStatus(reservations, team.team.id)}
@@ -370,10 +378,11 @@ export function TeamView({
             </Panel>
           ) : null}
 
-          {team ? (
+          {checkedIn && team ? (
             <DevpostSubmission
               key={devpostUrl ?? "none"}
               savedUrl={devpostUrl}
+              reservationsAvailable={reservationsAvailable}
               tableReserved={
                 reservations?.tables.some(
                   (table) => table.reservedByTeamId === team.team.id,
@@ -542,6 +551,7 @@ function formatSubmissionDeadline(iso: string) {
 
 function DevpostSubmission({
   savedUrl,
+  reservationsAvailable,
   tableReserved,
   deadline,
   scheduleAvailable,
@@ -550,6 +560,7 @@ function DevpostSubmission({
   onSave,
 }: {
   savedUrl: string | null;
+  reservationsAvailable: boolean;
   tableReserved: boolean;
   deadline: string | null;
   scheduleAvailable: boolean;
@@ -563,20 +574,22 @@ function DevpostSubmission({
   });
   const beforeDeadline =
     scheduleAvailable && isBeforeSubmissionDeadline(deadline);
-  const canSubmit = tableReserved && beforeDeadline;
+  const canSubmit = reservationsAvailable && tableReserved && beforeDeadline;
   const closedAt =
     deadline && !Number.isNaN(new Date(deadline).getTime())
       ? formatSubmissionDeadline(deadline)
       : null;
-  const lede = !tableReserved
-    ? "Reserve a judging table before submitting. A team has one Devpost link."
-    : !scheduleAvailable
-      ? "Project submissions are unavailable right now."
-      : !beforeDeadline
-        ? `Project submissions closed${closedAt ? ` ${closedAt}` : ""}.`
-        : closedAt
-          ? `One Devpost link for the whole team. Submissions close ${closedAt}.`
-          : "One Devpost link for the whole team. Any teammate can update it.";
+  const lede = !reservationsAvailable
+    ? "Table reservations could not be loaded, so project submission is unavailable right now."
+    : !tableReserved
+      ? "Reserve a judging table before submitting. A team has one Devpost link."
+      : !scheduleAvailable
+        ? "Project submissions are unavailable right now."
+        : !beforeDeadline
+          ? `Project submissions closed${closedAt ? ` ${closedAt}` : ""}.`
+          : closedAt
+            ? `One Devpost link for the whole team. Submissions close ${closedAt}.`
+            : "One Devpost link for the whole team. Any teammate can update it.";
 
   return (
     <Panel eyebrow="SUBMISSION" status={savedUrl ? "Submitted" : undefined}>

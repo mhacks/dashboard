@@ -7,7 +7,7 @@ import { isUniqueViolation } from "@/lib/db/errors";
 import { judgingSettings, tables } from "@/lib/db/schema/reservation";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
-  ACCEPTED_RESERVATION_ERROR,
+  CHECKED_IN_RESERVATION_ERROR,
   getParticipantTeam,
   lockAcceptedReservationApplicant,
   ReservationAccessError,
@@ -85,7 +85,7 @@ async function lockOpenJudgingSettings(tx: ReservationTransaction) {
 
 function knownReservationFailure(error: unknown): ActionResult | null {
   if (error instanceof ReservationAccessError) {
-    return { ok: false, error: ACCEPTED_RESERVATION_ERROR };
+    return { ok: false, error: CHECKED_IN_RESERVATION_ERROR };
   }
   if (error instanceof ReservationFailure) {
     return {

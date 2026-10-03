@@ -49,6 +49,7 @@ export function ApplicantDashboard({
   userId,
   canCheckIn,
   checkedIn,
+  strandedTeamName,
   appleWalletAvailable,
   googleWalletAvailable,
 }: {
@@ -60,10 +61,15 @@ export function ApplicantDashboard({
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
   /**
-   * Application decision is `checked_in`. The team page redirects otherwise,
-   * so the panel stays hidden rather than linking somewhere that bounces.
+   * Application decision is `checked_in`. The manage-team panel stays hidden
+   * otherwise.
    */
   checkedIn: boolean;
+  /**
+   * Set when a hacker is still on a team after check-in was reverted. They
+   * can open the team page to leave, and cannot manage it until they check in.
+   */
+  strandedTeamName: string | null;
   /**
    * Whether this environment can sign Apple Wallet passes.
    */
@@ -102,6 +108,9 @@ export function ApplicantDashboard({
           ) : null}
 
           {checkedIn && role === "hacker" ? <TeamPanel /> : null}
+          {strandedTeamName ? (
+            <StrandedTeamPanel teamName={strandedTeamName} />
+          ) : null}
 
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
@@ -273,6 +282,23 @@ function DecisionReadyPanel() {
  * Sits under the check-in panel once this hacker is checked in. The page
  * itself stays at /dashboard/team; this only points there.
  */
+function StrandedTeamPanel({ teamName }: { teamName: string }) {
+  return (
+    <Panel eyebrow="YOUR TEAM">
+      <PanelHeading
+        lede={`You're still on ${teamName}. Check in again to manage the team, or leave it.`}
+      >
+        Check-in required
+      </PanelHeading>
+      <div className="flex flex-wrap items-center gap-3.5">
+        <ButtonLink href="/dashboard/team" external={false}>
+          Leave this team
+        </ButtonLink>
+      </div>
+    </Panel>
+  );
+}
+
 function TeamPanel() {
   return (
     <Panel eyebrow="TEAM AND SUBMISSION">

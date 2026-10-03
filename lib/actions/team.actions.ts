@@ -484,8 +484,8 @@ export async function cancelInvitation(
 
 export async function leaveTeam(userId: string): Promise<void> {
   await db.transaction(async (tx) => {
-    await loadCheckedInHacker(tx, userId);
-
+    // Check-in is required to join or manage a team, not to leave one. A
+    // reverted door scan must not trap someone on a team.
     const [membership] = await tx
       .select({ teamId: teamMembers.teamId })
       .from(teamMembers)
