@@ -4,8 +4,8 @@
   import from client components: nothing here touches the server.
 */
 
-/** How far back organizers see each person's path. Hackers see no trail. */
-export const TRAIL_HOURS = 3;
+/** How long organizers keep seeing someone after their last fix. */
+export const ORGANIZER_WINDOW_HOURS = 3;
 /** Hackers only see organizers whose last fix is newer than this. */
 export const PUBLIC_WINDOW_MINUTES = 15;
 export const FRESH_WITHIN_MINUTES = 5;
@@ -39,7 +39,7 @@ const OVERFLOW_COLOR = "#8a8a84";
 
 /**
  * Slots go by a stable ID, not list position, so someone keeps their color
- * when others start or stop sharing between refreshes.
+ * when others appear or drop off between refreshes.
  */
 export function personColors(ids: string[]) {
   const colors = new Map<string, string>();

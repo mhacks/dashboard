@@ -13,11 +13,9 @@ import {
 import { getSessionUser } from "@/lib/auth/session";
 import {
   findOrganizerAccess,
-  getMySharing,
   getOrganizerMap,
 } from "@/lib/queries/organizer-locations";
 import { PeopleView } from "./people-view";
-import { SharingPanel } from "./sharing-panel";
 
 // Reads live locations on every request.
 export const dynamic = "force-dynamic";
@@ -62,10 +60,7 @@ export default async function FindMyOrganizerPage() {
     );
   }
 
-  const [snapshot, sharing] = await Promise.all([
-    getOrganizerMap(access),
-    access === "organizer" ? getMySharing(user.id) : null,
-  ]);
+  const snapshot = await getOrganizerMap(access);
 
   return (
     <div className="font-red-hat">
@@ -73,13 +68,11 @@ export default async function FindMyOrganizerPage() {
         <ConsolePage>
           <Masthead title="Find an organizer" trailing={<BackLink />} />
 
-          {access === "organizer" ? <SharingPanel sharing={sharing} /> : null}
-
           <Panel eyebrow="MAP">
             <PanelHeading
               lede={
                 access === "organizer"
-                  ? "Everyone sharing their location, including anyone who has gone quiet."
+                  ? "Everyone whose phone has reported in the last few hours, including anyone who has gone quiet."
                   : "Organizers who have shared their location recently. Tap a name to find them on the map."
               }
             >

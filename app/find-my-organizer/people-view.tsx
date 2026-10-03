@@ -6,36 +6,34 @@ import {
   CircleCheckIcon,
   ClockIcon,
   ExternalLinkIcon,
-  RefreshCwIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useTransition,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { buttonClass } from "@/components/console/button";
 import {
   EVENT_TIME_ZONE,
   FRESH_WITHIN_MINUTES,
   FRESHNESS_LABEL,
   type Freshness,
   PUBLIC_WINDOW_MINUTES,
-  TRAIL_HOURS,
+  ORGANIZER_WINDOW_HOURS,
   freshness,
   mapsUrl,
   personColors,
   seenAgo,
 } from "@/lib/organizer-locations/display";
-import type { OrganizerMapSnapshot } from "@/lib/queries/organizer-locations";
+import type {
+  MappedPerson,
+  OrganizerMapSnapshot,
+} from "@/lib/queries/organizer-locations";
 import { cn } from "@/lib/utils";
 import { OrganizerMap } from "./organizer-map";
 
-/** Re-reads the table. Attendee reads are cached server-side for 10 seconds. */
-const REFRESH_MS = 30_000;
+/**
+ * How often the page re-reads locations. The read goes through the server,
+ * not straight to Supabase, so hackers never receive what the server strips.
+ */
+const REFRESH_MS = 2 * 60_000;
 const CLOCK_TICK_MS = 15_000;
 const LOW_BATTERY_PERCENT = 20;
 
@@ -74,31 +72,64 @@ function useServerNow(readAt: string) {
   return Date.parse(readAt) + (elapsed.readAt === readAt ? elapsed.ms : 0);
 }
 
-/** Re-renders the server page on an interval, paused while the tab is hidden. */
+/**
+ * Re-renders the server page on an interval, and as soon as a hidden tab comes
+ * back. Paused while the tab is hidden.
+ */
 function useAutoRefresh() {
   const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
-
-  const refresh = useCallback(() => {
-    startRefresh(() => router.refresh());
-  }, [router]);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
-    }, REFRESH_MS);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
+    const refresh = () => {
+      if (document.visibilityState === "visible") router.refresh();
     };
-    document.addEventListener("visibilitychange", onVisible);
+    const id = window.setInterval(refresh, REFRESH_MS);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", refresh);
     };
-  }, [refresh]);
-
-  return { refresh, refreshing };
+  }, [router]);
 }
+
+/**
+ * `value` as of the last time `key` changed. A refresh hands over new arrays
+ * even when nothing moved; this keeps the old ones so React and the map have
+ * nothing to redo.
+ */
+function useStable<T>(value: T, key: string): T {
+  const [stable, setStable] = useState({ key, value });
+  if (stable.key !== key) {
+    setStable({ key, value });
+    return value;
+  }
+  return stable.value;
+}
+
+/** Everything the list shows. `recordedAt` changes when a phone reports in. */
+const listKey = (people: MappedPerson[]) =>
+  people
+    .map((p) =>
+      [
+        p.id,
+        p.name,
+        p.latitude,
+        p.longitude,
+        p.accuracy,
+        p.battery,
+        p.recordedAt,
+      ].join(","),
+    )
+    .join("|");
+
+/**
+ * Everything the map draws. A phone that reports from the same spot changes
+ * only `recordedAt`, so the markers stay put.
+ */
+const mapKey = (people: MappedPerson[]) =>
+  people
+    .map((p) => [p.id, p.name, p.latitude, p.longitude, p.accuracy].join(","))
+    .join("|");
 
 export function PeopleView({
   snapshot,
@@ -107,14 +138,16 @@ export function PeopleView({
   snapshot: OrganizerMapSnapshot;
   organizerView: boolean;
 }) {
-  const { people, readAt } = snapshot;
+  const { readAt } = snapshot;
+  const people = useStable(snapshot.people, listKey(snapshot.people));
+  const mapPeople = useStable(people, mapKey(people));
   const now = useServerNow(readAt);
-  const { refresh, refreshing } = useAutoRefresh();
+  useAutoRefresh();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const colors = useMemo(
-    () => personColors(people.map((person) => person.id)),
-    [people],
+    () => personColors(mapPeople.map((person) => person.id)),
+    [mapPeople],
   );
 
   const toggleSelected = useCallback((id: string) => {
@@ -123,36 +156,19 @@ export function PeopleView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p
-          className="font-red-hat-mono text-xs tracking-[0.04em] text-ui-ink-soft"
-          aria-live="polite"
-        >
-          {people.length === 0
-            ? "Nobody on the map"
-            : `${people.length} on the map`}
-          {" · "}checked {seenAgo(readAt, now)}
-        </p>
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={refreshing}
-          className={buttonClass(
-            "outline",
-            "px-3.5 py-2 max-sm:w-auto disabled:opacity-60",
-          )}
-        >
-          <RefreshCwIcon
-            className={cn("size-3.5", refreshing && "animate-spin")}
-            aria-hidden
-          />
-          Refresh
-        </button>
-      </div>
+      <p
+        className="font-red-hat-mono text-xs tracking-[0.04em] text-ui-ink-soft"
+        aria-live="polite"
+      >
+        {people.length === 0
+          ? "Nobody on the map"
+          : `${people.length} on the map`}
+        {" · "}checked {seenAgo(readAt, now)}, updates every 2 minutes
+      </p>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <OrganizerMap
-          people={people}
+          people={mapPeople}
           colors={colors}
           selectedId={selectedId}
           onSelect={toggleSelected}
@@ -161,7 +177,7 @@ export function PeopleView({
         {people.length === 0 ? (
           <p className="border border-dashed border-ui-line-strong p-4 text-sm leading-[1.55] text-ui-ink-soft">
             {organizerView
-              ? "Nobody is sharing their location yet. Turn on sharing above to appear here."
+              ? "No phone has reported in yet. Set up OwnTracks to appear here."
               : `No organizers have shared their location in the last ${PUBLIC_WINDOW_MINUTES} minutes. Ask anyone in an organizer shirt, or head to the front desk.`}
           </p>
         ) : (
@@ -261,7 +277,7 @@ export function PeopleView({
         older time. Indoors, positions can be off by tens of meters and
         don&apos;t know which floor.
         {organizerView
-          ? ` Organizers also see positions older than ${PUBLIC_WINDOW_MINUTES} minutes and the last ${TRAIL_HOURS} hours of each trail; hackers see neither.`
+          ? ` Organizers also see positions up to ${ORGANIZER_WINDOW_HOURS} hours old and battery levels; hackers see neither.`
           : null}
       </p>
     </div>
