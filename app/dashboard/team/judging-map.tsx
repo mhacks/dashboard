@@ -62,7 +62,7 @@ export function JudgingMap({
   rows: number;
   selectedTableId: string | null;
   teamId: string | null;
-  onSelect: (table: TableWithTeam) => void;
+  onSelect?: (table: TableWithTeam) => void;
   disabled?: boolean;
   mode?: JudgingMapMode;
 }) {
@@ -106,7 +106,7 @@ export function JudgingMap({
                   key={table.id}
                   type="button"
                   disabled={!interactive}
-                  onClick={() => onSelect(table)}
+                  onClick={onSelect ? () => onSelect(table) : undefined}
                   title={
                     table.reservedByTeamName
                       ? `Table ${table.number} — ${table.reservedByTeamName}`

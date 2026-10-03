@@ -229,7 +229,7 @@ export function MapViewport({
       onPointerMove={movePan}
       onPointerUp={endPan}
       onPointerCancel={endPan}
-      className="h-[min(70vh,40rem)] touch-none overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8"
+      className="h-[min(70vh,40rem)] w-full min-w-0 max-w-full touch-none overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8"
       style={{ "--cell": `${cellSize}px` } as CSSProperties}
     >
       <div ref={contentRef}>{children}</div>

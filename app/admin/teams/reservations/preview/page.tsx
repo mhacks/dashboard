@@ -36,7 +36,6 @@ export default async function ReservationPreviewPage() {
         rows={settings?.mapRows ?? DEFAULT_MAP_ROWS}
         selectedTableId={null}
         teamId={null}
-        onSelect={() => {}}
         disabled
       />
     </section>
