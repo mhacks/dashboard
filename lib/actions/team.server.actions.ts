@@ -17,6 +17,7 @@ import {
   saveTeamDevpostUrl as saveTeamDevpostUrlForUser,
 } from "@/lib/actions/team.actions";
 import { sendTeamInviteEmail } from "@/lib/email/send-invite-email";
+import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import { hasCheckedIn } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
@@ -133,6 +134,7 @@ export const leaveTeam = async (): Promise<void> => {
     await leaveTeamForUser(userId);
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/team");
+    revalidateReservationPaths();
   } catch (error) {
     throw toActionError(error, "Failed to leave team");
   }

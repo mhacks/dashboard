@@ -11,7 +11,7 @@ import {
   isDraftStarted,
 } from "@/lib/application-steps";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { hasCheckedIn, isDecided } from "@/lib/decisions";
+import { hasCheckedIn, hasRsvped, isDecided } from "@/lib/decisions";
 import {
   getApplicantDecision,
   type ApplicantDecisionRow,
@@ -78,6 +78,7 @@ export default async function DashboardPage() {
       userId={userId}
       canCheckIn={canCheckIn}
       checkedIn={checkedIn}
+      showLiveSite={application ? hasRsvped(application.decision) : false}
       strandedTeamName={strandedTeamName}
       firstName={application?.firstName ?? null}
       appleWalletAvailable={isAppleWalletConfigured()}

@@ -517,6 +517,13 @@ export async function leaveTeam(userId: string): Promise<void> {
       .where(eq(teamMembers.teamId, membership.teamId));
 
     if (remainingMembers.length === 0) {
+      // tables.reserved_by_team_id is ON DELETE RESTRICT, and reserved_at
+      // must be cleared in the same update. Release the table before the
+      // team row goes away, or the last member cannot leave.
+      await tx
+        .update(tables)
+        .set({ reservedByTeamId: null, reservedAt: null })
+        .where(eq(tables.reservedByTeamId, membership.teamId));
       await tx.delete(teams).where(eq(teams.id, membership.teamId));
     }
   });

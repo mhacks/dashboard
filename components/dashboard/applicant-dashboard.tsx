@@ -49,6 +49,7 @@ export function ApplicantDashboard({
   userId,
   canCheckIn,
   checkedIn,
+  showLiveSite,
   strandedTeamName,
   appleWalletAvailable,
   googleWalletAvailable,
@@ -65,6 +66,8 @@ export function ApplicantDashboard({
    * otherwise.
    */
   checkedIn: boolean;
+  /** RSVPed or checked in. The live site link stays hidden otherwise. */
+  showLiveSite: boolean;
   /**
    * Set when a hacker is still on a team after check-in was reverted. They
    * can open the team page to leave, and cannot manage it until they check in.
@@ -93,7 +96,7 @@ export function ApplicantDashboard({
             }
           />
 
-          {role === "hacker" ? <HandbookPanel /> : null}
+          {role === "hacker" && showLiveSite ? <HandbookPanel /> : null}
 
           {/* Above the application panels, because it outranks them: anyone
               who can see this has already been accepted and RSVPed, so their
@@ -408,8 +411,9 @@ function CheckInPanel({
 }
 
 /**
- * Hackers only. Same paper box as the panels below it, so it isn't a bare
- * line under the greeting. The button sits beside the copy on wide screens.
+ * Hackers who have RSVPed or checked in. Same paper box as the panels below
+ * it, so it isn't a bare line under the greeting. The button sits beside the
+ * copy on wide screens.
  */
 function HandbookPanel() {
   return (
