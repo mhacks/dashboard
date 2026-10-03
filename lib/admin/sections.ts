@@ -117,7 +117,7 @@ export const ADMIN_AREAS: AdminArea[] = [
         // Not under /admin: checked-in hackers use the same page.
         href: "/find-my-organizer",
         title: "Find my organizer",
-        description: "Share your location and see where other organizers are.",
+        description: "See where organizers are on a map.",
         icon: MapPinIcon,
       },
     ],

@@ -1,15 +1,11 @@
-import { and, eq, lt, sql } from "drizzle-orm";
+import { lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { organizerLocations } from "@/lib/db/schema/organizer-locations";
+import { ORGANIZER_WINDOW_HOURS } from "@/lib/organizer-locations/display";
 import {
-  organizerLocationSharing,
-  organizerLocations,
-} from "@/lib/db/schema/organizer-locations";
-import { users } from "@/lib/db/schema/users";
-import { TRAIL_HOURS } from "@/lib/organizer-locations/display";
-import {
-  basicAuthPassword,
-  hashSharingToken,
+  MAX_NAME_LENGTH,
+  owntracksName,
   parseOwntracksLocation,
 } from "@/lib/organizer-locations/owntracks";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
@@ -20,21 +16,24 @@ export const dynamic = "force-dynamic";
 const MAX_BODY_BYTES = 16 * 1024;
 
 /*
-  Per minute. The address limit runs before the password check, so password
-  guessing and junk traffic stop at the limiter; it is loose because every
-  organizer on campus Wi-Fi or one carrier's NAT can share an address. The
-  per-organizer limit caps writes: a phone flushing its queue after a dead zone
-  bursts, and past this the app keeps the rest queued and retries later.
+  Per minute. The endpoint has no password, so the address limit is what
+  stops junk traffic; it is loose because every organizer on campus Wi-Fi or
+  one carrier's NAT can share an address. The per-name limit caps writes: a
+  phone flushing its queue after a dead zone bursts, and past this the app
+  keeps the rest queued and retries later.
 */
 const addressLimiter = drizzleRateLimiter("owntracks:address", 300);
-const sharerLimiter = drizzleRateLimiter("owntracks:sharer", 60);
+const nameLimiter = drizzleRateLimiter("owntracks:name", 60);
 
 /*
   OwnTracks HTTP mode. The app POSTs one JSON message per request and expects a
   200 with a JSON array back; anything else and it keeps the message queued and
   retries. So every message we choose not to store (transitions, waypoints,
-  malformed fixes) still gets `[]`. Only a bad password (401) or a rate limit
-  (429, which the app retries) gets an error.
+  malformed fixes) still gets `[]`. Only a missing username (400) or a rate
+  limit (429, which the app retries) gets an error.
+
+  There is no password: anyone who finds this URL can put a name on the map.
+  That was a deliberate trade for setup with nothing to configure in AWS.
 */
 function acknowledge() {
   return Response.json([]);
@@ -56,11 +55,11 @@ function clientAddress(request: Request) {
   return forwarded?.split(",").at(-1)?.trim() || "unknown";
 }
 
-function unauthorized() {
-  return new Response("Unauthorized", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="MHacks find my organizer"' },
-  });
+function missingName() {
+  return new Response(
+    `Set a username of up to ${MAX_NAME_LENGTH} characters in OwnTracks; it is the name shown on the map.`,
+    { status: 400 },
+  );
 }
 
 export async function POST(request: Request) {
@@ -71,30 +70,15 @@ export async function POST(request: Request) {
   );
   if (addressBlocked) return tooManyRequests(addressBlocked);
 
-  const password = basicAuthPassword(request.headers.get("authorization"));
-  if (!password) return unauthorized();
+  const name = owntracksName(request.headers);
+  if (!name) return missingName();
 
-  const [sharer] = await db
-    .select({ userId: organizerLocationSharing.userId })
-    .from(organizerLocationSharing)
-    // A demoted organizer's password stops working without them stopping.
-    .innerJoin(
-      users,
-      and(
-        eq(users.id, organizerLocationSharing.userId),
-        eq(users.role, "organizer"),
-      ),
-    )
-    .where(eq(organizerLocationSharing.tokenHash, hashSharingToken(password)))
-    .limit(1);
-  if (!sharer) return unauthorized();
-
-  const sharerBlocked = await rateLimitMessage(
-    sharerLimiter,
-    sharer.userId,
+  const nameBlocked = await rateLimitMessage(
+    nameLimiter,
+    name,
     "Too many location updates.",
   );
-  if (sharerBlocked) return tooManyRequests(sharerBlocked);
+  if (nameBlocked) return tooManyRequests(nameBlocked);
 
   const body = await request.text();
   if (body.length > MAX_BODY_BYTES) return acknowledge();
@@ -109,32 +93,34 @@ export async function POST(request: Request) {
   const fix = parseOwntracksLocation(payload);
   if (!fix) return acknowledge();
 
-  await db.transaction(async (tx) => {
-    // The app resends queued fixes after a dropped connection; the primary key
-    // on (user, recorded_at) makes a repeat a no-op.
-    await tx
-      .insert(organizerLocations)
-      .values({ userId: sharer.userId, ...fix })
-      .onConflictDoNothing();
+  // One row per person. The app delivers queued fixes late and resends them
+  // after a dropped connection, so an older fix never replaces a newer one.
+  await db
+    .insert(organizerLocations)
+    .values({ name, ...fix })
+    .onConflictDoUpdate({
+      target: organizerLocations.name,
+      set: {
+        latitude: sql`excluded.latitude`,
+        longitude: sql`excluded.longitude`,
+        accuracy: sql`excluded.accuracy`,
+        battery: sql`excluded.battery`,
+        recordedAt: sql`excluded.recorded_at`,
+        receivedAt: sql`now()`,
+      },
+      setWhere: sql`excluded.recorded_at > ${organizerLocations.recordedAt}`,
+    });
 
-    // Trim to the trail window, but never delete someone's newest fix: a phone
-    // that has been off for hours should still show where it was last seen.
-    await tx
-      .delete(organizerLocations)
-      .where(
-        and(
-          eq(organizerLocations.userId, sharer.userId),
-          lt(
-            organizerLocations.recordedAt,
-            sql`now() - make_interval(hours => ${TRAIL_HOURS})`,
-          ),
-          lt(
-            organizerLocations.recordedAt,
-            sql`(select max(${organizerLocations.recordedAt}) from ${organizerLocations} where ${organizerLocations.userId} = ${sharer.userId})`,
-          ),
-        ),
-      );
-  });
+  // Someone who turns the app off sends nothing more, so their row is cleared
+  // by whoever posts next. Indexed on recorded_at, so this stays cheap.
+  await db
+    .delete(organizerLocations)
+    .where(
+      lt(
+        organizerLocations.recordedAt,
+        sql`now() - make_interval(hours => ${ORGANIZER_WINDOW_HOURS})`,
+      ),
+    );
 
   return acknowledge();
 }

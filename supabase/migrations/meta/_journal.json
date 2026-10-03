@@ -372,6 +372,13 @@
       "when": 1791062026011,
       "tag": "20261003211346_organizer_locations",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1791067903044,
+      "tag": "20261003225143_organizer_locations_by_name",
+      "breakpoints": true
     }
   ]
 }

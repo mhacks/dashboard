@@ -1,76 +1,42 @@
-import { createHash, randomBytes } from "node:crypto";
-
 /*
-  The OwnTracks side of find my organizer: the per-organizer password, the
-  app's config link, and parsing what the app POSTs.
-  Field names follow https://owntracks.org/booklet/tech/json/.
+  The OwnTracks side of find my organizer: who sent a message and what fix it
+  carries. Field names follow https://owntracks.org/booklet/tech/json/.
 */
 
-/** Path the app POSTs to. Public in proxy.ts; the route checks the password. */
+/** Path the app POSTs to. Public in proxy.ts, with no password. */
 export const OWNTRACKS_PATH = "/api/owntracks";
 
 /** Fixes stamped this far in the future are a broken phone clock, not data. */
 const MAX_CLOCK_SKEW_MS = 5 * 60_000;
 const MAX_ACCURACY_M = 100_000;
+export const MAX_NAME_LENGTH = 40;
 
-export function newSharingToken() {
-  return randomBytes(32).toString("base64url");
-}
-
-export function hashSharingToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-/** The password from an `Authorization: Basic` header. OwnTracks' username is ignored. */
-export function basicAuthPassword(header: string | null): string | null {
+function basicAuthUsername(header: string | null) {
   const match = header?.match(/^Basic\s+(\S+)$/i);
   if (!match) return null;
   const decoded = Buffer.from(match[1], "base64").toString("utf8");
   const separator = decoded.indexOf(":");
-  if (separator < 0) return null;
-  return decoded.slice(separator + 1) || null;
-}
-
-/** Two-letter tracker ID the app shows on its own map. */
-function trackerId(displayName: string) {
-  // Letters and digits only: "Alex (Logistics)" is AL, not A(.
-  const initials = displayName
-    .split(/\s+/)
-    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, "")[0])
-    .filter(Boolean)
-    .join("");
-  return (initials || "MH").slice(0, 2).toUpperCase();
+  return separator < 0 ? decoded : decoded.slice(0, separator);
 }
 
 /**
- * A link that configures the iOS or Android app in one tap: HTTP mode
- * (mode 3), our endpoint, and this organizer's password. Significant-change
- * monitoring (1) is the battery-friendly default; organizers can switch to
- * Move in the app while on shift.
+ * The name to show on the map: the username set in the app. It arrives in
+ * the Basic-auth header when authentication is on, and in `X-Limit-U` either
+ * way. Cleaned up for display; null if missing or too long.
  */
-export function owntracksConfigLink({
-  origin,
-  username,
-  token,
-  displayName,
-}: {
-  origin: string;
-  username: string;
-  token: string;
-  displayName: string;
-}) {
-  const config = {
-    _type: "configuration",
-    mode: 3,
-    url: `${origin}${OWNTRACKS_PATH}`,
-    auth: true,
-    username,
-    password: token,
-    tid: trackerId(displayName),
-    monitoring: 1,
-  };
-  const inline = Buffer.from(JSON.stringify(config)).toString("base64");
-  return `owntracks:///config?inline=${encodeURIComponent(inline)}`;
+export function owntracksName(headers: Headers): string | null {
+  const raw =
+    basicAuthUsername(headers.get("authorization"))?.trim() ||
+    headers.get("x-limit-u");
+  // Control and format characters (bidi overrides, zero-width joiners) could
+  // make a name on the map read as something else.
+  const name = raw
+    ?.replace(/\s+/g, " ")
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .replace(/ {2,}/g, " ")
+    .trim();
+  if (!name || name.length > MAX_NAME_LENGTH) return null;
+  return name;
 }
 
 export type OwntracksFix = {
