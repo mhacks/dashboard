@@ -43,7 +43,7 @@ export default function ScavengerHuntPage() {
         <figure
           className={cn(
             LIQUID_GLASS_CARD_CLASS,
-            "relative aspect-[765/734] overflow-hidden rounded-xl bg-black",
+            "relative aspect-[765/692] overflow-hidden rounded-xl bg-black",
           )}
         >
           {/* Animated GIF: serve the file as-is so it keeps animating. */}
