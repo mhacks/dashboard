@@ -7,7 +7,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 
-type CtaVariant = "cta" | "primary" | "parchment" | "cream" | "glass";
+type CtaVariant =
+  "cta" | "primary" | "parchment" | "cream" | "glass" | "accent";
 type CtaSize = "sm" | "md" | "lg";
 
 const variantMap: Record<
@@ -19,6 +20,7 @@ const variantMap: Record<
   parchment: "parchment",
   cream: "cream",
   glass: "glass",
+  accent: "accent",
 };
 
 const sizeMap: Record<CtaSize, VariantProps<typeof buttonVariants>["size"]> = {

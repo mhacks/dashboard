@@ -250,9 +250,9 @@ function AsiOneQuickLink() {
 function QuickLinks({ devpostUrl }: { devpostUrl: string | null }) {
   return (
     <nav aria-label="Quick links" className="flex flex-wrap gap-2">
-      <Link href="/" className={QUICK_LINK_CLASS}>
+      <Link href="/dashboard" className={QUICK_LINK_CLASS}>
         <House className="size-4 text-olive" />
-        <span>Home</span>
+        <span>Dashboard</span>
         <ArrowUpRight className="size-3.5 text-olive/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </Link>
       <AsiOneQuickLink />

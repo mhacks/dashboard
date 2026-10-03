@@ -11,7 +11,6 @@ import { AsciiGlow } from "@/components/landing/AsciiGlow";
 import { CtaButton } from "@/components/landing/cta-button";
 import { useMobileLayout } from "@/lib/landing/useMobileLayout";
 import { GRAIN_140 } from "@/lib/landing/textures";
-import { scrollToHash } from "@/lib/landing/scroll";
 import { useStackPaused } from "@/lib/landing/useStackPaused";
 import { prefersReducedMotion } from "@/lib/utils";
 
@@ -280,8 +279,8 @@ export function Hero() {
             </motion.div>
           </motion.div>
 
-          {/* Mobile CTAs — Login/Live site/Sponsor us stacked under the date
-              line; the header mirrors Login on small screens. */}
+          {/* Mobile CTAs — LIVE + Login under the date line; header mirrors
+              Login on small screens. */}
           <motion.div className="flex justify-center md:hidden">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -294,32 +293,20 @@ export function Hero() {
               className="pointer-events-auto mt-2 flex flex-col items-center gap-3"
             >
               <CtaButton
+                href="/live"
+                variant="accent"
+                size="md"
+                className="w-[200px] font-semibold tracking-[0.14em] shadow-[0_0_14px_rgba(232,211,90,0.55),0_0_28px_rgba(232,211,90,0.22)] ring-0 outline-none transition-shadow hover:shadow-[0_0_18px_rgba(232,211,90,0.65),0_0_36px_rgba(232,211,90,0.3)] focus-visible:ring-0"
+              >
+                LIVE
+              </CtaButton>
+              <CtaButton
                 href="/dashboard"
                 variant="cta"
                 size="md"
                 className="w-[200px]"
               >
                 Login
-              </CtaButton>
-              <CtaButton
-                href="/live"
-                variant="parchment"
-                size="md"
-                className="w-[200px]"
-              >
-                Live site
-              </CtaButton>
-              <CtaButton
-                href="/#sponsors"
-                variant="parchment"
-                size="md"
-                className="w-[200px]"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollToHash("#sponsors");
-                }}
-              >
-                Sponsor us
               </CtaButton>
             </motion.div>
           </motion.div>

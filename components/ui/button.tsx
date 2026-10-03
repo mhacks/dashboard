@@ -27,7 +27,7 @@ const buttonVariants = cva(
         cream:
           "rounded-pill bg-cream text-moss-700 hover:bg-white focus-visible:ring-moss-700/30",
         accent:
-          "rounded-pill bg-sun text-moss-900 hover:brightness-95 focus-visible:ring-sun/40",
+          "rounded-pill border-0 bg-sun text-moss-900 shadow-none hover:brightness-95 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-sun/40 focus-visible:ring-offset-0",
         "landing-outline":
           "rounded-pill border border-border-strong text-moss-700 hover:bg-moss-700/10 bg-transparent",
         "landing-ghost":
