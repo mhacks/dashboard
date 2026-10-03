@@ -1,15 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
 import { Logo } from "@/components/landing/Logo";
 import { PillNav } from "@/components/landing/PillNav";
 import { CtaButton } from "@/components/landing/cta-button";
-import {
-  handleMarketingNavClick,
-  isMarketingHome,
-  resolveMarketingHref,
-} from "@/lib/landing/nav";
 import { useScrollDirection } from "@/lib/landing/useScrollDirection";
 import { useNavTheme } from "@/lib/landing/useNavTheme";
 import { cn } from "@/lib/utils";
@@ -19,10 +13,6 @@ export function SiteHeader() {
   // On the hero: transparent header, glass pills, cream text. Past it: one
   // frosted bar across the whole nav, pills removed, dark text + dark logo.
   const frosted = useNavTheme() !== "hero";
-  // On subpages (/how-to-mcp) the CTAs route back to the home page's
-  // sections; raw <a> hrefs need the deploy base path prefixed by hand.
-  const onHome = isMarketingHome(usePathname());
-
   return (
     <motion.header
       data-cursor-zone
@@ -76,27 +66,23 @@ export function SiteHeader() {
           />
         </div>
 
-        {/* Sponsor us + Apply - right; canonical CTA pills in both nav states.
-            Mobile keeps Apply in the bar (persistent CTA); Sponsor us joins
-            at md+ and also lives in the hero stack on small screens. */}
+        {/* Login + LIVE — right; LIVE replaces the old Sponsor us slot from md
+            up. Mobile keeps Login in the bar; LIVE is in the hero on small
+            screens. */}
         <div className="relative z-[2] flex shrink-0 items-center gap-1 md:gap-2">
+          <CtaButton href="/dashboard" variant="parchment" size="md">
+            Login
+          </CtaButton>
           <div className="hidden md:block">
             <CtaButton
-              href={resolveMarketingHref("#sponsors", onHome)}
-              variant="parchment"
+              href="/live"
+              variant="accent"
               size="md"
-              onClick={(e) => handleMarketingNavClick("#sponsors", onHome, e)}
+              className="font-semibold tracking-[0.14em] shadow-[0_0_14px_rgba(232,211,90,0.55),0_0_28px_rgba(232,211,90,0.22)] ring-0 outline-none transition-shadow hover:shadow-[0_0_18px_rgba(232,211,90,0.65),0_0_36px_rgba(232,211,90,0.3)] focus-visible:ring-0"
             >
-              Sponsor us
+              LIVE
             </CtaButton>
           </div>
-          {/* The dashboard, not /apply — it is the one signed-in entry point,
-              and it routes to the form, a saved draft, or a submitted
-              application as appropriate. Signed-out visitors are sent through
-              login and land back here. */}
-          <CtaButton href="/dashboard" variant="parchment" size="md">
-            Apply
-          </CtaButton>
         </div>
       </div>
     </motion.header>
