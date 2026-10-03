@@ -170,7 +170,6 @@ export function TableLayoutEditor({
   const [menu, setMenu] = useState<FloorPlanMenu | null>(null);
   const [numberDraft, setNumberDraft] = useState("");
   const [menuError, setMenuError] = useState<string | null>(null);
-  const [deleteArmed, setDeleteArmed] = useState(false);
   const [menuPending, setMenuPending] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
@@ -273,7 +272,6 @@ export function TableLayoutEditor({
     setMenu(next);
     setNumberDraft(initialNumber);
     setMenuError(null);
-    setDeleteArmed(false);
   }
 
   function openTableMenu(event: ReactMouseEvent, table: TableWithTeam) {
@@ -888,15 +886,9 @@ export function TableLayoutEditor({
                   size="sm"
                   variant="destructive"
                   disabled={disabled || menuPending}
-                  onClick={() => {
-                    if (!deleteArmed) {
-                      setDeleteArmed(true);
-                      return;
-                    }
-                    submitMenuDelete();
-                  }}
+                  onClick={submitMenuDelete}
                 >
-                  {deleteArmed ? "Confirm delete" : "Delete"}
+                  Delete
                 </Button>
               ) : null}
             </div>

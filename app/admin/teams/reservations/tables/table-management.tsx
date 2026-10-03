@@ -13,14 +13,12 @@ import {
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import {
-  createReservationTable,
   setReservationTableCount,
   type ReservationActionResult,
 } from "@/lib/actions/admin-reservations.server.actions";
 import {
   formatReservationList,
   MAX_RESERVATION_TABLE_COUNT,
-  MAX_RESERVATION_TABLE_NUMBER,
   planTableCountChange,
 } from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
@@ -66,7 +64,6 @@ function parseWholeNumber(value: string, minimum: number, maximum: number) {
 }
 
 const TABLE_COUNT_RANGE_MESSAGE = `Enter a whole number from 0 to ${MAX_RESERVATION_TABLE_COUNT}.`;
-const TABLE_NUMBER_RANGE_MESSAGE = `Enter a whole number from 1 to ${MAX_RESERVATION_TABLE_NUMBER.toLocaleString("en-US")}.`;
 
 function exceedsMaximum(value: string, maximum: number): boolean {
   const number = Number(value);
@@ -415,17 +412,11 @@ function TableManagementWorkspace({
   rows,
   tables,
 }: TableManagementProps) {
-  const router = useRouter();
-  const addInputId = useId();
   const mutationLockRef = useRef<string | null>(null);
   const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
   const openCount = tables.length - assignedCount;
-  const [newTableNumber, setNewTableNumber] = useState("");
-  const [addError, setAddError] = useState<string | null>(null);
-  const [addFieldError, setAddFieldError] = useState<string | null>(null);
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
   const workspacePending = activeMutation !== null;
 
   function startMutation(mutationId: string) {
@@ -439,50 +430,6 @@ function TableManagementWorkspace({
     if (mutationLockRef.current !== mutationId) return;
     mutationLockRef.current = null;
     setActiveMutation(null);
-  }
-
-  function handleAddSubmit(submitEvent: FormEvent<HTMLFormElement>) {
-    submitEvent.preventDefault();
-    if (workspacePending) return;
-
-    const number = parseWholeNumber(
-      newTableNumber,
-      1,
-      MAX_RESERVATION_TABLE_NUMBER,
-    );
-    setAddError(null);
-    setAddFieldError(null);
-    if (number === null) {
-      setAddFieldError(
-        exceedsMaximum(newTableNumber, MAX_RESERVATION_TABLE_NUMBER)
-          ? TABLE_NUMBER_RANGE_MESSAGE
-          : "Enter a positive whole number.",
-      );
-      return;
-    }
-
-    if (!startMutation("add")) return;
-
-    startTransition(async () => {
-      try {
-        const result = await createReservationTable({
-          number,
-        });
-        if (!result.ok) {
-          setAddError(result.error);
-          setAddFieldError(fieldError(result, "number"));
-          return;
-        }
-
-        setNewTableNumber("");
-        toast.success(result.message);
-        router.refresh();
-      } catch {
-        setAddError("Could not create the table. Try again.");
-      } finally {
-        endMutation("add");
-      }
-    });
   }
 
   return (
@@ -519,68 +466,12 @@ function TableManagementWorkspace({
         </Card>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TableCountManagement
-          onMutationEnd={endMutation}
-          onMutationStart={startMutation}
-          tables={tables}
-          workspacePending={workspacePending}
-        />
-
-        <form noValidate onSubmit={handleAddSubmit}>
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Add an individual table</CardTitle>
-              <CardDescription>
-                Add a specific positive table number without changing others.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={addInputId}>New table number</Label>
-                <Input
-                  id={addInputId}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_RESERVATION_TABLE_NUMBER}
-                  step={1}
-                  value={newTableNumber}
-                  disabled={workspacePending}
-                  aria-invalid={Boolean(addFieldError)}
-                  aria-describedby={
-                    addFieldError ? `${addInputId}-error` : undefined
-                  }
-                  onChange={(inputEvent) => {
-                    setNewTableNumber(inputEvent.target.value);
-                    setAddError(null);
-                    setAddFieldError(null);
-                  }}
-                />
-                {addFieldError ? (
-                  <p
-                    id={`${addInputId}-error`}
-                    className="text-xs text-destructive"
-                  >
-                    {addFieldError}
-                  </p>
-                ) : null}
-              </div>
-              {addError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {addError}
-                </p>
-              ) : null}
-            </CardContent>
-            <CardFooter className="justify-end">
-              <Button type="submit" disabled={workspacePending}>
-                <PendingIcon pending={isPending} />
-                Add table
-              </Button>
-            </CardFooter>
-          </Card>
-        </form>
-      </div>
+      <TableCountManagement
+        onMutationEnd={endMutation}
+        onMutationStart={startMutation}
+        tables={tables}
+        workspacePending={workspacePending}
+      />
     </section>
   );
 }
