@@ -1,6 +1,11 @@
 "use client";
 
+import { MapViewport } from "@/components/map-viewport";
 import { cn } from "@/lib/utils";
+import {
+  fitsReservationMap,
+  reservationGridExtent,
+} from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 export type TableStatus = "available" | "selected" | "mine" | "taken";
@@ -47,6 +52,8 @@ const seatStyles: Record<TableStatus, string> = {
 
 export function JudgingMap({
   tables,
+  columns,
+  rows,
   selectedTableId,
   teamId,
   onSelect,
@@ -54,66 +61,89 @@ export function JudgingMap({
   mode = "participant",
 }: {
   tables: TableWithTeam[];
+  columns: number;
+  rows: number;
   selectedTableId: string | null;
   teamId: string | null;
-  onSelect: (table: TableWithTeam) => void;
+  onSelect?: (table: TableWithTeam) => void;
   disabled?: boolean;
   mode?: JudgingMapMode;
 }) {
-  const rows: TableWithTeam[][] = [];
-  for (let index = 0; index < tables.length; index += 8) {
-    rows.push(tables.slice(index, index + 8));
-  }
+  const placed = tables.filter(fitsReservationMap);
+  const extent = reservationGridExtent(placed, columns, rows);
+  const cellCount = extent.columns * extent.rows;
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8">
-        <div className="mx-auto w-fit min-w-full">
-          <div className="mb-6 flex justify-center">
-            <div className="rounded-md bg-[#3A4A26]/90 px-10 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.3em] text-white sm:px-20">
-              Judging Stage
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center gap-2">
-            {rows.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex justify-center gap-2">
-                {row.map((table) => {
-                  const status = statusOf(table, selectedTableId, teamId);
-                  const interactive =
-                    !disabled &&
-                    (mode === "admin"
-                      ? status !== "mine"
-                      : status === "available" || status === "selected");
-
-                  return (
-                    <button
-                      key={table.id}
-                      type="button"
-                      disabled={!interactive}
-                      onClick={() => onSelect(table)}
-                      title={
-                        table.reservedByTeamName
-                          ? `Table ${table.number} — ${table.reservedByTeamName}`
-                          : `Table ${table.number} — available`
-                      }
-                      aria-label={tableAriaLabel(table, status, mode)}
-                      className={cn(
-                        "flex size-9 shrink-0 items-center justify-center rounded-md border text-[11px] font-semibold transition-all sm:size-10 sm:text-xs",
-                        seatStyles[status],
-                        interactive ? "cursor-pointer" : "cursor-not-allowed",
-                      )}
-                    >
-                      {table.number}
-                    </button>
-                  );
-                })}
-              </div>
+    <div className="flex min-w-0 flex-col gap-5">
+      <MapViewport
+        columns={extent.columns}
+        rows={extent.rows}
+        fitColumns={columns}
+        fitRows={rows}
+      >
+        <div className="w-fit">
+          <div
+            className="grid"
+            style={{
+              gap: "var(--map-gap)",
+              gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
+              gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
+            }}
+          >
+            {Array.from({ length: cellCount }, (_, index) => (
+              <span
+                key={`cell-${index}`}
+                aria-hidden
+                className="pointer-events-none flex items-center justify-center"
+                style={{
+                  gridColumn: (index % extent.columns) + 1,
+                  gridRow: Math.floor(index / extent.columns) + 1,
+                }}
+              >
+                <span className="size-[12%] rounded-full bg-zinc-400/25" />
+              </span>
             ))}
+            {placed.map((table) => {
+              const status = statusOf(table, selectedTableId, teamId);
+              const interactive =
+                !disabled &&
+                (mode === "admin"
+                  ? status !== "mine"
+                  : status === "available" || status === "selected");
+
+              return (
+                <button
+                  key={table.id}
+                  type="button"
+                  disabled={!interactive}
+                  onClick={onSelect ? () => onSelect(table) : undefined}
+                  title={
+                    table.reservedByTeamName
+                      ? `Table ${table.number} — ${table.reservedByTeamName}`
+                      : `Table ${table.number} — available`
+                  }
+                  aria-label={tableAriaLabel(table, status, mode)}
+                  style={{
+                    gridColumn: `${table.originX + 1} / span ${table.width}`,
+                    gridRow: `${table.originY + 1} / span ${table.height}`,
+                  }}
+                  className={cn(
+                    "z-10 flex h-full w-full items-center justify-center rounded-md border text-[11px] font-semibold transition-colors sm:text-xs",
+                    seatStyles[status],
+                    interactive ? "cursor-pointer" : "cursor-not-allowed",
+                  )}
+                >
+                  {table.number}
+                </button>
+              );
+            })}
           </div>
         </div>
-      </div>
+      </MapViewport>
 
+      <p className="text-xs text-zinc-500">
+        Scroll or pinch to zoom. Drag empty space to look around.
+      </p>
       <Legend mode={mode} />
     </div>
   );

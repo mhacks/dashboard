@@ -1,5 +1,99 @@
+import {
+  JUDGE_MAP_COLUMNS,
+  JUDGE_MAP_ROWS,
+  JUDGE_TABLE_HEIGHT,
+  JUDGE_TABLE_WIDTH,
+} from "./judge-map";
+
 export const MAX_RESERVATION_TABLE_COUNT = 500;
 export const MAX_RESERVATION_TABLE_NUMBER = 2_147_483_647;
+export const DEFAULT_MAP_COLUMNS = JUDGE_MAP_COLUMNS;
+export const DEFAULT_MAP_ROWS = JUDGE_MAP_ROWS;
+export const MIN_MAP_DIMENSION = 1;
+export const MAX_MAP_DIMENSION = 40;
+
+export type TableGeometry = {
+  originX: number;
+  originY: number;
+  width: number;
+  height: number;
+};
+
+/** 2×1 cell whose top-left corner is the given cell. */
+export function tableGeometryAt(
+  originX: number,
+  originY: number,
+): TableGeometry {
+  return {
+    originX,
+    originY,
+    width: JUDGE_TABLE_WIDTH,
+    height: JUDGE_TABLE_HEIGHT,
+  };
+}
+
+/**
+ * 2×1 cells packed in row-major order. Each step is one table wide, so
+ * neighbors do not share a cell. Uses the map width until that would pass
+ * the 40-cell cap, then packs across the full cap.
+ */
+export function defaultTableGeometry(
+  index: number,
+  columns: number,
+): TableGeometry {
+  const width = JUDGE_TABLE_WIDTH;
+  const height = JUDGE_TABLE_HEIGHT;
+  const safeIndex = Math.max(0, Math.floor(index));
+  const maxPerRow = Math.floor(MAX_MAP_DIMENSION / width);
+  const mapPerRow = Math.min(
+    maxPerRow,
+    Math.max(1, Math.floor(Math.max(1, columns) / width)),
+  );
+  const maxRow = Math.floor(MAX_MAP_DIMENSION / height) - 1;
+  const perRow =
+    Math.floor(safeIndex / mapPerRow) <= maxRow ? mapPerRow : maxPerRow;
+  return {
+    originX: (safeIndex % perRow) * width,
+    originY: Math.floor(safeIndex / perRow) * height,
+    width,
+    height,
+  };
+}
+
+/** False for rectangles that would blow past the map cap. */
+export function fitsReservationMap(table: TableGeometry): boolean {
+  return (
+    Number.isInteger(table.originX) &&
+    Number.isInteger(table.originY) &&
+    Number.isInteger(table.width) &&
+    Number.isInteger(table.height) &&
+    table.originX >= 0 &&
+    table.originY >= 0 &&
+    table.width >= 1 &&
+    table.height >= 1 &&
+    table.originX + table.width <= MAX_MAP_DIMENSION &&
+    table.originY + table.height <= MAX_MAP_DIMENSION
+  );
+}
+
+/** Configured matrix, grown so every on-map rectangle is still on the grid. */
+export function reservationGridExtent(
+  tables: readonly TableGeometry[],
+  columns: number,
+  rows: number,
+): { columns: number; rows: number } {
+  let extentColumns = Math.min(MAX_MAP_DIMENSION, Math.max(1, columns));
+  let extentRows = Math.min(MAX_MAP_DIMENSION, Math.max(1, rows));
+  for (const table of tables) {
+    if (!fitsReservationMap(table)) continue;
+    extentColumns = Math.max(extentColumns, table.originX + table.width);
+    extentRows = Math.max(extentRows, table.originY + table.height);
+  }
+  return {
+    columns: Math.min(MAX_MAP_DIMENSION, extentColumns),
+    rows: Math.min(MAX_MAP_DIMENSION, extentRows),
+  };
+}
 
 export type TimedWindow = {
   opensAt?: Date | string | null;

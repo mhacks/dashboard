@@ -13,17 +13,28 @@ import {
 } from "@/lib/db/schema/teams";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
+  DEFAULT_MAP_COLUMNS,
+  MAX_MAP_DIMENSION,
   MAX_RESERVATION_TABLE_NUMBER,
+  defaultTableGeometry,
   planTableCountChange,
+  tableGeometryAt,
 } from "@/lib/reservation/domain";
+import {
+  JUDGE_TABLE_HEIGHT,
+  JUDGE_TABLE_WIDTH,
+} from "@/lib/reservation/judge-map";
 import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
 import { SUBMISSION_SETTINGS_ID } from "@/lib/queries/submission-settings";
 import { TEAM_REGISTRATION_SETTINGS_ID } from "@/lib/queries/team-registration-settings";
 import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import {
   reservationIdSchema,
+  reservationMapSizeSchema,
   reservationTableCountSchema,
+  reservationTableGeometriesSchema,
   reservationTableNumberSchema,
+  reservationTableOriginSchema,
   reservationTableTopologySchema,
   windowInputSchema,
   type ReservationTableTopology,
@@ -46,7 +57,8 @@ type TableFailureCode =
   | "TABLE_NUMBER_LIMIT"
   | "TOPOLOGY_CONFLICT";
 
-type TableOperation = "create" | "renumber" | "delete" | "set count";
+type TableOperation =
+  "create" | "renumber" | "delete" | "set count" | "layout" | "map size";
 
 type AssignmentFailureCode =
   | "TEAM_NOT_FOUND"
@@ -61,6 +73,8 @@ const unexpectedTableFailureMessages: Record<TableOperation, string> = {
   renumber: "Could not renumber the table. Try again.",
   delete: "Could not delete the table. Try again.",
   "set count": "Could not change the table count. Try again.",
+  layout: "Could not save the table layout. Try again.",
+  "map size": "Could not save the map size. Try again.",
 };
 
 const unexpectedAssignmentFailureMessages: Record<AssignmentOperation, string> =
@@ -69,12 +83,41 @@ const unexpectedAssignmentFailureMessages: Record<AssignmentOperation, string> =
     unassign: "Could not unassign the team. Try again.",
   };
 
-const createTableInputSchema = z.object({
-  number: reservationTableNumberSchema,
-});
+const createTableInputSchema = z
+  .object({
+    number: reservationTableNumberSchema,
+    originX: reservationTableOriginSchema.optional(),
+    originY: reservationTableOriginSchema.optional(),
+  })
+  .refine(
+    (value) => (value.originX === undefined) === (value.originY === undefined),
+    {
+      path: ["originX"],
+      message: "Set both a column and a row, or neither.",
+    },
+  )
+  .refine(
+    (value) =>
+      value.originX === undefined ||
+      value.originX + JUDGE_TABLE_WIDTH <= MAX_MAP_DIMENSION,
+    {
+      path: ["originX"],
+      message: "Keep the table inside the 40 by 40 map.",
+    },
+  )
+  .refine(
+    (value) =>
+      value.originY === undefined ||
+      value.originY + JUDGE_TABLE_HEIGHT <= MAX_MAP_DIMENSION,
+    {
+      path: ["originY"],
+      message: "Keep the table inside the 40 by 40 map.",
+    },
+  );
 
-const tableMutationInputSchema = createTableInputSchema.extend({
+const tableMutationInputSchema = z.object({
   tableId: reservationIdSchema,
+  number: reservationTableNumberSchema,
 });
 
 const deleteTableInputSchema = z.object({
@@ -257,6 +300,15 @@ async function lockReservationTables(tx: ReservationTransaction) {
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(hashtextextended('reservation', 0))`,
   );
+}
+
+async function readMapColumns(tx: ReservationTransaction) {
+  const [settings] = await tx
+    .select({ mapColumns: judgingSettings.mapColumns })
+    .from(judgingSettings)
+    .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
+    .limit(1);
+  return settings?.mapColumns ?? DEFAULT_MAP_COLUMNS;
 }
 
 function windowTimestamp(value: Date | null) {
@@ -498,18 +550,27 @@ export async function setSubmissionWindow(
 
 export async function createReservationTable(input: {
   number: number;
+  originX?: number;
+  originY?: number;
 }): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
   const parsed = createTableInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const { number } = parsed.data;
+  const { number, originX, originY } = parsed.data;
 
   try {
     await db.transaction(async (tx) => {
       await lockReservationTables(tx);
+      const [{ tableCount }] = await tx
+        .select({ tableCount: sql<number>`count(*)::int` })
+        .from(tables);
+      const geometry =
+        originX !== undefined && originY !== undefined
+          ? tableGeometryAt(originX, originY)
+          : defaultTableGeometry(tableCount ?? 0, await readMapColumns(tx));
       const [table] = await tx
         .insert(tables)
-        .values({ number })
+        .values({ number, ...geometry })
         .returning({ id: tables.id, number: tables.number });
       await writeReservationAudit(tx, {
         actorUserId: organizer.id,
@@ -520,6 +581,7 @@ export async function createReservationTable(input: {
         details: {
           tableId: table.id,
           tableNumber: table.number,
+          ...geometry,
         },
       });
     });
@@ -684,13 +746,18 @@ export async function setReservationTableCount(input: {
         });
       }
 
+      const mapColumns = await readMapColumns(tx);
       const addedTables =
         plan.addNumbers.length > 0
           ? await tx
               .insert(tables)
               .values(
-                plan.addNumbers.map((number) => ({
+                plan.addNumbers.map((number, index) => ({
                   number,
+                  ...defaultTableGeometry(
+                    currentTables.length + index,
+                    mapColumns,
+                  ),
                 })),
               )
               .returning({ id: tables.id, number: tables.number })
@@ -727,6 +794,154 @@ export async function setReservationTableCount(input: {
 
   revalidateReservationPaths();
   return { ok: true, message: `Table count set to ${count}.` };
+}
+
+export async function updateReservationTableGeometries(input: {
+  tables: {
+    tableId: string;
+    originX: number;
+    originY: number;
+    width: number;
+    height: number;
+  }[];
+}): Promise<ReservationActionResult> {
+  const organizer = await requireOrganizer();
+  const parsed = reservationTableGeometriesSchema.safeParse(input);
+  if (!parsed.success) return validationFailure(parsed.error);
+  const updates = parsed.data.tables;
+  let changed = 0;
+  let singleNumber = 0;
+
+  try {
+    await db.transaction(async (tx) => {
+      await lockReservationTables(tx);
+      for (const update of updates) {
+        const [before] = await tx
+          .select({
+            id: tables.id,
+            number: tables.number,
+            originX: tables.originX,
+            originY: tables.originY,
+            width: tables.width,
+            height: tables.height,
+          })
+          .from(tables)
+          .where(eq(tables.id, update.tableId))
+          .for("update")
+          .limit(1);
+        if (!before) throw new TableFailure("TABLE_NOT_FOUND");
+        const unchanged =
+          before.originX === update.originX &&
+          before.originY === update.originY &&
+          before.width === update.width &&
+          before.height === update.height;
+        if (unchanged) continue;
+
+        await tx
+          .update(tables)
+          .set({
+            originX: update.originX,
+            originY: update.originY,
+            width: update.width,
+            height: update.height,
+          })
+          .where(eq(tables.id, update.tableId));
+        changed += 1;
+        singleNumber = before.number;
+        await writeReservationAudit(tx, {
+          actorUserId: organizer.id,
+          actorEmail: organizer.email,
+          action: "table.layout_updated",
+          entityType: "table",
+          entityId: before.id,
+          details: {
+            tableId: before.id,
+            tableNumber: before.number,
+            beforeOriginX: before.originX,
+            beforeOriginY: before.originY,
+            beforeWidth: before.width,
+            beforeHeight: before.height,
+            afterOriginX: update.originX,
+            afterOriginY: update.originY,
+            afterWidth: update.width,
+            afterHeight: update.height,
+          },
+        });
+      }
+    });
+  } catch (error) {
+    return tableActionFailure(error, "layout");
+  }
+
+  revalidateReservationPaths();
+  if (changed === 0) return { ok: true, message: "Layout unchanged." };
+  if (changed === 1) {
+    return { ok: true, message: `Table ${singleNumber} layout saved.` };
+  }
+  return { ok: true, message: `Saved layout for ${changed} tables.` };
+}
+
+export async function updateReservationMapSize(input: {
+  columns: number;
+  rows: number;
+}): Promise<ReservationActionResult> {
+  const organizer = await requireOrganizer();
+  const parsed = reservationMapSizeSchema.safeParse(input);
+  if (!parsed.success) return validationFailure(parsed.error);
+  const { columns, rows } = parsed.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      await lockReservationTables(tx);
+      const [before] = await tx
+        .select({
+          mapColumns: judgingSettings.mapColumns,
+          mapRows: judgingSettings.mapRows,
+        })
+        .from(judgingSettings)
+        .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
+        .limit(1);
+      const now = new Date().toISOString();
+
+      await tx
+        .insert(judgingSettings)
+        .values({
+          id: JUDGING_SETTINGS_ID,
+          mapColumns: columns,
+          mapRows: rows,
+          updatedByUserId: organizer.id,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: judgingSettings.id,
+          set: {
+            mapColumns: columns,
+            mapRows: rows,
+            updatedByUserId: organizer.id,
+            updatedAt: now,
+          },
+        });
+
+      await writeReservationAudit(tx, {
+        actorUserId: organizer.id,
+        actorEmail: organizer.email,
+        action: "map.size_updated",
+        entityType: "judging_settings",
+        entityId: null,
+        details: {
+          beforeColumns: before?.mapColumns ?? null,
+          beforeRows: before?.mapRows ?? null,
+          afterColumns: columns,
+          afterRows: rows,
+        },
+      });
+    });
+  } catch (error) {
+    return tableActionFailure(error, "map size");
+  }
+
+  revalidateReservationPaths();
+  return { ok: true, message: `Map size set to ${columns} by ${rows}.` };
 }
 
 type MoveAssignmentOutcome =

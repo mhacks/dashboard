@@ -24,12 +24,16 @@ import type { TableWithTeam } from "@/lib/reservation/types";
 export function ReservationDialog({
   buttonClassName,
   primaryClassName,
+  columns,
+  rows,
   teamId,
   state,
   tables,
 }: {
   buttonClassName: string;
   primaryClassName: string;
+  columns: number;
+  rows: number;
   teamId: string;
   state: ParticipantReservationSnapshot["state"];
   tables: TableWithTeam[];
@@ -88,7 +92,7 @@ export function ReservationDialog({
           {buttonLabel}
         </button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[2px] border-ui-line bg-ui-paper text-ui-ink ring-ui-line sm:max-w-3xl">
+      <DialogContent className="grid-cols-1 max-h-[90vh] min-w-0 overflow-y-auto rounded-[2px] border-ui-line bg-ui-paper font-red-hat text-ui-ink ring-ui-line sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="font-red-hat-mono text-lg font-bold tracking-[-0.01em]">
             Reserve a table
@@ -100,6 +104,8 @@ export function ReservationDialog({
 
         <JudgingMap
           tables={tables}
+          columns={columns}
+          rows={rows}
           selectedTableId={selectedTableId}
           teamId={teamId}
           onSelect={(table) => {
@@ -108,6 +114,11 @@ export function ReservationDialog({
           }}
           disabled={isPending || !canChoose}
         />
+
+        <p className="text-sm text-ui-ink-soft">
+          If there are not enough tables for your project, contact an organizer
+          with a ticket on Discord or in person immediately.
+        </p>
 
         {canChoose ? (
           <div className="flex flex-wrap gap-2">

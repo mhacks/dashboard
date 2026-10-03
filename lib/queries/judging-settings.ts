@@ -14,6 +14,8 @@ export async function getJudgingSettings() {
     .select({
       reservationsOpenAt: judgingSettings.reservationsOpenAt,
       reservationsCloseAt: judgingSettings.reservationsCloseAt,
+      mapColumns: judgingSettings.mapColumns,
+      mapRows: judgingSettings.mapRows,
       updatedAt: judgingSettings.updatedAt,
     })
     .from(judgingSettings)

@@ -344,6 +344,20 @@
       "when": 1791014212199,
       "tag": "20261003075652_checked_in_reservation_access",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791025713159,
+      "tag": "20261003110833_table_map_geometry",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791025740601,
+      "tag": "20261003110900_existing_table_geometry",
+      "breakpoints": true
     }
   ]
 }

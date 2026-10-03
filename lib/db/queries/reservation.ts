@@ -2,7 +2,11 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
-import { getReservationAvailability } from "@/lib/reservation/domain";
+import {
+  DEFAULT_MAP_COLUMNS,
+  DEFAULT_MAP_ROWS,
+  getReservationAvailability,
+} from "@/lib/reservation/domain";
 import { getJudgingSettings } from "@/lib/queries/judging-settings";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
@@ -13,6 +17,10 @@ export function selectTablesWithTeam(executor: ReservationQueryClient) {
     .select({
       id: tables.id,
       number: tables.number,
+      originX: tables.originX,
+      originY: tables.originY,
+      width: tables.width,
+      height: tables.height,
       reservedByTeamId: tables.reservedByTeamId,
       reservedByTeamName: teams.name,
     })
@@ -23,6 +31,8 @@ export function selectTablesWithTeam(executor: ReservationQueryClient) {
 
 export type ParticipantReservationSnapshot = {
   state: "open" | "scheduled" | "closed";
+  columns: number;
+  rows: number;
   tables: TableWithTeam[];
 };
 
@@ -32,5 +42,10 @@ export async function getParticipantReservationSnapshot(): Promise<ParticipantRe
     selectTablesWithTeam(db),
   ]);
   const availability = getReservationAvailability(settings ?? {});
-  return { state: availability.state, tables: reservationTables };
+  return {
+    state: availability.state,
+    columns: settings?.mapColumns ?? DEFAULT_MAP_COLUMNS,
+    rows: settings?.mapRows ?? DEFAULT_MAP_ROWS,
+    tables: reservationTables,
+  };
 }

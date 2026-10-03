@@ -533,6 +533,8 @@ export function TeamView({
                 <ReservationDialog
                   buttonClassName={ACTION_OUTLINE}
                   primaryClassName={ACTION_PRIMARY}
+                  columns={reservations.columns}
+                  rows={reservations.rows}
                   teamId={team.team.id}
                   state={
                     reservationWindow.available

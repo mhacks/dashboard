@@ -115,6 +115,8 @@ function intentDescription(intent: MoveIntent): string {
 }
 
 export function AssignmentManagement({
+  columns,
+  rows,
   teams,
   tables,
 }: AdminReservationAssignmentsData) {
@@ -264,6 +266,8 @@ export function AssignmentManagement({
           <CardContent>
             <JudgingMap
               tables={tables}
+              columns={columns}
+              rows={rows}
               selectedTableId={moveIntent?.destination.id ?? null}
               teamId={selectedTeam?.id ?? null}
               onSelect={prepareMove}

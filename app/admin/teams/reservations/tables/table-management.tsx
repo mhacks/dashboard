@@ -13,20 +13,17 @@ import {
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import {
-  createReservationTable,
-  deleteReservationTable,
-  renumberReservationTable,
   setReservationTableCount,
   type ReservationActionResult,
 } from "@/lib/actions/admin-reservations.server.actions";
 import {
   formatReservationList,
   MAX_RESERVATION_TABLE_COUNT,
-  MAX_RESERVATION_TABLE_NUMBER,
   planTableCountChange,
 } from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
 import type { ReservationTableTopology } from "@/lib/reservation/validation";
+import { TableLayoutEditor } from "./table-layout-editor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,13 +33,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -56,6 +50,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const ASSIGNMENTS_HREF = "/admin/teams/reservations/assignments";
 
 export type TableManagementProps = {
+  columns: number;
+  rows: number;
   tables: TableWithTeam[];
 };
 
@@ -68,7 +64,6 @@ function parseWholeNumber(value: string, minimum: number, maximum: number) {
 }
 
 const TABLE_COUNT_RANGE_MESSAGE = `Enter a whole number from 0 to ${MAX_RESERVATION_TABLE_COUNT}.`;
-const TABLE_NUMBER_RANGE_MESSAGE = `Enter a whole number from 1 to ${MAX_RESERVATION_TABLE_NUMBER.toLocaleString("en-US")}.`;
 
 function exceedsMaximum(value: string, maximum: number): boolean {
   const number = Number(value);
@@ -97,335 +92,6 @@ function PendingIcon({ pending }: { pending: boolean }) {
   return pending ? (
     <Loader2Icon data-icon="inline-start" className="animate-spin" />
   ) : null;
-}
-
-function TableCard({
-  onMutationEnd,
-  onMutationStart,
-  table,
-  workspacePending,
-}: {
-  onMutationEnd: (mutationId: string) => void;
-  onMutationStart: (mutationId: string) => boolean;
-  table: TableWithTeam;
-  workspacePending: boolean;
-}) {
-  const router = useRouter();
-  const inputId = useId();
-  const renumberInputRef = useRef<HTMLInputElement>(null);
-  const renumberOriginRef = useRef<HTMLElement | null>(null);
-  const [numberValue, setNumberValue] = useState(String(table.number));
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [numberError, setNumberError] = useState<string | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [renumberOpen, setRenumberOpen] = useState(false);
-  const [renumberTarget, setRenumberTarget] = useState<number | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const assigned = Boolean(table.reservedByTeamId);
-
-  function handleNumberChange(value: string) {
-    setNumberValue(value);
-    setActionError(null);
-    setNumberError(null);
-  }
-
-  function handleRenumber(submitEvent: FormEvent<HTMLFormElement>) {
-    submitEvent.preventDefault();
-    if (workspacePending) return;
-
-    const number = parseWholeNumber(
-      numberValue,
-      1,
-      MAX_RESERVATION_TABLE_NUMBER,
-    );
-    setActionError(null);
-    setNumberError(null);
-    if (number === null) {
-      setNumberError(
-        exceedsMaximum(numberValue, MAX_RESERVATION_TABLE_NUMBER)
-          ? TABLE_NUMBER_RANGE_MESSAGE
-          : "Enter a positive whole number.",
-      );
-      return;
-    }
-
-    const submitter = (submitEvent.nativeEvent as SubmitEvent).submitter;
-    const activeElement = document.activeElement;
-    renumberOriginRef.current =
-      submitter instanceof HTMLElement
-        ? submitter
-        : activeElement instanceof HTMLElement &&
-            submitEvent.currentTarget.contains(activeElement)
-          ? activeElement
-          : renumberInputRef.current;
-    setRenumberTarget(number);
-    setRenumberOpen(true);
-  }
-
-  function confirmRenumber() {
-    if (
-      workspacePending ||
-      renumberTarget === null ||
-      !onMutationStart(`renumber:${table.id}`)
-    ) {
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const result = await renumberReservationTable({
-          tableId: table.id,
-          number: renumberTarget,
-        });
-        if (!result.ok) {
-          setActionError(result.error);
-          setNumberError(fieldError(result, "number"));
-          return;
-        }
-
-        setRenumberOpen(false);
-        toast.success(result.message);
-        router.refresh();
-      } catch {
-        setActionError("Could not renumber the table. Try again.");
-      } finally {
-        onMutationEnd(`renumber:${table.id}`);
-      }
-    });
-  }
-
-  function handleDelete() {
-    if (
-      assigned ||
-      workspacePending ||
-      !onMutationStart(`delete:${table.id}`)
-    ) {
-      return;
-    }
-
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        const result = await deleteReservationTable({
-          tableId: table.id,
-        });
-        if (!result.ok) {
-          setActionError(result.error);
-          return;
-        }
-
-        setDeleteOpen(false);
-        toast.success(result.message);
-        router.refresh();
-      } catch {
-        setActionError("Could not delete the table. Try again.");
-      } finally {
-        onMutationEnd(`delete:${table.id}`);
-      }
-    });
-  }
-
-  function handleDeleteOpenChange(open: boolean) {
-    if (!open && isPending) return;
-    if (open) setActionError(null);
-    setDeleteOpen(open);
-  }
-
-  function handleRenumberOpenChange(open: boolean) {
-    if (!open && isPending) return;
-    setRenumberOpen(open);
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Table {table.number}</CardTitle>
-        <CardDescription>
-          {assigned ? "Assigned table" : "Open table"}
-        </CardDescription>
-        <CardAction>
-          <Badge variant={assigned ? "secondary" : "outline"}>
-            {assigned ? "Assigned" : "Open"}
-          </Badge>
-        </CardAction>
-      </CardHeader>
-
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          {assigned
-            ? (table.reservedByTeamName ?? "Assigned team")
-            : "Open for assignment"}
-        </p>
-        {actionError ? (
-          <p role="alert" className="mt-3 text-sm text-destructive">
-            {actionError}
-          </p>
-        ) : null}
-      </CardContent>
-
-      <CardFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-end">
-        <form
-          className="flex flex-1 items-end gap-2"
-          noValidate
-          onSubmit={handleRenumber}
-        >
-          <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor={inputId}>New number for table {table.number}</Label>
-            <Input
-              ref={renumberInputRef}
-              id={inputId}
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={MAX_RESERVATION_TABLE_NUMBER}
-              step={1}
-              value={numberValue}
-              disabled={workspacePending}
-              aria-invalid={Boolean(numberError)}
-              aria-describedby={numberError ? `${inputId}-error` : undefined}
-              onChange={(inputEvent) =>
-                handleNumberChange(inputEvent.target.value)
-              }
-            />
-            {numberError ? (
-              <p id={`${inputId}-error`} className="text-xs text-destructive">
-                {numberError}
-              </p>
-            ) : null}
-          </div>
-          <Button
-            type="submit"
-            variant="outline"
-            size="sm"
-            disabled={workspacePending}
-            aria-label={`Renumber table ${table.number}`}
-          >
-            <PendingIcon pending={isPending} />
-            Renumber
-          </Button>
-        </form>
-
-        <AlertDialog
-          open={renumberOpen}
-          onOpenChange={handleRenumberOpenChange}
-        >
-          <AlertDialogContent
-            onCloseAutoFocus={(focusEvent) => {
-              const target = renumberOriginRef.current;
-              if (target?.isConnected && !target.matches(":disabled")) {
-                target.focus();
-                if (document.activeElement === target) {
-                  focusEvent.preventDefault();
-                }
-              }
-            }}
-            onEscapeKeyDown={(keyboardEvent) => {
-              if (isPending) keyboardEvent.preventDefault();
-            }}
-          >
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Renumber table {table.number} to {renumberTarget}?
-              </AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="flex flex-col gap-2">
-                  <p>
-                    Table {table.number} will become table {renumberTarget}.
-                  </p>
-                  {assigned ? (
-                    <p>
-                      {table.reservedByTeamName ?? "The assigned team"} is
-                      assigned to table {table.number} and will remain assigned
-                      after it becomes table {renumberTarget}.
-                    </p>
-                  ) : (
-                    <p>This open table will keep its assignment status.</p>
-                  )}
-                </div>
-              </AlertDialogDescription>
-              {actionError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {actionError}
-                </p>
-              ) : null}
-              {numberError ? (
-                <p className="text-sm text-destructive">{numberError}</p>
-              ) : null}
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={isPending}
-                onClick={(clickEvent) => {
-                  clickEvent.preventDefault();
-                  confirmRenumber();
-                }}
-              >
-                <PendingIcon pending={isPending} />
-                Confirm renumber
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {assigned ? (
-          <Button asChild variant="outline" size="sm">
-            <Link href={ASSIGNMENTS_HREF}>Manage assignments</Link>
-          </Button>
-        ) : (
-          <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
-            <AlertDialogTrigger asChild>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                disabled={workspacePending}
-                aria-label={`Delete table ${table.number}`}
-              >
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent
-              onEscapeKeyDown={(keyboardEvent) => {
-                if (isPending) keyboardEvent.preventDefault();
-              }}
-            >
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Delete table {table.number}?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes the open table. This action cannot be
-                  undone.
-                </AlertDialogDescription>
-                {actionError ? (
-                  <p role="alert" className="text-sm text-destructive">
-                    {actionError}
-                  </p>
-                ) : null}
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isPending}>
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={(clickEvent) => {
-                    clickEvent.preventDefault();
-                    handleDelete();
-                  }}
-                >
-                  <PendingIcon pending={isPending} />
-                  Delete table
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </CardFooter>
-    </Card>
-  );
 }
 
 function TableCountManagement({
@@ -741,17 +407,13 @@ function TableCountManagement({
   );
 }
 
-function TableManagementWorkspace({ tables }: TableManagementProps) {
-  const router = useRouter();
-  const addInputId = useId();
+function TableManagementWorkspace({
+  columns,
+  rows,
+  tables,
+}: TableManagementProps) {
   const mutationLockRef = useRef<string | null>(null);
-  const assignedCount = tables.filter((table) => table.reservedByTeamId).length;
-  const openCount = tables.length - assignedCount;
-  const [newTableNumber, setNewTableNumber] = useState("");
-  const [addError, setAddError] = useState<string | null>(null);
-  const [addFieldError, setAddFieldError] = useState<string | null>(null);
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
   const workspacePending = activeMutation !== null;
 
   function startMutation(mutationId: string) {
@@ -767,175 +429,23 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
     setActiveMutation(null);
   }
 
-  function handleAddSubmit(submitEvent: FormEvent<HTMLFormElement>) {
-    submitEvent.preventDefault();
-    if (workspacePending) return;
-
-    const number = parseWholeNumber(
-      newTableNumber,
-      1,
-      MAX_RESERVATION_TABLE_NUMBER,
-    );
-    setAddError(null);
-    setAddFieldError(null);
-    if (number === null) {
-      setAddFieldError(
-        exceedsMaximum(newTableNumber, MAX_RESERVATION_TABLE_NUMBER)
-          ? TABLE_NUMBER_RANGE_MESSAGE
-          : "Enter a positive whole number.",
-      );
-      return;
-    }
-
-    if (!startMutation("add")) return;
-
-    startTransition(async () => {
-      try {
-        const result = await createReservationTable({
-          number,
-        });
-        if (!result.ok) {
-          setAddError(result.error);
-          setAddFieldError(fieldError(result, "number"));
-          return;
-        }
-
-        setNewTableNumber("");
-        toast.success(result.message);
-        router.refresh();
-      } catch {
-        setAddError("Could not create the table. Try again.");
-      } finally {
-        endMutation("add");
-      }
-    });
-  }
-
   return (
-    <section className="flex flex-col gap-6">
-      <section aria-label="Table summary" className="grid gap-3 sm:grid-cols-3">
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>{tables.length} total</CardTitle>
-            <CardDescription>Total tables</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>{assignedCount} assigned</CardTitle>
-            <CardDescription>Reserved by teams</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>{openCount} open</CardTitle>
-            <CardDescription>Available to assign</CardDescription>
-          </CardHeader>
-        </Card>
-      </section>
-
-      <div className="grid gap-4 lg:grid-cols-2">
+    <TableLayoutEditor
+      columns={columns}
+      controls={
         <TableCountManagement
           onMutationEnd={endMutation}
           onMutationStart={startMutation}
           tables={tables}
           workspacePending={workspacePending}
         />
-
-        <form noValidate onSubmit={handleAddSubmit}>
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Add an individual table</CardTitle>
-              <CardDescription>
-                Add a specific positive table number without changing others.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={addInputId}>New table number</Label>
-                <Input
-                  id={addInputId}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_RESERVATION_TABLE_NUMBER}
-                  step={1}
-                  value={newTableNumber}
-                  disabled={workspacePending}
-                  aria-invalid={Boolean(addFieldError)}
-                  aria-describedby={
-                    addFieldError ? `${addInputId}-error` : undefined
-                  }
-                  onChange={(inputEvent) => {
-                    setNewTableNumber(inputEvent.target.value);
-                    setAddError(null);
-                    setAddFieldError(null);
-                  }}
-                />
-                {addFieldError ? (
-                  <p
-                    id={`${addInputId}-error`}
-                    className="text-xs text-destructive"
-                  >
-                    {addFieldError}
-                  </p>
-                ) : null}
-              </div>
-              {addError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {addError}
-                </p>
-              ) : null}
-            </CardContent>
-            <CardFooter className="justify-end">
-              <Button type="submit" disabled={workspacePending}>
-                <PendingIcon pending={isPending} />
-                Add table
-              </Button>
-            </CardFooter>
-          </Card>
-        </form>
-      </div>
-
-      <section className="flex flex-col gap-3" aria-labelledby="tables-heading">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 id="tables-heading" className="text-lg font-semibold">
-              Individual tables
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Renumber tables or manage unassigned table deletion.
-            </p>
-          </div>
-          <Badge variant="outline">
-            {tables.length} {tables.length === 1 ? "table" : "tables"}
-          </Badge>
-        </div>
-
-        {tables.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>No tables yet</CardTitle>
-              <CardDescription>
-                Set a desired count or add an individual table to begin.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {tables.map((table) => (
-              <TableCard
-                key={table.id}
-                onMutationEnd={endMutation}
-                onMutationStart={startMutation}
-                table={table}
-                workspacePending={workspacePending}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-    </section>
+      }
+      disabled={workspacePending}
+      onMutationEnd={endMutation}
+      onMutationStart={startMutation}
+      rows={rows}
+      tables={tables}
+    />
   );
 }
 
