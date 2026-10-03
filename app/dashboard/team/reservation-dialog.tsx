@@ -115,6 +115,11 @@ export function ReservationDialog({
           disabled={isPending || !canChoose}
         />
 
+        <p className="text-sm text-ui-ink-soft">
+          If there are not enough tables for your project, contact an organizer
+          with a ticket on Discord or in person immediately.
+        </p>
+
         {canChoose ? (
           <div className="flex flex-wrap gap-2">
             <button
