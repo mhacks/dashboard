@@ -67,10 +67,6 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DISCORD_LINK_SECRET"
         },
         {
-          "name": "OWNTRACKS_PASSWORD",
-          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/OWNTRACKS_PASSWORD"
-        },
-        {
           "name": "APPLE_WALLET_PASS_TYPE_ID",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_PASS_TYPE_ID"
         },
