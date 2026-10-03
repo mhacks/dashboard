@@ -20,7 +20,6 @@ import { ADMIN_AREAS } from "@/lib/admin/sections";
 import { isEventStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
 import { MAX_TEAM_SIZE } from "@/lib/types/teams";
-import { WALLET_EVENT } from "@/lib/wallet/event";
 
 /**
  * Where an applicant stands. `stage` chooses the panel and nothing else does,
@@ -390,12 +389,12 @@ function HandbookPanel() {
   return (
     <Panel eyebrow="GUIDE">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-        <PanelHeading lede="Venue, schedule, policies, and what to bring for the weekend.">
-          Hacker handbook
+        <PanelHeading lede="Schedule, venue, and what is happening this weekend.">
+          Live site
         </PanelHeading>
         <div className="w-full shrink-0 sm:w-auto">
-          <ButtonLink href={WALLET_EVENT.handbookUrl}>
-            Open the handbook
+          <ButtonLink href="/live" external={false}>
+            Open the live site
           </ButtonLink>
         </div>
       </div>
