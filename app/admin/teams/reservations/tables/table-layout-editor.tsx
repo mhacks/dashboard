@@ -62,6 +62,7 @@ type DragSession = {
   pointerId: number;
   moved: boolean;
   startCell: { col: number; row: number };
+  lastCell: { col: number; row: number };
   anchorStart: TableGeometry;
   group: { tableId: string; start: TableGeometry }[];
 };
@@ -150,21 +151,6 @@ function groupGeometry(
   }));
 }
 
-function sameDrafts(
-  left: readonly GeometryDraft[],
-  right: readonly GeometryDraft[],
-) {
-  if (left.length !== right.length) return false;
-  return left.every((draft, index) => {
-    const other = right[index];
-    return (
-      other !== undefined &&
-      draft.tableId === other.tableId &&
-      sameGeometry(draft, other)
-    );
-  });
-}
-
 export function TableLayoutEditor({
   columns,
   disabled,
@@ -222,7 +208,7 @@ export function TableLayoutEditor({
 
   const activeDrafts = drafts?.filter((draft) => {
     const persisted = tables.find((table) => table.id === draft.tableId);
-    return persisted === undefined || !sameGeometry(persisted, draft);
+    return persisted !== undefined && !sameGeometry(persisted, draft);
   });
   const draftById = new Map(
     activeDrafts?.map((draft) => [draft.tableId, draft]),
@@ -473,34 +459,17 @@ export function TableLayoutEditor({
       toast.error("Could not change full screen. Try again.");
     }
   }
-  const selection = [...selectedIds].every((id) =>
-    tables.some((table) => table.id === id),
-  )
-    ? selectedIds
-    : new Set(
-        [...selectedIds].filter((id) =>
-          tables.some((table) => table.id === id),
-        ),
-      );
+  const tableIds = new Set(tables.map((table) => table.id));
+  const selection = new Set([...selectedIds].filter((id) => tableIds.has(id)));
   const selected = displayed.filter((table) => selection.has(table.id));
   const menuTable =
     menu?.kind === "table"
       ? (tables.find((table) => table.id === menu.tableId) ?? null)
       : null;
 
-  function rememberDrafts(next: GeometryDraft[]) {
-    draftRef.current = next;
-    setDrafts(next);
-  }
-
   function clearDrafts() {
     draftRef.current = null;
     setDrafts(null);
-  }
-
-  function displayedGeometry(table: TableWithTeam): TableGeometry {
-    const draft = draftRef.current?.find((item) => item.tableId === table.id);
-    return draft ?? table;
   }
 
   function clearSelection(event: ReactPointerEvent<HTMLDivElement>) {
@@ -542,7 +511,12 @@ export function TableLayoutEditor({
       .filter((item) => groupIds.has(item.id))
       .map((item) => ({
         tableId: item.id,
-        start: displayedGeometry(item),
+        start: {
+          originX: item.originX,
+          originY: item.originY,
+          width: item.width,
+          height: item.height,
+        },
       }));
     const anchor = group.find((item) => item.tableId === table.id);
     if (!anchor) return;
@@ -554,6 +528,7 @@ export function TableLayoutEditor({
       pointerId: event.pointerId,
       moved: false,
       startCell,
+      lastCell: startCell,
       anchorStart: anchor.start,
       group,
     };
@@ -564,14 +539,25 @@ export function TableLayoutEditor({
     const grid = gridRef.current;
     if (!session || !grid || session.pointerId !== event.pointerId) return;
     const cell = cellFromPointer(grid, event.clientX, event.clientY);
+    if (
+      session.lastCell.col === cell.col &&
+      session.lastCell.row === cell.row
+    ) {
+      return;
+    }
+    session.lastCell = cell;
     const next = groupGeometry(session, cell.col, cell.row);
-    const start = session.group.map((item) => ({
-      tableId: item.tableId,
-      ...item.start,
-    }));
-    if (sameDrafts(next, start)) return;
+    if (
+      next.every((draft, index) => {
+        const start = session.group[index]?.start;
+        return start !== undefined && sameGeometry(draft, start);
+      })
+    ) {
+      return;
+    }
     session.moved = true;
-    rememberDrafts(next);
+    draftRef.current = next;
+    setDrafts(next);
   }
 
   function endDrag(
@@ -587,7 +573,7 @@ export function TableLayoutEditor({
     if (!next) return;
     const changed = next.filter((draft) => {
       const persisted = tables.find((table) => table.id === draft.tableId);
-      return persisted === undefined || !sameGeometry(persisted, draft);
+      return persisted !== undefined && !sameGeometry(persisted, draft);
     });
     if (changed.length === 0) {
       clearDrafts();
@@ -601,13 +587,7 @@ export function TableLayoutEditor({
     startTransition(async () => {
       try {
         const result = await updateReservationTableGeometries({
-          tables: changed.map((draft) => ({
-            tableId: draft.tableId,
-            originX: draft.originX,
-            originY: draft.originY,
-            width: draft.width,
-            height: draft.height,
-          })),
+          tables: changed,
         });
         if (!result.ok) {
           clearDrafts();

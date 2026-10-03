@@ -27,7 +27,6 @@ import {
   reservationMapSizeSchema,
   reservationTableCountSchema,
   reservationTableGeometriesSchema,
-  reservationTableGeometrySchema,
   reservationTableNumberSchema,
   reservationTableOriginSchema,
   reservationTableTopologySchema,
@@ -771,77 +770,6 @@ export async function setReservationTableCount(input: {
 
   revalidateReservationPaths();
   return { ok: true, message: `Table count set to ${count}.` };
-}
-
-export async function updateReservationTableGeometry(input: {
-  tableId: string;
-  originX: number;
-  originY: number;
-  width: number;
-  height: number;
-}): Promise<ReservationActionResult> {
-  const organizer = await requireOrganizer();
-  const parsed = reservationTableGeometrySchema.safeParse(input);
-  if (!parsed.success) return validationFailure(parsed.error);
-  const { tableId, originX, originY, width, height } = parsed.data;
-  let tableNumber = 0;
-
-  try {
-    await db.transaction(async (tx) => {
-      await lockReservationTables(tx);
-      const [before] = await tx
-        .select({
-          id: tables.id,
-          number: tables.number,
-          originX: tables.originX,
-          originY: tables.originY,
-          width: tables.width,
-          height: tables.height,
-        })
-        .from(tables)
-        .where(eq(tables.id, tableId))
-        .for("update")
-        .limit(1);
-      if (!before) throw new TableFailure("TABLE_NOT_FOUND");
-      tableNumber = before.number;
-
-      const unchanged =
-        before.originX === originX &&
-        before.originY === originY &&
-        before.width === width &&
-        before.height === height;
-      if (unchanged) return;
-
-      await tx
-        .update(tables)
-        .set({ originX, originY, width, height })
-        .where(eq(tables.id, tableId));
-      await writeReservationAudit(tx, {
-        actorUserId: organizer.id,
-        actorEmail: organizer.email,
-        action: "table.layout_updated",
-        entityType: "table",
-        entityId: before.id,
-        details: {
-          tableId: before.id,
-          tableNumber: before.number,
-          beforeOriginX: before.originX,
-          beforeOriginY: before.originY,
-          beforeWidth: before.width,
-          beforeHeight: before.height,
-          afterOriginX: originX,
-          afterOriginY: originY,
-          afterWidth: width,
-          afterHeight: height,
-        },
-      });
-    });
-  } catch (error) {
-    return tableActionFailure(error, "layout");
-  }
-
-  revalidateReservationPaths();
-  return { ok: true, message: `Table ${tableNumber} layout saved.` };
 }
 
 export async function updateReservationTableGeometries(input: {
