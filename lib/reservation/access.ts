@@ -1,23 +1,23 @@
 import { eq } from "drizzle-orm";
-import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
+import { hasCheckedIn, type ApplicationDecision } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
 import { teamMembers, teams } from "@/lib/db/schema/teams";
 
-export const ACCEPTED_RESERVATION_ERROR =
-  "An accepted MHacks 2026 application is required to reserve a table.";
+export const CHECKED_IN_RESERVATION_ERROR =
+  "Check in at MHacks before reserving a table.";
 
 export class ReservationAccessError extends Error {
   constructor() {
-    super(ACCEPTED_RESERVATION_ERROR);
+    super(CHECKED_IN_RESERVATION_ERROR);
     this.name = "ReservationAccessError";
   }
 }
 
-export function isAcceptedReservationDecision(
+export function isCheckedInReservationDecision(
   decision: ApplicationDecision,
 ): boolean {
-  return decisionOutcome(decision) === "accepted";
+  return hasCheckedIn(decision);
 }
 
 export async function getParticipantTeam(
@@ -43,7 +43,7 @@ export async function hasAcceptedReservationAccess(
     .limit(1);
 
   return Boolean(
-    application && isAcceptedReservationDecision(application.decision),
+    application && isCheckedInReservationDecision(application.decision),
   );
 }
 
@@ -62,7 +62,7 @@ export async function lockAcceptedReservationApplicant(
     .for("share")
     .limit(1);
 
-  if (!application || !isAcceptedReservationDecision(application.decision)) {
+  if (!application || !isCheckedInReservationDecision(application.decision)) {
     throw new ReservationAccessError();
   }
 }

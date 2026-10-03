@@ -4,17 +4,17 @@ import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
-import { reservationSettings, tables } from "@/lib/db/schema/reservation";
+import { judgingSettings, tables } from "@/lib/db/schema/reservation";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
-  ACCEPTED_RESERVATION_ERROR,
+  CHECKED_IN_RESERVATION_ERROR,
   getParticipantTeam,
   lockAcceptedReservationApplicant,
   ReservationAccessError,
 } from "@/lib/reservation/access";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import { getReservationAvailability } from "@/lib/reservation/domain";
-import { RESERVATION_SETTINGS_ID } from "@/lib/queries/reservation-settings";
+import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
 import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import { reservationIdSchema } from "@/lib/reservation/validation";
 
@@ -66,16 +66,16 @@ type ReservationTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
 >[0];
 
-async function lockOpenReservationSettings(tx: ReservationTransaction) {
+async function lockOpenJudgingSettings(tx: ReservationTransaction) {
   // Share-lock the settings row before checking the window. Participant
   // claims can proceed together; an organizer window update must wait.
   const [settings] = await tx
     .select({
-      reservationsOpenAt: reservationSettings.reservationsOpenAt,
-      reservationsCloseAt: reservationSettings.reservationsCloseAt,
+      reservationsOpenAt: judgingSettings.reservationsOpenAt,
+      reservationsCloseAt: judgingSettings.reservationsCloseAt,
     })
-    .from(reservationSettings)
-    .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
+    .from(judgingSettings)
+    .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
     .for("share")
     .limit(1);
   if (!settings || getReservationAvailability(settings).state !== "open") {
@@ -85,7 +85,7 @@ async function lockOpenReservationSettings(tx: ReservationTransaction) {
 
 function knownReservationFailure(error: unknown): ActionResult | null {
   if (error instanceof ReservationAccessError) {
-    return { ok: false, error: ACCEPTED_RESERVATION_ERROR };
+    return { ok: false, error: CHECKED_IN_RESERVATION_ERROR };
   }
   if (error instanceof ReservationFailure) {
     return {
@@ -124,7 +124,7 @@ export async function reserveTable({
   try {
     assignment = await db.transaction(async (tx) => {
       await lockAcceptedReservationApplicant(tx, user.id);
-      await lockOpenReservationSettings(tx);
+      await lockOpenJudgingSettings(tx);
 
       // Lock the destination and the team's current table together, in id
       // order, so two moves cannot claim the same open table.
@@ -250,7 +250,7 @@ export async function randomlyAssignTable(): Promise<ActionResult> {
   try {
     assigned = await db.transaction(async (tx) => {
       await lockAcceptedReservationApplicant(tx, user.id);
-      await lockOpenReservationSettings(tx);
+      await lockOpenJudgingSettings(tx);
 
       const [existing] = await tx
         .select({ id: tables.id })

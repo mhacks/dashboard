@@ -1,6 +1,6 @@
--- Example team for local development. Members are the confirmed RSVPs from
+-- Example team for local development. Members are the checked-in hackers from
 -- seeds/rsvp-demo.sql, which runs first. One seat stays open, with a pending
--- invite to an accepted hacker who has not RSVPed.
+-- invite to an accepted hacker who has not checked in.
 --
 -- | Email                            | Role                         |
 -- |----------------------------------|------------------------------|

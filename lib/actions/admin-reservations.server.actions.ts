@@ -5,23 +5,29 @@ import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { postgresErrorCode } from "@/lib/db/errors";
-import { reservationSettings, tables } from "@/lib/db/schema/reservation";
-import { teams } from "@/lib/db/schema/teams";
+import { judgingSettings, tables } from "@/lib/db/schema/reservation";
+import {
+  submissionSettings,
+  teamRegistrationSettings,
+  teams,
+} from "@/lib/db/schema/teams";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
   MAX_RESERVATION_TABLE_NUMBER,
   planTableCountChange,
 } from "@/lib/reservation/domain";
-import { RESERVATION_SETTINGS_ID } from "@/lib/queries/reservation-settings";
+import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
+import { SUBMISSION_SETTINGS_ID } from "@/lib/queries/submission-settings";
+import { TEAM_REGISTRATION_SETTINGS_ID } from "@/lib/queries/team-registration-settings";
 import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import {
-  reservationEventInputSchema,
   reservationIdSchema,
   reservationTableCountSchema,
   reservationTableNumberSchema,
   reservationTableTopologySchema,
-  type ReservationEventInput,
+  windowInputSchema,
   type ReservationTableTopology,
+  type WindowInput,
 } from "@/lib/reservation/validation";
 
 export type ReservationActionResult<T = never> =
@@ -280,75 +286,214 @@ function sameTableTopology(
   });
 }
 
-export async function setReservationWindow(
-  input: ReservationEventInput,
+async function saveWindow(
+  input: WindowInput,
+  save: (args: {
+    organizerId: string;
+    organizerEmail: string;
+    opensAt: string | null;
+    closesAt: string | null;
+    now: string;
+  }) => Promise<void>,
+  messages: { saved: string; failed: string },
 ): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
-  const parsed = reservationEventInputSchema.safeParse(input);
+  const parsed = windowInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const now = new Date().toISOString();
-  const reservationsOpenAt = windowTimestamp(parsed.data.reservationsOpenAt);
-  const reservationsCloseAt = windowTimestamp(parsed.data.reservationsCloseAt);
+  const opensAt = windowTimestamp(parsed.data.opensAt);
+  const closesAt = windowTimestamp(parsed.data.closesAt);
 
   try {
-    await db.transaction(async (tx) => {
-      const [before] = await tx
-        .select({
-          reservationsOpenAt: reservationSettings.reservationsOpenAt,
-          reservationsCloseAt: reservationSettings.reservationsCloseAt,
-        })
-        .from(reservationSettings)
-        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
-        .limit(1);
-
-      await tx
-        .insert(reservationSettings)
-        .values({
-          id: RESERVATION_SETTINGS_ID,
-          reservationsOpenAt,
-          reservationsCloseAt,
-          updatedByUserId: organizer.id,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: reservationSettings.id,
-          set: {
-            reservationsOpenAt,
-            reservationsCloseAt,
-            updatedByUserId: organizer.id,
-            updatedAt: now,
-          },
-        });
-
-      await writeReservationAudit(tx, {
-        actorUserId: organizer.id,
-        actorEmail: organizer.email,
-        action: "window.updated",
-        entityType: "reservation_settings",
-        entityId: null,
-        details: {
-          beforeOpenAt: before?.reservationsOpenAt ?? null,
-          beforeCloseAt: before?.reservationsCloseAt ?? null,
-          afterOpenAt: reservationsOpenAt,
-          afterCloseAt: reservationsCloseAt,
-        },
-      });
+    await save({
+      organizerId: organizer.id,
+      organizerEmail: organizer.email,
+      opensAt,
+      closesAt,
+      now: new Date().toISOString(),
     });
   } catch (error) {
     const known = knownConstraintFailure(error, {
-      unique: "An event with those values already exists.",
-      check: "The event details conflict with database rules.",
+      unique: "Those window values already exist.",
+      check: "Closing time must be after opening time.",
     });
     if (known) return known;
-    console.error("Unable to update reservation window:", error);
-    return {
-      ok: false,
-      error: "Could not update the reservation. Try again.",
-    };
+    console.error(messages.failed, error);
+    return { ok: false, error: messages.failed };
   }
 
   revalidateReservationPaths();
-  return { ok: true, message: "Reservation window saved." };
+  return { ok: true, message: messages.saved };
+}
+
+export async function setTeamRegistrationWindow(
+  input: WindowInput,
+): Promise<ReservationActionResult> {
+  return saveWindow(
+    input,
+    async ({ organizerId, organizerEmail, opensAt, closesAt, now }) => {
+      await db.transaction(async (tx) => {
+        const [before] = await tx
+          .select({
+            opensAt: teamRegistrationSettings.opensAt,
+            closesAt: teamRegistrationSettings.closesAt,
+          })
+          .from(teamRegistrationSettings)
+          .where(eq(teamRegistrationSettings.id, TEAM_REGISTRATION_SETTINGS_ID))
+          .limit(1);
+
+        await tx
+          .insert(teamRegistrationSettings)
+          .values({
+            id: TEAM_REGISTRATION_SETTINGS_ID,
+            opensAt,
+            closesAt,
+            updatedByUserId: organizerId,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: teamRegistrationSettings.id,
+            set: {
+              opensAt,
+              closesAt,
+              updatedByUserId: organizerId,
+              updatedAt: now,
+            },
+          });
+
+        await writeReservationAudit(tx, {
+          actorUserId: organizerId,
+          actorEmail: organizerEmail,
+          action: "window.updated",
+          entityType: "team_registration_settings",
+          entityId: null,
+          details: {
+            beforeOpenAt: before?.opensAt ?? null,
+            beforeCloseAt: before?.closesAt ?? null,
+            afterOpenAt: opensAt,
+            afterCloseAt: closesAt,
+          },
+        });
+      });
+    },
+    {
+      saved: "Team registration window saved.",
+      failed: "Could not update team registration. Try again.",
+    },
+  );
+}
+
+export async function setReservationWindow(
+  input: WindowInput,
+): Promise<ReservationActionResult> {
+  return saveWindow(
+    input,
+    async ({ organizerId, organizerEmail, opensAt, closesAt, now }) => {
+      await db.transaction(async (tx) => {
+        const [before] = await tx
+          .select({
+            reservationsOpenAt: judgingSettings.reservationsOpenAt,
+            reservationsCloseAt: judgingSettings.reservationsCloseAt,
+          })
+          .from(judgingSettings)
+          .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
+          .limit(1);
+
+        await tx
+          .insert(judgingSettings)
+          .values({
+            id: JUDGING_SETTINGS_ID,
+            reservationsOpenAt: opensAt,
+            reservationsCloseAt: closesAt,
+            updatedByUserId: organizerId,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: judgingSettings.id,
+            set: {
+              reservationsOpenAt: opensAt,
+              reservationsCloseAt: closesAt,
+              updatedByUserId: organizerId,
+              updatedAt: now,
+            },
+          });
+
+        await writeReservationAudit(tx, {
+          actorUserId: organizerId,
+          actorEmail: organizerEmail,
+          action: "window.updated",
+          entityType: "judging_settings",
+          entityId: null,
+          details: {
+            beforeOpenAt: before?.reservationsOpenAt ?? null,
+            beforeCloseAt: before?.reservationsCloseAt ?? null,
+            afterOpenAt: opensAt,
+            afterCloseAt: closesAt,
+          },
+        });
+      });
+    },
+    {
+      saved: "Table reservation window saved.",
+      failed: "Could not update table reservations. Try again.",
+    },
+  );
+}
+
+export async function setSubmissionWindow(
+  input: WindowInput,
+): Promise<ReservationActionResult> {
+  return saveWindow(
+    input,
+    async ({ organizerId, organizerEmail, opensAt, closesAt, now }) => {
+      await db.transaction(async (tx) => {
+        const [before] = await tx
+          .select({
+            opensAt: submissionSettings.opensAt,
+            closesAt: submissionSettings.closesAt,
+          })
+          .from(submissionSettings)
+          .where(eq(submissionSettings.id, SUBMISSION_SETTINGS_ID))
+          .limit(1);
+
+        await tx
+          .insert(submissionSettings)
+          .values({
+            id: SUBMISSION_SETTINGS_ID,
+            opensAt,
+            closesAt,
+            updatedByUserId: organizerId,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: submissionSettings.id,
+            set: {
+              opensAt,
+              closesAt,
+              updatedByUserId: organizerId,
+              updatedAt: now,
+            },
+          });
+
+        await writeReservationAudit(tx, {
+          actorUserId: organizerId,
+          actorEmail: organizerEmail,
+          action: "window.updated",
+          entityType: "submission_settings",
+          entityId: null,
+          details: {
+            beforeOpenAt: before?.opensAt ?? null,
+            beforeCloseAt: before?.closesAt ?? null,
+            afterOpenAt: opensAt,
+            afterCloseAt: closesAt,
+          },
+        });
+      });
+    },
+    {
+      saved: "Devpost submission window saved.",
+      failed: "Could not update Devpost submissions. Try again.",
+    },
+  );
 }
 
 export async function createReservationTable(input: {

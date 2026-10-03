@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 const LINKS = [
   { href: "/admin/teams", label: "Teams", exact: true },
-  { href: "/admin/teams/reservations", label: "Reservations", exact: true },
+  { href: "/admin/teams/reservations", label: "Windows", exact: true },
   { href: "/admin/teams/reservations/tables", label: "Tables", exact: false },
   {
     href: "/admin/teams/reservations/assignments",

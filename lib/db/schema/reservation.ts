@@ -19,11 +19,12 @@ import { teams } from "./teams";
 import { users } from "./users";
 
 /**
- * One row, id `default`. Organizers set the reservation window from
- * /admin/teams/reservations. Hackers can claim or move a table only inside it.
+ * One row, id `default`. Organizers set the table-reservation window from
+ * /admin/teams/reservations. Hackers can claim or move a table only inside
+ * the window. A missing row is closed.
  */
-export const reservationSettings = pgTable(
-  "reservation_settings",
+export const judgingSettings = pgTable(
+  "judging_settings",
   {
     id: text().primaryKey().default("default").notNull(),
     reservationsOpenAt: timestamp("reservations_open_at", {
@@ -40,9 +41,9 @@ export const reservationSettings = pgTable(
       .notNull(),
   },
   (table) => [
-    check("reservation_settings_singleton_check", sql`${table.id} = 'default'`),
+    check("judging_settings_singleton_check", sql`${table.id} = 'default'`),
     check(
-      "reservation_settings_window_valid",
+      "judging_settings_window_valid",
       sql`${table.reservationsOpenAt} IS NULL
         OR ${table.reservationsCloseAt} IS NULL
         OR ${table.reservationsCloseAt} > ${table.reservationsOpenAt}`,
@@ -50,14 +51,14 @@ export const reservationSettings = pgTable(
     foreignKey({
       columns: [table.updatedByUserId],
       foreignColumns: [users.id],
-      name: "reservation_settings_updated_by_user_id_fkey",
+      name: "judging_settings_updated_by_user_id_fkey",
     }).onDelete("set null"),
-    pgPolicy("reservation_settings_authenticated_select", {
+    pgPolicy("judging_settings_authenticated_select", {
       for: "select",
       to: authenticatedRole,
       using: sql`(select public.is_organizer()) OR (select public.has_accepted_reservation_access())`,
     }),
-    pgPolicy("reservation_settings_organizer_all", {
+    pgPolicy("judging_settings_organizer_all", {
       for: "all",
       to: authenticatedRole,
       using: isOrganizer,
@@ -122,6 +123,6 @@ export const reservationAuditLog = pgTable(
   ],
 ).enableRLS();
 
-export type ReservationSettings = typeof reservationSettings.$inferSelect;
+export type JudgingSettings = typeof judgingSettings.$inferSelect;
 export type Table = typeof tables.$inferSelect;
 export type ReservationAuditLog = typeof reservationAuditLog.$inferSelect;

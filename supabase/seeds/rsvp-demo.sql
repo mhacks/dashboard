@@ -1,16 +1,18 @@
 -- Confirmed RSVPs for local development. Login with any *@mhacks.test email
 -- via OTP in Mailpit after `pnpm db:reset`.
 --
--- A confirmed RSVP is both an `_rsvped` decision and a hacker_rsvps row, which
--- is what public.has_confirmed_rsvp() checks.
+-- A confirmed RSVP is a hacker_rsvps row plus a decision of *_rsvped or
+-- checked_in, which is what public.has_confirmed_rsvp() checks.
 --
--- | Email                              | decision        | Travel plan    | Checked in |
--- |------------------------------------|-----------------|----------------|------------|
--- | early-rsvped@mhacks.test           | early_rsvped    | local          | no         |
--- | regular-rsvped@mhacks.test         | regular_rsvped  | self-funded    | no         |
--- | rsvped-reimbursement@mhacks.test   | early_rsvped    | reimbursement  | no         |
--- | checked-in@mhacks.test             | regular_rsvped  | local          | yes, team "Checked In" |
--- | checked-in-two@mhacks.test         | regular_rsvped  | local          | yes, team "Checked In" |
+-- Everyone in this file is on a team, so the decision is checked_in.
+--
+-- | Email                              | decision   | Travel plan    | Team            |
+-- |------------------------------------|------------|----------------|-----------------|
+-- | early-rsvped@mhacks.test           | checked_in | local          | Example Team    |
+-- | regular-rsvped@mhacks.test         | checked_in | self-funded    | Example Team    |
+-- | rsvped-reimbursement@mhacks.test   | checked_in | reimbursement  | Example Team    |
+-- | checked-in@mhacks.test             | checked_in | local          | Checked In      |
+-- | checked-in-two@mhacks.test         | checked_in | local          | Checked In      |
 
 with rsvp_users(
   n,
@@ -33,7 +35,7 @@ with rsvp_users(
       'early-rsvped@mhacks.test',
       'Early',
       'Rsvped',
-      'early_rsvped'::application_decision,
+      'checked_in'::application_decision,
       'local'::rsvp_travel_plan,
       false,
       'Ann Arbor, MI',
@@ -48,7 +50,7 @@ with rsvp_users(
       'regular-rsvped@mhacks.test',
       'Regular',
       'Rsvped',
-      'regular_rsvped'::application_decision,
+      'checked_in'::application_decision,
       'self-funded'::rsvp_travel_plan,
       false,
       'Chicago, IL',
@@ -63,7 +65,7 @@ with rsvp_users(
       'rsvped-reimbursement@mhacks.test',
       'Reimbursed',
       'Rsvped',
-      'early_rsvped'::application_decision,
+      'checked_in'::application_decision,
       'reimbursement'::rsvp_travel_plan,
       true,
       'San Francisco, CA',
@@ -183,9 +185,9 @@ with rsvp_users(
   coming_from
 ) as (
   values
-    (321, 'Early', 'Rsvped', 'early_rsvped'::application_decision, false, 'Ann Arbor, MI'),
-    (322, 'Regular', 'Rsvped', 'regular_rsvped'::application_decision, false, 'Chicago, IL'),
-    (323, 'Reimbursed', 'Rsvped', 'early_rsvped'::application_decision, true, 'San Francisco, CA')
+    (321, 'Early', 'Rsvped', 'checked_in'::application_decision, false, 'Ann Arbor, MI'),
+    (322, 'Regular', 'Rsvped', 'checked_in'::application_decision, false, 'Chicago, IL'),
+    (323, 'Reimbursed', 'Rsvped', 'checked_in'::application_decision, true, 'San Francisco, CA')
 ),
 seed_rows as (
   select
@@ -399,8 +401,9 @@ on conflict (user_id) do update set
   photo_release_response = excluded.photo_release_response,
   submitted_at = excluded.submitted_at;
 
--- Checked-in hackers are a separate set from the early RSVPs above. Door
--- scans for these two are inserted in seeds/live-site-demo.sql.
+-- Checked-in hackers are a separate set from the early RSVPs above. Their
+-- decision is checked_in, which is what a door scan writes over regular_rsvped.
+-- The scan rows themselves are inserted in seeds/live-site-demo.sql.
 with checked_in_users(n, email, first_name, last_name) as (
   values
     (324, 'checked-in@mhacks.test', 'Checked', 'In'),
@@ -560,7 +563,7 @@ select
   application_id,
   user_id,
   'reviewed'::application_status,
-  'regular_rsvped'::application_decision,
+  'checked_in'::application_decision,
   first_name,
   last_name,
   '+1415555' || lpad((3000 + n)::text, 4, '0'),

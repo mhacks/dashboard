@@ -6,22 +6,22 @@ import { requireHackerPage } from "@/lib/auth/guards";
 import {
   getMyTeam,
   getMyPendingInvitations,
+  getMyTeamSubmission,
   getSentInvitations,
 } from "@/lib/actions/team.actions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { decisionOutcome, type ApplicationDecision } from "@/lib/decisions";
+import { hasCheckedIn, type ApplicationDecision } from "@/lib/decisions";
 import {
   getParticipantReservationSnapshot,
   type ParticipantReservationSnapshot,
 } from "@/lib/db/queries/reservation";
-import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
+import { getHackWindows } from "@/lib/queries/hack-windows";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
 
-// The formation flag is a database read, and it runs before any cookie access.
-// Without this, `next build` tries to prerender the page and fails when CI has
-// no database.
+// The check-in gate is a database read. Without this, `next build` tries to
+// prerender the page and fails when CI has no database.
 export const dynamic = "force-dynamic";
 
 // Not wrapped in a swallow-and-degrade try/catch the way apply/page.tsx
@@ -31,11 +31,8 @@ export const dynamic = "force-dynamic";
 // still caught gracefully, just one level up: error.tsx renders it in-shell
 // with a retry instead of Next's default error page.
 async function TeamData() {
-  if (!(await isTeamFormationEnabled())) redirect("/dashboard");
-
   const { id: userId } = await requireHackerPage();
 
-  // Same gate as /dashboard/pass and team mutations: accepted hackers only.
   let decision: ApplicationDecision | null = null;
   try {
     const [application] = await db
@@ -48,20 +45,29 @@ async function TeamData() {
     const cause = err instanceof Error ? (err.cause ?? err) : err;
     console.error("[DB] hacker_applicants team gate query failed:", cause);
   }
-  if (!decision || decisionOutcome(decision) !== "accepted") {
+  const checkedIn = Boolean(decision && hasCheckedIn(decision));
+
+  const [team, pendingInvitations, sentInvitations, devpostUrl, windows] =
+    await Promise.all([
+      getMyTeam(userId),
+      getMyPendingInvitations(userId),
+      getSentInvitations(userId),
+      getMyTeamSubmission(userId),
+      getHackWindows(),
+    ]);
+
+  // Checked-in hackers manage the team. Anyone still on a team after a
+  // reverted scan can open the page to leave, and nobody else.
+  if (!checkedIn && !team) {
     redirect("/dashboard");
   }
 
-  const [team, pendingInvitations, sentInvitations] = await Promise.all([
-    getMyTeam(userId),
-    getMyPendingInvitations(userId),
-    getSentInvitations(userId),
-  ]);
-
   let reservations: ParticipantReservationSnapshot | null = null;
-  if (team) {
+  let reservationsAvailable = false;
+  if (team && checkedIn) {
     try {
       reservations = await getParticipantReservationSnapshot();
+      reservationsAvailable = true;
     } catch (err) {
       const cause = err instanceof Error ? (err.cause ?? err) : err;
       console.error("[DB] reservation snapshot query failed:", cause);
@@ -72,9 +78,15 @@ async function TeamData() {
     <TeamView
       currentUserId={userId}
       team={team}
+      checkedIn={checkedIn}
       pendingInvitations={pendingInvitations}
       sentInvitations={sentInvitations}
       reservations={reservations}
+      reservationsAvailable={reservationsAvailable}
+      devpostUrl={devpostUrl}
+      registration={windows.registration}
+      reservationWindow={windows.reservation}
+      submission={windows.submission}
     />
   );
 }

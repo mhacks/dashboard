@@ -20,7 +20,6 @@ import { ADMIN_AREAS } from "@/lib/admin/sections";
 import { isEventStaff } from "@/lib/auth/guards";
 import type { UserRole } from "@/lib/db/schema/users";
 import { MAX_TEAM_SIZE } from "@/lib/types/teams";
-import { WALLET_EVENT } from "@/lib/wallet/event";
 
 /**
  * Where an applicant stands. `stage` chooses the panel and nothing else does,
@@ -49,7 +48,9 @@ export function ApplicantDashboard({
   firstName,
   userId,
   canCheckIn,
-  teamsEnabled,
+  checkedIn,
+  showLiveSite,
+  strandedTeamName,
   appleWalletAvailable,
   googleWalletAvailable,
 }: {
@@ -61,10 +62,17 @@ export function ApplicantDashboard({
   /** Accepted and RSVPed — the people who can actually be scanned in. */
   canCheckIn: boolean;
   /**
-   * Organizer toggle from /admin/teams. The team page redirects when this is
-   * off, so the panel stays hidden rather than linking somewhere that bounces.
+   * Application decision is `checked_in`. The manage-team panel stays hidden
+   * otherwise.
    */
-  teamsEnabled: boolean;
+  checkedIn: boolean;
+  /** RSVPed or checked in. The live site link stays hidden otherwise. */
+  showLiveSite: boolean;
+  /**
+   * Set when a hacker is still on a team after check-in was reverted. They
+   * can open the team page to leave, and cannot manage it until they check in.
+   */
+  strandedTeamName: string | null;
   /**
    * Whether this environment can sign Apple Wallet passes.
    */
@@ -88,7 +96,7 @@ export function ApplicantDashboard({
             }
           />
 
-          {role === "hacker" ? <HandbookPanel /> : null}
+          {role === "hacker" && showLiveSite ? <HandbookPanel /> : null}
 
           {/* Above the application panels, because it outranks them: anyone
               who can see this has already been accepted and RSVPed, so their
@@ -102,8 +110,9 @@ export function ApplicantDashboard({
             />
           ) : null}
 
-          {canCheckIn && role === "hacker" && teamsEnabled ? (
-            <TeamPanel />
+          {checkedIn && role === "hacker" ? <TeamPanel /> : null}
+          {strandedTeamName ? (
+            <StrandedTeamPanel teamName={strandedTeamName} />
           ) : null}
 
           {data.stage === "applying" ? <ApplyingPanel data={data} /> : null}
@@ -273,15 +282,31 @@ function DecisionReadyPanel() {
 /* ——— team ————————————————————————————————————————————————————— */
 
 /**
- * Sits directly under the check-in panel, for the same people: accepted
- * hackers who have RSVPed. The page itself stays at /dashboard/team; this
- * only points there, the way the decision letter's team band does.
+ * Sits under the check-in panel once this hacker is checked in. The page
+ * itself stays at /dashboard/team; this only points there.
  */
+function StrandedTeamPanel({ teamName }: { teamName: string }) {
+  return (
+    <Panel eyebrow="YOUR TEAM">
+      <PanelHeading
+        lede={`You're still on ${teamName}. Check in again to manage the team, or leave it.`}
+      >
+        Check-in required
+      </PanelHeading>
+      <div className="flex flex-wrap items-center gap-3.5">
+        <ButtonLink href="/dashboard/team" external={false}>
+          Leave this team
+        </ButtonLink>
+      </div>
+    </Panel>
+  );
+}
+
 function TeamPanel() {
   return (
     <Panel eyebrow="TEAM AND SUBMISSION">
       <PanelHeading
-        lede={`Create a team or accept an invite before the weekend starts. Teams can have up to ${MAX_TEAM_SIZE} hackers.`}
+        lede={`Create a team or accept an invite. Teams can have up to ${MAX_TEAM_SIZE} hackers.`}
       >
         Team and submission
       </PanelHeading>
@@ -386,19 +411,20 @@ function CheckInPanel({
 }
 
 /**
- * Hackers only. Same paper box as the panels below it, so it isn't a bare
- * line under the greeting. The button sits beside the copy on wide screens.
+ * Hackers who have RSVPed or checked in. Same paper box as the panels below
+ * it, so it isn't a bare line under the greeting. The button sits beside the
+ * copy on wide screens.
  */
 function HandbookPanel() {
   return (
     <Panel eyebrow="GUIDE">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-        <PanelHeading lede="Venue, schedule, policies, and what to bring for the weekend.">
-          Hacker handbook
+        <PanelHeading lede="Schedule, venue, and what is happening this weekend.">
+          Live site
         </PanelHeading>
         <div className="w-full shrink-0 sm:w-auto">
-          <ButtonLink href={WALLET_EVENT.handbookUrl}>
-            Open the handbook
+          <ButtonLink href="/live" external={false}>
+            Open the live site
           </ButtonLink>
         </div>
       </div>

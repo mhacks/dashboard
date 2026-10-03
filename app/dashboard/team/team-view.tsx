@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,12 +36,19 @@ import {
   declineInvitation,
   cancelInvitation,
   leaveTeam,
+  saveTeamDevpostUrl,
 } from "@/lib/actions/team.server.actions";
 import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
+import {
+  describeWindow,
+  getWindowAvailability,
+} from "@/lib/reservation/domain";
+import type { WindowSnapshot } from "@/lib/queries/hack-windows";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
   inviteEmailSchema,
+  devpostUrlSchema,
   type TeamWithMembers,
   type PendingInvitationSummary,
   type SentInvitationSummary,
@@ -50,9 +58,17 @@ import { ReservationDialog } from "./reservation-dialog";
 interface TeamViewProps {
   currentUserId: string;
   team: TeamWithMembers | null;
+  /** False when a reverted check-in left them on a team they can only leave. */
+  checkedIn: boolean;
   pendingInvitations: PendingInvitationSummary[];
   sentInvitations: SentInvitationSummary[];
   reservations: ParticipantReservationSnapshot | null;
+  /** False when the table list could not be loaded. */
+  reservationsAvailable: boolean;
+  devpostUrl: string | null;
+  registration: WindowSnapshot;
+  reservationWindow: WindowSnapshot;
+  submission: WindowSnapshot;
 }
 
 const INPUT_CLASS =
@@ -74,10 +90,34 @@ function reservationStatus(
   const mine = reservations.tables.find(
     (table) => table.reservedByTeamId === teamId,
   );
-  if (mine) return `Table ${mine.number}`;
-  if (reservations.state === "open") return "Open";
-  if (reservations.state === "scheduled") return "Not open yet";
-  return "Closed";
+  const windowWord =
+    reservations.state === "open"
+      ? "Open"
+      : reservations.state === "scheduled"
+        ? "Scheduled"
+        : "Locked";
+  return mine ? `Table ${mine.number} · ${windowWord}` : windowWord;
+}
+
+function windowIsOpen(window: WindowSnapshot) {
+  return window.available && window.state === "open";
+}
+
+function windowLabel(window: WindowSnapshot) {
+  if (!window.available) return "Unavailable";
+  if (window.state === "scheduled") return "Scheduled";
+  if (window.state === "open") return "Open";
+  return "Locked";
+}
+
+function windowPhrase(window: WindowSnapshot) {
+  if (!window.available) return "Unavailable right now.";
+  return describeWindow(
+    getWindowAvailability({
+      opensAt: window.opensAt,
+      closesAt: window.closesAt,
+    }),
+  );
 }
 
 function errorMessage(err: unknown, fallback: string) {
@@ -93,6 +133,9 @@ type RenameTeamFormValues = z.infer<typeof renameTeamFormSchema>;
 const inviteFormSchema = z.object({ email: inviteEmailSchema });
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
+const devpostFormSchema = z.object({ url: devpostUrlSchema });
+type DevpostFormValues = z.infer<typeof devpostFormSchema>;
+
 /** The quiet way back to the dashboard, matching ViewApplicationLink's treatment. */
 function BackToDashboardLink() {
   return (
@@ -105,13 +148,113 @@ function BackToDashboardLink() {
   );
 }
 
+function SubmissionPath({
+  teamRegistered,
+  tableReserved,
+  devpostSubmitted,
+  fullySubmitted,
+  registration,
+  reservation,
+  submission,
+}: {
+  teamRegistered: boolean;
+  tableReserved: boolean | null;
+  devpostSubmitted: boolean;
+  fullySubmitted: boolean;
+  registration: WindowSnapshot;
+  reservation: WindowSnapshot;
+  submission: WindowSnapshot;
+}) {
+  const steps = [
+    {
+      title: "Register your team",
+      done: teamRegistered,
+      window: registration,
+      requirement: null,
+    },
+    {
+      title: "Reserve a table",
+      done: tableReserved === true,
+      window: reservation,
+      requirement: !teamRegistered
+        ? "Register a team first."
+        : tableReserved === null
+          ? "Table status is unavailable right now."
+          : "Required before the Devpost link.",
+    },
+    {
+      title: "Submit your Devpost link",
+      done: devpostSubmitted,
+      window: submission,
+      requirement:
+        tableReserved === true
+          ? null
+          : teamRegistered
+            ? "Reserve a table first."
+            : "Register a team, then reserve a table.",
+    },
+  ];
+
+  return (
+    <Panel
+      eyebrow="TO SUBMIT"
+      status={
+        fullySubmitted
+          ? "Fully submitted"
+          : `${steps.filter((step) => step.done).length} of 3`
+      }
+    >
+      <PanelHeading lede="A project is fully submitted only after all three. Each step locks when its deadline passes.">
+        Register, reserve, then submit
+      </PanelHeading>
+      <ol className="flex flex-col gap-2">
+        {steps.map((step, index) => (
+          <li
+            key={step.title}
+            className="flex flex-col gap-1.5 border border-ui-line bg-ui-well px-3 py-3"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p className="font-red-hat-mono text-[13px] font-medium text-ui-ink">
+                <span
+                  aria-hidden
+                  className={`mr-1.5 font-glyph ${step.done ? "text-ui-ink" : "text-ui-line-strong"}`}
+                >
+                  {step.done ? "[x]" : "[ ]"}
+                </span>
+                <span className="sr-only">
+                  {step.done ? "Done: " : "Not yet: "}
+                </span>
+                {index + 1}. {step.title}
+              </p>
+              <p className="font-red-hat-mono text-[10.5px] tracking-[0.08em] text-ui-ink uppercase">
+                {windowLabel(step.window)}
+              </p>
+            </div>
+            <p className="text-[13px] leading-[1.5] text-ui-ink-soft">
+              {windowPhrase(step.window)}
+              {step.requirement ? ` ${step.requirement}` : ""}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  );
+}
+
 export function TeamView({
   currentUserId,
   team,
+  checkedIn,
   pendingInvitations,
   sentInvitations,
   reservations,
+  reservationsAvailable,
+  devpostUrl,
+  registration,
+  reservationWindow,
+  submission,
 }: TeamViewProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   // Tracks which specific action is in flight (e.g. "accept:<id>",
   // "cancel:<id>", "leave") so one button's loading state doesn't gate
@@ -202,6 +345,17 @@ export function TeamView({
     });
   }
 
+  const registrationOpen = windowIsOpen(registration);
+  const reservationOpen = windowIsOpen(reservationWindow);
+  const tableReserved = !team
+    ? false
+    : reservations
+      ? reservations.tables.some(
+          (table) => table.reservedByTeamId === team.team.id,
+        )
+      : null;
+  const fullySubmitted = Boolean(team && tableReserved && devpostUrl);
+
   const leavePrompt =
     team && team.members.length <= 1
       ? "You're the last member, so leaving will delete this team."
@@ -221,6 +375,18 @@ export function TeamView({
         <ConsolePage>
           <Masthead title="Your team" trailing={<SignOutButton />} />
 
+          {checkedIn ? (
+            <SubmissionPath
+              teamRegistered={Boolean(team)}
+              tableReserved={tableReserved}
+              devpostSubmitted={Boolean(devpostUrl)}
+              fullySubmitted={fullySubmitted}
+              registration={registration}
+              reservation={reservationWindow}
+              submission={submission}
+            />
+          ) : null}
+
           <Panel
             eyebrow="YOUR TEAM"
             status={
@@ -233,18 +399,20 @@ export function TeamView({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <PanelHeading
                   lede={
-                    team.members.length >= MAX_TEAM_SIZE
-                      ? "Your team is full."
-                      : `Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
+                    !checkedIn
+                      ? "Check-in is required to manage this team. You can still leave."
+                      : team.members.length >= MAX_TEAM_SIZE
+                        ? `${windowPhrase(registration)} Your team is full.`
+                        : `${windowPhrase(registration)} Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
                   }
                 >
                   {team.team.name}
                 </PanelHeading>
-                {!isRenaming ? (
+                {checkedIn && !isRenaming ? (
                   <button
                     type="button"
                     onClick={openRename}
-                    disabled={isPending}
+                    disabled={isPending || !registrationOpen}
                     className={ACTION_OUTLINE}
                   >
                     <PencilLineIcon className="size-3.5" /> Rename
@@ -252,18 +420,20 @@ export function TeamView({
                 ) : null}
               </div>
             ) : (
-              <PanelHeading lede="Create a team or accept an invitation to join one.">
+              <PanelHeading
+                lede={`${windowPhrase(registration)} Create a team or accept an invitation while registration is open.`}
+              >
                 Find your team
               </PanelHeading>
             )}
 
             {team ? (
               <>
-                {team.team.renameRequestedAt ? (
+                {checkedIn && team.team.renameRequestedAt ? (
                   <RenameRequestBanner reason={team.team.renameRequestReason} />
                 ) : null}
 
-                {isRenaming ? (
+                {checkedIn && registrationOpen && isRenaming ? (
                   <RenameTeamForm
                     form={renameForm}
                     onSubmit={onRenameTeam}
@@ -278,20 +448,22 @@ export function TeamView({
                   currentUserId={currentUserId}
                 />
 
-                {team.members.length < MAX_TEAM_SIZE ? (
+                {checkedIn && team.members.length < MAX_TEAM_SIZE ? (
                   <InviteForm
                     form={inviteForm}
                     onSubmit={onInvite}
                     isPending={isPending}
                     isSending={pendingKey === "invite"}
+                    locked={!registrationOpen}
                   />
                 ) : null}
 
-                {sentInvitations.length > 0 ? (
+                {checkedIn && sentInvitations.length > 0 ? (
                   <SentInvitationsList
                     invitations={sentInvitations}
                     isPending={isPending}
                     pendingKey={pendingKey}
+                    locked={!registrationOpen}
                     onCancel={onCancel}
                   />
                 ) : null}
@@ -299,7 +471,7 @@ export function TeamView({
                 <div className="border-t border-ui-line pt-4">
                   <button
                     type="button"
-                    disabled={isPending}
+                    disabled={isPending || (checkedIn && !registrationOpen)}
                     onClick={() => setLeaveDialogOpen(true)}
                     className={ACTION_OUTLINE}
                   >
@@ -314,6 +486,7 @@ export function TeamView({
                   onSubmit={onCreateTeam}
                   isPending={isPending}
                   isCreating={pendingKey === "create"}
+                  locked={!registrationOpen}
                 />
 
                 {pendingInvitations.length > 0 ? (
@@ -321,6 +494,7 @@ export function TeamView({
                     invitations={pendingInvitations}
                     isPending={isPending}
                     pendingKey={pendingKey}
+                    locked={!registrationOpen}
                     onAccept={onAccept}
                     onDecline={onDecline}
                   />
@@ -334,24 +508,70 @@ export function TeamView({
             )}
           </Panel>
 
-          {team && reservations ? (
+          {checkedIn && team && reservations ? (
             <Panel
               eyebrow="RESERVATION"
-              status={reservationStatus(reservations, team.team.id)}
+              status={
+                reservationWindow.available
+                  ? reservationStatus(
+                      { ...reservations, state: reservationWindow.state },
+                      team.team.id,
+                    )
+                  : "Unavailable"
+              }
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <PanelHeading lede="Claim a judging table for your team. You can move to an open table while reservations are open.">
+                <PanelHeading
+                  lede={
+                    reservationOpen
+                      ? `${windowPhrase(reservationWindow)} Claim a judging table for your team. You can move to an open table while this is open.`
+                      : `${windowPhrase(reservationWindow)} Reserving a table is required before a Devpost link can be saved.`
+                  }
+                >
                   Reserve a table
                 </PanelHeading>
                 <ReservationDialog
                   buttonClassName={ACTION_OUTLINE}
                   primaryClassName={ACTION_PRIMARY}
                   teamId={team.team.id}
-                  state={reservations.state}
+                  state={
+                    reservationWindow.available
+                      ? reservationWindow.state
+                      : "closed"
+                  }
                   tables={reservations.tables}
                 />
               </div>
             </Panel>
+          ) : checkedIn && team && !reservationsAvailable ? (
+            <Panel eyebrow="RESERVATION" status="Unavailable">
+              <PanelHeading lede="Table reservations could not be loaded, so this step is unavailable right now.">
+                Reserve a table
+              </PanelHeading>
+            </Panel>
+          ) : null}
+
+          {checkedIn && team ? (
+            <DevpostSubmission
+              key={devpostUrl ?? "none"}
+              savedUrl={devpostUrl}
+              reservationsAvailable={reservationsAvailable}
+              tableReserved={tableReserved === true}
+              submission={submission}
+              isPending={isPending}
+              isSaving={pendingKey === "devpost"}
+              onSave={(url) => {
+                runAction("devpost", async () => {
+                  await saveTeamDevpostUrl(url);
+                  toast.success(
+                    devpostUrl
+                      ? "Devpost link updated."
+                      : "Devpost link saved.",
+                  );
+                  router.refresh();
+                });
+              }}
+            />
           ) : null}
 
           <BackToDashboardLink />
@@ -486,16 +706,112 @@ function RenameTeamForm({
 
 /* ——— forms —————————————————————————————————————————————————————— */
 
+function DevpostSubmission({
+  savedUrl,
+  reservationsAvailable,
+  tableReserved,
+  submission,
+  isPending,
+  isSaving,
+  onSave,
+}: {
+  savedUrl: string | null;
+  reservationsAvailable: boolean;
+  tableReserved: boolean;
+  submission: WindowSnapshot;
+  isPending: boolean;
+  isSaving: boolean;
+  onSave: (url: string) => void;
+}) {
+  const form = useForm<DevpostFormValues>({
+    resolver: zodResolver(devpostFormSchema),
+    defaultValues: { url: savedUrl ?? "" },
+  });
+  const submissionOpen = windowIsOpen(submission);
+  const canSubmit = reservationsAvailable && tableReserved && submissionOpen;
+  const lede = !submission.available
+    ? "Project submissions are unavailable right now."
+    : !submissionOpen
+      ? `${windowPhrase(submission)} The Devpost link cannot be changed.`
+      : !reservationsAvailable
+        ? "Table reservations could not be loaded, so project submission is unavailable right now."
+        : !tableReserved
+          ? `${windowPhrase(submission)} Reserve a table before submitting. A team has one Devpost link.`
+          : `${windowPhrase(submission)} One Devpost link for the whole team.`;
+
+  return (
+    <Panel
+      eyebrow="SUBMISSION"
+      status={
+        savedUrl
+          ? submissionOpen
+            ? "Submitted"
+            : `Submitted · ${windowLabel(submission)}`
+          : windowLabel(submission)
+      }
+    >
+      <PanelHeading lede={lede}>Submit your project</PanelHeading>
+      <form
+        onSubmit={form.handleSubmit((values) => onSave(values.url))}
+        className="flex flex-col gap-2"
+      >
+        <label
+          htmlFor="devpost-url"
+          className="font-red-hat-mono text-[10.5px] tracking-[0.16em] text-ui-ink-soft uppercase"
+        >
+          Devpost link
+        </label>
+        <div className="flex flex-wrap gap-2.5">
+          <input
+            id="devpost-url"
+            type="url"
+            inputMode="url"
+            placeholder="https://devpost.com/software/your-project"
+            autoComplete="off"
+            disabled={isPending || !canSubmit}
+            className={INPUT_CLASS}
+            {...form.register("url")}
+          />
+          <button
+            type="submit"
+            disabled={isPending || !canSubmit}
+            className={ACTION_PRIMARY}
+          >
+            <Caret /> {isSaving ? "Saving…" : savedUrl ? "Update" : "Submit"}
+          </button>
+        </div>
+        {form.formState.errors.url ? (
+          <p className="font-red-hat-mono text-[11px] text-red-700">
+            {form.formState.errors.url.message}
+          </p>
+        ) : null}
+        {savedUrl ? (
+          <a
+            href={savedUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-red-hat-mono text-[11.5px] tracking-[0.02em] text-ui-ink-soft underline underline-offset-2 transition-colors hover:text-ui-ink"
+          >
+            Open your Devpost submission
+          </a>
+        ) : null}
+      </form>
+    </Panel>
+  );
+}
+
 function CreateTeamForm({
   form,
   onSubmit,
   isPending,
   isCreating,
+  locked,
 }: {
   form: UseFormReturn<CreateTeamFormValues>;
   onSubmit: () => void;
   isPending: boolean;
   isCreating: boolean;
+  locked: boolean;
 }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-2">
@@ -509,11 +825,15 @@ function CreateTeamForm({
         <input
           id="team-name"
           placeholder="Team Rocket"
-          disabled={isPending}
+          disabled={isPending || locked}
           className={INPUT_CLASS}
           {...form.register("name")}
         />
-        <button type="submit" disabled={isPending} className={ACTION_PRIMARY}>
+        <button
+          type="submit"
+          disabled={isPending || locked}
+          className={ACTION_PRIMARY}
+        >
           <Caret /> {isCreating ? "Creating…" : "Create"}
         </button>
       </div>
@@ -536,11 +856,13 @@ function InviteForm({
   onSubmit,
   isPending,
   isSending,
+  locked,
 }: {
   form: UseFormReturn<InviteFormValues>;
   onSubmit: () => void;
   isPending: boolean;
   isSending: boolean;
+  locked: boolean;
 }) {
   return (
     <form
@@ -558,11 +880,15 @@ function InviteForm({
           id="invite-email"
           type="email"
           placeholder="teammate@example.com"
-          disabled={isPending}
+          disabled={isPending || locked}
           className={INPUT_CLASS}
           {...form.register("email")}
         />
-        <button type="submit" disabled={isPending} className={ACTION_PRIMARY}>
+        <button
+          type="submit"
+          disabled={isPending || locked}
+          className={ACTION_PRIMARY}
+        >
           <Caret /> {isSending ? "Sending…" : "Invite"}
         </button>
       </div>
@@ -581,11 +907,13 @@ function SentInvitationsList({
   invitations,
   isPending,
   pendingKey,
+  locked,
   onCancel,
 }: {
   invitations: SentInvitationSummary[];
   isPending: boolean;
   pendingKey: string | null;
+  locked: boolean;
   onCancel: (invitation: SentInvitationSummary) => void;
 }) {
   return (
@@ -609,7 +937,7 @@ function SentInvitationsList({
           {invitation.status === "pending" ? (
             <button
               type="button"
-              disabled={isPending}
+              disabled={isPending || locked}
               onClick={() => onCancel(invitation)}
               className={ACTION_OUTLINE}
             >
@@ -628,12 +956,14 @@ function PendingInvitationsList({
   invitations,
   isPending,
   pendingKey,
+  locked,
   onAccept,
   onDecline,
 }: {
   invitations: PendingInvitationSummary[];
   isPending: boolean;
   pendingKey: string | null;
+  locked: boolean;
   onAccept: (invitation: PendingInvitationSummary) => void;
   onDecline: (invitation: PendingInvitationSummary) => void;
 }) {
@@ -659,7 +989,7 @@ function PendingInvitationsList({
           <div className="flex shrink-0 gap-2">
             <button
               type="button"
-              disabled={isPending}
+              disabled={isPending || locked}
               onClick={() => onDecline(invitation)}
               className={ACTION_OUTLINE}
             >
@@ -669,7 +999,7 @@ function PendingInvitationsList({
             </button>
             <button
               type="button"
-              disabled={isPending}
+              disabled={isPending || locked}
               onClick={() => onAccept(invitation)}
               className={ACTION_PRIMARY}
             >

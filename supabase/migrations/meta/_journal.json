@@ -330,6 +330,20 @@
       "when": 1790987128755,
       "tag": "20261003002528_organizer_unlimited_checkins",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791014182706,
+      "tag": "20261003075622_registration_reservation_and_submission_windows",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791014212199,
+      "tag": "20261003075652_checked_in_reservation_access",
+      "breakpoints": true
     }
   ]
 }

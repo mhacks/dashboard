@@ -47,7 +47,13 @@ export function ReservationDialog({
     tables.find((table) => table.id === selectedTableId) ?? null;
   const canChoose = state === "open";
   const moving = Boolean(myTable);
-  const buttonLabel = myTable ? `Table ${myTable.number}` : "Choose a table";
+  const buttonLabel = myTable
+    ? `Table ${myTable.number}`
+    : state === "open"
+      ? "Choose a table"
+      : state === "scheduled"
+        ? "Not open yet"
+        : "Locked";
 
   function run(
     actionName: "reserve" | "random",
@@ -148,11 +154,15 @@ function statusCopy(
   tableNumber: number | null,
 ): string {
   if (tableNumber !== null) {
-    return state === "open"
-      ? `Your team has table ${tableNumber}. Pick an open table to move.`
-      : `Your team has table ${tableNumber}.`;
+    if (state === "open") {
+      return `Your team has table ${tableNumber}. Pick an open table to move.`;
+    }
+    if (state === "scheduled") {
+      return `Your team has table ${tableNumber}. Reservation has not opened yet.`;
+    }
+    return `Your team has table ${tableNumber}. Reservation is locked.`;
   }
   if (state === "open") return "Pick an open table.";
-  if (state === "scheduled") return "Reservations have not opened yet.";
-  return "Reservations are closed.";
+  if (state === "scheduled") return "Table reservation has not opened yet.";
+  return "Table reservation is locked.";
 }

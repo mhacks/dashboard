@@ -5,7 +5,6 @@ import { ResultsLetter } from "@/components/decision/results-letter";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { decisionOutcome, isDecided } from "@/lib/decisions";
 import { getApplicantDecision } from "@/lib/queries/applicant-decision";
-import { isTeamFormationEnabled } from "@/lib/queries/team-settings";
 import { getRsvpAccessForUser } from "@/lib/rsvp/access";
 
 export const metadata: Metadata = {
@@ -27,10 +26,7 @@ export default async function DecisionPage() {
   if (!application || !isDecided(application.decision)) redirect("/dashboard");
 
   const accepted = decisionOutcome(application.decision) === "accepted";
-  const [rsvpAccess, teamsEnabled] = await Promise.all([
-    accepted ? getRsvpAccessForUser({ userId }) : Promise.resolve(null),
-    isTeamFormationEnabled(),
-  ]);
+  const rsvpAccess = accepted ? await getRsvpAccessForUser({ userId }) : null;
   const rsvpDeadline =
     rsvpAccess?.source === "exception" && rsvpAccess.closesAt
       ? new Intl.DateTimeFormat("en-US", {
@@ -51,7 +47,6 @@ export default async function DecisionPage() {
       appliedAt={application.createdAt}
       reimbursementCents={application.reimbursementCents}
       rsvpDeadline={rsvpDeadline}
-      teamsEnabled={teamsEnabled}
     />
   );
 }

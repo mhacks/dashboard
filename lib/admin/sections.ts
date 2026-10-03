@@ -116,14 +116,14 @@ export const ADMIN_AREAS: AdminArea[] = [
   {
     title: "Teams and reservations",
     description:
-      "See the teams hackers have formed, and manage the tables they reserve.",
+      "See the teams hackers have formed, and set when they can register, reserve a table, and submit.",
     icon: Users2Icon,
     links: [
       {
         href: "/admin/teams",
         title: "Teams and reservations",
         description:
-          "See every team, turn formation on or off, and manage table reservations.",
+          "See every team, and set the registration, table, and Devpost windows.",
         icon: Users2Icon,
       },
     ],
