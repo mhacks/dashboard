@@ -3,7 +3,7 @@
 The public `/live` page reads its content through the Next.js server’s Drizzle
 connection (`DATABASE_URL`), not the Supabase Data API. Visitors do not need an
 account. It includes the timeline,
-event details, one announcement, hacker guide links, and prizes. A dedicated
+event details, one announcement, hacker handbook links, and prizes. A dedicated
 organizer editor is deferred; use Supabase's Table Editor to manage content.
 
 ## Deployment
@@ -36,14 +36,14 @@ must be refreshed to see edits.
 | Event details and publishing | `live_event_details`   | Set `event_id` to the matching `events.id`. Includes full description, location details, map URL, event type, host, audience, and capacity. Set `status = published` to show the event. A start time is also required for the timeline. |
 | Event links                  | `live_event_resources` | Set `event_id` to the matching event. Includes link kind, label, URL, and display position. These follow the parent event's publishing status.                                                                                          |
 | Announcement                 | `live_announcements`   | Publish a title and body. Optional `published_at` and `expires_at` control the visibility window. Only one eligible announcement appears: lowest position first, then most recent publish time. Avoid tied positions and publish times. |
-| Hacker guide                 | `live_guide_links`     | Set title, URL, optional description/category, position, and publishing status.                                                                                                                                                         |
-| Prizes                       | `live_prizes`          | Set title, description, optional sponsor/value/link, eligibility, judging criteria, position, and publishing status.                                                                                                                    |
+| Hacker handbook              | `live_guide_links`     | Set title, URL, optional description/category, position, and publishing status.                                                                                                                                                         |
+| Prizes                       | Notion                 | The Prizes tab embeds the public Tracks & Prizes page. Edit that page in Notion; `live_prizes` is no longer shown.                                                                                                                      |
 
 - Lower `position` values appear first. Events are primarily ordered by start time.
 - Announcement recency uses `published_at`, or `created_at` when no publish time
   is set.
 - Use `draft` for unfinished content and `archived` to hide content without
-  deleting it. Guide links and prizes appear only when published.
+  deleting it. Handbook links appear only when published.
 - Use full `https://` links. Leave optional URLs empty until the destination is
   ready. Do not place secrets or internal-only information in published rows.
 - For schedule-only events, keep `events.is_active = false` unless staff intend

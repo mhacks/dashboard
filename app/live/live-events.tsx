@@ -28,7 +28,6 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +52,6 @@ import type {
   LiveAnnouncement,
   LiveEvent,
   LiveSiteSettings,
-  Prize,
 } from "@/lib/live/types";
 import { WALLET_EVENT } from "@/lib/wallet/event";
 import { cn } from "@/lib/utils";
@@ -70,15 +68,12 @@ type LiveEventsProps = {
   bouquets: readonly SharedBouquet[];
   events: readonly LiveEvent[];
   guideLinks: readonly GuideLink[];
-  prizes: readonly Prize[];
   settings: LiveSiteSettings;
 };
 
-type ComingSoonContent = {
-  eyebrow: string;
-  title: string;
-  description: string;
-};
+/** Public copy of https://app.notion.com/p/Tracks-Prizes-3ed24ca0c81b80579aeff03edfa88af5 */
+const PRIZES_PAGE_URL =
+  "https://safe-banon-80d.notion.site/Tracks-Prizes-3ed24ca0c81b80579aeff03edfa88af5";
 
 function useCurrentTime(intervalMs: number, enabled = true) {
   const [now, setNow] = useState<number | null>(null);
@@ -212,7 +207,7 @@ const QUICK_LINK_CLASS =
   "liquid-glass-card font-red-hat group inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-ink transition-transform duration-200 hover:-translate-y-0.5 sm:text-base";
 
 /** Notion's public page refuses iframes. `/ebd/` is the embeddable copy. */
-function handbookEmbedUrl(pageUrl: string) {
+function notionEmbedUrl(pageUrl: string) {
   return pageUrl.replace(/\/[^/]*?([0-9a-f]{32})$/i, "/ebd/$1");
 }
 
@@ -351,40 +346,6 @@ function Announcements({ items }: { items: readonly LiveAnnouncement[] }) {
   );
 }
 
-function ComingSoonState({
-  content,
-  icon: Icon,
-}: {
-  content: ComingSoonContent;
-  icon: LucideIcon;
-}) {
-  return (
-    <section
-      className={cn(
-        LIQUID_GLASS_PANEL_CLASS,
-        "flex min-h-72 flex-col items-center justify-center rounded-md px-6 py-14 text-center",
-      )}
-      aria-labelledby={`${content.eyebrow.toLowerCase().replaceAll(" ", "-")}-coming-soon`}
-    >
-      <div className="flex size-12 items-center justify-center rounded-md border border-olive/15 bg-white/55 text-olive">
-        <Icon className="size-5" />
-      </div>
-      <p className="font-red-hat mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-olive">
-        {content.eyebrow}
-      </p>
-      <h2
-        id={`${content.eyebrow.toLowerCase().replaceAll(" ", "-")}-coming-soon`}
-        className="font-red-hat mt-2 text-2xl font-bold text-ink sm:text-3xl"
-      >
-        {content.title}
-      </h2>
-      <p className="font-red-hat mt-3 max-w-xl text-sm leading-6 text-ink/75 sm:text-base">
-        {content.description}
-      </p>
-    </section>
-  );
-}
-
 function GuidePanel({ links }: { links: readonly GuideLink[] }) {
   const otherLinks = links.filter(
     (link) => link.href !== WALLET_EVENT.handbookUrl,
@@ -396,7 +357,7 @@ function GuidePanel({ links }: { links: readonly GuideLink[] }) {
         id="guide-heading"
         className="font-red-hat text-3xl font-bold text-ink sm:text-4xl"
       >
-        Hacker guide
+        Hacker handbook
       </h2>
       <a
         href={WALLET_EVENT.handbookUrl}
@@ -409,7 +370,7 @@ function GuidePanel({ links }: { links: readonly GuideLink[] }) {
       </a>
       <iframe
         title="Hacker handbook"
-        src={handbookEmbedUrl(WALLET_EVENT.handbookUrl)}
+        src={notionEmbedUrl(WALLET_EVENT.handbookUrl)}
         className="h-[min(80vh,960px)] w-full rounded-md border border-olive/15 bg-white"
       />
       {otherLinks.length > 0 ? (
@@ -445,17 +406,7 @@ function GuidePanel({ links }: { links: readonly GuideLink[] }) {
   );
 }
 
-function PrizesPanel({
-  emptyState,
-  prizes,
-}: {
-  emptyState: ComingSoonContent;
-  prizes: readonly Prize[];
-}) {
-  if (prizes.length === 0) {
-    return <ComingSoonState content={emptyState} icon={Trophy} />;
-  }
-
+function PrizesPanel() {
   return (
     <section aria-labelledby="prizes-heading" className="space-y-4">
       <h2
@@ -464,54 +415,20 @@ function PrizesPanel({
       >
         Prizes
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {prizes.map((prize) => (
-          <article
-            key={prize.id}
-            className={cn(LIQUID_GLASS_CARD_CLASS, "rounded-md p-5")}
-          >
-            {prize.sponsor ? (
-              <p className="font-red-hat text-xs font-semibold uppercase tracking-[0.16em] text-olive">
-                {prize.sponsor}
-              </p>
-            ) : null}
-            <h3 className="font-red-hat mt-1 text-lg font-semibold text-ink">
-              {prize.title}
-            </h3>
-            {prize.value ? (
-              <p className="font-red-hat mt-1 text-sm font-semibold text-olive">
-                {prize.value}
-              </p>
-            ) : null}
-            <p className="font-red-hat mt-2 text-sm leading-6 text-ink/75">
-              {prize.description}
-            </p>
-            {prize.eligibility ? (
-              <p className="font-red-hat mt-3 text-xs leading-5 text-ink/70">
-                <span className="font-semibold text-ink">Eligibility:</span>{" "}
-                {prize.eligibility}
-              </p>
-            ) : null}
-            {prize.judgingCriteria ? (
-              <p className="font-red-hat mt-2 text-xs leading-5 text-ink/70">
-                <span className="font-semibold text-ink">Judging:</span>{" "}
-                {prize.judgingCriteria}
-              </p>
-            ) : null}
-            {prize.href ? (
-              <a
-                href={prize.href}
-                target="_blank"
-                rel="noreferrer"
-                className="font-red-hat mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-olive hover:text-moss"
-              >
-                View details
-                <ExternalLink className="size-3.5" />
-              </a>
-            ) : null}
-          </article>
-        ))}
-      </div>
+      <a
+        href={PRIZES_PAGE_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="font-red-hat inline-flex items-center gap-1.5 text-sm font-semibold text-olive hover:text-moss"
+      >
+        Open in Notion
+        <ExternalLink className="size-3.5" />
+      </a>
+      <iframe
+        title="Tracks and prizes"
+        src={notionEmbedUrl(PRIZES_PAGE_URL)}
+        className="h-[min(80vh,960px)] w-full rounded-md border border-olive/15 bg-white"
+      />
     </section>
   );
 }
@@ -540,8 +457,8 @@ function LiveViewTabs({
     },
     {
       id: "guide" as const,
-      label: "Hacker Guide",
-      shortLabel: "Guide",
+      label: "Hacker Handbook",
+      shortLabel: "Handbook",
       icon: BookOpen,
     },
     {
@@ -1231,7 +1148,6 @@ export function LiveEvents({
   bouquets,
   events,
   guideLinks,
-  prizes,
   settings,
 }: LiveEventsProps) {
   const [activeView, setActiveView] = useState<LiveView>("timeline");
@@ -1660,14 +1576,7 @@ export function LiveEvents({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              <PrizesPanel
-                emptyState={{
-                  eyebrow: "Prizes",
-                  title: settings.prizesEmptyTitle,
-                  description: settings.prizesEmptyDescription,
-                }}
-                prizes={prizes}
-              />
+              <PrizesPanel />
             </motion.div>
           )}
         </div>

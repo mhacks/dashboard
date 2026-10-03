@@ -19,7 +19,6 @@ export default async function LivePage() {
       bouquets={content.bouquets}
       events={content.events}
       guideLinks={content.guideLinks}
-      prizes={content.prizes}
       settings={content.settings}
     />
   );
