@@ -111,6 +111,7 @@ export function ApplicantDashboard({
           ) : null}
 
           {checkedIn && role === "hacker" ? <TeamPanel /> : null}
+          {checkedIn && role === "hacker" ? <FindOrganizerPanel /> : null}
           {strandedTeamName ? (
             <StrandedTeamPanel teamName={strandedTeamName} />
           ) : null}
@@ -119,7 +120,7 @@ export function ApplicantDashboard({
           {data.stage === "in-review" ? <InReviewPanel data={data} /> : null}
           {data.stage === "decision-ready" ? <DecisionReadyPanel /> : null}
 
-          {isEventStaff(role) ? <StaffTools /> : null}
+          {isEventStaff(role) ? <StaffTools role={role} /> : null}
           {canJudge(role) ? <JudgeTools /> : null}
           {role === "organizer" ? <OrganizerTools /> : null}
 
@@ -433,6 +434,27 @@ function HandbookPanel() {
   );
 }
 
+/**
+ * Checked-in hackers only — the page refuses anyone else, so the link would
+ * be a dead end before check-in.
+ */
+function FindOrganizerPanel() {
+  return (
+    <Panel eyebrow="HELP">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+        <PanelHeading lede="See where organizers are on a map and walk over.">
+          Find an organizer
+        </PanelHeading>
+        <div className="w-full shrink-0 sm:w-auto">
+          <ButtonLink href="/find-my-organizer" external={false}>
+            Open the map
+          </ButtonLink>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 /* ——— event staff ——————————————————————————————————————————————— */
 
 /**
@@ -442,7 +464,7 @@ function HandbookPanel() {
  * volunteer would otherwise have no way to find the one tool they have — the
  * link exists, but nothing on any screen would point at it.
  */
-function StaffTools() {
+function StaffTools({ role }: { role: UserRole }) {
   return (
     <div className="flex flex-col gap-3.5">
       <Rail
@@ -458,6 +480,14 @@ function StaffTools() {
           description="Scan attendee codes at the door and at meals."
           href="/checkin"
         />
+        {role === "volunteer" ? (
+          <ToolCard
+            eyebrow="HELP"
+            name="Find my organizer"
+            description="See where organizers are on a map."
+            href="/find-my-organizer"
+          />
+        ) : null}
       </ToolGrid>
     </div>
   );
