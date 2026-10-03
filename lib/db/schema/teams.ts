@@ -150,6 +150,43 @@ export const teamInvitations = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * One row per team. `team_id` is the primary key, so a second submission
+ * replaces the first instead of creating another project link.
+ */
+export const teamSubmissions = pgTable(
+  "team_submissions",
+  {
+    teamId: uuid("team_id").primaryKey().notNull(),
+    devpostUrl: text("devpost_url").notNull(),
+    submittedByUserId: uuid("submitted_by_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.teamId],
+      foreignColumns: [teams.id],
+      name: "team_submissions_team_id_teams_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.submittedByUserId],
+      foreignColumns: [users.id],
+      name: "team_submissions_submitted_by_user_id_users_id_fk",
+    }).onDelete("set null"),
+    pgPolicy("team_submissions_select_member_or_organizer", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`exists (
+        select 1 from team_members
+        where team_members.team_id = ${table.teamId}
+          and team_members.user_id = ${authUid}
+      ) OR ${isOrganizer}`,
+    }),
+  ],
+).enableRLS();
+
 export type TeamRow = typeof teams.$inferSelect;
 export type NewTeam = typeof teams.$inferInsert;
 export type TeamMemberRow = typeof teamMembers.$inferSelect;

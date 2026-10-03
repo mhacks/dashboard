@@ -14,6 +14,7 @@ import {
   getMyTeam as getMyTeamForUser,
   getMyPendingInvitations as getMyPendingInvitationsForUser,
   getSentInvitations as getSentInvitationsForUser,
+  saveTeamDevpostUrl as saveTeamDevpostUrlForUser,
 } from "@/lib/actions/team.actions";
 import { sendTeamInviteEmail } from "@/lib/email/send-invite-email";
 import { hasCheckedIn } from "@/lib/decisions";
@@ -156,4 +157,15 @@ export const getSentInvitations = async (): Promise<
   const { id: userId } = await requireSessionUser();
   await assertCallerCheckedIn(userId);
   return getSentInvitationsForUser(userId);
+};
+
+export const saveTeamDevpostUrl = async (url: string): Promise<void> => {
+  const { id: userId } = await requireSessionUser();
+  try {
+    await saveTeamDevpostUrlForUser(userId, url);
+    revalidatePath("/dashboard/team");
+    revalidatePath("/admin/teams");
+  } catch (error) {
+    throw toActionError(error, "Failed to save your Devpost link");
+  }
 };

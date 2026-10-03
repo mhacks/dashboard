@@ -6,6 +6,7 @@ import {
   teams,
   teamMembers,
   teamInvitations,
+  teamSubmissions,
   type TeamRow,
   type TeamInvitationRow,
 } from "@/lib/db/schema/teams";
@@ -16,6 +17,7 @@ import {
   MAX_TEAM_SIZE,
   teamNameSchema,
   inviteEmailSchema,
+  devpostUrlSchema,
   type MemberTeam,
   type TeamWithMembers,
   type PendingInvitationSummary,
@@ -640,4 +642,60 @@ export async function getSentInvitations(
     invitedEmail: row.invitedEmail,
     invitedName: displayName(row.invitedFirstName, row.invitedLastName),
   }));
+}
+
+export async function getMyTeamSubmission(
+  userId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ devpostUrl: teamSubmissions.devpostUrl })
+    .from(teamMembers)
+    .innerJoin(teamSubmissions, eq(teamSubmissions.teamId, teamMembers.teamId))
+    .where(eq(teamMembers.userId, userId))
+    .limit(1);
+
+  return row?.devpostUrl ?? null;
+}
+
+export async function saveTeamDevpostUrl(
+  userId: string,
+  url: string,
+): Promise<string> {
+  const parsed = devpostUrlSchema.safeParse(url);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Enter a Devpost link");
+  }
+
+  return db.transaction(async (tx) => {
+    await loadCheckedInHacker(tx, userId);
+
+    const [membership] = await tx
+      .select({ teamId: teamMembers.teamId })
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, userId))
+      .limit(1);
+    if (!membership) {
+      throw new Error("You need to be on a team to submit.");
+    }
+
+    const now = new Date().toISOString();
+    await tx
+      .insert(teamSubmissions)
+      .values({
+        teamId: membership.teamId,
+        devpostUrl: parsed.data,
+        submittedByUserId: userId,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: teamSubmissions.teamId,
+        set: {
+          devpostUrl: parsed.data,
+          submittedByUserId: userId,
+          updatedAt: now,
+        },
+      });
+
+    return parsed.data;
+  });
 }

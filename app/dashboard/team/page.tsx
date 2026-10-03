@@ -6,6 +6,7 @@ import { requireHackerPage } from "@/lib/auth/guards";
 import {
   getMyTeam,
   getMyPendingInvitations,
+  getMyTeamSubmission,
   getSentInvitations,
 } from "@/lib/actions/team.actions";
 import { db } from "@/lib/db";
@@ -48,11 +49,13 @@ async function TeamData() {
     redirect("/dashboard");
   }
 
-  const [team, pendingInvitations, sentInvitations] = await Promise.all([
-    getMyTeam(userId),
-    getMyPendingInvitations(userId),
-    getSentInvitations(userId),
-  ]);
+  const [team, pendingInvitations, sentInvitations, devpostUrl] =
+    await Promise.all([
+      getMyTeam(userId),
+      getMyPendingInvitations(userId),
+      getSentInvitations(userId),
+      getMyTeamSubmission(userId),
+    ]);
 
   let reservations: ParticipantReservationSnapshot | null = null;
   if (team) {
@@ -71,6 +74,7 @@ async function TeamData() {
       pendingInvitations={pendingInvitations}
       sentInvitations={sentInvitations}
       reservations={reservations}
+      devpostUrl={devpostUrl}
     />
   );
 }

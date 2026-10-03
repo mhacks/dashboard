@@ -4,7 +4,12 @@ import { sql } from "drizzle-orm";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { teamInvitations, teamMembers, teams } from "@/lib/db/schema/teams";
+import {
+  teamInvitations,
+  teamMembers,
+  teamSubmissions,
+  teams,
+} from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import type { AdminTeamSummary, TeamMemberSummary } from "@/lib/types/teams";
 
@@ -54,6 +59,13 @@ export async function getAllTeamsForAdmin(): Promise<AdminTeamSummary[]> {
     .leftJoin(hackerApplicants, eq(hackerApplicants.userId, teamMembers.userId))
     .orderBy(asc(teamMembers.joinedAt));
 
+  const submissionRows = await db
+    .select({
+      teamId: teamSubmissions.teamId,
+      devpostUrl: teamSubmissions.devpostUrl,
+    })
+    .from(teamSubmissions);
+
   const pendingCountRows = await db
     .select({
       teamId: teamInvitations.teamId,
@@ -82,6 +94,9 @@ export async function getAllTeamsForAdmin(): Promise<AdminTeamSummary[]> {
   const pendingCountByTeamId = new Map(
     pendingCountRows.map((row) => [row.teamId, row.count]),
   );
+  const devpostUrlByTeamId = new Map(
+    submissionRows.map((row) => [row.teamId, row.devpostUrl]),
+  );
 
   return teamRows.map((team) => ({
     id: team.id,
@@ -98,5 +113,6 @@ export async function getAllTeamsForAdmin(): Promise<AdminTeamSummary[]> {
             team.requesterEmail,
         }
       : null,
+    devpostUrl: devpostUrlByTeamId.get(team.id) ?? null,
   }));
 }

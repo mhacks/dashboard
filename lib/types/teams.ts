@@ -31,6 +31,26 @@ export const inviteEmailSchema = z
   .toLowerCase()
   .email("Enter a valid email address");
 
+const DEVPOST_URL_MAX_LENGTH = 2048;
+
+export const devpostUrlSchema = z
+  .string()
+  .trim()
+  .min(1, "Enter a Devpost link")
+  .max(DEVPOST_URL_MAX_LENGTH, "That link is too long")
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      const host = url.hostname.toLowerCase();
+      return (
+        url.protocol === "https:" &&
+        (host === "devpost.com" || host.endsWith(".devpost.com"))
+      );
+    } catch {
+      return false;
+    }
+  }, "Enter a Devpost link, like https://devpost.com/software/your-project");
+
 // `users` has no name column — display name is best-effort, derived from a
 // submitted application's firstName/lastName when one exists (a hacker can
 // have a team before finishing their application), falling back to email.
@@ -86,4 +106,5 @@ export type AdminTeamSummary = {
   members: TeamMemberSummary[];
   pendingInviteCount: number;
   renameRequest: RenameRequestSummary | null;
+  devpostUrl: string | null;
 };

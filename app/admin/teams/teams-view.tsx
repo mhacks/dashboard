@@ -98,7 +98,11 @@ function RequestRenameControl({ teamId }: { teamId: string }) {
 }
 
 function searchableText(team: AdminTeamSummary): string {
-  return [team.name, ...team.members.flatMap((m) => [m.name, m.email])]
+  return [
+    team.name,
+    team.devpostUrl,
+    ...team.members.flatMap((m) => [m.name, m.email]),
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -195,6 +199,16 @@ export function TeamsView({ teams }: { teams: AdminTeamSummary[] }) {
                     ) : null}
                   </div>
                 </div>
+                {team.devpostUrl ? (
+                  <a
+                    href={team.devpostUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="pl-6 text-sm font-medium underline underline-offset-2 hover:opacity-75"
+                  >
+                    Devpost submission
+                  </a>
+                ) : null}
                 <ul className="grid gap-1 pl-6 text-sm sm:grid-cols-2">
                   {team.members.map((member) => (
                     <li

@@ -330,6 +330,13 @@
       "when": 1790981216450,
       "tag": "20261002224656_drop_team_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790981934205,
+      "tag": "20261002225854_team_submissions",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,12 +36,14 @@ import {
   declineInvitation,
   cancelInvitation,
   leaveTeam,
+  saveTeamDevpostUrl,
 } from "@/lib/actions/team.server.actions";
 import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
   inviteEmailSchema,
+  devpostUrlSchema,
   type TeamWithMembers,
   type PendingInvitationSummary,
   type SentInvitationSummary,
@@ -53,6 +56,7 @@ interface TeamViewProps {
   pendingInvitations: PendingInvitationSummary[];
   sentInvitations: SentInvitationSummary[];
   reservations: ParticipantReservationSnapshot | null;
+  devpostUrl: string | null;
 }
 
 const INPUT_CLASS =
@@ -93,6 +97,9 @@ type RenameTeamFormValues = z.infer<typeof renameTeamFormSchema>;
 const inviteFormSchema = z.object({ email: inviteEmailSchema });
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
+const devpostFormSchema = z.object({ url: devpostUrlSchema });
+type DevpostFormValues = z.infer<typeof devpostFormSchema>;
+
 /** The quiet way back to the dashboard, matching ViewApplicationLink's treatment. */
 function BackToDashboardLink() {
   return (
@@ -111,7 +118,9 @@ export function TeamView({
   pendingInvitations,
   sentInvitations,
   reservations,
+  devpostUrl,
 }: TeamViewProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   // Tracks which specific action is in flight (e.g. "accept:<id>",
   // "cancel:<id>", "leave") so one button's loading state doesn't gate
@@ -354,6 +363,26 @@ export function TeamView({
             </Panel>
           ) : null}
 
+          {team ? (
+            <DevpostSubmission
+              key={devpostUrl ?? "none"}
+              savedUrl={devpostUrl}
+              isPending={isPending}
+              isSaving={pendingKey === "devpost"}
+              onSave={(url) => {
+                runAction("devpost", async () => {
+                  await saveTeamDevpostUrl(url);
+                  toast.success(
+                    devpostUrl
+                      ? "Devpost link updated."
+                      : "Devpost link saved.",
+                  );
+                  router.refresh();
+                });
+              }}
+            />
+          ) : null}
+
           <BackToDashboardLink />
 
           <ConsoleFooterRule />
@@ -485,6 +514,72 @@ function RenameTeamForm({
 }
 
 /* ——— forms —————————————————————————————————————————————————————— */
+
+function DevpostSubmission({
+  savedUrl,
+  isPending,
+  isSaving,
+  onSave,
+}: {
+  savedUrl: string | null;
+  isPending: boolean;
+  isSaving: boolean;
+  onSave: (url: string) => void;
+}) {
+  const form = useForm<DevpostFormValues>({
+    resolver: zodResolver(devpostFormSchema),
+    defaultValues: { url: savedUrl ?? "" },
+  });
+
+  return (
+    <Panel eyebrow="SUBMISSION" status={savedUrl ? "Submitted" : undefined}>
+      <PanelHeading lede="One Devpost link for the whole team. Any teammate can update it.">
+        Submit your project
+      </PanelHeading>
+      <form
+        onSubmit={form.handleSubmit((values) => onSave(values.url))}
+        className="flex flex-col gap-2"
+      >
+        <label
+          htmlFor="devpost-url"
+          className="font-red-hat-mono text-[10.5px] tracking-[0.16em] text-ui-ink-soft uppercase"
+        >
+          Devpost link
+        </label>
+        <div className="flex flex-wrap gap-2.5">
+          <input
+            id="devpost-url"
+            type="url"
+            inputMode="url"
+            placeholder="https://devpost.com/software/your-project"
+            autoComplete="off"
+            disabled={isPending}
+            className={INPUT_CLASS}
+            {...form.register("url")}
+          />
+          <button type="submit" disabled={isPending} className={ACTION_PRIMARY}>
+            <Caret /> {isSaving ? "Saving…" : savedUrl ? "Update" : "Submit"}
+          </button>
+        </div>
+        {form.formState.errors.url ? (
+          <p className="font-red-hat-mono text-[11px] text-red-700">
+            {form.formState.errors.url.message}
+          </p>
+        ) : null}
+        {savedUrl ? (
+          <a
+            href={savedUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-red-hat-mono text-[11.5px] tracking-[0.02em] text-ui-ink-soft underline underline-offset-2 transition-colors hover:text-ui-ink"
+          >
+            Open your Devpost submission
+          </a>
+        ) : null}
+      </form>
+    </Panel>
+  );
+}
 
 function CreateTeamForm({
   form,
