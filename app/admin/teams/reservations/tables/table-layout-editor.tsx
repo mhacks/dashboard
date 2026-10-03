@@ -2,6 +2,7 @@
 
 import {
   type FormEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useId,
@@ -10,15 +11,20 @@ import {
   useTransition,
 } from "react";
 import { Loader2Icon, Maximize2Icon, Minimize2Icon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
+  createReservationTable,
+  deleteReservationTable,
+  renumberReservationTable,
   updateReservationMapSize,
   updateReservationTableGeometry,
   type ReservationActionResult,
 } from "@/lib/actions/admin-reservations.server.actions";
 import {
   MAX_MAP_DIMENSION,
+  MAX_RESERVATION_TABLE_NUMBER,
   MIN_MAP_DIMENSION,
   reservationGridExtent,
   type TableGeometry,
@@ -39,6 +45,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const MAP_DIMENSION_MESSAGE = `Enter a whole number from ${MIN_MAP_DIMENSION} to ${MAX_MAP_DIMENSION}.`;
+const TABLE_NUMBER_MESSAGE = `Enter a whole number from 1 to ${MAX_RESERVATION_TABLE_NUMBER.toLocaleString("en-US")}.`;
+const ASSIGNMENTS_HREF = "/admin/teams/reservations/assignments";
+
+type FloorPlanMenu =
+  | { kind: "table"; tableId: string; x: number; y: number }
+  | { kind: "add"; originX: number; originY: number; x: number; y: number };
 
 type DragMode = "move" | "resize";
 
@@ -127,7 +139,7 @@ export function TableLayoutEditor({
   disabled: boolean;
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
-  onSelect: (tableId: string) => void;
+  onSelect: (tableId: string | null) => void;
   rows: number;
   selectedTableId: string | null;
   tables: TableWithTeam[];
@@ -155,6 +167,12 @@ export function TableLayoutEditor({
   const [columnError, setColumnError] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
   const [sizePending, setSizePending] = useState(false);
+  const [menu, setMenu] = useState<FloorPlanMenu | null>(null);
+  const [numberDraft, setNumberDraft] = useState("");
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [menuPending, setMenuPending] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
 
   const columnValue =
@@ -220,6 +238,181 @@ export function TableLayoutEditor({
     return () => observer.disconnect();
   }, [isFullscreen, persistedExtent.columns, persistedExtent.rows]);
 
+  useEffect(() => {
+    if (!menu) return;
+    function onPointerDown(event: PointerEvent) {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setMenu(null);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenu(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menu]);
+
+  function menuPosition(clientX: number, clientY: number) {
+    const bounds = planRef.current?.getBoundingClientRect();
+    if (!bounds) return { x: clientX, y: clientY };
+    const width = 272;
+    const height = 220;
+    return {
+      x: Math.min(Math.max(bounds.left + 8, clientX), bounds.right - width - 8),
+      y: Math.min(
+        Math.max(bounds.top + 8, clientY),
+        bounds.bottom - height - 8,
+      ),
+    };
+  }
+
+  function openMenu(next: FloorPlanMenu, initialNumber: string) {
+    setMenu(next);
+    setNumberDraft(initialNumber);
+    setMenuError(null);
+    setDeleteArmed(false);
+  }
+
+  function openTableMenu(event: ReactMouseEvent, table: TableWithTeam) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (disabled) return;
+    onSelect(table.id);
+    openMenu(
+      {
+        kind: "table",
+        tableId: table.id,
+        ...menuPosition(event.clientX, event.clientY),
+      },
+      String(table.number),
+    );
+  }
+
+  function openAddMenu(event: ReactMouseEvent) {
+    const target = event.target;
+    if (target instanceof Element && target.closest("[data-floor-table]")) {
+      return;
+    }
+    event.preventDefault();
+    if (disabled) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const bounds = grid.getBoundingClientRect();
+    if (
+      event.clientX < bounds.left ||
+      event.clientY < bounds.top ||
+      event.clientX > bounds.right ||
+      event.clientY > bounds.bottom
+    ) {
+      return;
+    }
+    const cell = cellFromPointer(grid, event.clientX, event.clientY);
+    const originX = Math.min(cell.col, Math.max(extent.columns - 1, 0));
+    const originY = Math.min(cell.row, Math.max(extent.rows - 1, 0));
+    const highest = tables.reduce(
+      (maximum, table) => Math.max(maximum, table.number),
+      0,
+    );
+    const nextNumber = highest + 1;
+    openMenu(
+      {
+        kind: "add",
+        originX,
+        originY,
+        ...menuPosition(event.clientX, event.clientY),
+      },
+      nextNumber <= MAX_RESERVATION_TABLE_NUMBER ? String(nextNumber) : "",
+    );
+  }
+
+  function runMenuAction(mutationId: string, action: () => Promise<void>) {
+    if (!onMutationStart(mutationId)) return;
+    setMenuPending(true);
+    startTransition(async () => {
+      try {
+        await action();
+      } finally {
+        setMenuPending(false);
+        onMutationEnd(mutationId);
+      }
+    });
+  }
+
+  function submitMenuNumber(submitEvent: FormEvent<HTMLFormElement>) {
+    submitEvent.preventDefault();
+    if (!menu || disabled || menuPending) return;
+    const number = parseWholeNumber(
+      numberDraft,
+      1,
+      MAX_RESERVATION_TABLE_NUMBER,
+    );
+    setMenuError(null);
+    if (number === null) {
+      setMenuError(TABLE_NUMBER_MESSAGE);
+      return;
+    }
+    if (menu.kind === "table") {
+      const tableId = menu.tableId;
+      runMenuAction(`renumber:${tableId}`, async () => {
+        try {
+          const result = await renumberReservationTable({ tableId, number });
+          if (!result.ok) {
+            setMenuError(result.error);
+            return;
+          }
+          toast.success(result.message);
+          setMenu(null);
+          router.refresh();
+        } catch {
+          setMenuError("Could not renumber the table. Try again.");
+        }
+      });
+      return;
+    }
+    const { originX, originY } = menu;
+    runMenuAction("add-at-cell", async () => {
+      try {
+        const result = await createReservationTable({
+          number,
+          originX,
+          originY,
+        });
+        if (!result.ok) {
+          setMenuError(result.error);
+          return;
+        }
+        toast.success(result.message);
+        setMenu(null);
+        router.refresh();
+      } catch {
+        setMenuError("Could not create the table. Try again.");
+      }
+    });
+  }
+
+  function submitMenuDelete() {
+    if (!menu || menu.kind !== "table" || disabled || menuPending) return;
+    const tableId = menu.tableId;
+    runMenuAction(`delete:${tableId}`, async () => {
+      try {
+        const result = await deleteReservationTable({ tableId });
+        if (!result.ok) {
+          setMenuError(result.error);
+          return;
+        }
+        onSelect(null);
+        toast.success(result.message);
+        setMenu(null);
+        router.refresh();
+      } catch {
+        setMenuError("Could not delete the table. Try again.");
+      }
+    });
+  }
+
   async function toggleFullscreen() {
     const plan = planRef.current;
     if (!plan) return;
@@ -235,6 +428,10 @@ export function TableLayoutEditor({
   }
   const selected =
     displayed.find((table) => table.id === selectedTableId) ?? null;
+  const menuTable =
+    menu?.kind === "table"
+      ? (tables.find((table) => table.id === menu.tableId) ?? null)
+      : null;
 
   useEffect(() => {
     const current = draftRef.current;
@@ -409,8 +606,9 @@ export function TableLayoutEditor({
       <CardHeader>
         <CardTitle>Floor plan</CardTitle>
         <CardDescription>
-          Drag a table to set its reference cell. Drag the corner handle to
-          change how many columns and rows it covers. Overlaps are allowed.
+          Drag a table to move it, and drag the corner to resize it. Right-click
+          a table to change its number or delete it. Right-click an empty cell
+          to add a table.
         </CardDescription>
         <CardAction>
           <Button
@@ -519,7 +717,7 @@ export function TableLayoutEditor({
         <p className="text-sm text-muted-foreground">
           {selected
             ? `Table ${selected.number}: column ${selected.originX + 1}, row ${selected.originY + 1}, ${selected.width} × ${selected.height}.`
-            : "Select a table on the map or in the list below."}
+            : "Right-click an empty cell to add a table."}
         </p>
 
         <div
@@ -531,6 +729,7 @@ export function TableLayoutEditor({
         >
           <div
             ref={gridRef}
+            onContextMenu={openAddMenu}
             className="grid w-fit gap-2 [--cell:2.5rem]"
             style={{
               gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
@@ -557,6 +756,8 @@ export function TableLayoutEditor({
               return (
                 <div
                   key={table.id}
+                  data-floor-table=""
+                  onContextMenu={(event) => openTableMenu(event, table)}
                   className={cn("relative z-10", selectedTable && "z-20")}
                   style={{
                     gridColumn: `${table.originX + 1} / span ${table.width}`,
@@ -614,6 +815,102 @@ export function TableLayoutEditor({
       <CardFooter className="text-xs text-muted-foreground">
         The reference cell is the top-left corner of the rectangle.
       </CardFooter>
+      {menu && (menu.kind === "add" || menuTable) ? (
+        <div
+          ref={menuRef}
+          role="dialog"
+          aria-label={
+            menu.kind === "add"
+              ? `Add a table at column ${menu.originX + 1}, row ${menu.originY + 1}`
+              : `Modify table ${menuTable?.number}`
+          }
+          className="fixed z-50 w-64 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+          style={{ left: menu.x, top: menu.y }}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <form
+            noValidate
+            className="flex flex-col gap-3"
+            onSubmit={submitMenuNumber}
+          >
+            <p className="text-sm font-medium">
+              {menu.kind === "add"
+                ? `Add a table at column ${menu.originX + 1}, row ${menu.originY + 1}`
+                : `Table ${menuTable?.number}`}
+            </p>
+            {menuTable?.reservedByTeamId ? (
+              <p className="text-xs text-muted-foreground">
+                Assigned to {menuTable.reservedByTeamName ?? "a team"}.
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="floor-plan-table-number">Table number</Label>
+              <Input
+                id="floor-plan-table-number"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_RESERVATION_TABLE_NUMBER}
+                step={1}
+                value={numberDraft}
+                disabled={disabled || menuPending}
+                autoFocus
+                onChange={(inputEvent) => {
+                  setNumberDraft(inputEvent.target.value);
+                  setMenuError(null);
+                }}
+              />
+            </div>
+            {menuError ? (
+              <p role="alert" className="text-xs text-destructive">
+                {menuError}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={disabled || menuPending}
+              >
+                {menuPending ? (
+                  <Loader2Icon
+                    data-icon="inline-start"
+                    className="animate-spin"
+                  />
+                ) : null}
+                {menu.kind === "add" ? "Add table" : "Change number"}
+              </Button>
+              {menu.kind === "table" &&
+              menuTable &&
+              !menuTable.reservedByTeamId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={disabled || menuPending}
+                  onClick={() => {
+                    if (!deleteArmed) {
+                      setDeleteArmed(true);
+                      return;
+                    }
+                    submitMenuDelete();
+                  }}
+                >
+                  {deleteArmed ? "Confirm delete" : "Delete"}
+                </Button>
+              ) : null}
+            </div>
+            {menuTable?.reservedByTeamId ? (
+              <Link
+                href={ASSIGNMENTS_HREF}
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                Unassign the team before deleting this table.
+              </Link>
+            ) : null}
+          </form>
+        </div>
+      ) : null}
     </Card>
   );
 }

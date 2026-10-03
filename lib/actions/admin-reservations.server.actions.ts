@@ -28,6 +28,7 @@ import {
   reservationTableCountSchema,
   reservationTableGeometrySchema,
   reservationTableNumberSchema,
+  reservationTableOriginSchema,
   reservationTableTopologySchema,
   windowInputSchema,
   type ReservationTableTopology,
@@ -76,12 +77,23 @@ const unexpectedAssignmentFailureMessages: Record<AssignmentOperation, string> =
     unassign: "Could not unassign the team. Try again.",
   };
 
-const createTableInputSchema = z.object({
-  number: reservationTableNumberSchema,
-});
+const createTableInputSchema = z
+  .object({
+    number: reservationTableNumberSchema,
+    originX: reservationTableOriginSchema.optional(),
+    originY: reservationTableOriginSchema.optional(),
+  })
+  .refine(
+    (value) => (value.originX === undefined) === (value.originY === undefined),
+    {
+      path: ["originX"],
+      message: "Set both a column and a row, or neither.",
+    },
+  );
 
-const tableMutationInputSchema = createTableInputSchema.extend({
+const tableMutationInputSchema = z.object({
   tableId: reservationIdSchema,
+  number: reservationTableNumberSchema,
 });
 
 const deleteTableInputSchema = z.object({
@@ -514,11 +526,13 @@ export async function setSubmissionWindow(
 
 export async function createReservationTable(input: {
   number: number;
+  originX?: number;
+  originY?: number;
 }): Promise<ReservationActionResult> {
   const organizer = await requireOrganizer();
   const parsed = createTableInputSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
-  const { number } = parsed.data;
+  const { number, originX, originY } = parsed.data;
 
   try {
     await db.transaction(async (tx) => {
@@ -526,10 +540,10 @@ export async function createReservationTable(input: {
       const [{ tableCount }] = await tx
         .select({ tableCount: sql<number>`count(*)::int` })
         .from(tables);
-      const geometry = defaultTableGeometry(
-        tableCount ?? 0,
-        await readMapColumns(tx),
-      );
+      const geometry =
+        originX !== undefined && originY !== undefined
+          ? { originX, originY, width: 1, height: 1 }
+          : defaultTableGeometry(tableCount ?? 0, await readMapColumns(tx));
       const [table] = await tx
         .insert(tables)
         .values({ number, ...geometry })
