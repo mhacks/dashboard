@@ -1,5 +1,5 @@
 {
-  "id": "8215762d-01d8-4752-9ed7-e4329d19fbba",
+  "id": "269cdd49-efcc-4b06-bbce-81d4fbd17b53",
   "prevId": "50988958-4acb-446c-8834-355b6e8d7e48",
   "version": "7",
   "dialect": "postgresql",
@@ -4014,14 +4014,14 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 16
+          "default": 28
         },
         "map_rows": {
           "name": "map_rows",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 10
+          "default": 22
         }
       },
       "indexes": {},
@@ -4235,7 +4235,7 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 1
+          "default": 2
         },
         "height": {
           "name": "height",

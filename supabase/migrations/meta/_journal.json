@@ -348,22 +348,8 @@
     {
       "idx": 49,
       "version": "7",
-      "when": 1791016142398,
-      "tag": "20261003082902_table_map_geometry",
-      "breakpoints": true
-    },
-    {
-      "idx": 50,
-      "version": "7",
-      "when": 1791023073199,
-      "tag": "20261003102433_judge_map_defaults",
-      "breakpoints": true
-    },
-    {
-      "idx": 51,
-      "version": "7",
-      "when": 1791023797505,
-      "tag": "20261003103637_judge_map_size",
+      "when": 1791024068198,
+      "tag": "20261003104108_table_map_geometry",
       "breakpoints": true
     }
   ]
