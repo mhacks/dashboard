@@ -212,6 +212,7 @@ export async function checkInAttendee(
       .select({
         userId: users.id,
         email: users.email,
+        role: users.role,
         name: personNameSql,
         university: hackerApplicants.university,
         shirtSize: hackerApplicants.shirtSize,
@@ -238,11 +239,15 @@ export async function checkInAttendee(
       shirtSize: row.shirtSize,
     };
 
+    // Organizers run the event rather than attend it, so they never hold an
+    // RSVP and are exempt from both the RSVP gate and the scan cap below.
+    const isOrganizer = row.role === "organizer";
+
     // Normal weekend events remain acceptance + RSVP gated. Qualifying and
     // outreach events explicitly turn this off because attendance there is
     // what organizers use to decide whom to admit; a public.users row is all
     // those events require.
-    if (event.requiresRsvp) {
+    if (event.requiresRsvp && !isOrganizer) {
       // Two separate questions, because the volunteer needs to tell them apart:
       // someone who was never offered a spot is a different conversation from
       // someone who was offered one and never replied.
@@ -271,13 +276,19 @@ export async function checkInAttendee(
     // one can win this insert. The loser looks again, and either takes the
     // next slot or finds none left. Bounded by the slot count, since every
     // lost race means a slot was filled.
+    //
+    // Organizers are exempt from the event's cap: they come and go all
+    // weekend, and a door turning one away as a duplicate helps nobody. Their
+    // slots are unbounded, so their retries get a small fixed budget instead.
+    const slotLimit = isOrganizer ? null : event.maxCheckins;
+    const attempts = slotLimit ?? UNLIMITED_SCAN_ATTEMPTS;
     let fresh: { checkedInAt: string; scanNumber: number } | undefined;
-    for (let attempt = 0; attempt < event.maxCheckins && !fresh; attempt++) {
+    for (let attempt = 0; attempt < attempts && !fresh; attempt++) {
       const slot = await nextFreeScanNumber(
         tx,
         event.id,
         row.userId,
-        event.maxCheckins,
+        slotLimit,
       );
       if (slot === null) break;
 
@@ -355,6 +366,9 @@ export async function checkInAttendee(
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** How many lost races an uncapped (organizer) scan retries before giving up. */
+const UNLIMITED_SCAN_ATTEMPTS = 3;
 
 const revokeCheckinSchema = z.strictObject({
   slug: eventSlugSchema,
@@ -566,16 +580,27 @@ export async function syncCheckInEventDecisions(
  * every one of the event's allowed scans is taken. Lowest rather than
  * count + 1, so a reverted scan leaves a gap that the next scan fills instead
  * of a gap that permanently eats one of their scans.
+ *
+ * A null limit means uncapped: searching 1..count + 1 always finds a slot.
  */
 async function nextFreeScanNumber(
   tx: Tx,
   eventId: string,
   userId: string,
-  maxCheckins: number,
+  maxCheckins: number | null,
 ): Promise<number | null> {
+  const upperBound =
+    maxCheckins === null
+      ? sql`(
+          select count(*) + 1 from ${eventCheckins}
+          where ${eventCheckins.eventId} = ${eventId}
+            and ${eventCheckins.userId} = ${userId}
+        )`
+      : sql`${maxCheckins}`;
+
   const rows = await tx.execute<{ slot: number }>(sql`
     select slot::int as slot
-    from generate_series(1, ${maxCheckins}::int) as slot
+    from generate_series(1, ${upperBound}::int) as slot
     where not exists (
       select 1 from ${eventCheckins}
       where ${eventCheckins.eventId} = ${eventId}
@@ -751,6 +776,7 @@ export async function searchAttendees(
       name: personNameSql,
       email: users.email,
       university: hackerApplicants.university,
+      role: users.role,
       scansUsed,
     })
     .from(users)
@@ -773,8 +799,9 @@ export async function searchAttendees(
     .orderBy(hackerApplicants.firstName, hackerApplicants.lastName, users.email)
     .limit(MAX_SEARCH_RESULTS);
 
-  return rows.map((row) => ({
+  return rows.map(({ role, ...row }) => ({
     ...row,
-    atLimit: row.scansUsed >= event.maxCheckins,
+    // Organizers have no cap; see checkInAttendee.
+    atLimit: role !== "organizer" && row.scansUsed >= event.maxCheckins,
   }));
 }
