@@ -9,7 +9,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -134,7 +135,11 @@ export function TableLayoutEditor({
   const router = useRouter();
   const columnsInputId = useId();
   const rowsInputId = useId();
+  const planRef = useRef<HTMLDivElement>(null);
+  const mapFrameRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [cellSize, setCellSize] = useState<number | null>(null);
   const sessionRef = useRef<DragSession | null>(null);
   const draftRef = useRef<(TableGeometry & { tableId: string }) | null>(null);
   const [draft, setDraft] = useState<
@@ -165,7 +170,69 @@ export function TableLayoutEditor({
     draft?.tableId === table.id ? { ...table, ...draft } : table,
   );
   const extent = reservationGridExtent(displayed, columns, rows);
+  const persistedExtent = reservationGridExtent(tables, columns, rows);
   const cellCount = extent.columns * extent.rows;
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === planRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    const frame = mapFrameRef.current;
+    if (!isFullscreen || !frame) {
+      setCellSize(null);
+      return;
+    }
+
+    const measure = () => {
+      const styles = getComputedStyle(frame);
+      const padX =
+        (Number.parseFloat(styles.paddingLeft) || 0) +
+        (Number.parseFloat(styles.paddingRight) || 0);
+      const padY =
+        (Number.parseFloat(styles.paddingTop) || 0) +
+        (Number.parseFloat(styles.paddingBottom) || 0);
+      const gridGap = gridRef.current
+        ? Number.parseFloat(getComputedStyle(gridRef.current).columnGap)
+        : 8;
+      const gap = Number.isFinite(gridGap) ? gridGap : 8;
+      const innerWidth = frame.clientWidth - padX;
+      const innerHeight = frame.clientHeight - padY;
+      const width =
+        (innerWidth - gap * Math.max(0, persistedExtent.columns - 1)) /
+        persistedExtent.columns;
+      const height =
+        (innerHeight - gap * Math.max(0, persistedExtent.rows - 1)) /
+        persistedExtent.rows;
+      const fitted = Math.floor(Math.min(width, height));
+      if (!Number.isFinite(fitted) || fitted <= 0) return;
+      setCellSize(Math.max(28, fitted));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [isFullscreen, persistedExtent.columns, persistedExtent.rows]);
+
+  async function toggleFullscreen() {
+    const plan = planRef.current;
+    if (!plan) return;
+    try {
+      if (document.fullscreenElement === plan) {
+        await document.exitFullscreen();
+      } else {
+        await plan.requestFullscreen();
+      }
+    } catch {
+      toast.error("Could not change full screen. Try again.");
+    }
+  }
   const selected =
     displayed.find((table) => table.id === selectedTableId) ?? null;
 
@@ -333,15 +400,34 @@ export function TableLayoutEditor({
   }
 
   return (
-    <Card>
+    <Card
+      ref={planRef}
+      className={cn(
+        isFullscreen && "h-dvh max-h-dvh overflow-hidden rounded-none bg-card",
+      )}
+    >
       <CardHeader>
         <CardTitle>Floor plan</CardTitle>
         <CardDescription>
           Drag a table to set its reference cell. Drag the corner handle to
           change how many columns and rows it covers. Overlaps are allowed.
         </CardDescription>
+        <CardAction>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-pressed={isFullscreen}
+            onClick={toggleFullscreen}
+          >
+            {isFullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
+            {isFullscreen ? "Exit full screen" : "Full screen"}
+          </Button>
+        </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-5">
+      <CardContent
+        className={cn("flex flex-col gap-5", isFullscreen && "min-h-0 flex-1")}
+      >
         <form
           noValidate
           onSubmit={handleSizeSubmit}
@@ -436,13 +522,20 @@ export function TableLayoutEditor({
             : "Select a table on the map or in the list below."}
         </p>
 
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8">
+        <div
+          ref={mapFrameRef}
+          className={cn(
+            "overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5 sm:p-8",
+            isFullscreen && "min-h-0 flex-1",
+          )}
+        >
           <div
             ref={gridRef}
             className="grid w-fit gap-2 [--cell:2.5rem]"
             style={{
               gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
               gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
+              ...(cellSize === null ? {} : { "--cell": `${cellSize}px` }),
             }}
           >
             {Array.from({ length: cellCount }, (_, index) => (
