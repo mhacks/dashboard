@@ -21,7 +21,10 @@ import {
   personColors,
   seenAgo,
 } from "@/lib/organizer-locations/display";
-import type { OrganizerMapSnapshot } from "@/lib/queries/organizer-locations";
+import type {
+  MappedPerson,
+  OrganizerMapSnapshot,
+} from "@/lib/queries/organizer-locations";
 import { cn } from "@/lib/utils";
 import { OrganizerMap } from "./organizer-map";
 
@@ -87,6 +90,45 @@ function useAutoRefresh() {
   }, [router]);
 }
 
+/**
+ * `value` as of the last time `key` changed. A refresh hands over new arrays
+ * even when nothing moved; this keeps the old ones so React and the map have
+ * nothing to redo.
+ */
+function useStable<T>(value: T, key: string): T {
+  const [stable, setStable] = useState({ key, value });
+  if (stable.key !== key) {
+    setStable({ key, value });
+    return value;
+  }
+  return stable.value;
+}
+
+/** Everything the list shows. `recordedAt` changes when a phone reports in. */
+const listKey = (people: MappedPerson[]) =>
+  people
+    .map((p) =>
+      [
+        p.id,
+        p.name,
+        p.latitude,
+        p.longitude,
+        p.accuracy,
+        p.battery,
+        p.recordedAt,
+      ].join(","),
+    )
+    .join("|");
+
+/**
+ * Everything the map draws. A phone that reports from the same spot changes
+ * only `recordedAt`, so the markers stay put.
+ */
+const mapKey = (people: MappedPerson[]) =>
+  people
+    .map((p) => [p.id, p.name, p.latitude, p.longitude, p.accuracy].join(","))
+    .join("|");
+
 export function PeopleView({
   snapshot,
   organizerView,
@@ -94,14 +136,16 @@ export function PeopleView({
   snapshot: OrganizerMapSnapshot;
   organizerView: boolean;
 }) {
-  const { people, readAt } = snapshot;
+  const { readAt } = snapshot;
+  const people = useStable(snapshot.people, listKey(snapshot.people));
+  const mapPeople = useStable(people, mapKey(people));
   const now = useServerNow(readAt);
   useAutoRefresh();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const colors = useMemo(
-    () => personColors(people.map((person) => person.id)),
-    [people],
+    () => personColors(mapPeople.map((person) => person.id)),
+    [mapPeople],
   );
 
   const toggleSelected = useCallback((id: string) => {
@@ -122,7 +166,7 @@ export function PeopleView({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <OrganizerMap
-          people={people}
+          people={mapPeople}
           colors={colors}
           selectedId={selectedId}
           onSelect={toggleSelected}
