@@ -334,15 +334,15 @@
     {
       "idx": 47,
       "version": "7",
-      "when": 1791009224107,
-      "tag": "20261003063344_judging_settings",
+      "when": 1791011172680,
+      "tag": "20261003070612_judging_settings_and_team_submissions",
       "breakpoints": true
     },
     {
       "idx": 48,
       "version": "7",
-      "when": 1791010712620,
-      "tag": "20261003065832_reservation_requires_check_in",
+      "when": 1791011192492,
+      "tag": "20261003070632_reservation_requires_check_in",
       "breakpoints": true
     }
   ]
