@@ -1,14 +1,49 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { PencilLineIcon, SearchIcon, UsersRoundIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  LinkIcon,
+  PencilLineIcon,
+  PlusIcon,
+  SearchIcon,
+  UserMinusIcon,
+  UserPlusIcon,
+  UsersRoundIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { ListPagination } from "@/app/admin/applications/components/list-pagination";
-import { requestTeamRename } from "@/lib/actions/admin-teams.server.actions";
+import {
+  addHackerToTeam,
+  createTeamForHackers,
+  removeHackerFromTeam,
+  requestTeamRename,
+  setTeamDevpostUrl,
+} from "@/lib/actions/admin-teams.server.actions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -24,6 +59,7 @@ import {
 import { clampPageIndex, getPageCount, paginateSlice } from "@/lib/pagination";
 import {
   MAX_TEAM_SIZE,
+  TEAM_NAME_MAX_LENGTH,
   TEAM_RENAME_REASON_MAX_LENGTH,
 } from "@/lib/types/teams";
 import type { AdminTeamSummary } from "@/lib/types/teams";
@@ -97,6 +133,410 @@ function RequestRenameControl({ teamId }: { teamId: string }) {
   );
 }
 
+/** Emails separated by commas, spaces, or new lines. */
+function splitEmails(value: string): string[] {
+  return value
+    .split(/[\s,;]+/)
+    .map((email) => email.trim())
+    .filter(Boolean);
+}
+
+function CreateTeamDialog() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [emails, setEmails] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function reset() {
+    setName("");
+    setEmails("");
+    setError(null);
+  }
+
+  function submit() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await createTeamForHackers(name, splitEmails(emails));
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        toast.success(result.message);
+        setOpen(false);
+        reset();
+        router.refresh();
+      } catch {
+        setError("Could not reach the server. Try again.");
+      }
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (isPending) return;
+        setOpen(next);
+        if (!next) reset();
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <PlusIcon data-icon="inline-start" />
+          Create team
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create a team</DialogTitle>
+          <DialogDescription>
+            Hackers are added right away, without an invite, and the
+            registration window doesn&apos;t apply. Each hacker must be checked
+            in and not already on a team.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="create-team-name" className="text-sm font-medium">
+              Team name
+            </label>
+            <Input
+              id="create-team-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={TEAM_NAME_MAX_LENGTH}
+              disabled={isPending}
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="create-team-emails" className="text-sm font-medium">
+              Hacker emails (1 to {MAX_TEAM_SIZE})
+            </label>
+            <Textarea
+              id="create-team-emails"
+              value={emails}
+              onChange={(event) => setEmails(event.target.value)}
+              placeholder={"one@umich.edu\ntwo@umich.edu"}
+              className="min-h-24 text-sm"
+              disabled={isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              One per line, or separated by commas.
+            </p>
+          </div>
+          {error ? (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button
+            onClick={submit}
+            disabled={
+              isPending || !name.trim() || splitEmails(emails).length === 0
+            }
+          >
+            {isPending ? "Creating…" : "Create team"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddHackerControl({ teamId }: { teamId: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function submit() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await addHackerToTeam(teamId, email);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        toast.success(result.message);
+        setOpen(false);
+        setEmail("");
+        router.refresh();
+      } catch {
+        setError("Could not reach the server. Try again.");
+      }
+    });
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (isPending) return;
+        setOpen(next);
+        if (!next) {
+          setEmail("");
+          setError(null);
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="xs">
+          <UserPlusIcon />
+          Add hacker
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit();
+          }}
+        >
+          <Input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Hacker's email"
+            aria-label="Hacker's email"
+            disabled={isPending}
+            autoFocus
+          />
+          {error ? (
+            <p role="alert" className="text-xs text-destructive">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => setOpen(false)}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="xs"
+              disabled={isPending || !email.trim()}
+            >
+              {isPending ? "Adding…" : "Add to team"}
+            </Button>
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function RemoveHackerControl({
+  team,
+  member,
+}: {
+  team: AdminTeamSummary;
+  member: AdminTeamSummary["members"][number];
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const label = member.name ?? member.email;
+  const isLastMember = team.members.length === 1;
+
+  function remove() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await removeHackerFromTeam(team.id, member.userId);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        toast.success(result.message);
+        setOpen(false);
+        router.refresh();
+      } catch {
+        setError("Could not reach the server. Try again.");
+      }
+    });
+  }
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (isPending) return;
+        setOpen(next);
+        if (!next) setError(null);
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label={`Remove ${label} from ${team.name}`}
+          title="Remove from team"
+        >
+          <UserMinusIcon />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Remove {label} from {team.name}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {isLastMember
+              ? "They are the last member, so the team will be deleted, along with its Devpost link, and its table will be released."
+              : "They can join or create another team afterwards."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={isPending}
+            onClick={(event) => {
+              event.preventDefault();
+              remove();
+            }}
+          >
+            {isPending
+              ? "Removing…"
+              : isLastMember
+                ? "Remove and delete team"
+                : "Remove"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function EditDevpostControl({ team }: { team: AdminTeamSummary }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState(team.devpostUrl ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function save(next: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await setTeamDevpostUrl(team.id, next);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        toast.success(result.message);
+        setOpen(false);
+        router.refresh();
+      } catch {
+        setError("Could not reach the server. Try again.");
+      }
+    });
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (isPending) return;
+        setOpen(next);
+        if (next) setUrl(team.devpostUrl ?? "");
+        else setError(null);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="xs">
+          <LinkIcon />
+          {team.devpostUrl ? "Edit Devpost" : "Add Devpost"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-96">
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save(url);
+          }}
+        >
+          <Input
+            type="url"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder="https://devpost.com/software/project-name"
+            aria-label={`Devpost link for ${team.name}`}
+            disabled={isPending}
+            autoFocus
+          />
+          <p className="text-xs text-muted-foreground">
+            Use the public project page. The submission window and table
+            requirement don&apos;t apply.
+          </p>
+          {error ? (
+            <p role="alert" className="text-xs text-destructive">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex justify-between gap-2">
+            {team.devpostUrl ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className="text-destructive"
+                onClick={() => save("")}
+                disabled={isPending}
+              >
+                Remove link
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() => setOpen(false)}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="xs"
+                disabled={
+                  isPending || !url.trim() || url.trim() === team.devpostUrl
+                }
+              >
+                {isPending ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function searchableText(team: AdminTeamSummary): string {
   return [
     team.name,
@@ -129,9 +569,12 @@ export function TeamsView({ teams }: { teams: AdminTeamSummary[] }) {
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
-            {teams.length} {teams.length === 1 ? "team" : "teams"} formed
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              {teams.length} {teams.length === 1 ? "team" : "teams"} formed
+            </p>
+            <CreateTeamDialog />
+          </div>
           <div className="relative w-full sm:max-w-xs">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -205,6 +648,10 @@ export function TeamsView({ teams }: { teams: AdminTeamSummary[] }) {
                     <p className="text-xs text-muted-foreground">
                       Formed {formatDate(team.createdAt)}
                     </p>
+                    <EditDevpostControl team={team} />
+                    {team.members.length < MAX_TEAM_SIZE ? (
+                      <AddHackerControl teamId={team.id} />
+                    ) : null}
                     {!team.renameRequest ? (
                       <RequestRenameControl teamId={team.id} />
                     ) : null}
@@ -224,7 +671,7 @@ export function TeamsView({ teams }: { teams: AdminTeamSummary[] }) {
                   {team.members.map((member) => (
                     <li
                       key={member.userId}
-                      className="flex items-baseline gap-2 truncate text-muted-foreground"
+                      className="flex items-center gap-2 truncate text-muted-foreground"
                     >
                       <span className="truncate text-foreground">
                         {member.name ?? member.email}
@@ -232,6 +679,7 @@ export function TeamsView({ teams }: { teams: AdminTeamSummary[] }) {
                       {member.name ? (
                         <span className="truncate text-xs">{member.email}</span>
                       ) : null}
+                      <RemoveHackerControl team={team} member={member} />
                     </li>
                   ))}
                 </ul>

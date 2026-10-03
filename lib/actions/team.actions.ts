@@ -20,6 +20,7 @@ import {
 import { SUBMISSION_SETTINGS_ID } from "@/lib/queries/submission-settings";
 import { TEAM_REGISTRATION_SETTINGS_ID } from "@/lib/queries/team-registration-settings";
 import { getWindowAvailability } from "@/lib/reservation/domain";
+import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
@@ -50,11 +51,13 @@ type TeamQueryClient = Pick<typeof db, "select">;
 type TeamTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function isUniqueViolation(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  if ("code" in err && (err as { code?: unknown }).code === "23505") {
+    return true;
+  }
+  // Drizzle wraps the driver's error in a DrizzleQueryError with it as cause.
   return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code?: unknown }).code === "23505"
+    "cause" in err && isUniqueViolation((err as { cause?: unknown }).cause)
   );
 }
 
@@ -811,5 +814,311 @@ export async function saveTeamDevpostUrl(
       });
 
     return parsed.data;
+  });
+}
+
+// --- Organizer team management --------------------------------------------
+// Organizers create teams and place hackers on them directly, without the
+// invite round trip and outside the registration window. The member rules
+// still hold: checked-in hackers only, one team each, MAX_TEAM_SIZE per team.
+
+export type OrganizerActor = { id: string; email: string };
+
+/**
+ * Adds each email's hacker to `teamId` inside `tx`, which must already hold
+ * the team row lock. Returns the added emails.
+ */
+async function addHackersToLockedTeam(
+  tx: TeamTransaction,
+  organizer: OrganizerActor,
+  teamId: string,
+  emails: string[],
+): Promise<string[]> {
+  const normalized = [
+    ...new Set(emails.map((email) => inviteEmailSchema.parse(email))),
+  ];
+  if (normalized.length === 0) {
+    throw new Error("Enter at least one hacker's email.");
+  }
+
+  const currentMembers = await tx
+    .select({ userId: teamMembers.userId })
+    .from(teamMembers)
+    .where(eq(teamMembers.teamId, teamId));
+  if (currentMembers.length + normalized.length > MAX_TEAM_SIZE) {
+    throw new Error(
+      `Teams can have up to ${MAX_TEAM_SIZE} hackers. This team has ${currentMembers.length}.`,
+    );
+  }
+
+  const now = new Date().toISOString();
+  for (const email of normalized) {
+    const [hacker] = await tx
+      .select({
+        id: users.id,
+        role: users.role,
+        decision: hackerApplicants.decision,
+      })
+      .from(users)
+      .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
+      .where(sql`lower(${users.email}) = ${email}`)
+      .limit(1);
+    if (!hacker) {
+      throw new Error(`No account found for ${email}.`);
+    }
+    if (hacker.role !== "hacker") {
+      throw new Error(`${email} isn't a hacker account.`);
+    }
+    if (!hacker.decision || !hasCheckedIn(hacker.decision)) {
+      throw new Error(`${email} needs to check in before joining a team.`);
+    }
+    const [membership] = await tx
+      .select({ teamId: teamMembers.teamId })
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, hacker.id))
+      .limit(1);
+    if (membership) {
+      throw new Error(
+        membership.teamId === teamId
+          ? `${email} is already on this team.`
+          : `${email} is already on a team.`,
+      );
+    }
+
+    try {
+      await tx.insert(teamMembers).values({ userId: hacker.id, teamId });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new Error(`${email} is already on a team.`);
+      }
+      throw err;
+    }
+
+    // Same as acceptInvitation: one team per user, so their other pending
+    // invites can no longer be accepted.
+    await tx
+      .update(teamInvitations)
+      .set({ status: "cancelled", respondedAt: now })
+      .where(
+        and(
+          eq(teamInvitations.invitedUserId, hacker.id),
+          eq(teamInvitations.status, "pending"),
+        ),
+      );
+
+    await writeReservationAudit(tx, {
+      actorUserId: organizer.id,
+      actorEmail: organizer.email,
+      action: "team.member_added",
+      entityType: "team",
+      entityId: teamId,
+      details: { email },
+    });
+  }
+  return normalized;
+}
+
+/**
+ * Creates a team with its first members. A team always has a member: the
+ * last one leaving deletes it, so an empty team would never be cleaned up.
+ */
+export async function createTeamAsOrganizer(
+  organizer: OrganizerActor,
+  name: string,
+  emails: string[],
+): Promise<{ team: TeamRow; added: string[] }> {
+  const parsedName = teamNameSchema.parse(name);
+
+  return db.transaction(async (tx) => {
+    const [team] = await tx
+      .insert(teams)
+      .values({ name: parsedName, createdByUserId: organizer.id })
+      .returning();
+    if (!team) {
+      throw new Error("Could not create the team.");
+    }
+    // Nobody else can see the new row yet, but take the same lock the other
+    // membership paths take so the helper's contract holds.
+    await tx
+      .select({ id: teams.id })
+      .from(teams)
+      .where(eq(teams.id, team.id))
+      .for("update");
+    await writeReservationAudit(tx, {
+      actorUserId: organizer.id,
+      actorEmail: organizer.email,
+      action: "team.created",
+      entityType: "team",
+      entityId: team.id,
+      details: { name: parsedName },
+    });
+    const added = await addHackersToLockedTeam(tx, organizer, team.id, emails);
+    return { team, added };
+  });
+}
+
+export async function addTeamMemberAsOrganizer(
+  organizer: OrganizerActor,
+  teamId: string,
+  email: string,
+): Promise<string> {
+  return db.transaction(async (tx) => {
+    // The lock acceptInvitation and leaveTeam take, so the size check below
+    // can't race a concurrent join or the team being deleted.
+    const [team] = await tx
+      .select({ id: teams.id })
+      .from(teams)
+      .where(eq(teams.id, teamId))
+      .for("update");
+    if (!team) {
+      throw new Error("Team not found.");
+    }
+    const [added] = await addHackersToLockedTeam(tx, organizer, teamId, [
+      email,
+    ]);
+    return added;
+  });
+}
+
+/**
+ * Takes a hacker off a team. Removing the last member deletes the team, the
+ * same as the last member leaving: its table is released first, since
+ * tables.reserved_by_team_id is ON DELETE RESTRICT.
+ */
+export async function removeTeamMemberAsOrganizer(
+  organizer: OrganizerActor,
+  teamId: string,
+  memberUserId: string,
+): Promise<{ email: string; teamDeleted: boolean }> {
+  return db.transaction(async (tx) => {
+    // The lock leaveTeam and acceptInvitation take on the same row.
+    const [team] = await tx
+      .select({ id: teams.id, name: teams.name })
+      .from(teams)
+      .where(eq(teams.id, teamId))
+      .for("update");
+    if (!team) {
+      throw new Error("Team not found.");
+    }
+
+    const [member] = await tx
+      .select({ email: users.email })
+      .from(teamMembers)
+      .innerJoin(users, eq(users.id, teamMembers.userId))
+      .where(
+        and(
+          eq(teamMembers.teamId, teamId),
+          eq(teamMembers.userId, memberUserId),
+        ),
+      )
+      .limit(1);
+    if (!member) {
+      throw new Error("That hacker is no longer on this team.");
+    }
+
+    await tx.delete(teamMembers).where(eq(teamMembers.userId, memberUserId));
+
+    const remainingMembers = await tx
+      .select({ userId: teamMembers.userId })
+      .from(teamMembers)
+      .where(eq(teamMembers.teamId, teamId));
+    const teamDeleted = remainingMembers.length === 0;
+    let releasedTables: number[] = [];
+    if (teamDeleted) {
+      const released = await tx
+        .update(tables)
+        .set({ reservedByTeamId: null, reservedAt: null })
+        .where(eq(tables.reservedByTeamId, teamId))
+        .returning({ number: tables.number });
+      releasedTables = released.map((table) => table.number);
+      await tx.delete(teams).where(eq(teams.id, teamId));
+    }
+
+    await writeReservationAudit(tx, {
+      actorUserId: organizer.id,
+      actorEmail: organizer.email,
+      action: "team.member_removed",
+      entityType: "team",
+      entityId: teamId,
+      details: {
+        email: member.email,
+        teamName: team.name,
+        teamDeleted,
+        releasedTables,
+      },
+    });
+    return { email: member.email, teamDeleted };
+  });
+}
+
+/**
+ * Sets or clears a team's Devpost link. Unlike saveTeamDevpostUrl, the
+ * submission window and the reserved-table requirement do not apply. An
+ * empty `url` removes the link.
+ */
+export async function setTeamDevpostUrlAsOrganizer(
+  organizer: OrganizerActor,
+  teamId: string,
+  url: string,
+): Promise<string | null> {
+  const trimmed = url.trim();
+  let devpostUrl: string | null = null;
+  if (trimmed) {
+    const parsed = devpostUrlSchema.safeParse(trimmed);
+    if (!parsed.success) {
+      throw new Error(
+        parsed.error.issues[0]?.message ?? "Enter a Devpost link",
+      );
+    }
+    devpostUrl = parsed.data;
+  }
+
+  return db.transaction(async (tx) => {
+    // The lock the membership paths take, so this can't race the last
+    // member leaving and the team being deleted.
+    const [team] = await tx
+      .select({ id: teams.id })
+      .from(teams)
+      .where(eq(teams.id, teamId))
+      .for("update");
+    if (!team) {
+      throw new Error("Team not found.");
+    }
+
+    const [previous] = await tx
+      .select({ devpostUrl: teamSubmissions.devpostUrl })
+      .from(teamSubmissions)
+      .where(eq(teamSubmissions.teamId, teamId))
+      .limit(1);
+
+    if (devpostUrl === null) {
+      await tx
+        .delete(teamSubmissions)
+        .where(eq(teamSubmissions.teamId, teamId));
+    } else {
+      const now = new Date().toISOString();
+      await tx
+        .insert(teamSubmissions)
+        .values({
+          teamId,
+          devpostUrl,
+          submittedByUserId: organizer.id,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: teamSubmissions.teamId,
+          set: { devpostUrl, submittedByUserId: organizer.id, updatedAt: now },
+        });
+    }
+
+    await writeReservationAudit(tx, {
+      actorUserId: organizer.id,
+      actorEmail: organizer.email,
+      action: "team.devpost_updated",
+      entityType: "team",
+      entityId: teamId,
+      details: { from: previous?.devpostUrl ?? null, to: devpostUrl },
+    });
+    return devpostUrl;
   });
 }

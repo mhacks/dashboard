@@ -40,6 +40,10 @@ const ACTION_LABELS: Record<string, string> = {
   "table.created": "Table created",
   "table.deleted": "Table deleted",
   "table.renumbered": "Table renumbered",
+  "team.created": "Team created",
+  "team.member_added": "Hacker added to team",
+  "team.member_removed": "Hacker removed from team",
+  "team.devpost_updated": "Devpost link changed",
   "window.updated": "Reservation window updated",
 };
 
