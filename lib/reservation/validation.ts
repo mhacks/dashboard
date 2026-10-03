@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  MAX_MAP_DIMENSION,
   MAX_RESERVATION_TABLE_COUNT,
   MAX_RESERVATION_TABLE_NUMBER,
+  MIN_MAP_DIMENSION,
 } from "./domain";
 
 const nullableDate = z.preprocess(
@@ -28,6 +30,24 @@ export const reservationTableTopologyEntrySchema = z.object({
 export const reservationTableTopologySchema = z.array(
   reservationTableTopologyEntrySchema,
 );
+export const reservationMapDimensionSchema = z.coerce
+  .number()
+  .int()
+  .min(MIN_MAP_DIMENSION)
+  .max(MAX_MAP_DIMENSION);
+export const reservationTableOriginSchema = z.number().int().nonnegative();
+export const reservationTableSpanSchema = z.number().int().positive();
+export const reservationTableGeometrySchema = z.object({
+  tableId: reservationIdSchema,
+  originX: reservationTableOriginSchema,
+  originY: reservationTableOriginSchema,
+  width: reservationTableSpanSchema,
+  height: reservationTableSpanSchema,
+});
+export const reservationMapSizeSchema = z.object({
+  columns: reservationMapDimensionSchema,
+  rows: reservationMapDimensionSchema,
+});
 export const windowInputSchema = z
   .object({
     opensAt: nullableDate,

@@ -13,7 +13,9 @@ import {
 } from "@/lib/db/schema/teams";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
+  DEFAULT_MAP_COLUMNS,
   MAX_RESERVATION_TABLE_NUMBER,
+  defaultTableGeometry,
   planTableCountChange,
 } from "@/lib/reservation/domain";
 import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
@@ -22,7 +24,9 @@ import { TEAM_REGISTRATION_SETTINGS_ID } from "@/lib/queries/team-registration-s
 import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import {
   reservationIdSchema,
+  reservationMapSizeSchema,
   reservationTableCountSchema,
+  reservationTableGeometrySchema,
   reservationTableNumberSchema,
   reservationTableTopologySchema,
   windowInputSchema,
@@ -46,7 +50,8 @@ type TableFailureCode =
   | "TABLE_NUMBER_LIMIT"
   | "TOPOLOGY_CONFLICT";
 
-type TableOperation = "create" | "renumber" | "delete" | "set count";
+type TableOperation =
+  "create" | "renumber" | "delete" | "set count" | "layout" | "map size";
 
 type AssignmentFailureCode =
   | "TEAM_NOT_FOUND"
@@ -61,6 +66,8 @@ const unexpectedTableFailureMessages: Record<TableOperation, string> = {
   renumber: "Could not renumber the table. Try again.",
   delete: "Could not delete the table. Try again.",
   "set count": "Could not change the table count. Try again.",
+  layout: "Could not save the table layout. Try again.",
+  "map size": "Could not save the map size. Try again.",
 };
 
 const unexpectedAssignmentFailureMessages: Record<AssignmentOperation, string> =
@@ -257,6 +264,15 @@ async function lockReservationTables(tx: ReservationTransaction) {
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(hashtextextended('reservation', 0))`,
   );
+}
+
+async function readMapColumns(tx: ReservationTransaction) {
+  const [settings] = await tx
+    .select({ mapColumns: judgingSettings.mapColumns })
+    .from(judgingSettings)
+    .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
+    .limit(1);
+  return settings?.mapColumns ?? DEFAULT_MAP_COLUMNS;
 }
 
 function windowTimestamp(value: Date | null) {
@@ -507,9 +523,16 @@ export async function createReservationTable(input: {
   try {
     await db.transaction(async (tx) => {
       await lockReservationTables(tx);
+      const [{ tableCount }] = await tx
+        .select({ tableCount: sql<number>`count(*)::int` })
+        .from(tables);
+      const geometry = defaultTableGeometry(
+        tableCount ?? 0,
+        await readMapColumns(tx),
+      );
       const [table] = await tx
         .insert(tables)
-        .values({ number })
+        .values({ number, ...geometry })
         .returning({ id: tables.id, number: tables.number });
       await writeReservationAudit(tx, {
         actorUserId: organizer.id,
@@ -520,6 +543,7 @@ export async function createReservationTable(input: {
         details: {
           tableId: table.id,
           tableNumber: table.number,
+          ...geometry,
         },
       });
     });
@@ -684,13 +708,18 @@ export async function setReservationTableCount(input: {
         });
       }
 
+      const mapColumns = await readMapColumns(tx);
       const addedTables =
         plan.addNumbers.length > 0
           ? await tx
               .insert(tables)
               .values(
-                plan.addNumbers.map((number) => ({
+                plan.addNumbers.map((number, index) => ({
                   number,
+                  ...defaultTableGeometry(
+                    currentTables.length + index,
+                    mapColumns,
+                  ),
                 })),
               )
               .returning({ id: tables.id, number: tables.number })
@@ -727,6 +756,140 @@ export async function setReservationTableCount(input: {
 
   revalidateReservationPaths();
   return { ok: true, message: `Table count set to ${count}.` };
+}
+
+export async function updateReservationTableGeometry(input: {
+  tableId: string;
+  originX: number;
+  originY: number;
+  width: number;
+  height: number;
+}): Promise<ReservationActionResult> {
+  const organizer = await requireOrganizer();
+  const parsed = reservationTableGeometrySchema.safeParse(input);
+  if (!parsed.success) return validationFailure(parsed.error);
+  const { tableId, originX, originY, width, height } = parsed.data;
+  let tableNumber = 0;
+
+  try {
+    await db.transaction(async (tx) => {
+      await lockReservationTables(tx);
+      const [before] = await tx
+        .select({
+          id: tables.id,
+          number: tables.number,
+          originX: tables.originX,
+          originY: tables.originY,
+          width: tables.width,
+          height: tables.height,
+        })
+        .from(tables)
+        .where(eq(tables.id, tableId))
+        .for("update")
+        .limit(1);
+      if (!before) throw new TableFailure("TABLE_NOT_FOUND");
+      tableNumber = before.number;
+
+      const unchanged =
+        before.originX === originX &&
+        before.originY === originY &&
+        before.width === width &&
+        before.height === height;
+      if (unchanged) return;
+
+      await tx
+        .update(tables)
+        .set({ originX, originY, width, height })
+        .where(eq(tables.id, tableId));
+      await writeReservationAudit(tx, {
+        actorUserId: organizer.id,
+        actorEmail: organizer.email,
+        action: "table.layout_updated",
+        entityType: "table",
+        entityId: before.id,
+        details: {
+          tableId: before.id,
+          tableNumber: before.number,
+          beforeOriginX: before.originX,
+          beforeOriginY: before.originY,
+          beforeWidth: before.width,
+          beforeHeight: before.height,
+          afterOriginX: originX,
+          afterOriginY: originY,
+          afterWidth: width,
+          afterHeight: height,
+        },
+      });
+    });
+  } catch (error) {
+    return tableActionFailure(error, "layout");
+  }
+
+  revalidateReservationPaths();
+  return { ok: true, message: `Table ${tableNumber} layout saved.` };
+}
+
+export async function updateReservationMapSize(input: {
+  columns: number;
+  rows: number;
+}): Promise<ReservationActionResult> {
+  const organizer = await requireOrganizer();
+  const parsed = reservationMapSizeSchema.safeParse(input);
+  if (!parsed.success) return validationFailure(parsed.error);
+  const { columns, rows } = parsed.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      await lockReservationTables(tx);
+      const [before] = await tx
+        .select({
+          mapColumns: judgingSettings.mapColumns,
+          mapRows: judgingSettings.mapRows,
+        })
+        .from(judgingSettings)
+        .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
+        .limit(1);
+      const now = new Date().toISOString();
+
+      await tx
+        .insert(judgingSettings)
+        .values({
+          id: JUDGING_SETTINGS_ID,
+          mapColumns: columns,
+          mapRows: rows,
+          updatedByUserId: organizer.id,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: judgingSettings.id,
+          set: {
+            mapColumns: columns,
+            mapRows: rows,
+            updatedByUserId: organizer.id,
+            updatedAt: now,
+          },
+        });
+
+      await writeReservationAudit(tx, {
+        actorUserId: organizer.id,
+        actorEmail: organizer.email,
+        action: "map.size_updated",
+        entityType: "judging_settings",
+        entityId: null,
+        details: {
+          beforeColumns: before?.mapColumns ?? null,
+          beforeRows: before?.mapRows ?? null,
+          afterColumns: columns,
+          afterRows: rows,
+        },
+      });
+    });
+  } catch (error) {
+    return tableActionFailure(error, "map size");
+  }
+
+  revalidateReservationPaths();
+  return { ok: true, message: `Map size set to ${columns} by ${rows}.` };
 }
 
 type MoveAssignmentOutcome =

@@ -24,12 +24,16 @@ import type { TableWithTeam } from "@/lib/reservation/types";
 export function ReservationDialog({
   buttonClassName,
   primaryClassName,
+  columns,
+  rows,
   teamId,
   state,
   tables,
 }: {
   buttonClassName: string;
   primaryClassName: string;
+  columns: number;
+  rows: number;
   teamId: string;
   state: ParticipantReservationSnapshot["state"];
   tables: TableWithTeam[];
@@ -100,6 +104,8 @@ export function ReservationDialog({
 
         <JudgingMap
           tables={tables}
+          columns={columns}
+          rows={rows}
           selectedTableId={selectedTableId}
           teamId={teamId}
           onSelect={(table) => {

@@ -27,6 +27,8 @@ import {
 } from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
 import type { ReservationTableTopology } from "@/lib/reservation/validation";
+import { cn } from "@/lib/utils";
+import { TableLayoutEditor } from "./table-layout-editor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +58,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const ASSIGNMENTS_HREF = "/admin/teams/reservations/assignments";
 
 export type TableManagementProps = {
+  columns: number;
+  rows: number;
   tables: TableWithTeam[];
 };
 
@@ -102,11 +106,15 @@ function PendingIcon({ pending }: { pending: boolean }) {
 function TableCard({
   onMutationEnd,
   onMutationStart,
+  onSelect,
+  selected,
   table,
   workspacePending,
 }: {
   onMutationEnd: (mutationId: string) => void;
   onMutationStart: (mutationId: string) => boolean;
+  onSelect: (tableId: string) => void;
+  selected: boolean;
   table: TableWithTeam;
   workspacePending: boolean;
 }) {
@@ -237,7 +245,15 @@ function TableCard({
   }
 
   return (
-    <Card>
+    <Card
+      className={cn("cursor-pointer", selected && "ring-2 ring-[#445721]")}
+      onClick={(clickEvent) => {
+        const target = clickEvent.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest("button, a, input, form, [role='dialog']")) return;
+        onSelect(table.id);
+      }}
+    >
       <CardHeader>
         <CardTitle>Table {table.number}</CardTitle>
         <CardDescription>
@@ -741,7 +757,11 @@ function TableCountManagement({
   );
 }
 
-function TableManagementWorkspace({ tables }: TableManagementProps) {
+function TableManagementWorkspace({
+  columns,
+  rows,
+  tables,
+}: TableManagementProps) {
   const router = useRouter();
   const addInputId = useId();
   const mutationLockRef = useRef<string | null>(null);
@@ -751,8 +771,17 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
   const [addError, setAddError] = useState<string | null>(null);
   const [addFieldError, setAddFieldError] = useState<string | null>(null);
   const [activeMutation, setActiveMutation] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const mapSectionRef = useRef<HTMLDivElement>(null);
   const workspacePending = activeMutation !== null;
+
+  function selectTable(tableId: string, scrollToMap = false) {
+    setSelectedTableId(tableId);
+    if (scrollToMap) {
+      mapSectionRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }
 
   function startMutation(mutationId: string) {
     if (mutationLockRef.current) return false;
@@ -813,6 +842,19 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
 
   return (
     <section className="flex flex-col gap-6">
+      <div ref={mapSectionRef}>
+        <TableLayoutEditor
+          columns={columns}
+          disabled={workspacePending}
+          onMutationEnd={endMutation}
+          onMutationStart={startMutation}
+          onSelect={(tableId) => selectTable(tableId)}
+          rows={rows}
+          selectedTableId={selectedTableId}
+          tables={tables}
+        />
+      </div>
+
       <section aria-label="Table summary" className="grid gap-3 sm:grid-cols-3">
         <Card size="sm">
           <CardHeader>
@@ -904,7 +946,8 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
               Individual tables
             </h2>
             <p className="text-sm text-muted-foreground">
-              Renumber tables or manage unassigned table deletion.
+              Select a table to place it on the map. Renumber tables or delete
+              unassigned ones.
             </p>
           </div>
           <Badge variant="outline">
@@ -928,6 +971,8 @@ function TableManagementWorkspace({ tables }: TableManagementProps) {
                 key={table.id}
                 onMutationEnd={endMutation}
                 onMutationStart={startMutation}
+                onSelect={(tableId) => selectTable(tableId, true)}
+                selected={table.id === selectedTableId}
                 table={table}
                 workspacePending={workspacePending}
               />

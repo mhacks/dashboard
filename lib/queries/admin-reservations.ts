@@ -1,12 +1,23 @@
 import { cache } from "react";
-import { asc, desc, sql } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { selectTablesWithTeam } from "@/lib/db/queries/reservation";
-import { reservationAuditLog, tables } from "@/lib/db/schema/reservation";
+import {
+  judgingSettings,
+  reservationAuditLog,
+  tables,
+} from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
-import { getJudgingSettings } from "@/lib/queries/judging-settings";
+import {
+  DEFAULT_MAP_COLUMNS,
+  DEFAULT_MAP_ROWS,
+} from "@/lib/reservation/domain";
+import {
+  getJudgingSettings,
+  JUDGING_SETTINGS_ID,
+} from "@/lib/queries/judging-settings";
 import { getSubmissionSettings } from "@/lib/queries/submission-settings";
 import { getTeamRegistrationSettings } from "@/lib/queries/team-registration-settings";
 import type { TableWithTeam } from "@/lib/reservation/types";
@@ -45,6 +56,8 @@ export type AdminReservationTeam = {
 export type AdminReservationAssignmentsData = {
   teams: AdminReservationTeam[];
   tables: TableWithTeam[];
+  columns: number;
+  rows: number;
 };
 
 export type ReservationAuditItem = {
@@ -116,9 +129,19 @@ export async function getAdminReservationAssignments(): Promise<AdminReservation
         })
         .from(teams)
         .orderBy(asc(teams.name), asc(teams.id));
+      const [settings] = await tx
+        .select({
+          mapColumns: judgingSettings.mapColumns,
+          mapRows: judgingSettings.mapRows,
+        })
+        .from(judgingSettings)
+        .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
+        .limit(1);
       return {
         teams: reservationTeams,
         tables: await selectTablesWithTeam(tx),
+        columns: settings?.mapColumns ?? DEFAULT_MAP_COLUMNS,
+        rows: settings?.mapRows ?? DEFAULT_MAP_ROWS,
       };
     },
     {

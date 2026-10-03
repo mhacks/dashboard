@@ -39,6 +39,8 @@ export const judgingSettings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
+    mapColumns: integer("map_columns").notNull().default(16),
+    mapRows: integer("map_rows").notNull().default(10),
   },
   (table) => [
     check("judging_settings_singleton_check", sql`${table.id} = 'default'`),
@@ -47,6 +49,14 @@ export const judgingSettings = pgTable(
       sql`${table.reservationsOpenAt} IS NULL
         OR ${table.reservationsCloseAt} IS NULL
         OR ${table.reservationsCloseAt} > ${table.reservationsOpenAt}`,
+    ),
+    check(
+      "judging_settings_map_columns_range",
+      sql`${table.mapColumns} >= 1 AND ${table.mapColumns} <= 40`,
+    ),
+    check(
+      "judging_settings_map_rows_range",
+      sql`${table.mapRows} >= 1 AND ${table.mapRows} <= 40`,
     ),
     foreignKey({
       columns: [table.updatedByUserId],
@@ -76,6 +86,10 @@ export const tables = pgTable(
       onDelete: "restrict",
     }),
     reservedAt: timestamp("reserved_at", { withTimezone: true }),
+    originX: integer("origin_x").notNull().default(0),
+    originY: integer("origin_y").notNull().default(0),
+    width: integer("width").notNull().default(1),
+    height: integer("height").notNull().default(1),
   },
   (table) => [
     unique("tables_number_unique").on(table.number),
@@ -85,6 +99,14 @@ export const tables = pgTable(
       "tables_reservation_timestamp_consistent",
       sql`(${table.reservedByTeamId} IS NULL) =
         (${table.reservedAt} IS NULL)`,
+    ),
+    check(
+      "tables_origin_nonnegative",
+      sql`${table.originX} >= 0 AND ${table.originY} >= 0`,
+    ),
+    check(
+      "tables_size_positive",
+      sql`${table.width} >= 1 AND ${table.height} >= 1`,
     ),
     pgPolicy("tables_select_authenticated", {
       for: "select",

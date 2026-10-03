@@ -1,5 +1,46 @@
 export const MAX_RESERVATION_TABLE_COUNT = 500;
 export const MAX_RESERVATION_TABLE_NUMBER = 2_147_483_647;
+export const DEFAULT_MAP_COLUMNS = 16;
+export const DEFAULT_MAP_ROWS = 10;
+export const MIN_MAP_DIMENSION = 1;
+export const MAX_MAP_DIMENSION = 40;
+
+export type TableGeometry = {
+  originX: number;
+  originY: number;
+  width: number;
+  height: number;
+};
+
+/** 1×1 cell in row-major order. Does not look for an empty cell. */
+export function defaultTableGeometry(
+  index: number,
+  columns: number,
+): TableGeometry {
+  const span = Math.max(1, columns);
+  const safeIndex = Math.max(0, index);
+  return {
+    originX: safeIndex % span,
+    originY: Math.floor(safeIndex / span),
+    width: 1,
+    height: 1,
+  };
+}
+
+/** Configured matrix, grown so every rectangle is still on the grid. */
+export function reservationGridExtent(
+  tables: readonly TableGeometry[],
+  columns: number,
+  rows: number,
+): { columns: number; rows: number } {
+  let extentColumns = Math.max(1, columns);
+  let extentRows = Math.max(1, rows);
+  for (const table of tables) {
+    extentColumns = Math.max(extentColumns, table.originX + table.width);
+    extentRows = Math.max(extentRows, table.originY + table.height);
+  }
+  return { columns: extentColumns, rows: extentRows };
+}
 
 export type TimedWindow = {
   opensAt?: Date | string | null;

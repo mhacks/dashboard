@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { reservationGridExtent } from "@/lib/reservation/domain";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 export type TableStatus = "available" | "selected" | "mine" | "taken";
@@ -47,6 +48,8 @@ const seatStyles: Record<TableStatus, string> = {
 
 export function JudgingMap({
   tables,
+  columns,
+  rows,
   selectedTableId,
   teamId,
   onSelect,
@@ -54,16 +57,16 @@ export function JudgingMap({
   mode = "participant",
 }: {
   tables: TableWithTeam[];
+  columns: number;
+  rows: number;
   selectedTableId: string | null;
   teamId: string | null;
   onSelect: (table: TableWithTeam) => void;
   disabled?: boolean;
   mode?: JudgingMapMode;
 }) {
-  const rows: TableWithTeam[][] = [];
-  for (let index = 0; index < tables.length; index += 8) {
-    rows.push(tables.slice(index, index + 8));
-  }
+  const extent = reservationGridExtent(tables, columns, rows);
+  const cellCount = extent.columns * extent.rows;
 
   return (
     <div className="flex flex-col gap-5">
@@ -75,41 +78,60 @@ export function JudgingMap({
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-2">
-            {rows.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex justify-center gap-2">
-                {row.map((table) => {
-                  const status = statusOf(table, selectedTableId, teamId);
-                  const interactive =
-                    !disabled &&
-                    (mode === "admin"
-                      ? status !== "mine"
-                      : status === "available" || status === "selected");
-
-                  return (
-                    <button
-                      key={table.id}
-                      type="button"
-                      disabled={!interactive}
-                      onClick={() => onSelect(table)}
-                      title={
-                        table.reservedByTeamName
-                          ? `Table ${table.number} — ${table.reservedByTeamName}`
-                          : `Table ${table.number} — available`
-                      }
-                      aria-label={tableAriaLabel(table, status, mode)}
-                      className={cn(
-                        "flex size-9 shrink-0 items-center justify-center rounded-md border text-[11px] font-semibold transition-all sm:size-10 sm:text-xs",
-                        seatStyles[status],
-                        interactive ? "cursor-pointer" : "cursor-not-allowed",
-                      )}
-                    >
-                      {table.number}
-                    </button>
-                  );
-                })}
-              </div>
+          <div
+            className="grid gap-2 [--cell:2.25rem] sm:[--cell:2.5rem]"
+            style={{
+              gridTemplateColumns: `repeat(${extent.columns}, var(--cell))`,
+              gridTemplateRows: `repeat(${extent.rows}, var(--cell))`,
+            }}
+          >
+            {Array.from({ length: cellCount }, (_, index) => (
+              <span
+                key={`cell-${index}`}
+                aria-hidden
+                className="pointer-events-none flex items-center justify-center"
+                style={{
+                  gridColumn: (index % extent.columns) + 1,
+                  gridRow: Math.floor(index / extent.columns) + 1,
+                }}
+              >
+                <span className="size-1.5 rounded-full bg-zinc-300/80" />
+              </span>
             ))}
+            {tables.map((table) => {
+              const status = statusOf(table, selectedTableId, teamId);
+              const interactive =
+                !disabled &&
+                (mode === "admin"
+                  ? status !== "mine"
+                  : status === "available" || status === "selected");
+
+              return (
+                <button
+                  key={table.id}
+                  type="button"
+                  disabled={!interactive}
+                  onClick={() => onSelect(table)}
+                  title={
+                    table.reservedByTeamName
+                      ? `Table ${table.number} — ${table.reservedByTeamName}`
+                      : `Table ${table.number} — available`
+                  }
+                  aria-label={tableAriaLabel(table, status, mode)}
+                  style={{
+                    gridColumn: `${table.originX + 1} / span ${table.width}`,
+                    gridRow: `${table.originY + 1} / span ${table.height}`,
+                  }}
+                  className={cn(
+                    "z-10 flex h-full w-full items-center justify-center rounded-md border text-[11px] font-semibold transition-colors sm:text-xs",
+                    seatStyles[status],
+                    interactive ? "cursor-pointer" : "cursor-not-allowed",
+                  )}
+                >
+                  {table.number}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

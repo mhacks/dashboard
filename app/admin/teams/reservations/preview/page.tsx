@@ -1,10 +1,18 @@
 import { JudgingMap } from "@/app/dashboard/team/judging-map";
+import {
+  DEFAULT_MAP_COLUMNS,
+  DEFAULT_MAP_ROWS,
+} from "@/lib/reservation/domain";
 import { getAdminReservationTables } from "@/lib/queries/admin-reservations";
+import { getJudgingSettings } from "@/lib/queries/judging-settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReservationPreviewPage() {
-  const tables = await getAdminReservationTables();
+  const [tables, settings] = await Promise.all([
+    getAdminReservationTables(),
+    getJudgingSettings(),
+  ]);
 
   return (
     <section
@@ -24,6 +32,8 @@ export default async function ReservationPreviewPage() {
       </div>
       <JudgingMap
         tables={tables}
+        columns={settings?.mapColumns ?? DEFAULT_MAP_COLUMNS}
+        rows={settings?.mapRows ?? DEFAULT_MAP_ROWS}
         selectedTableId={null}
         teamId={null}
         onSelect={() => {}}
