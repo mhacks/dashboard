@@ -280,8 +280,8 @@ export function Hero() {
             </motion.div>
           </motion.div>
 
-          {/* Mobile CTAs — the header's Apply/Sponsor us pills live here on
-              small screens, stacked under the date line */}
+          {/* Mobile CTAs — Login/Live site/Sponsor us stacked under the date
+              line; the header mirrors Login on small screens. */}
           <motion.div className="flex justify-center md:hidden">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -293,15 +293,21 @@ export function Hero() {
               }}
               className="pointer-events-auto mt-2 flex flex-col items-center gap-3"
             >
-              {/* Routes via the dashboard rather than straight to the form —
-                  see the note on the header's Apply button. */}
               <CtaButton
                 href="/dashboard"
                 variant="cta"
                 size="md"
                 className="w-[200px]"
               >
-                Apply
+                Login
+              </CtaButton>
+              <CtaButton
+                href="/live"
+                variant="parchment"
+                size="md"
+                className="w-[200px]"
+              >
+                Live site
               </CtaButton>
               <CtaButton
                 href="/#sponsors"

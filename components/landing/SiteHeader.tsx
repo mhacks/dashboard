@@ -76,9 +76,9 @@ export function SiteHeader() {
           />
         </div>
 
-        {/* Sponsor us + Apply - right; canonical CTA pills in both nav states.
-            Mobile keeps Apply in the bar (persistent CTA); Sponsor us joins
-            at md+ and also lives in the hero stack on small screens. */}
+        {/* Sponsor us + Login + Live site — right; canonical CTA pills in both
+            nav states. Mobile keeps Login in the bar (persistent CTA); Sponsor
+            us joins at md+ and also lives in the hero stack on small screens. */}
         <div className="relative z-[2] flex shrink-0 items-center gap-1 md:gap-2">
           <div className="hidden md:block">
             <CtaButton
@@ -90,12 +90,11 @@ export function SiteHeader() {
               Sponsor us
             </CtaButton>
           </div>
-          {/* The dashboard, not /apply — it is the one signed-in entry point,
-              and it routes to the form, a saved draft, or a submitted
-              application as appropriate. Signed-out visitors are sent through
-              login and land back here. */}
           <CtaButton href="/dashboard" variant="parchment" size="md">
-            Apply
+            Login
+          </CtaButton>
+          <CtaButton href="/live" variant="parchment" size="md">
+            Live site
           </CtaButton>
         </div>
       </div>

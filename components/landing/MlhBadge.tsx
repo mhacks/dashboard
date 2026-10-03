@@ -6,7 +6,7 @@ import Image from "next/image";
  * once the next sheet slides over the hero, the badge is gone.
  *
  * Horizontal position mirrors SiteHeader's max-w + padding. On mobile the
- * badge sits on the Apply side of the bar; from md up it rests beside the logo.
+ * badge sits on the Login side of the bar; from md up it rests beside the logo.
  */
 export function MlhBadge() {
   return (
