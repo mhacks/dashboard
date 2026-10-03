@@ -129,7 +129,7 @@ export function ManualEntry({
                   // A span, not a Button: the whole row is already the button,
                   // and nesting one inside another is invalid HTML.
                   <span className="shrink-0 rounded-[2px] border border-ui-line-strong px-2.5 py-1 font-red-hat-mono text-[10.5px] tracking-[0.1em] text-ui-ink uppercase">
-                    {match.scansUsed > 0
+                    {match.scansUsed > 0 && match.scansUsed < maxCheckins
                       ? `Check in ${match.scansUsed + 1}/${maxCheckins}`
                       : "Check in"}
                   </span>
