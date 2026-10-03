@@ -358,6 +358,13 @@
       "when": 1791025740601,
       "tag": "20261003110900_existing_table_geometry",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791054487845,
+      "tag": "20261003190807_judge_map_tables",
+      "breakpoints": true
     }
   ]
 }
