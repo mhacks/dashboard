@@ -45,10 +45,10 @@ function isMapControl(target: EventTarget | null) {
 export function MapViewport({
   children,
   columns,
+  rows,
   fitColumns = columns,
   fitRows = rows,
   onBackgroundClick,
-  rows,
 }: {
   children: ReactNode;
   columns: number;
