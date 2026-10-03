@@ -82,6 +82,7 @@ sql_paths = [
   "./seeds/teams-demo.sql",
   "./seeds/broadcast-demo.sql",
   "./seeds/live-site-demo.sql",
+  "./seeds/hack-windows-demo.sql",
 ]
 
 # OTP login — signInWithOtp / verifyOtp (app/login/page.tsx)
