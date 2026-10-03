@@ -48,10 +48,12 @@ function FieldError({
 export function ReservationEventForm({
   reservationsOpenAt,
   reservationsCloseAt,
+  submissionDeadline,
   onSuccess,
 }: {
   reservationsOpenAt: string | null;
   reservationsCloseAt: string | null;
+  submissionDeadline: string | null;
   onSuccess?: (message: string) => void;
 }) {
   const hydrated = useMounted();
@@ -68,6 +70,7 @@ export function ReservationEventForm({
     <ReservationWindowFields
       reservationsOpenAt={reservationsOpenAt}
       reservationsCloseAt={reservationsCloseAt}
+      submissionDeadline={submissionDeadline}
       onSuccess={onSuccess}
     />
   );
@@ -76,10 +79,12 @@ export function ReservationEventForm({
 function ReservationWindowFields({
   reservationsOpenAt,
   reservationsCloseAt,
+  submissionDeadline,
   onSuccess,
 }: {
   reservationsOpenAt: string | null;
   reservationsCloseAt: string | null;
+  submissionDeadline: string | null;
   onSuccess?: (message: string) => void;
 }) {
   const id = useId();
@@ -87,6 +92,7 @@ function ReservationWindowFields({
   const [closesAt, setClosesAt] = useState(
     toDateTimeLocal(reservationsCloseAt),
   );
+  const [deadline, setDeadline] = useState(toDateTimeLocal(submissionDeadline));
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -99,6 +105,7 @@ function ReservationWindowFields({
     const values: ReservationEventInput = {
       reservationsOpenAt: toAbsoluteDate(opensAt),
       reservationsCloseAt: toAbsoluteDate(closesAt),
+      submissionDeadline: toAbsoluteDate(deadline),
     };
 
     startTransition(async () => {
@@ -149,6 +156,24 @@ function ReservationWindowFields({
           />
         </div>
       </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={`${id}-deadline`}>Project submission deadline</Label>
+        <Input
+          id={`${id}-deadline`}
+          type="datetime-local"
+          value={deadline}
+          onChange={(change) => setDeadline(change.target.value)}
+          aria-invalid={Boolean(fieldErrors.submissionDeadline?.length)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Leave empty for no cutoff. A team can submit a Devpost link only while
+          it has a table, and only until this time.
+        </p>
+        <FieldError
+          id={`${id}-deadline-error`}
+          errors={fieldErrors.submissionDeadline}
+        />
+      </div>
       {formError ? (
         <p role="alert" className="text-sm text-destructive">
           {formError}
@@ -159,7 +184,7 @@ function ReservationWindowFields({
           {isPending ? (
             <Loader2Icon data-icon="inline-start" className="animate-spin" />
           ) : null}
-          Save window
+          Save settings
         </Button>
       </div>
     </form>

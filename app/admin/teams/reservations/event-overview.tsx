@@ -19,16 +19,19 @@ export function EventOverview({ event }: { event: AdminReservationDetail }) {
     <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
       <Card>
         <CardHeader>
-          <CardTitle>Reservation window</CardTitle>
+          <CardTitle>Judging settings</CardTitle>
           <CardDescription>
-            Hackers can claim or move a table only between these times.
+            Hackers can claim or move a table only between these times. A
+            Devpost link can be saved only while the team has a table, and only
+            until the submission deadline.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ReservationEventForm
-            key={`${event.reservationsOpenAt ?? ""}|${event.reservationsCloseAt ?? ""}`}
+            key={`${event.reservationsOpenAt ?? ""}|${event.reservationsCloseAt ?? ""}|${event.submissionDeadline ?? ""}`}
             reservationsOpenAt={event.reservationsOpenAt}
             reservationsCloseAt={event.reservationsCloseAt}
+            submissionDeadline={event.submissionDeadline}
             onSuccess={(message) => {
               toast.success(message);
               router.refresh();

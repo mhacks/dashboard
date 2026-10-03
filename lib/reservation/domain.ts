@@ -11,6 +11,20 @@ export type ReservationAvailability =
   | { state: "closed" }
   | { state: "open" };
 
+/**
+ * An empty deadline does not close submissions. A set deadline is closed at
+ * that instant and after.
+ */
+export function isBeforeSubmissionDeadline(
+  deadline: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!deadline) return true;
+  const closesAt = new Date(deadline);
+  if (Number.isNaN(closesAt.getTime())) return true;
+  return now < closesAt;
+}
+
 export function getReservationAvailability(
   event: ReservationWindow,
   now: Date = new Date(),

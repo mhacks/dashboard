@@ -1,6 +1,6 @@
 {
-  "id": "8b2324e0-c9e2-4207-97fc-f47fcfdd450f",
-  "prevId": "4c3ea4e2-d2aa-43e2-8d92-c2afe9331d5b",
+  "id": "653c3315-2d72-41a2-82d8-e5dddf8aedb2",
+  "prevId": "d707ccfc-3baf-42a0-85fe-cb3346c0767a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2396,7 +2396,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and exists (\n    select 1 from public.events event\n    where event.id = \"event_checkins\".\"event_id\"\n      and \"event_checkins\".\"scan_number\" <= event.max_checkins\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or public.is_organizer_user(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and (\n    public.is_organizer_user(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\"\n        and \"event_checkins\".\"scan_number\" <= event.max_checkins\n    )\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
         },
         "event_checkins_delete_organizer": {
           "name": "event_checkins_delete_organizer",
@@ -3973,6 +3973,100 @@
       },
       "isRLSEnabled": true
     },
+    "public.judging_settings": {
+      "name": "judging_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'default'"
+        },
+        "reservations_open_at": {
+          "name": "reservations_open_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reservations_close_at": {
+          "name": "reservations_close_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "submission_deadline": {
+          "name": "submission_deadline",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "judging_settings_updated_by_user_id_fkey": {
+          "name": "judging_settings_updated_by_user_id_fkey",
+          "tableFrom": "judging_settings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "judging_settings_authenticated_select": {
+          "name": "judging_settings_authenticated_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer()) OR (select public.has_accepted_reservation_access())"
+        },
+        "judging_settings_organizer_all": {
+          "name": "judging_settings_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "judging_settings_singleton_check": {
+          "name": "judging_settings_singleton_check",
+          "value": "\"judging_settings\".\"id\" = 'default'"
+        },
+        "judging_settings_window_valid": {
+          "name": "judging_settings_window_valid",
+          "value": "\"judging_settings\".\"reservations_open_at\" IS NULL\n        OR \"judging_settings\".\"reservations_close_at\" IS NULL\n        OR \"judging_settings\".\"reservations_close_at\" > \"judging_settings\".\"reservations_open_at\""
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.reservation_audit_log": {
       "name": "reservation_audit_log",
       "schema": "",
@@ -4075,94 +4169,6 @@
         }
       },
       "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.reservation_settings": {
-      "name": "reservation_settings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "'default'"
-        },
-        "reservations_open_at": {
-          "name": "reservations_open_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reservations_close_at": {
-          "name": "reservations_close_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by_user_id": {
-          "name": "updated_by_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "reservation_settings_updated_by_user_id_fkey": {
-          "name": "reservation_settings_updated_by_user_id_fkey",
-          "tableFrom": "reservation_settings",
-          "tableTo": "users",
-          "columnsFrom": [
-            "updated_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "reservation_settings_authenticated_select": {
-          "name": "reservation_settings_authenticated_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "(select public.is_organizer()) OR (select public.has_accepted_reservation_access())"
-        },
-        "reservation_settings_organizer_all": {
-          "name": "reservation_settings_organizer_all",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "authenticated"
-          ],
-          "using": "(select public.is_organizer())",
-          "withCheck": "(select public.is_organizer())"
-        }
-      },
-      "checkConstraints": {
-        "reservation_settings_singleton_check": {
-          "name": "reservation_settings_singleton_check",
-          "value": "\"reservation_settings\".\"id\" = 'default'"
-        },
-        "reservation_settings_window_valid": {
-          "name": "reservation_settings_window_valid",
-          "value": "\"reservation_settings\".\"reservations_open_at\" IS NULL\n        OR \"reservation_settings\".\"reservations_close_at\" IS NULL\n        OR \"reservation_settings\".\"reservations_close_at\" > \"reservation_settings\".\"reservations_open_at\""
-        }
-      },
       "isRLSEnabled": true
     },
     "public.tables": {

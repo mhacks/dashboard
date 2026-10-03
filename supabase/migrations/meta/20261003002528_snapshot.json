@@ -1,5 +1,5 @@
 {
-  "id": "4c3ea4e2-d2aa-43e2-8d92-c2afe9331d5b",
+  "id": "d707ccfc-3baf-42a0-85fe-cb3346c0767a",
   "prevId": "193d72ab-628c-4e32-862e-c90350312eb9",
   "version": "7",
   "dialect": "postgresql",
@@ -2396,7 +2396,7 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and exists (\n    select 1 from public.events event\n    where event.id = \"event_checkins\".\"event_id\"\n      and \"event_checkins\".\"scan_number\" <= event.max_checkins\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
+          "withCheck": "(select public.is_event_staff())\n  and \"event_checkins\".\"checked_in_by\" = (select auth.uid())\n  and (\n    public.has_confirmed_rsvp(\"event_checkins\".\"user_id\")\n    or public.is_organizer_user(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\" and not event.requires_rsvp\n    )\n  )\n  and (\n    public.is_organizer_user(\"event_checkins\".\"user_id\")\n    or exists (\n      select 1 from public.events event\n      where event.id = \"event_checkins\".\"event_id\"\n        and \"event_checkins\".\"scan_number\" <= event.max_checkins\n    )\n  )\n  and public.is_event_open(\"event_checkins\".\"event_id\")"
         },
         "event_checkins_delete_organizer": {
           "name": "event_checkins_delete_organizer",
@@ -4900,6 +4900,85 @@
         }
       },
       "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.team_settings": {
+      "name": "team_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'default'"
+        },
+        "formation_enabled": {
+          "name": "formation_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "team_settings_updated_by_user_id_fkey": {
+          "name": "team_settings_updated_by_user_id_fkey",
+          "tableFrom": "team_settings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "team_settings_authenticated_select": {
+          "name": "team_settings_authenticated_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "true"
+        },
+        "team_settings_organizer_all": {
+          "name": "team_settings_organizer_all",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(select public.is_organizer())",
+          "withCheck": "(select public.is_organizer())"
+        }
+      },
+      "checkConstraints": {
+        "team_settings_singleton_check": {
+          "name": "team_settings_singleton_check",
+          "value": "\"team_settings\".\"id\" = 'default'"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.teams": {

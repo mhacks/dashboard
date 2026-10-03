@@ -32,6 +32,7 @@ export const reservationEventInputSchema = z
   .object({
     reservationsOpenAt: nullableDate,
     reservationsCloseAt: nullableDate,
+    submissionDeadline: nullableDate,
   })
   .superRefine((value, context) => {
     if (

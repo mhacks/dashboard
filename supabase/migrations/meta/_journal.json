@@ -327,15 +327,15 @@
     {
       "idx": 46,
       "version": "7",
-      "when": 1790981216450,
-      "tag": "20261002224656_drop_team_settings",
+      "when": 1790987128755,
+      "tag": "20261003002528_organizer_unlimited_checkins",
       "breakpoints": true
     },
     {
       "idx": 47,
       "version": "7",
-      "when": 1790981934205,
-      "tag": "20261002225854_team_submissions",
+      "when": 1791009224107,
+      "tag": "20261003063344_judging_settings",
       "breakpoints": true
     }
   ]

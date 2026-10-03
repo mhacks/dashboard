@@ -5,14 +5,14 @@ import { z } from "zod";
 import { requireOrganizer } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { postgresErrorCode } from "@/lib/db/errors";
-import { reservationSettings, tables } from "@/lib/db/schema/reservation";
+import { judgingSettings, tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
 import { writeReservationAudit } from "@/lib/reservation/audit";
 import {
   MAX_RESERVATION_TABLE_NUMBER,
   planTableCountChange,
 } from "@/lib/reservation/domain";
-import { RESERVATION_SETTINGS_ID } from "@/lib/queries/reservation-settings";
+import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
 import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import {
   reservationEventInputSchema,
@@ -289,32 +289,36 @@ export async function setReservationWindow(
   const now = new Date().toISOString();
   const reservationsOpenAt = windowTimestamp(parsed.data.reservationsOpenAt);
   const reservationsCloseAt = windowTimestamp(parsed.data.reservationsCloseAt);
+  const submissionDeadline = windowTimestamp(parsed.data.submissionDeadline);
 
   try {
     await db.transaction(async (tx) => {
       const [before] = await tx
         .select({
-          reservationsOpenAt: reservationSettings.reservationsOpenAt,
-          reservationsCloseAt: reservationSettings.reservationsCloseAt,
+          reservationsOpenAt: judgingSettings.reservationsOpenAt,
+          reservationsCloseAt: judgingSettings.reservationsCloseAt,
+          submissionDeadline: judgingSettings.submissionDeadline,
         })
-        .from(reservationSettings)
-        .where(eq(reservationSettings.id, RESERVATION_SETTINGS_ID))
+        .from(judgingSettings)
+        .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
         .limit(1);
 
       await tx
-        .insert(reservationSettings)
+        .insert(judgingSettings)
         .values({
-          id: RESERVATION_SETTINGS_ID,
+          id: JUDGING_SETTINGS_ID,
           reservationsOpenAt,
           reservationsCloseAt,
+          submissionDeadline,
           updatedByUserId: organizer.id,
           updatedAt: now,
         })
         .onConflictDoUpdate({
-          target: reservationSettings.id,
+          target: judgingSettings.id,
           set: {
             reservationsOpenAt,
             reservationsCloseAt,
+            submissionDeadline,
             updatedByUserId: organizer.id,
             updatedAt: now,
           },
@@ -324,13 +328,15 @@ export async function setReservationWindow(
         actorUserId: organizer.id,
         actorEmail: organizer.email,
         action: "window.updated",
-        entityType: "reservation_settings",
+        entityType: "judging_settings",
         entityId: null,
         details: {
           beforeOpenAt: before?.reservationsOpenAt ?? null,
           beforeCloseAt: before?.reservationsCloseAt ?? null,
+          beforeSubmissionDeadline: before?.submissionDeadline ?? null,
           afterOpenAt: reservationsOpenAt,
           afterCloseAt: reservationsCloseAt,
+          afterSubmissionDeadline: submissionDeadline,
         },
       });
     });
@@ -348,7 +354,7 @@ export async function setReservationWindow(
   }
 
   revalidateReservationPaths();
-  return { ok: true, message: "Reservation window saved." };
+  return { ok: true, message: "Reservation settings saved." };
 }
 
 export async function createReservationTable(input: {

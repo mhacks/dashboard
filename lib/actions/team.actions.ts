@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import type { ApplicationDecision } from "@/lib/decisions";
+import { hasCheckedIn, type ApplicationDecision } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import {
   teams,
@@ -12,7 +12,9 @@ import {
 } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import { hasCheckedIn } from "@/lib/decisions";
+import { judgingSettings, tables } from "@/lib/db/schema/reservation";
+import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
+import { isBeforeSubmissionDeadline } from "@/lib/reservation/domain";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
@@ -676,6 +678,26 @@ export async function saveTeamDevpostUrl(
       .limit(1);
     if (!membership) {
       throw new Error("You need to be on a team to submit.");
+    }
+
+    const [reservedTable] = await tx
+      .select({ id: tables.id })
+      .from(tables)
+      .where(eq(tables.reservedByTeamId, membership.teamId))
+      .limit(1);
+    if (!reservedTable) {
+      throw new Error("Reserve a table before submitting your Devpost link.");
+    }
+
+    const [settings] = await tx
+      .select({
+        submissionDeadline: judgingSettings.submissionDeadline,
+      })
+      .from(judgingSettings)
+      .where(eq(judgingSettings.id, JUDGING_SETTINGS_ID))
+      .limit(1);
+    if (!isBeforeSubmissionDeadline(settings?.submissionDeadline)) {
+      throw new Error("Project submissions are closed.");
     }
 
     const now = new Date().toISOString();

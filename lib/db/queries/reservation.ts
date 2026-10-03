@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
 import { getReservationAvailability } from "@/lib/reservation/domain";
-import { getReservationSettings } from "@/lib/queries/reservation-settings";
+import { getJudgingSettings } from "@/lib/queries/judging-settings";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 type ReservationQueryClient = Pick<typeof db, "select">;
@@ -28,7 +28,7 @@ export type ParticipantReservationSnapshot = {
 
 export async function getParticipantReservationSnapshot(): Promise<ParticipantReservationSnapshot> {
   const [settings, reservationTables] = await Promise.all([
-    getReservationSettings(),
+    getJudgingSettings(),
     selectTablesWithTeam(db),
   ]);
   const availability = getReservationAvailability(settings ?? {});

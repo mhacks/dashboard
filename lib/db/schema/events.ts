@@ -181,7 +181,8 @@ export const eventCheckins = pgTable(
     // last word. The app inserts as the owner role and never touches this, but
     // a volunteer's JWT can reach PostgREST directly. RSVP-gated events still
     // require a confirmed spot; an account-only event deliberately accepts any
-    // real public.users row (enforced by the user_id foreign key).
+    // real public.users row (enforced by the user_id foreign key). Organizers
+    // are exempt from both the RSVP gate and the scan cap.
     pgPolicy("event_checkins_insert_staff", {
       for: "insert",
       to: authenticatedRole,
@@ -189,15 +190,19 @@ export const eventCheckins = pgTable(
   and ${table.checkedInBy} = ${authUid}
   and (
     public.has_confirmed_rsvp(${table.userId})
+    or public.is_organizer_user(${table.userId})
     or exists (
       select 1 from public.events event
       where event.id = ${table.eventId} and not event.requires_rsvp
     )
   )
-  and exists (
-    select 1 from public.events event
-    where event.id = ${table.eventId}
-      and ${table.scanNumber} <= event.max_checkins
+  and (
+    public.is_organizer_user(${table.userId})
+    or exists (
+      select 1 from public.events event
+      where event.id = ${table.eventId}
+        and ${table.scanNumber} <= event.max_checkins
+    )
   )
   and public.is_event_open(${table.eventId})`,
     }),

@@ -19,11 +19,13 @@ import { teams } from "./teams";
 import { users } from "./users";
 
 /**
- * One row, id `default`. Organizers set the reservation window from
- * /admin/teams/reservations. Hackers can claim or move a table only inside it.
+ * One row, id `default`. Organizers set the table-reservation window and the
+ * project submission deadline from /admin/teams/reservations. Hackers can
+ * claim or move a table only inside the window. A Devpost link can be saved
+ * only before the deadline, and only once the team has a table.
  */
-export const reservationSettings = pgTable(
-  "reservation_settings",
+export const judgingSettings = pgTable(
+  "judging_settings",
   {
     id: text().primaryKey().default("default").notNull(),
     reservationsOpenAt: timestamp("reservations_open_at", {
@@ -34,15 +36,19 @@ export const reservationSettings = pgTable(
       withTimezone: true,
       mode: "string",
     }),
+    submissionDeadline: timestamp("submission_deadline", {
+      withTimezone: true,
+      mode: "string",
+    }),
     updatedByUserId: uuid("updated_by_user_id"),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
   },
   (table) => [
-    check("reservation_settings_singleton_check", sql`${table.id} = 'default'`),
+    check("judging_settings_singleton_check", sql`${table.id} = 'default'`),
     check(
-      "reservation_settings_window_valid",
+      "judging_settings_window_valid",
       sql`${table.reservationsOpenAt} IS NULL
         OR ${table.reservationsCloseAt} IS NULL
         OR ${table.reservationsCloseAt} > ${table.reservationsOpenAt}`,
@@ -50,14 +56,14 @@ export const reservationSettings = pgTable(
     foreignKey({
       columns: [table.updatedByUserId],
       foreignColumns: [users.id],
-      name: "reservation_settings_updated_by_user_id_fkey",
+      name: "judging_settings_updated_by_user_id_fkey",
     }).onDelete("set null"),
-    pgPolicy("reservation_settings_authenticated_select", {
+    pgPolicy("judging_settings_authenticated_select", {
       for: "select",
       to: authenticatedRole,
       using: sql`(select public.is_organizer()) OR (select public.has_accepted_reservation_access())`,
     }),
-    pgPolicy("reservation_settings_organizer_all", {
+    pgPolicy("judging_settings_organizer_all", {
       for: "all",
       to: authenticatedRole,
       using: isOrganizer,
@@ -122,6 +128,6 @@ export const reservationAuditLog = pgTable(
   ],
 ).enableRLS();
 
-export type ReservationSettings = typeof reservationSettings.$inferSelect;
+export type JudgingSettings = typeof judgingSettings.$inferSelect;
 export type Table = typeof tables.$inferSelect;
 export type ReservationAuditLog = typeof reservationAuditLog.$inferSelect;

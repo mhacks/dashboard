@@ -39,6 +39,7 @@ import {
   saveTeamDevpostUrl,
 } from "@/lib/actions/team.server.actions";
 import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
+import { isBeforeSubmissionDeadline } from "@/lib/reservation/domain";
 import {
   MAX_TEAM_SIZE,
   teamNameSchema,
@@ -57,6 +58,10 @@ interface TeamViewProps {
   sentInvitations: SentInvitationSummary[];
   reservations: ParticipantReservationSnapshot | null;
   devpostUrl: string | null;
+  /** Null when no cutoff is configured. */
+  submissionDeadline: string | null;
+  /** False when the deadline could not be read. Submissions stay closed. */
+  submissionScheduleAvailable: boolean;
 }
 
 const INPUT_CLASS =
@@ -119,6 +124,8 @@ export function TeamView({
   sentInvitations,
   reservations,
   devpostUrl,
+  submissionDeadline,
+  submissionScheduleAvailable,
 }: TeamViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -367,6 +374,13 @@ export function TeamView({
             <DevpostSubmission
               key={devpostUrl ?? "none"}
               savedUrl={devpostUrl}
+              tableReserved={
+                reservations?.tables.some(
+                  (table) => table.reservedByTeamId === team.team.id,
+                ) ?? false
+              }
+              deadline={submissionDeadline}
+              scheduleAvailable={submissionScheduleAvailable}
               isPending={isPending}
               isSaving={pendingKey === "devpost"}
               onSave={(url) => {
@@ -515,13 +529,30 @@ function RenameTeamForm({
 
 /* ——— forms —————————————————————————————————————————————————————— */
 
+function formatSubmissionDeadline(iso: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Detroit",
+    timeZoneName: "short",
+  }).format(new Date(iso));
+}
+
 function DevpostSubmission({
   savedUrl,
+  tableReserved,
+  deadline,
+  scheduleAvailable,
   isPending,
   isSaving,
   onSave,
 }: {
   savedUrl: string | null;
+  tableReserved: boolean;
+  deadline: string | null;
+  scheduleAvailable: boolean;
   isPending: boolean;
   isSaving: boolean;
   onSave: (url: string) => void;
@@ -530,12 +561,26 @@ function DevpostSubmission({
     resolver: zodResolver(devpostFormSchema),
     defaultValues: { url: savedUrl ?? "" },
   });
+  const beforeDeadline =
+    scheduleAvailable && isBeforeSubmissionDeadline(deadline);
+  const canSubmit = tableReserved && beforeDeadline;
+  const closedAt =
+    deadline && !Number.isNaN(new Date(deadline).getTime())
+      ? formatSubmissionDeadline(deadline)
+      : null;
+  const lede = !tableReserved
+    ? "Reserve a judging table before submitting. A team has one Devpost link."
+    : !scheduleAvailable
+      ? "Project submissions are unavailable right now."
+      : !beforeDeadline
+        ? `Project submissions closed${closedAt ? ` ${closedAt}` : ""}.`
+        : closedAt
+          ? `One Devpost link for the whole team. Submissions close ${closedAt}.`
+          : "One Devpost link for the whole team. Any teammate can update it.";
 
   return (
     <Panel eyebrow="SUBMISSION" status={savedUrl ? "Submitted" : undefined}>
-      <PanelHeading lede="One Devpost link for the whole team. Any teammate can update it.">
-        Submit your project
-      </PanelHeading>
+      <PanelHeading lede={lede}>Submit your project</PanelHeading>
       <form
         onSubmit={form.handleSubmit((values) => onSave(values.url))}
         className="flex flex-col gap-2"
@@ -553,11 +598,15 @@ function DevpostSubmission({
             inputMode="url"
             placeholder="https://devpost.com/software/your-project"
             autoComplete="off"
-            disabled={isPending}
+            disabled={isPending || !canSubmit}
             className={INPUT_CLASS}
             {...form.register("url")}
           />
-          <button type="submit" disabled={isPending} className={ACTION_PRIMARY}>
+          <button
+            type="submit"
+            disabled={isPending || !canSubmit}
+            className={ACTION_PRIMARY}
+          >
             <Caret /> {isSaving ? "Saving…" : savedUrl ? "Update" : "Submit"}
           </button>
         </div>

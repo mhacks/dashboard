@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { selectTablesWithTeam } from "@/lib/db/queries/reservation";
 import { reservationAuditLog, tables } from "@/lib/db/schema/reservation";
 import { teams } from "@/lib/db/schema/teams";
-import { getReservationSettings } from "@/lib/queries/reservation-settings";
+import { getJudgingSettings } from "@/lib/queries/judging-settings";
 import type { TableWithTeam } from "@/lib/reservation/types";
 
 const DEFAULT_AUDIT_PAGE_SIZE = 20;
@@ -25,6 +25,7 @@ const auditPageInputSchema = z.object({
 export type AdminReservationDetail = {
   reservationsOpenAt: string | null;
   reservationsCloseAt: string | null;
+  submissionDeadline: string | null;
   tableCount: number;
   assignedCount: number;
 };
@@ -61,7 +62,7 @@ export const getAdminReservation = cache(
   async (): Promise<AdminReservationDetail> => {
     await requireOrganizer();
     const [settings, [counts]] = await Promise.all([
-      getReservationSettings(),
+      getJudgingSettings(),
       db
         .select({
           tableCount: sql<number>`count(*)::int`,
@@ -72,6 +73,7 @@ export const getAdminReservation = cache(
     return {
       reservationsOpenAt: settings?.reservationsOpenAt ?? null,
       reservationsCloseAt: settings?.reservationsCloseAt ?? null,
+      submissionDeadline: settings?.submissionDeadline ?? null,
       tableCount: counts?.tableCount ?? 0,
       assignedCount: counts?.assignedCount ?? 0,
     };

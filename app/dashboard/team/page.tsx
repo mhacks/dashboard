@@ -16,6 +16,7 @@ import {
   getParticipantReservationSnapshot,
   type ParticipantReservationSnapshot,
 } from "@/lib/db/queries/reservation";
+import { getJudgingSettings } from "@/lib/queries/judging-settings";
 import { TeamView } from "./team-view";
 import { TeamSkeleton } from "./team-skeleton";
 
@@ -49,12 +50,17 @@ async function TeamData() {
     redirect("/dashboard");
   }
 
-  const [team, pendingInvitations, sentInvitations, devpostUrl] =
+  const [team, pendingInvitations, sentInvitations, devpostUrl, settings] =
     await Promise.all([
       getMyTeam(userId),
       getMyPendingInvitations(userId),
       getSentInvitations(userId),
       getMyTeamSubmission(userId),
+      getJudgingSettings().catch((err: unknown) => {
+        const cause = err instanceof Error ? (err.cause ?? err) : err;
+        console.error("[DB] reservation settings query failed:", cause);
+        return undefined;
+      }),
     ]);
 
   let reservations: ParticipantReservationSnapshot | null = null;
@@ -75,6 +81,10 @@ async function TeamData() {
       sentInvitations={sentInvitations}
       reservations={reservations}
       devpostUrl={devpostUrl}
+      submissionDeadline={
+        settings === undefined ? null : (settings?.submissionDeadline ?? null)
+      }
+      submissionScheduleAvailable={settings !== undefined}
     />
   );
 }

@@ -101,6 +101,7 @@ function searchableText(team: AdminTeamSummary): string {
   return [
     team.name,
     team.devpostUrl,
+    team.devpostUrl ? "submitted" : "not submitted",
     ...team.members.flatMap((m) => [m.name, m.email]),
   ]
     .filter(Boolean)
@@ -172,6 +173,16 @@ export function TeamsView({ teams }: { teams: AdminTeamSummary[] }) {
                         {team.pendingInviteCount === 1 ? "invite" : "invites"}
                       </Badge>
                     ) : null}
+                    {team.devpostUrl ? (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/50 dark:text-emerald-300"
+                      >
+                        Submitted
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Not submitted</Badge>
+                    )}
                     {team.renameRequest ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
