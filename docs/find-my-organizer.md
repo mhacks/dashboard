@@ -21,21 +21,23 @@ so a hall full of open pages costs one read per task, not one per hacker.
 
 ## Setting up a phone
 
-Every phone uses the same password, `OWNTRACKS_PASSWORD` (SSM parameter
-`/mhacks-secrets/OWNTRACKS_PASSWORD` in production). If it is unset, the
-endpoint rejects everything. In the OwnTracks app:
+The endpoint has no password. In the OwnTracks app:
 
 1. **Mode:** HTTP.
 2. **URL:** `https://mhacks.org/api/owntracks`.
-3. **Authentication:** on. **Username** is the name shown on the map, so use
-   the name hackers know you by (40 characters at most). **Password** is the
-   shared password.
+3. **Username:** the name shown on the map, so use the name hackers know you by
+   (40 characters at most). Without one, the endpoint rejects the update.
 4. Set location access to **Always** (iOS) so it reports with the phone locked,
    and switch to **Move** mode while on shift.
 
 The username is the only identity. Two phones with the same username show up
-as one person, and anyone with the password can post under any name, so share
-it only with organizers. To lock everyone out, change the password.
+as one person.
+
+**Anyone who finds the URL can post a location under any name**, including a
+fake organizer on the map hackers use to find help. That was accepted to keep
+setup free of AWS changes. To lock it down later, check a shared password in
+the route, read from an env var supplied through SSM in `task-definition.json`
+like the app's other secrets. To remove a bad entry now, use the `delete` below.
 
 ## Stopping and cleanup
 

@@ -1,12 +1,9 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-
 /*
-  The OwnTracks side of find my organizer: checking the shared password and
-  parsing what the app POSTs. Field names follow
-  https://owntracks.org/booklet/tech/json/.
+  The OwnTracks side of find my organizer: who sent a message and what fix it
+  carries. Field names follow https://owntracks.org/booklet/tech/json/.
 */
 
-/** Path the app POSTs to. Public in proxy.ts; the route checks the password. */
+/** Path the app POSTs to. Public in proxy.ts, with no password. */
 export const OWNTRACKS_PATH = "/api/owntracks";
 
 /** Fixes stamped this far in the future are a broken phone clock, not data. */
@@ -14,36 +11,26 @@ const MAX_CLOCK_SKEW_MS = 5 * 60_000;
 const MAX_ACCURACY_M = 100_000;
 export const MAX_NAME_LENGTH = 40;
 
-/**
- * The username and password from an `Authorization: Basic` header. The
- * username is the name shown on the map, so it is trimmed and its whitespace
- * collapsed; null if either part is missing or the name is too long.
- */
-export function basicAuthCredentials(
-  header: string | null,
-): { name: string; password: string } | null {
+function basicAuthUsername(header: string | null) {
   const match = header?.match(/^Basic\s+(\S+)$/i);
   if (!match) return null;
   const decoded = Buffer.from(match[1], "base64").toString("utf8");
   const separator = decoded.indexOf(":");
-  if (separator < 0) return null;
-  const name = decoded.slice(0, separator).trim().replace(/\s+/g, " ");
-  const password = decoded.slice(separator + 1);
-  if (!name || name.length > MAX_NAME_LENGTH || !password) return null;
-  return { name, password };
+  return separator < 0 ? decoded : decoded.slice(0, separator);
 }
 
-const digest = (value: string) => createHash("sha256").update(value).digest();
-
 /**
- * Whether `password` is OWNTRACKS_PASSWORD. Unset means nobody can post, so a
- * missing env var fails closed rather than opening the map to anyone.
+ * The name to show on the map: the username set in the app. It arrives in
+ * the Basic-auth header when authentication is on, and in `X-Limit-U` either
+ * way. Trimmed with whitespace collapsed; null if missing or too long.
  */
-export function isOwntracksPassword(password: string) {
-  const expected = process.env.OWNTRACKS_PASSWORD;
-  if (!expected) return false;
-  // Hashing first gives equal lengths, which timingSafeEqual requires.
-  return timingSafeEqual(digest(password), digest(expected));
+export function owntracksName(headers: Headers): string | null {
+  const raw =
+    basicAuthUsername(headers.get("authorization"))?.trim() ||
+    headers.get("x-limit-u");
+  const name = raw?.trim().replace(/\s+/g, " ");
+  if (!name || name.length > MAX_NAME_LENGTH) return null;
+  return name;
 }
 
 export type OwntracksFix = {

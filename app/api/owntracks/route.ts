@@ -4,8 +4,8 @@ import { db } from "@/lib/db";
 import { organizerLocations } from "@/lib/db/schema/organizer-locations";
 import { ORGANIZER_WINDOW_HOURS } from "@/lib/organizer-locations/display";
 import {
-  basicAuthCredentials,
-  isOwntracksPassword,
+  MAX_NAME_LENGTH,
+  owntracksName,
   parseOwntracksLocation,
 } from "@/lib/organizer-locations/owntracks";
 
@@ -18,28 +18,26 @@ const MAX_BODY_BYTES = 16 * 1024;
   OwnTracks HTTP mode. The app POSTs one JSON message per request and expects a
   200 with a JSON array back; anything else and it keeps the message queued and
   retries. So every message we choose not to store (transitions, waypoints,
-  malformed fixes) still gets `[]`, and only a bad password gets an error the
-  phone will show in the app.
+  malformed fixes) still gets `[]`, and only a missing username gets an error
+  the phone will show in the app.
+
+  There is no password: anyone who finds this URL can put a name on the map.
+  That was a deliberate trade for setup with nothing to configure in AWS.
 */
 function acknowledge() {
   return Response.json([]);
 }
 
-function unauthorized() {
-  return new Response("Unauthorized", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="MHacks find my organizer"' },
-  });
+function missingName() {
+  return new Response(
+    `Set a username of up to ${MAX_NAME_LENGTH} characters in OwnTracks; it is the name shown on the map.`,
+    { status: 400 },
+  );
 }
 
 export async function POST(request: Request) {
-  const credentials = basicAuthCredentials(
-    request.headers.get("authorization"),
-  );
-  if (!credentials || !isOwntracksPassword(credentials.password)) {
-    return unauthorized();
-  }
-  const { name } = credentials;
+  const name = owntracksName(request.headers);
+  if (!name) return missingName();
 
   const body = await request.text();
   if (body.length > MAX_BODY_BYTES) return acknowledge();

@@ -175,7 +175,7 @@ export function PeopleView({
         {people.length === 0 ? (
           <p className="border border-dashed border-ui-line-strong p-4 text-sm leading-[1.55] text-ui-ink-soft">
             {organizerView
-              ? "No phone has reported in yet. Set up OwnTracks with the shared password to appear here."
+              ? "No phone has reported in yet. Set up OwnTracks to appear here."
               : `No organizers have shared their location in the last ${PUBLIC_WINDOW_MINUTES} minutes. Ask anyone in an organizer shirt, or head to the front desk.`}
           </p>
         ) : (

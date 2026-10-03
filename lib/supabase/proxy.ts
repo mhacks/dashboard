@@ -52,8 +52,8 @@ function isPublicPath(pathname: string) {
     // the redirect below is exactly how a member gets sent to log in and then
     // returned to the page with the token intact.
     isPathOrChild(pathname, "/discord_auth/claim") ||
-    // The OwnTracks app on an organizer's phone has no session; the route
-    // checks the shared Basic-auth password instead.
+    // The OwnTracks app on an organizer's phone has no session. Deliberately
+    // unauthenticated; see the route.
     pathname === "/api/owntracks"
   );
 }
