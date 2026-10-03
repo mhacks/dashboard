@@ -182,19 +182,8 @@ INSERT INTO "public"."live_announcements" (
 )
 ON CONFLICT ("id") DO NOTHING;
 
--- Checked-in hackers only. Early RSVPs stay unconfirmed at the door.
--- Accounts are created in seeds/rsvp-demo.sql, which runs before this file.
-DELETE FROM "public"."event_checkins"
-WHERE "event_id" = '10000000-0000-4000-8000-000000000001'
-  AND "user_id" IN (
-    SELECT "id" FROM "public"."users"
-    WHERE "email" IN (
-      'early-rsvped@mhacks.test',
-      'regular-rsvped@mhacks.test',
-      'rsvped-reimbursement@mhacks.test'
-    )
-  );
-
+-- Door scans for the two named checked-in accounts. Every other team member
+-- is scanned in the statement below this one.
 INSERT INTO "public"."event_checkins" (
   "id",
   "event_id",
@@ -223,3 +212,26 @@ ON CONFLICT ("event_id", "user_id", "scan_number") DO UPDATE SET
   "checked_in_at" = excluded."checked_in_at",
   "checked_in_by" = excluded."checked_in_by",
   "method" = excluded."method";
+
+-- The rest of the seeded teams. The named pair above keeps its own scan time.
+INSERT INTO "public"."event_checkins" (
+  "id",
+  "event_id",
+  "user_id",
+  "checked_in_at",
+  "checked_in_by",
+  "method",
+  "scan_number"
+)
+SELECT
+  (
+    '60000000-0000-4000-8000-' || substr(md5("team_members"."user_id"::text), 1, 12)
+  )::uuid,
+  '10000000-0000-4000-8000-000000000001',
+  "team_members"."user_id",
+  now() - interval '30 minutes',
+  '00000000-0000-4000-8000-000000000001',
+  'scan',
+  1
+FROM "public"."team_members"
+ON CONFLICT ("event_id", "user_id", "scan_number") DO NOTHING;

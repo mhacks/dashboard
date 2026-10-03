@@ -1,9 +1,9 @@
 -- Demo team data for local development — exercises the admin "all teams" view
--- (app/admin/teams). Covers: solo/partial/full teams, a hacker with no
--- application yet (email-fallback display name), pending/accepted/declined/
+-- (app/admin/teams). Covers: solo/partial/full teams, pending/accepted/declined/
 -- cancelled invitations, a hacker invited by multiple teams at once, and a
 -- bulk block of 32 more teams (96 more members, reusing the bulk hackers from
 -- application-review-demo.sql) for pagination and search testing.
+-- Everyone on a team is checked in; people who only have a pending invite are not.
 
 with demo_users(id, email) as (
   values
@@ -81,8 +81,9 @@ on conflict (id) do update set
   email = excluded.email,
   role = excluded.role;
 
--- Applications for everyone except Nina (...107), who is left without one on
--- purpose so her team shows the email-fallback display name in the admin view.
+-- Applications for every hacker in this file, including Nina. Team members
+-- are checked in by the update at the bottom of this file; pending invitees
+-- stay accepted and off a team.
 insert into public.hacker_applicants (
   id, user_id, status, decision, first_name, last_name, phone_number, age, gender,
   ethnicity, university, country, degree, graduation_year,
@@ -103,7 +104,8 @@ values
   ('40000000-0000-4000-8000-000000000209', '40000000-0000-4000-8000-000000000109', 'pending', 'regular_accepted', 'Zara', 'Ali', '+14155550209', 20, 'Female', 'South Asian', 'University of Waterloo', 'Canada', 'Bachelor''s', 2028, 1, 'Software Engineering', null, 'A resume-to-portfolio generator.', 'To join an ambitious team.', 'Docs are part of the product.', null, 'Flying', 'Waterloo, ON', 'S', null, true, true, 'YYZ', 'https://github.com/zara-local', 'https://www.linkedin.com/in/zara-local', null, true, true),
   ('40000000-0000-4000-8000-000000000210', '40000000-0000-4000-8000-000000000110', 'pending', 'regular_accepted', 'Theo', 'Novak', '+14155550210', 23, 'Male', 'White', 'Ohio State University', 'United States', 'Bachelor''s', 2026, 3, 'Mathematics', null, 'A pricing-model visualizer.', 'To find a good team.', 'Math should be visual.', null, 'Driving', 'Columbus, OH', 'L', null, false, null, null, 'https://github.com/theo-local', null, null, false, true),
   ('40000000-0000-4000-8000-000000000211', '40000000-0000-4000-8000-000000000111', 'pending', 'regular_accepted', 'Kwame', 'Boateng', '+14155550211', 21, 'Male', 'Black or African American', 'University of Illinois Urbana-Champaign', 'United States', 'Bachelor''s', 2027, 0, 'Electrical Engineering', null, 'A smart power-strip monitor.', 'To find teammates.', 'Measure twice.', null, 'Train', 'Urbana, IL', 'M', null, false, null, null, 'https://github.com/kwame-local', null, null, false, true),
-  ('40000000-0000-4000-8000-000000000212', '40000000-0000-4000-8000-000000000112', 'reviewed', 'regular_accepted', 'Mia', 'Andersson', '+14155550212', 22, 'Female', 'White', 'University of Illinois Urbana-Champaign', 'United States', 'Bachelor''s', 2026, 2, 'Statistics', null, 'A dataset-quality linter.', 'To lead a small team.', 'Clean data first.', null, 'Driving', 'Champaign, IL', 'S', null, false, null, null, 'https://github.com/mia-local', 'https://www.linkedin.com/in/mia-local', null, true, true)
+  ('40000000-0000-4000-8000-000000000212', '40000000-0000-4000-8000-000000000112', 'reviewed', 'regular_accepted', 'Mia', 'Andersson', '+14155550212', 22, 'Female', 'White', 'University of Illinois Urbana-Champaign', 'United States', 'Bachelor''s', 2026, 2, 'Statistics', null, 'A dataset-quality linter.', 'To lead a small team.', 'Clean data first.', null, 'Driving', 'Champaign, IL', 'S', null, false, null, null, 'https://github.com/mia-local', 'https://www.linkedin.com/in/mia-local', null, true, true),
+  ('40000000-0000-4000-8000-000000000207', '40000000-0000-4000-8000-000000000107', 'reviewed', 'checked_in', 'Nina', 'Park', '+14155550207', 21, 'Female', 'Asian', 'University of Michigan', 'United States', 'Bachelor''s', 2027, 1, 'Computer Science', null, 'A check-in roster.', 'To ship with a team.', 'Show up.', null, 'Driving', 'Ann Arbor, MI', 'M', null, false, null, null, 'https://github.com/nina-local', null, null, true, true)
 on conflict (user_id) do update set
   status = excluded.status,
   decision = excluded.decision,
@@ -212,3 +214,9 @@ from bulk_members
 on conflict (user_id) do update set
   team_id = excluded.team_id,
   joined_at = excluded.joined_at;
+
+-- Team pages open only after check-in. Every seeded member, including teams
+-- created by earlier seed files, has that decision.
+update public.hacker_applicants
+set decision = 'checked_in'
+where user_id in (select user_id from public.team_members);
