@@ -31,11 +31,11 @@ inactivity_timeout = "8h"
 [auth.rate_limit]
 # Shared local + production limits (merged on `pnpm supabase config push`).
 # Project-wide OTP/email sends per hour.
-email_sent = 2000
+email_sent = 5000
 # OTP sign-in requests per IP per 5 minutes.
-sign_in_sign_ups = 200
+sign_in_sign_ups = 2000
 # OTP verification attempts per IP per 5 minutes.
-token_verifications = 200
+token_verifications = 2000
 
 [auth.mfa.totp]
 enroll_enabled = true
