@@ -14,6 +14,7 @@ const LINKS = [
     exact: false,
   },
   { href: "/admin/teams/reservations/audit", label: "Audit", exact: false },
+  { href: "/admin/teams/judging", label: "Judging", exact: false },
 ];
 
 export function TeamsNav() {
