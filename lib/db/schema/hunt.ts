@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -74,7 +75,12 @@ export const huntCodes = pgTable(
 
 /*
   One row per hacker who has unlocked the hunt, so they can come back to the
-  puzzle without asking for another code. Later stages can add columns here.
+  puzzle without asking for another code. Later stages add columns here.
+
+  `petal_code` is the final code: made at random the first time the hacker
+  clicks a petal of their assigned flower on the main page, and shown to them
+  again on every later click. Random rather than derived from the user ID, so
+  reading the source doesn't let anyone compute their own.
 */
 export const huntProgress = pgTable(
   "hunt_progress",
@@ -88,8 +94,14 @@ export const huntProgress = pgTable(
     })
       .defaultNow()
       .notNull(),
+    petalCode: text("petal_code"),
+    petalFoundAt: timestamp("petal_found_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
   },
   (table) => [
+    unique("hunt_progress_petal_code_unique").on(table.petalCode),
     foreignKey({
       columns: [table.userId],
       foreignColumns: [users.id],

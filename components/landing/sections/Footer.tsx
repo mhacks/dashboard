@@ -113,6 +113,7 @@ export function Footer({
             >
               <Image
                 src="/timeline/garland-orange.webp"
+                data-hunt-flower="michigan-lily"
                 alt=""
                 width={2200}
                 height={600}

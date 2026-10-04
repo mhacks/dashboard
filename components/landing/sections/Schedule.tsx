@@ -80,6 +80,7 @@ export function Schedule() {
         >
           <Image
             src="/social/garland-white.webp"
+            data-hunt-flower="lily-of-the-valley"
             alt=""
             width={2200}
             height={634}

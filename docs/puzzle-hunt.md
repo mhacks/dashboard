@@ -41,12 +41,32 @@ the hacker's flower.
 - **The wall is seeded per hacker** (`lib/hunt/puzzle-text.ts`): a reload shows
   the same text, while two hackers find the passage in different places. It is
   never the first sentence on the page.
-- **Next step, not built yet:** clicking a petal of the assigned flower on the
-  main page shows the hacker a code unique to them.
+
+## The petal
+
+The riddle sends the hacker back to the main page to click a petal of their
+flower. The flower images there carry `data-hunt-flower="<id>"`, and
+`components/landing/HuntPetals.tsx` listens for clicks on the page: if one
+lands on a petal of a tagged image, it asks the server (`pickPetal`) whether
+that is the hacker's flower. If it is, a toast shows their final code, e.g.
+`GM4Y-4W09`, and stays until they close it.
+
+- **Petal, not stem or leaf**, is decided by the colour of the clicked pixel:
+  solid, not green, and not the dark centre of a black-eyed Susan. The art's
+  stems and leaves are all green.
+- **Every miss looks the same**: logged out, not in the hunt, puzzle not
+  unlocked, or the wrong flower all do nothing, so clicking every flower
+  doesn't reveal which one is yours.
+- **The code is random**, made on the first right click and stored in
+  `hunt_progress.petal_code` with `petal_found_at`; clicking again shows the
+  same one. Look a hacker's code up there to check it.
+- The garlands stay `pointer-events-none`, so nothing beneath them stops
+  working.
 
 ## Resetting
 
 ```sql
 delete from public.hunt_progress where user_id = '…'; -- one hacker starts over
+update public.hunt_progress set petal_code = null, petal_found_at = null where user_id = '…'; -- redo just the petal
 delete from public.hunt_progress; delete from public.hunt_codes; -- everyone
 ```

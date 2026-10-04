@@ -19,6 +19,18 @@ export function newHuntCode() {
     .padStart(HUNT_CODE_LENGTH, "0");
 }
 
+/** Crockford base32: no I, L, O or U, so a code copied by hand can't be misread. */
+const PETAL_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/** The final code a hacker gets for their flower, e.g. `7KQ2-X9T4`. */
+export function newPetalCode() {
+  const chars = Array.from(
+    { length: 8 },
+    () => PETAL_ALPHABET[randomInt(0, PETAL_ALPHABET.length)],
+  ).join("");
+  return `${chars.slice(0, 4)}-${chars.slice(4)}`;
+}
+
 export function isHuntCodeShape(value: unknown): value is string {
   return (
     typeof value === "string" &&
