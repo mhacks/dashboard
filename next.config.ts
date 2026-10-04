@@ -22,6 +22,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        // The hunt's step 0 cipher once decrypted to this plural URL; anyone
+        // retyping it from memory still lands on the map.
+        source: "/find-my-organizers",
+        destination: "/find-my-organizer",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
