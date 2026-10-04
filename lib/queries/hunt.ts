@@ -1,7 +1,15 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { huntCodes, huntProgress, huntSettings } from "@/lib/db/schema/hunt";
+import { hackerApplicants } from "@/lib/db/schema/applications";
+import {
+  huntCodes,
+  huntDecoyOrganizers,
+  huntProgress,
+  huntSettings,
+} from "@/lib/db/schema/hunt";
+import { users } from "@/lib/db/schema/users";
+import { personNameSql } from "@/lib/db/person-name";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
   flowerById,
@@ -144,4 +152,28 @@ export async function getPetalCode(userId: string) {
     .where(eq(huntProgress.userId, userId))
     .limit(1);
   return row?.petalCode ?? null;
+}
+
+export type HuntDecoyCandidate = {
+  userId: string;
+  name: string;
+  email: string;
+  decoy: boolean;
+};
+
+/** Every organizer, and whether they're a decoy (see huntDecoyOrganizers). */
+export async function getHuntDecoyRoster(): Promise<HuntDecoyCandidate[]> {
+  const name = personNameSql;
+  return db
+    .select({
+      userId: users.id,
+      name,
+      email: users.email,
+      decoy: sql<boolean>`${huntDecoyOrganizers.userId} is not null`,
+    })
+    .from(users)
+    .leftJoin(hackerApplicants, eq(hackerApplicants.userId, users.id))
+    .leftJoin(huntDecoyOrganizers, eq(huntDecoyOrganizers.userId, users.id))
+    .where(eq(users.role, "organizer"))
+    .orderBy(asc(name));
 }

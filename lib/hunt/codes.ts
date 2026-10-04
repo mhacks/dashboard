@@ -12,6 +12,8 @@ export const HUNT_CODE_TTL_MINUTES = 5;
 /** Wrong or right, each try counts; plenty for typos, useless for guessing. */
 export const HUNT_REDEEM_ATTEMPTS = 10;
 export const HUNT_REDEEM_WINDOW_SECONDS = 10 * 60;
+/** Temporary: how long a decoy organizer's code locks a hacker out. */
+export const DECOY_LOCKOUT_MINUTES = 10;
 
 export function newHuntCode() {
   return randomInt(0, 10 ** HUNT_CODE_LENGTH)

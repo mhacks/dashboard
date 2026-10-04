@@ -41,14 +41,16 @@ tries per 10 minutes, right or wrong, which is plenty for typos and useless
 for guessing a million possible codes. A hacker who has unlocked the puzzle
 sees **Go to the puzzle** instead and never needs another code.
 
-**Decoy organizers (temporary).** Organizers listed in `lib/hunt/decoys.ts`
-make codes that look normal, but redeeming one unlocks nothing: the code is
-used up and the hacker can't enter codes for 10 minutes. The lockout lives in
-the rate limiter's table (key `hunt:decoy:<user id>`), so it needs no
-migration and expires by itself. To lift one early:
+**Decoy organizers (temporary).** Organizers ticked on
+**`/admin/hunt-codes/decoys`** (table `hunt_decoy_organizers`) make codes that
+look normal, but redeeming one unlocks nothing: the code is used up and the
+hacker can't enter codes for 10 minutes. That page is separate from Hunt codes
+because Hunt codes is on screen in front of hackers. The lockout lives in the
+rate limiter's table (key `hunt:decoy:<user id>`) and expires by itself. To
+lift one early:
 `delete from public.rate_limiter_flexible where key = 'hunt:decoy:<user id>';`
-Remove the file and its use in `lib/actions/hunt-codes.server.actions.ts`
-when the hunt is over.
+When the hunt is over, remove the page, its admin link, `setHuntDecoy`, the
+check in `redeemHuntCode`, and the table.
 
 Codes are stored as typed in `hunt_codes`: with a million possible values a
 hash would be reversed instantly, so the rate limit and the 5-minute expiry

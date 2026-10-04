@@ -174,4 +174,39 @@ export const huntSettings = pgTable(
   ],
 ).enableRLS();
 
+/*
+  Temporary: decoy organizers, set on /admin/hunt-codes/decoys. Their codes
+  look like anyone else's, but redeeming one unlocks nothing and locks the
+  hacker out of entering codes for a while (redeemHuntCode). Drop the table
+  once the hunt is over.
+*/
+export const huntDecoyOrganizers = pgTable(
+  "hunt_decoy_organizers",
+  {
+    userId: uuid("user_id").primaryKey().notNull(),
+    addedByUserId: uuid("added_by_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "hunt_decoy_organizers_user_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.addedByUserId],
+      foreignColumns: [users.id],
+      name: "hunt_decoy_organizers_added_by_user_id_fkey",
+    }).onDelete("set null"),
+    pgPolicy("hunt_decoy_organizers_organizer_all", {
+      for: "all",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
+    }),
+  ],
+).enableRLS();
+
 export type HuntCodeRow = typeof huntCodes.$inferSelect;

@@ -6,16 +6,20 @@ import { revalidatePath } from "next/cache";
 import { requireOrganizer, requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
-import { huntCodes, huntProgress } from "@/lib/db/schema/hunt";
+import {
+  huntCodes,
+  huntDecoyOrganizers,
+  huntProgress,
+} from "@/lib/db/schema/hunt";
 import { users } from "@/lib/db/schema/users";
 import {
+  DECOY_LOCKOUT_MINUTES,
   HUNT_CODE_TTL_MINUTES,
   HUNT_REDEEM_ATTEMPTS,
   HUNT_REDEEM_WINDOW_SECONDS,
   isHuntCodeShape,
   newHuntCode,
 } from "@/lib/hunt/codes";
-import { DECOY_LOCKOUT_MINUTES, isDecoyOrganizer } from "@/lib/hunt/decoys";
 import { randomFlowerId } from "@/lib/hunt/flowers";
 import { canJoinHunt, hasUnlockedHunt, isHuntEnded } from "@/lib/queries/hunt";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
@@ -31,7 +35,7 @@ const redeemLimiter = drizzleRateLimiter(
 );
 
 /**
- * Temporary (see lib/hunt/decoys.ts): a hacker who redeems a decoy
+ * Temporary (see huntDecoyOrganizers): a hacker who redeems a decoy
  * organizer's code is blocked here for DECOY_LOCKOUT_MINUTES. Kept in the
  * rate limiter's table so it needs no migration and expires on its own.
  */
@@ -148,12 +152,12 @@ export async function redeemHuntCode(
     if (!row) return "invalid";
 
     // A decoy's code is used up like any other, but unlocks nothing.
-    const [organizer] = await tx
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, row.organizerId))
+    const [decoy] = await tx
+      .select({ userId: huntDecoyOrganizers.userId })
+      .from(huntDecoyOrganizers)
+      .where(eq(huntDecoyOrganizers.userId, row.organizerId))
       .limit(1);
-    if (organizer && isDecoyOrganizer(organizer.email)) return "decoy";
+    if (decoy) return "decoy";
 
     await tx
       .insert(huntProgress)
@@ -177,5 +181,45 @@ export async function redeemHuntCode(
     };
   }
   revalidatePath(ADMIN_PATH);
+  return { ok: true };
+}
+
+const DECOYS_PATH = "/admin/hunt-codes/decoys";
+
+export type SetHuntDecoyResult = { ok: true } | { ok: false; message: string };
+
+/** Temporary: marks an organizer as a decoy, or not. */
+export async function setHuntDecoy(
+  userId: unknown,
+  decoy: unknown,
+): Promise<SetHuntDecoyResult> {
+  const organizer = await requireOrganizer();
+  if (
+    typeof userId !== "string" ||
+    !/^[0-9a-f-]{36}$/i.test(userId) ||
+    typeof decoy !== "boolean"
+  ) {
+    return { ok: false, message: "Couldn't update that organizer." };
+  }
+
+  if (decoy) {
+    const [target] = await db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (target?.role !== "organizer") {
+      return { ok: false, message: "Only organizers can be decoys." };
+    }
+    await db
+      .insert(huntDecoyOrganizers)
+      .values({ userId, addedByUserId: organizer.id })
+      .onConflictDoNothing();
+  } else {
+    await db
+      .delete(huntDecoyOrganizers)
+      .where(eq(huntDecoyOrganizers.userId, userId));
+  }
+  revalidatePath(DECOYS_PATH);
   return { ok: true };
 }

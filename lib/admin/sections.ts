@@ -9,6 +9,7 @@ import {
   MapPinIcon,
   MegaphoneIcon,
   QrCodeIcon,
+  ShieldAlertIcon,
   TrophyIcon,
   Users2Icon,
   UsersRoundIcon,
@@ -125,6 +126,13 @@ export const ADMIN_AREAS: AdminArea[] = [
         title: "Hunt codes",
         description: "Make a one-time code for a hacker who found you.",
         icon: KeyRoundIcon,
+      },
+      {
+        // Temporary: remove with the hunt_decoy_organizers table.
+        href: "/admin/hunt-codes/decoys",
+        title: "Hunt decoys",
+        description: "Pick organizers whose codes lock hackers out.",
+        icon: ShieldAlertIcon,
       },
     ],
   },
