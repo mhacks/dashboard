@@ -2,12 +2,12 @@ import { createHash } from "node:crypto";
 
 /*
   The invisible-text puzzle: a wall of Latin, white on white, with one English
-  sentence carrying the hacker's Discord key. Hackers who poke at the "blank"
-  page eventually highlight it and read the sentence.
+  passage carrying the riddle for the hacker's flower (lib/hunt/flowers.ts).
+  Hackers who poke at the "blank" page eventually highlight it and read it.
 
   Everything is seeded from the hacker's user ID, so a reload shows the same
   wall with the sentence in the same place, while two hackers comparing
-  screens find it in different spots with different wording.
+  screens find it in different spots, usually with different riddles.
 */
 
 const PARAGRAPHS = 6;
@@ -24,12 +24,12 @@ const LATIN = (
   "sapien massa convallis pellentesque nec gravida arcu cursus turpis"
 ).split(" ");
 
-/** `{key}` is replaced with the hacker's key. Each tells them exactly what to type. */
-const KEY_SENTENCES = [
-  "Not so blank after all: in the MHacks Discord, run /unlock key:{key} and see who answers.",
-  "You found the words nobody was meant to see, so take them to the MHacks Discord and run /unlock key:{key}.",
-  "Sharp eyes. Your next step is the MHacks Discord, where you run /unlock key:{key}.",
-  "This page was never empty, and the door it hides opens with /unlock key:{key} in the MHacks Discord.",
+/** Opens the hidden passage, so it reads as a message rather than filler. */
+const LEAD_INS = [
+  "Not so blank after all.",
+  "You found the words nobody was meant to see.",
+  "Sharp eyes.",
+  "This page was never empty.",
 ];
 
 /** mulberry32: small, fast, and plenty for shuffling filler. */
@@ -57,7 +57,7 @@ function latinSentence(random: () => number) {
 }
 
 /** The hidden wall for one hacker, as paragraphs of plain text. */
-export function puzzleParagraphs(userId: string, key: string): string[] {
+export function puzzleParagraphs(userId: string, riddle: string): string[] {
   const seed = createHash("sha256")
     .update(`mhacks-puzzle-text-v1:${userId}`)
     .digest()
@@ -74,9 +74,8 @@ export function puzzleParagraphs(userId: string, key: string): string[] {
   // page should still have to keep looking.
   const target = paragraphs[1 + Math.floor(random() * (PARAGRAPHS - 1))];
   const at = Math.floor(random() * (target.length + 1));
-  const sentence = KEY_SENTENCES[
-    Math.floor(random() * KEY_SENTENCES.length)
-  ].replace("{key}", key);
+  const lead = LEAD_INS[Math.floor(random() * LEAD_INS.length)];
+  const sentence = `${lead} ${riddle}`;
   target.splice(at, 0, sentence);
 
   return paragraphs.map((sentences) => sentences.join(" "));

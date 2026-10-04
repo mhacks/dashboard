@@ -2,8 +2,8 @@
 
 The hunt starts on `/find-my-organizer`. A checked-in hacker finds an
 organizer on the map and asks for a code; the code unlocks the first puzzle at
-`/find-my-organizer/puzzle`. Later stages run through the Discord bot
-(`/unlock`, in `mhacks-discord-bot`).
+`/find-my-organizer/puzzle`, whose hidden riddle sends them to a flower on the
+main page.
 
 ## Codes
 
@@ -32,27 +32,17 @@ the puzzle.
 
 `/find-my-organizer/puzzle` looks blank apart from "Hmmm, blank page?". Under
 it is a wall of Latin in white on white. Highlighting it (the site's
-`::selection` is light text on moss) shows one English sentence that tells the
-hacker to run `/unlock key:<their key>` in the MHacks Discord, which is
-challenge 4 in the bot.
+`::selection` is light text on moss) shows one English passage: the riddle for
+the hacker's flower.
 
-- **The key is the bot's.** `lib/hunt/puzzle-key.ts` is a copy of the bot's
-  `puzzleKey()`, derived from the hacker's Discord ID and
-  `DISCORD_LINK_SECRET`, so a key copied from a friend fails.
-  `node scripts/check-puzzle-key.mjs` checks the copy against keys the bot's
-  own code produced; change one side and you must change the other.
-- **No new secret.** `DISCORD_LINK_SECRET` is already shared with the bot for
-  link tokens and comes from SSM in production. The key derivation runs it
-  through HKDF with its own label, so a puzzle key reveals nothing about link
-  tokens. Rotating that secret mid-event would change every hacker's key.
-- **Hackers must link Discord first**, with the bot's Verify button. Until they
-  have, the page tells them to.
+- **Each hacker is assigned a flower** (`lib/hunt/flowers.ts`): one of the five
+  on the main page, chosen from their user ID, so two hackers comparing notes
+  usually have different riddles. The riddles are drafts; edit them there.
 - **The wall is seeded per hacker** (`lib/hunt/puzzle-text.ts`): a reload shows
-  the same text, while two hackers find the sentence in different places and
-  wording. It is never the first sentence on the page.
-- **Locally**, `DISCORD_LINK_SECRET` in `.env.local` must match the bot's `.env`
-  (`pnpm db:env` overwrites `.env.local`). If it is unset, the page says the
-  puzzle isn't switched on yet.
+  the same text, while two hackers find the passage in different places. It is
+  never the first sentence on the page.
+- **Next step, not built yet:** clicking a petal of the assigned flower on the
+  main page shows the hacker a code unique to them.
 
 ## Resetting
 
