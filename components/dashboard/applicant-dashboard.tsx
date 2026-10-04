@@ -111,7 +111,6 @@ export function ApplicantDashboard({
           ) : null}
 
           {checkedIn && role === "hacker" ? <TeamPanel /> : null}
-          {checkedIn && role === "hacker" ? <FindOrganizerPanel /> : null}
           {strandedTeamName ? (
             <StrandedTeamPanel teamName={strandedTeamName} />
           ) : null}
@@ -427,27 +426,6 @@ function HandbookPanel() {
         <div className="w-full shrink-0 sm:w-auto">
           <ButtonLink href="/live" external={false}>
             Open the live site
-          </ButtonLink>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-/**
- * Checked-in hackers only — the page refuses anyone else, so the link would
- * be a dead end before check-in.
- */
-function FindOrganizerPanel() {
-  return (
-    <Panel eyebrow="HELP">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-        <PanelHeading lede="See where organizers are on a map and walk over.">
-          Find an organizer
-        </PanelHeading>
-        <div className="w-full shrink-0 sm:w-auto">
-          <ButtonLink href="/find-my-organizer" external={false}>
-            Open the map
           </ButtonLink>
         </div>
       </div>
