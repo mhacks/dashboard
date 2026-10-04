@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
 import { HUNT_PUZZLE_PATH } from "@/lib/hunt/constants";
@@ -9,6 +9,7 @@ import {
   getHuntFlower,
   hasUnlockedHunt,
 } from "@/lib/queries/hunt";
+import { isFindMyOrganizerHidden } from "@/lib/queries/organizer-locations";
 import { BlockSelectAll } from "./block-select-all";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export const metadata: Metadata = { title: "…" };
 export default async function HuntPuzzlePage() {
   const user = await getSessionUser();
   if (!user) redirect(`/login?next=${HUNT_PUZZLE_PATH}`);
+  if (isFindMyOrganizerHidden(user)) notFound();
   if (!(await canJoinHunt(user)) || !(await hasUnlockedHunt(user.id))) {
     redirect("/find-my-organizer");
   }

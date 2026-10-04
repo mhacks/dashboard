@@ -7,11 +7,12 @@ nothing to turn on in the dashboard.
 
 ## Who sees what
 
-| Viewer                                 | Sees                                                                                   |
-| -------------------------------------- | -------------------------------------------------------------------------------------- |
-| Organizers                             | Everyone who has reported in the last 3 hours, including stale positions, and battery. |
-| Volunteers, judges, checked-in hackers | Name and position of people whose last update is under 15 minutes old. No battery.     |
-| Everyone else                          | A note that the page opens after check-in.                                             |
+| Viewer             | Sees                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| Organizers         | Everyone who has reported in the last 3 hours, including stale positions, and battery. |
+| Volunteers, judges | Name and position of people whose last update is under 15 minutes old. No battery.     |
+| Hackers            | A 404. The page, its puzzle, and hunt codes are hidden from hackers for now.           |
+| Everyone else      | A note that the page opens after check-in.                                             |
 
 The filtering happens on the server, so hackers' browsers never receive stale
 positions or battery levels. For the same reason the page doesn't read Supabase

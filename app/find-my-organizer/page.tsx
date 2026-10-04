@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ButtonLink } from "@/components/console/button";
 import { Panel, PanelHeading } from "@/components/console/panel";
@@ -16,6 +16,7 @@ import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
 import {
   findOrganizerAccess,
   getOrganizerMap,
+  isFindMyOrganizerHidden,
 } from "@/lib/queries/organizer-locations";
 import { HuntCodeEntry } from "./hunt-code-entry";
 import { PeopleView } from "./people-view";
@@ -39,6 +40,7 @@ function BackLink() {
 export default async function FindMyOrganizerPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=/find-my-organizer");
+  if (isFindMyOrganizerHidden(user)) notFound();
 
   const access = await findOrganizerAccess(user);
 
