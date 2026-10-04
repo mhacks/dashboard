@@ -37,19 +37,22 @@ hacker to run `/unlock key:<their key>` in the MHacks Discord, which is
 challenge 4 in the bot.
 
 - **The key is the bot's.** `lib/hunt/puzzle-key.ts` is a copy of the bot's
-  `puzzleKey()`, derived from the hacker's Discord ID and `PUZZLE_SECRET`, so a
-  key copied from a friend fails. `node scripts/check-puzzle-key.mjs` checks the
-  copy against keys the bot's own code produced; change one side and you must
-  change the other.
+  `puzzleKey()`, derived from the hacker's Discord ID and
+  `DISCORD_LINK_SECRET`, so a key copied from a friend fails.
+  `node scripts/check-puzzle-key.mjs` checks the copy against keys the bot's
+  own code produced; change one side and you must change the other.
+- **No new secret.** `DISCORD_LINK_SECRET` is already shared with the bot for
+  link tokens and comes from SSM in production. The key derivation runs it
+  through HKDF with its own label, so a puzzle key reveals nothing about link
+  tokens. Rotating that secret mid-event would change every hacker's key.
 - **Hackers must link Discord first**, with the bot's Verify button. Until they
   have, the page tells them to.
 - **The wall is seeded per hacker** (`lib/hunt/puzzle-text.ts`): a reload shows
   the same text, while two hackers find the sentence in different places and
   wording. It is never the first sentence on the page.
-- **`PUZZLE_SECRET` must match the bot's exactly.** Locally, put the bot's
-  value in `.env.local` (`pnpm db:env` overwrites that file). In production it
-  comes from the SSM parameter `/mhacks-secrets/PUZZLE_SECRET`. If it is unset,
-  the page says the puzzle isn't switched on yet.
+- **Locally**, `DISCORD_LINK_SECRET` in `.env.local` must match the bot's `.env`
+  (`pnpm db:env` overwrites `.env.local`). If it is unset, the page says the
+  puzzle isn't switched on yet.
 
 ## Resetting
 

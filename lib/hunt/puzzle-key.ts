@@ -4,7 +4,8 @@ import { createHmac, hkdfSync } from "node:crypto";
   A deliberate copy of puzzleKey() from the Discord bot's src/puzzle/keys.ts
   (github.com/mhacks/mhacks-discord-bot). The invisible-text puzzle hands each
   hacker this key, and the bot's /unlock recomputes it from their Discord ID,
-  so the two must agree to the character. The repos share no package;
+  so the two must agree to the character. Both derive it from
+  DISCORD_LINK_SECRET, which they already share for link tokens. The repos share no package;
   scripts/check-puzzle-key.mjs asserts this copy against keys the bot's code
   produced. Change one side and you must change the other.
 */

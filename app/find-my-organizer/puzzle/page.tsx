@@ -69,10 +69,14 @@ export default async function HuntPuzzlePage() {
     );
   }
 
-  const secret = process.env.PUZZLE_SECRET;
+  // The secret the bot already shares for link tokens; puzzleKey() gives the
+  // key its own HKDF label.
+  const secret = process.env.DISCORD_LINK_SECRET;
   if (!secret) {
     // Must match the bot's, or every key would be refused; fail visibly.
-    console.error("PUZZLE_SECRET is not set; the hunt puzzle can't make keys.");
+    console.error(
+      "DISCORD_LINK_SECRET is not set; the hunt puzzle can't make keys.",
+    );
     return (
       <Notice
         heading="Not quite ready"
