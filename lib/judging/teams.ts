@@ -56,6 +56,40 @@ export type TableSyncResult = {
  * Callers check the organizer role.
  */
 export async function syncTablesToMdredd(): Promise<TableSyncResult> {
-  const result = await putTables(tableMapping(await getSubmittedTeams()));
+  const mapping = tableMapping(await getSubmittedTeams());
+  const result = await putTables(mapping);
+  lastSent = { key: mappingKey(mapping), at: Date.now() };
   return { stored: result.stored, unknownUrls: result.unknown_urls };
+}
+
+// MDredd draws only projects with a table, so its mapping has to follow
+// assignments as they change. Judges' pair requests resend it when it
+// differs from what this server last sent, or that was over a minute ago
+// (MDredd may have restarted or been archived since).
+const RESEND_AFTER_MS = 60_000;
+let lastSent: { key: string; at: number } | null = null;
+
+function mappingKey(mapping: Record<string, number>): string {
+  return JSON.stringify(
+    Object.entries(mapping).sort(([a], [b]) => a.localeCompare(b)),
+  );
+}
+
+/** Resends the mapping if it changed. A failure leaves MDredd's last copy. */
+export async function syncTablesIfStale(rows: JudgingTeam[]): Promise<void> {
+  const mapping = tableMapping(rows);
+  const key = mappingKey(mapping);
+  if (
+    lastSent &&
+    lastSent.key === key &&
+    Date.now() - lastSent.at < RESEND_AFTER_MS
+  ) {
+    return;
+  }
+  try {
+    await putTables(mapping);
+    lastSent = { key, at: Date.now() };
+  } catch (error) {
+    console.error("[judging] table sync before pair failed:", error);
+  }
 }

@@ -20,6 +20,11 @@ import {
   JUDGE_MAP_ROWS,
   JUDGE_TABLE_WIDTH,
 } from "@/lib/reservation/judge-map";
+import {
+  DEFAULT_PAIR_SECONDS,
+  MAX_PAIR_SECONDS,
+  MIN_PAIR_SECONDS,
+} from "@/lib/judging/timer";
 import { teams } from "./teams";
 import { users } from "./users";
 
@@ -46,6 +51,10 @@ export const judgingSettings = pgTable(
       .notNull(),
     mapColumns: integer("map_columns").notNull().default(JUDGE_MAP_COLUMNS),
     mapRows: integer("map_rows").notNull().default(JUDGE_MAP_ROWS),
+    // How long a judge gets per pair before /judge moves them to a new one.
+    pairSeconds: integer("pair_seconds")
+      .notNull()
+      .default(DEFAULT_PAIR_SECONDS),
   },
   (table) => [
     check("judging_settings_singleton_check", sql`${table.id} = 'default'`),
@@ -62,6 +71,10 @@ export const judgingSettings = pgTable(
     check(
       "judging_settings_map_rows_range",
       sql`${table.mapRows} >= 1 AND ${table.mapRows} <= 40`,
+    ),
+    check(
+      "judging_settings_pair_seconds_range",
+      sql`${table.pairSeconds} >= ${sql.raw(String(MIN_PAIR_SECONDS))} AND ${table.pairSeconds} <= ${sql.raw(String(MAX_PAIR_SECONDS))}`,
     ),
     foreignKey({
       columns: [table.updatedByUserId],

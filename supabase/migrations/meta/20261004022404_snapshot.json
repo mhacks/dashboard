@@ -1,6 +1,6 @@
 {
-  "id": "bef4211a-fd1b-4bf3-a7f3-4ae046a823b6",
-  "prevId": "047f0937-53ea-4a32-95ff-91360b93375d",
+  "id": "ddaf0bf7-9f2d-4a1a-a75d-c880fa2c7bc3",
+  "prevId": "ff1a6057-7b2d-49ef-9cfa-02a77e290dc6",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2903,6 +2903,37 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "flower": {
+          "name": "flower",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "petal_misses": {
+          "name": "petal_misses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "petal_locked_until": {
+          "name": "petal_locked_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "petal_code": {
+          "name": "petal_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "petal_found_at": {
+          "name": "petal_found_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -2935,7 +2966,15 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "hunt_progress_petal_code_unique": {
+          "name": "hunt_progress_petal_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "petal_code"
+          ]
+        }
+      },
       "policies": {
         "hunt_progress_select_own_or_organizer": {
           "name": "hunt_progress_select_own_or_organizer",
@@ -4305,6 +4344,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 22
+        },
+        "pair_seconds": {
+          "name": "pair_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 300
         }
       },
       "indexes": {},
@@ -4362,6 +4408,10 @@
         "judging_settings_map_rows_range": {
           "name": "judging_settings_map_rows_range",
           "value": "\"judging_settings\".\"map_rows\" >= 1 AND \"judging_settings\".\"map_rows\" <= 40"
+        },
+        "judging_settings_pair_seconds_range": {
+          "name": "judging_settings_pair_seconds_range",
+          "value": "\"judging_settings\".\"pair_seconds\" >= 60 AND \"judging_settings\".\"pair_seconds\" <= 1800"
         }
       },
       "isRLSEnabled": true

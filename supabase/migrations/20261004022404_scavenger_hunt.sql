@@ -12,7 +12,13 @@ ALTER TABLE "hunt_codes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "hunt_progress" (
 	"user_id" uuid PRIMARY KEY NOT NULL,
 	"code_id" uuid,
-	"unlocked_at" timestamp with time zone DEFAULT now() NOT NULL
+	"unlocked_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"flower" text,
+	"petal_misses" integer DEFAULT 0 NOT NULL,
+	"petal_locked_until" timestamp with time zone,
+	"petal_code" text,
+	"petal_found_at" timestamp with time zone,
+	CONSTRAINT "hunt_progress_petal_code_unique" UNIQUE("petal_code")
 );
 --> statement-breakpoint
 ALTER TABLE "hunt_progress" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

@@ -1,0 +1,2 @@
+ALTER TABLE "judging_settings" ADD COLUMN "pair_seconds" integer DEFAULT 300 NOT NULL;--> statement-breakpoint
+ALTER TABLE "judging_settings" ADD CONSTRAINT "judging_settings_pair_seconds_range" CHECK ("judging_settings"."pair_seconds" >= 60 AND "judging_settings"."pair_seconds" <= 1800);

@@ -1,6 +1,6 @@
 {
-  "id": "73232640-013b-4cb0-9518-fed3830d92b8",
-  "prevId": "23da79bd-f8e8-4e7a-82f7-72dd5792f918",
+  "id": "ff1a6057-7b2d-49ef-9cfa-02a77e290dc6",
+  "prevId": "047f0937-53ea-4a32-95ff-91360b93375d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2749,246 +2749,6 @@
       },
       "isRLSEnabled": true
     },
-    "public.hunt_codes": {
-      "name": "hunt_codes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "organizer_id": {
-          "name": "organizer_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "redeemed_by": {
-          "name": "redeemed_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "redeemed_at": {
-          "name": "redeemed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "hunt_codes_open_code_key": {
-          "name": "hunt_codes_open_code_key",
-          "columns": [
-            {
-              "expression": "code",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"hunt_codes\".\"redeemed_by\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "hunt_codes_organizer_created_idx": {
-          "name": "hunt_codes_organizer_created_idx",
-          "columns": [
-            {
-              "expression": "organizer_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "hunt_codes_organizer_id_fkey": {
-          "name": "hunt_codes_organizer_id_fkey",
-          "tableFrom": "hunt_codes",
-          "tableTo": "users",
-          "columnsFrom": [
-            "organizer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "hunt_codes_redeemed_by_fkey": {
-          "name": "hunt_codes_redeemed_by_fkey",
-          "tableFrom": "hunt_codes",
-          "tableTo": "users",
-          "columnsFrom": [
-            "redeemed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "hunt_codes_organizer_select": {
-          "name": "hunt_codes_organizer_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "(select public.is_organizer())"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.hunt_progress": {
-      "name": "hunt_progress",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "code_id": {
-          "name": "code_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "unlocked_at": {
-          "name": "unlocked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "flower": {
-          "name": "flower",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "petal_misses": {
-          "name": "petal_misses",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "petal_locked_until": {
-          "name": "petal_locked_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "petal_code": {
-          "name": "petal_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "petal_found_at": {
-          "name": "petal_found_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "hunt_progress_user_id_fkey": {
-          "name": "hunt_progress_user_id_fkey",
-          "tableFrom": "hunt_progress",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "hunt_progress_code_id_fkey": {
-          "name": "hunt_progress_code_id_fkey",
-          "tableFrom": "hunt_progress",
-          "tableTo": "hunt_codes",
-          "columnsFrom": [
-            "code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "hunt_progress_petal_code_unique": {
-          "name": "hunt_progress_petal_code_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "petal_code"
-          ]
-        }
-      },
-      "policies": {
-        "hunt_progress_select_own_or_organizer": {
-          "name": "hunt_progress_select_own_or_organizer",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"hunt_progress\".\"user_id\" = (select auth.uid()) OR (select public.is_organizer())"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
     "public.live_announcements": {
       "name": "live_announcements",
       "schema": "",
@@ -4344,6 +4104,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 22
+        },
+        "pair_seconds": {
+          "name": "pair_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 300
         }
       },
       "indexes": {},
@@ -4401,6 +4168,10 @@
         "judging_settings_map_rows_range": {
           "name": "judging_settings_map_rows_range",
           "value": "\"judging_settings\".\"map_rows\" >= 1 AND \"judging_settings\".\"map_rows\" <= 40"
+        },
+        "judging_settings_pair_seconds_range": {
+          "name": "judging_settings_pair_seconds_range",
+          "value": "\"judging_settings\".\"pair_seconds\" >= 60 AND \"judging_settings\".\"pair_seconds\" <= 1800"
         }
       },
       "isRLSEnabled": true
