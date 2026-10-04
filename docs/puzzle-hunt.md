@@ -1,9 +1,27 @@
 # Puzzle hunt
 
-The hunt starts on `/find-my-organizer`. A checked-in hacker finds an
-organizer on the map and asks for a code; the code unlocks the first puzzle at
-`/find-my-organizer/puzzle`, whose hidden riddle sends them to a flower on the
-main page.
+1. **Marigold's Garden** (`/scavenger-hunt`, public, linked from `/live` as
+   **Scavenger Hunt**): a backstory, an animated garden GIF that hides the key,
+   and a Vigenère ciphertext. It decrypts to a paragraph ending in
+   `www.mhacks.org/find-my-organizer`.
+2. **Find an organizer** (`/find-my-organizer`, checked-in hackers): find an
+   organizer on the map and ask for a code; entering it unlocks the puzzle.
+3. **The invisible-text puzzle** (`/find-my-organizer/puzzle`): a riddle for
+   the hacker's flower hidden in white text.
+4. **The petal** (`/`, the main page): clicking a petal of their flower shows
+   their final code.
+
+## Marigold's Garden
+
+The key is in the GIF, which is served unoptimized: re-encoding it could
+destroy what hides the key. Only the ciphertext lives in the repo, since it
+is public. To change the text, encrypt a new plaintext with
+`node scripts/vigenere.mjs <key> < plaintext.txt` and paste the output into
+`SCAVENGER_CIPHERTEXT` in `app/scavenger-hunt/page.tsx`; keep the key and
+plaintext out of the repo. The script shifts only letters, the way online
+solvers like dCode and CyberChef do, so punctuation and the URL's separators
+survive. `/find-my-organizers` redirects to `/find-my-organizer`, because an
+earlier ciphertext decrypted to the plural.
 
 ## Codes
 
