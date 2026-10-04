@@ -31,6 +31,23 @@ export function newPetalCode() {
   return `${chars.slice(0, 4)}-${chars.slice(4)}`;
 }
 
+/**
+ * A final code as typed into Discord, in the stored `XXXX-XXXX` form, or null
+ * if it can't be one. Forgiving of case, spaces and a missing dash, and reads
+ * the letters Crockford leaves out as the digits they look like.
+ */
+export function normalizePetalCode(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const chars = value
+    .toUpperCase()
+    .replace(/[\s-]/g, "")
+    .replace(/O/g, "0")
+    .replace(/[IL]/g, "1");
+  if (chars.length !== 8 || [...chars].some((c) => !PETAL_ALPHABET.includes(c)))
+    return null;
+  return `${chars.slice(0, 4)}-${chars.slice(4)}`;
+}
+
 export function isHuntCodeShape(value: unknown): value is string {
   return (
     typeof value === "string" &&

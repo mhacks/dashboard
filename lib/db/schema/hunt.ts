@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  check,
   foreignKey,
   index,
   integer,
@@ -131,6 +132,44 @@ export const huntProgress = pgTable(
       for: "select",
       to: authenticatedRole,
       using: sql`${table.userId} = ${authUid} OR ${isOrganizer}`,
+    }),
+  ],
+).enableRLS();
+
+/*
+  One row, id `default`. The hunt ends the moment a hacker submits their own
+  final code to the Discord bot's /submit-code: `ended_at` and
+  `winner_user_id` are set by a single `where ended_at is null` update, so two
+  hackers submitting at once can't both win. A missing row, or a null
+  `ended_at`, means the hunt is still running.
+*/
+export const huntSettings = pgTable(
+  "hunt_settings",
+  {
+    id: text().primaryKey().default("default").notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true, mode: "string" }),
+    winnerUserId: uuid("winner_user_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check("hunt_settings_singleton_check", sql`${table.id} = 'default'`),
+    foreignKey({
+      columns: [table.winnerUserId],
+      foreignColumns: [users.id],
+      name: "hunt_settings_winner_user_id_fkey",
+    }).onDelete("set null"),
+    pgPolicy("hunt_settings_authenticated_select", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`true`,
+    }),
+    pgPolicy("hunt_settings_organizer_all", {
+      for: "all",
+      to: authenticatedRole,
+      using: isOrganizer,
+      withCheck: isOrganizer,
     }),
   ],
 ).enableRLS();

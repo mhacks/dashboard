@@ -15,7 +15,7 @@ import {
   newHuntCode,
 } from "@/lib/hunt/codes";
 import { randomFlowerId } from "@/lib/hunt/flowers";
-import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
+import { canJoinHunt, hasUnlockedHunt, isHuntEnded } from "@/lib/queries/hunt";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
 
 const ADMIN_PATH = "/admin/hunt-codes";
@@ -82,6 +82,12 @@ export async function redeemHuntCode(
   }
   // Already in: no need to spend an organizer's code or an attempt.
   if (await hasUnlockedHunt(user.id)) return { ok: true };
+  if (await isHuntEnded()) {
+    return {
+      ok: false,
+      message: "The scavenger hunt has ended. Thanks for playing!",
+    };
+  }
 
   const blocked = await rateLimitMessage(
     redeemLimiter,
