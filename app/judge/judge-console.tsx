@@ -18,10 +18,16 @@ import {
 import { JudgingMap } from "@/app/dashboard/team/judging-map";
 import {
   getJudgePair,
+  skipJudgePair,
   submitJudgeVote,
+  type JudgeAssignment,
   type JudgePair,
   type JudgeProject,
 } from "@/lib/actions/judging.server.actions";
+import {
+  TIMER_URGENT_SECONDS,
+  TIMER_WARNING_SECONDS,
+} from "@/lib/judging/timer";
 import type { TableWithTeam } from "@/lib/reservation/types";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +47,18 @@ const BLOCKING_CODES = new Set([
   "NOT_CONFIGURED",
 ]);
 
+/** What the last pair request asked for, so a failed one is retried as sent. */
+type PairRequest = { absent?: number[]; skip?: [number, number] };
+
+type ActivePair = {
+  pair: JudgePair;
+  /** Date.now() when time runs out, from the server's time remaining. */
+  deadline: number;
+  durationMs: number;
+};
+
+const pairKey = (pair: JudgePair) => `${pair[0].id}:${pair[1].id}`;
+
 const NETWORK_FAILURE =
   "Could not reach the dashboard. Check your connection and try again.";
 
@@ -53,28 +71,39 @@ export function JudgeConsole({
   columns: number;
   rows: number;
 }) {
-  const [pair, setPair] = useState<JudgePair | null>(null);
+  const [active, setActive] = useState<ActivePair | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [winnerId, setWinnerId] = useState<number | null>(null);
   const [absentIntent, setAbsentIntent] = useState<JudgeProject[] | null>(null);
   const [isPending, startTransition] = useTransition();
-  // The last absence report, so a rate-limited one is retried as sent.
-  const lastAbsent = useRef<number[]>([]);
+  const [now, setNow] = useState(() => Date.now());
+  const lastRequest = useRef<PairRequest>({});
+  // The pair whose timeout is being handled, so it is skipped only once.
+  const expiring = useRef<string | null>(null);
+  const pair = active?.pair ?? null;
 
-  const fetchPair = useCallback(async (absent: number[]) => {
-    lastAbsent.current = absent;
+  const fetchPair = useCallback(async (request: PairRequest) => {
+    lastRequest.current = request;
     try {
-      const result = await getJudgePair(absent);
+      const result = request.skip
+        ? await skipJudgePair(request.skip)
+        : await getJudgePair(request.absent ?? []);
       if (result.ok && result.data) {
-        setPair(result.data);
+        const data: JudgeAssignment = result.data;
+        setActive({
+          pair: data.pair,
+          deadline: Date.now() + data.remainingMs,
+          durationMs: data.durationMs,
+        });
+        setNow(Date.now());
         setWinnerId(null);
         setFailure(null);
-        lastAbsent.current = [];
+        lastRequest.current = {};
         return;
       }
       if (!result.ok) {
         setFailure({ ...result, source: "load" });
-        if (result.code && BLOCKING_CODES.has(result.code)) setPair(null);
+        if (result.code && BLOCKING_CODES.has(result.code)) setActive(null);
       }
     } catch {
       setFailure({ error: NETWORK_FAILURE, source: "load" });
@@ -82,11 +111,33 @@ export function JudgeConsole({
   }, []);
 
   const load = useCallback(
-    (absent: number[] = []) => {
-      startTransition(() => fetchPair(absent));
+    (request: PairRequest = {}) => {
+      startTransition(() => fetchPair(request));
     },
     [fetchPair],
   );
+
+  // Tick while a pair is open.
+  useEffect(() => {
+    if (!active) return;
+    const tick = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(tick);
+  }, [active]);
+
+  const remainingMs = active ? Math.max(0, active.deadline - now) : 0;
+  const expired = active !== null && remainingMs === 0;
+
+  // Out of time: give the pair up unjudged and move on. A vote already on
+  // its way is left to finish; the next pair loads after it either way.
+  useEffect(() => {
+    if (!expired || !active || isPending) return;
+    const key = pairKey(active.pair);
+    if (expiring.current === key) return;
+    expiring.current = key;
+    setAbsentIntent(null);
+    toast.info("Time's up. Here's your next pair.");
+    load({ skip: [active.pair[0].id, active.pair[1].id] });
+  }, [expired, active, isPending, load]);
 
   useEffect(() => {
     load();
@@ -97,7 +148,7 @@ export function JudgeConsole({
   useEffect(() => {
     if (failure?.source !== "load" || failure.code !== "RATE_LIMITED") return;
     const timer = setTimeout(
-      () => load(lastAbsent.current),
+      () => load(lastRequest.current),
       Math.max(1_000, failure.retryAfterMs ?? 5_000),
     );
     return () => clearTimeout(timer);
@@ -112,14 +163,14 @@ export function JudgeConsole({
         if (!result.ok) {
           if (result.code === "JUDGE_DOES_NOT_OWN_PAIR") {
             toast.error(result.error);
-            await fetchPair([]);
+            await fetchPair({});
             return;
           }
           setFailure({ ...result, source: "vote" });
           return;
         }
         toast.success("Vote recorded.");
-        await fetchPair([]);
+        await fetchPair({});
       } catch {
         setFailure({ error: NETWORK_FAILURE, source: "vote" });
       }
@@ -128,7 +179,7 @@ export function JudgeConsole({
 
   function reportAbsent(projects: JudgeProject[]) {
     setAbsentIntent(null);
-    load(projects.map((project) => project.id));
+    load({ absent: projects.map((project) => project.id) });
   }
 
   if (!pair) {
@@ -150,7 +201,7 @@ export function JudgeConsole({
               <button
                 type="button"
                 disabled={isPending}
-                onClick={() => load(lastAbsent.current)}
+                onClick={() => load(lastRequest.current)}
                 className={buttonClass("outline", "disabled:opacity-50")}
               >
                 {isPending ? "Checking…" : "Check again"}
@@ -177,13 +228,27 @@ export function JudgeConsole({
           Which project is better?
         </PanelHeading>
 
+        {active ? (
+          <PairTimer remainingMs={remainingMs} durationMs={active.durationMs} />
+        ) : null}
+
         {failure ? (
-          <p
+          <div
             role="alert"
-            className="border border-ui-line-strong bg-ui-well px-3.5 py-2.5 text-sm text-ui-ink"
+            className="flex flex-wrap items-center justify-between gap-3 border border-ui-line-strong bg-ui-well px-3.5 py-2.5 text-sm text-ui-ink"
           >
-            {failure.error}
-          </p>
+            <span>{failure.error}</span>
+            {failure.source === "load" && failure.code !== "RATE_LIMITED" ? (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => load(lastRequest.current)}
+                className="font-red-hat-mono text-[12px] underline underline-offset-2 disabled:opacity-50"
+              >
+                Try again
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="grid gap-3.5 sm:grid-cols-2">
@@ -267,6 +332,92 @@ export function JudgeConsole({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function formatClock(ms: number) {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+/**
+ * The pair's countdown. Amber under a minute, red and pulsing in the last
+ * seconds. Screen readers hear the stage changes, not every tick.
+ */
+function PairTimer({
+  remainingMs,
+  durationMs,
+}: {
+  remainingMs: number;
+  durationMs: number;
+}) {
+  const seconds = remainingMs / 1000;
+  const stage =
+    seconds <= TIMER_URGENT_SECONDS
+      ? "urgent"
+      : seconds <= TIMER_WARNING_SECONDS
+        ? "warning"
+        : "normal";
+  const fraction = durationMs > 0 ? Math.min(1, remainingMs / durationMs) : 0;
+  const announcement =
+    stage === "urgent"
+      ? "A few seconds left on this pair."
+      : stage === "warning"
+        ? "Less than a minute left on this pair."
+        : "";
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-2 border px-3.5 py-3 transition-colors",
+        stage === "normal" && "border-ui-line bg-ui-well",
+        stage === "warning" &&
+          "border-amber-500 bg-amber-50 dark:bg-amber-950/40",
+        stage === "urgent" &&
+          "animate-pulse border-red-600 bg-red-50 motion-reduce:animate-none dark:bg-red-950/40",
+      )}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-red-hat-mono text-[11px] tracking-[0.18em] text-ui-ink-soft">
+          {stage === "normal" ? "TIME LEFT" : "TIME ALMOST UP"}
+        </span>
+        <span
+          role="timer"
+          aria-label={`${formatClock(remainingMs)} left on this pair`}
+          className={cn(
+            "font-red-hat-mono text-2xl font-bold tabular-nums",
+            stage === "normal" && "text-ui-ink",
+            stage === "warning" && "text-amber-700 dark:text-amber-400",
+            stage === "urgent" && "text-red-700 dark:text-red-400",
+          )}
+        >
+          {formatClock(remainingMs)}
+        </span>
+      </div>
+      <div aria-hidden className="h-2 w-full overflow-hidden bg-ui-line">
+        <div
+          className={cn(
+            "h-full transition-[width] duration-300 ease-linear",
+            stage === "normal" && "bg-ui-ink",
+            stage === "warning" && "bg-amber-500",
+            stage === "urgent" && "bg-red-600",
+          )}
+          style={{ width: `${fraction * 100}%` }}
+        />
+      </div>
+      {stage !== "normal" ? (
+        <p className="text-sm text-ui-ink">
+          {stage === "urgent"
+            ? "Vote now, or you'll move to a new pair."
+            : "Less than a minute left. Vote before time runs out."}
+        </p>
+      ) : null}
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+    </div>
   );
 }
 

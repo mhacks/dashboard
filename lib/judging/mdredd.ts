@@ -177,16 +177,28 @@ export async function getExportCsv() {
 
 /* ——— judge ————————————————————————————————————————————————————— */
 
+export type MdreddPair = {
+  pair: [MdreddProject, MdreddProject];
+  /** Unix seconds the pair was handed out. */
+  assigned_at: number;
+  /** MDredd's clock when it answered, in Unix seconds. */
+  server_time: number;
+};
+
 /**
  * The judge's open pair, or a new one. With `absent`, strikes those projects
- * from the current pair and returns the next pair.
+ * from the current pair and returns the next pair. With `skip` (the open
+ * pair's ids), gives that pair up unjudged and returns the next one.
  */
-export async function requestPair(judgeId: string, absent: number[] = []) {
-  const body = await postJson<{ pair: [MdreddProject, MdreddProject] }>(
-    "/pairs",
-    { judge_id: judgeId, absent },
-  );
-  return body.pair;
+export function requestPair(
+  judgeId: string,
+  options: { absent?: number[]; skip?: [number, number] } = {},
+) {
+  return postJson<MdreddPair>("/pairs", {
+    judge_id: judgeId,
+    absent: options.absent ?? [],
+    ...(options.skip ? { skip: options.skip } : {}),
+  });
 }
 
 export async function submitComparison(

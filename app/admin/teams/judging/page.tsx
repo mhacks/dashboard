@@ -6,7 +6,9 @@ import {
   isMdreddConfigured,
 } from "@/lib/judging/mdredd";
 import { getSubmittedTeams, teamsByUrl } from "@/lib/judging/teams";
+import { DEFAULT_PAIR_SECONDS } from "@/lib/judging/timer";
 import { normalizeDevpostUrl } from "@/lib/judging/url";
+import { getJudgingSettings } from "@/lib/queries/judging-settings";
 import {
   JudgingManagement,
   type JudgingPageState,
@@ -30,12 +32,14 @@ async function loadJudging(): Promise<JudgingPageState> {
   }
 
   try {
-    const [started, pool, rankings, submittedTeams] = await Promise.all([
-      getJudgingStarted(),
-      getPool(),
-      getRankings(),
-      getSubmittedTeams(),
-    ]);
+    const [started, pool, rankings, submittedTeams, settings] =
+      await Promise.all([
+        getJudgingStarted(),
+        getPool(),
+        getRankings(),
+        getSubmittedTeams(),
+        getJudgingSettings(),
+      ]);
     const byUrl = teamsByUrl(submittedTeams);
     const rankOf = new Map(rankings.map((row, index) => [row.id, index + 1]));
 
@@ -70,7 +74,15 @@ async function loadJudging(): Promise<JudgingPageState> {
               devpostUrl: team.devpostUrl,
             }));
 
-    return { kind: "ready", started, projects, unmatchedTeams };
+    return {
+      kind: "ready",
+      started,
+      projects,
+      unmatchedTeams,
+      pairMinutes: Math.round(
+        (settings?.pairSeconds ?? DEFAULT_PAIR_SECONDS) / 60,
+      ),
+    };
   } catch (error) {
     return {
       kind: "error",
