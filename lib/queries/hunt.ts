@@ -1,6 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { discordAccounts } from "@/lib/db/schema/discord";
 import { huntCodes, huntProgress } from "@/lib/db/schema/hunt";
 import type { UserEntry } from "@/lib/db/schema/users";
 import { findOrganizerAccess } from "@/lib/queries/organizer-locations";
@@ -71,4 +72,18 @@ export async function hasUnlockedHunt(userId: string) {
     .where(eq(huntProgress.userId, userId))
     .limit(1);
   return Boolean(row);
+}
+
+/**
+ * The Discord account this hacker linked through the bot's Verify button.
+ * The bot derives each hacker's /unlock key from it, so the puzzle can't hand
+ * out a key until it exists.
+ */
+export async function getLinkedDiscordId(userId: string) {
+  const [row] = await db
+    .select({ discordUserId: discordAccounts.discordUserId })
+    .from(discordAccounts)
+    .where(eq(discordAccounts.userId, userId))
+    .limit(1);
+  return row?.discordUserId ?? null;
 }

@@ -1,0 +1,83 @@
+import { createHash } from "node:crypto";
+
+/*
+  The invisible-text puzzle: a wall of Latin, white on white, with one English
+  sentence carrying the hacker's Discord key. Hackers who poke at the "blank"
+  page eventually highlight it and read the sentence.
+
+  Everything is seeded from the hacker's user ID, so a reload shows the same
+  wall with the sentence in the same place, while two hackers comparing
+  screens find it in different spots with different wording.
+*/
+
+const PARAGRAPHS = 6;
+
+const LATIN = (
+  "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod " +
+  "tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam " +
+  "quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo " +
+  "consequat duis aute irure in reprehenderit voluptate velit esse cillum " +
+  "fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt " +
+  "culpa qui officia deserunt mollit anim id est laborum curabitur pretium " +
+  "tincidunt lacus nunc vitae facilisis vel augue mauris porta nibh semper " +
+  "viverra nam libero justo laoreet felis ornare quam vestibulum praesent " +
+  "sapien massa convallis pellentesque nec gravida arcu cursus turpis"
+).split(" ");
+
+/** `{key}` is replaced with the hacker's key. Each tells them exactly what to type. */
+const KEY_SENTENCES = [
+  "Not so blank after all: in the MHacks Discord, run /unlock key:{key} and see who answers.",
+  "You found the words nobody was meant to see, so take them to the MHacks Discord and run /unlock key:{key}.",
+  "Sharp eyes. Your next step is the MHacks Discord, where you run /unlock key:{key}.",
+  "This page was never empty, and the door it hides opens with /unlock key:{key} in the MHacks Discord.",
+];
+
+/** mulberry32: small, fast, and plenty for shuffling filler. */
+function seededRandom(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32;
+  };
+}
+
+function latinSentence(random: () => number) {
+  const length = 8 + Math.floor(random() * 10);
+  const words = Array.from(
+    { length },
+    () => LATIN[Math.floor(random() * LATIN.length)],
+  );
+  // An occasional comma keeps the wall from looking machine-made.
+  if (length > 11) words[4 + Math.floor(random() * 4)] += ",";
+  const sentence = words.join(" ");
+  return `${sentence[0].toUpperCase()}${sentence.slice(1)}.`;
+}
+
+/** The hidden wall for one hacker, as paragraphs of plain text. */
+export function puzzleParagraphs(userId: string, key: string): string[] {
+  const seed = createHash("sha256")
+    .update(`mhacks-puzzle-text-v1:${userId}`)
+    .digest()
+    .readUInt32BE(0);
+  const random = seededRandom(seed);
+
+  const paragraphs = Array.from({ length: PARAGRAPHS }, () =>
+    Array.from({ length: 4 + Math.floor(random() * 4) }, () =>
+      latinSentence(random),
+    ),
+  );
+
+  // Never the very first sentence: someone who highlights only the top of the
+  // page should still have to keep looking.
+  const target = paragraphs[1 + Math.floor(random() * (PARAGRAPHS - 1))];
+  const at = Math.floor(random() * (target.length + 1));
+  const sentence = KEY_SENTENCES[
+    Math.floor(random() * KEY_SENTENCES.length)
+  ].replace("{key}", key);
+  target.splice(at, 0, sentence);
+
+  return paragraphs.map((sentences) => sentences.join(" "));
+}

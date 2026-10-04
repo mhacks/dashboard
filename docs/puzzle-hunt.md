@@ -28,6 +28,29 @@ hash would be reversed instantly, so the rate limit and the 5-minute expiry
 are what protect them. `hunt_progress` holds one row per hacker who unlocked
 the puzzle.
 
+## The invisible-text puzzle
+
+`/find-my-organizer/puzzle` looks blank apart from "Hmmm, blank page?". Under
+it is a wall of Latin in white on white. Highlighting it (the site's
+`::selection` is light text on moss) shows one English sentence that tells the
+hacker to run `/unlock key:<their key>` in the MHacks Discord, which is
+challenge 4 in the bot.
+
+- **The key is the bot's.** `lib/hunt/puzzle-key.ts` is a copy of the bot's
+  `puzzleKey()`, derived from the hacker's Discord ID and `PUZZLE_SECRET`, so a
+  key copied from a friend fails. `node scripts/check-puzzle-key.mjs` checks the
+  copy against keys the bot's own code produced; change one side and you must
+  change the other.
+- **Hackers must link Discord first**, with the bot's Verify button. Until they
+  have, the page tells them to.
+- **The wall is seeded per hacker** (`lib/hunt/puzzle-text.ts`): a reload shows
+  the same text, while two hackers find the sentence in different places and
+  wording. It is never the first sentence on the page.
+- **`PUZZLE_SECRET` must match the bot's exactly.** Locally, put the bot's
+  value in `.env.local` (`pnpm db:env` overwrites that file). In production it
+  comes from the SSM parameter `/mhacks-secrets/PUZZLE_SECRET`. If it is unset,
+  the page says the puzzle isn't switched on yet.
+
 ## Resetting
 
 ```sql

@@ -67,6 +67,10 @@
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/DISCORD_LINK_SECRET"
         },
         {
+          "name": "PUZZLE_SECRET",
+          "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/PUZZLE_SECRET"
+        },
+        {
           "name": "APPLE_WALLET_PASS_TYPE_ID",
           "valueFrom": "arn:aws:ssm:us-east-2:AWS_ACCOUNT_ID:parameter/mhacks-secrets/APPLE_WALLET_PASS_TYPE_ID"
         },
