@@ -35,9 +35,12 @@ it is a wall of Latin in white on white. Highlighting it (the site's
 `::selection` is light text on moss) shows one English passage: the riddle for
 the hacker's flower.
 
-- **Each hacker is assigned a flower** (`lib/hunt/flowers.ts`): one of the five
-  on the main page, chosen from their user ID, so two hackers comparing notes
-  usually have different riddles. The riddles are drafts; edit them there.
+- **Each hacker is assigned a flower**: one of the five on the main page
+  (`lib/hunt/flowers.ts`), picked at random when they redeem an organizer's
+  code and stored in `hunt_progress.flower`. It is random rather than derived
+  from their user ID because this repo is public: a formula would let a hacker
+  work out their flower without the puzzle. The riddles are drafts; edit them
+  in that file.
 - **The wall is seeded per hacker** (`lib/hunt/puzzle-text.ts`): a reload shows
   the same text, while two hackers find the passage in different places. It is
   never the first sentence on the page.
@@ -51,12 +54,17 @@ lands on a petal of a tagged image, it asks the server (`pickPetal`) whether
 that is the hacker's flower. If it is, a toast shows their final code, e.g.
 `GM4Y-4W09`, and stays until they close it.
 
-- **Petal, not stem or leaf**, is decided by the colour of the clicked pixel:
-  solid, not green, and not the dark centre of a black-eyed Susan. The art's
-  stems and leaves are all green.
-- **Every miss looks the same**: logged out, not in the hunt, puzzle not
-  unlocked, or the wrong flower all do nothing, so clicking every flower
-  doesn't reveal which one is yours.
+- **Petal, not stem or leaf**, is decided by colour: solid, not green, and not
+  the dark centre of a black-eyed Susan. The garlands sway with a slight
+  rotation, so a click counts if there is petal within 21px of it; a click on
+  the stem right beside a petal counts too. A flower covered by the next
+  section, or clipped off its edge, doesn't count.
+- **A wrong flower locks petals for 5 minutes** and says so (`petal_misses`,
+  `petal_locked_until`); clicks during the lock just say to wait. Clicking
+  through all five flowers therefore costs up to 20 minutes. Once a hacker has
+  their code, other flowers do nothing.
+- **Visitors not in the hunt see nothing**: logged out, not checked in, or
+  puzzle not unlocked.
 - **The code is random**, made on the first right click and stored in
   `hunt_progress.petal_code` with `petal_found_at`; clicking again shows the
   same one. Look a hacker's code up there to check it.
@@ -67,6 +75,6 @@ that is the hacker's flower. If it is, a toast shows their final code, e.g.
 
 ```sql
 delete from public.hunt_progress where user_id = '…'; -- one hacker starts over
-update public.hunt_progress set petal_code = null, petal_found_at = null where user_id = '…'; -- redo just the petal
+update public.hunt_progress set petal_code = null, petal_found_at = null, petal_misses = 0, petal_locked_until = null where user_id = '…'; -- redo just the petal
 delete from public.hunt_progress; delete from public.hunt_codes; -- everyone
 ```

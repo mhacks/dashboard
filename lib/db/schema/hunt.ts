@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   foreignKey,
   index,
+  integer,
   pgPolicy,
   pgTable,
   text,
@@ -77,6 +78,14 @@ export const huntCodes = pgTable(
   One row per hacker who has unlocked the hunt, so they can come back to the
   puzzle without asking for another code. Later stages add columns here.
 
+  `flower` is the flower the hacker hunts for (an id from lib/hunt/flowers.ts),
+  picked at random when they redeem an organizer's code. Rows from before it
+  existed get one the first time it is needed.
+
+  Each wrong flower clicked adds to `petal_misses` and locks petals until
+  `petal_locked_until`, so clicking every flower is slower than solving the
+  riddle.
+
   `petal_code` is the final code: made at random the first time the hacker
   clicks a petal of their assigned flower on the main page, and shown to them
   again on every later click. Random rather than derived from the user ID, so
@@ -94,6 +103,12 @@ export const huntProgress = pgTable(
     })
       .defaultNow()
       .notNull(),
+    flower: text(),
+    petalMisses: integer("petal_misses").default(0).notNull(),
+    petalLockedUntil: timestamp("petal_locked_until", {
+      withTimezone: true,
+      mode: "string",
+    }),
     petalCode: text("petal_code"),
     petalFoundAt: timestamp("petal_found_at", {
       withTimezone: true,

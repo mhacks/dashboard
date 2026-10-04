@@ -9,41 +9,99 @@ import { pickPetal } from "@/lib/actions/hunt-petal.server.actions";
   The last step of the puzzle hunt. Flower images on this page carry
   `data-hunt-flower="<id>"` (ids from lib/hunt/flowers.ts). A click on a petal
   of one asks the server whether it is the clicking hacker's flower; if so,
-  their final code appears in a toast. For everyone else nothing happens.
+  their final code appears in a toast. A wrong flower locks petals for a
+  while, and says so. Visitors who aren't in the hunt see nothing.
 
   The garlands stay pointer-events-none, so nothing underneath stops working:
   this listens on the document and works out from the click's position
-  whether it landed on a flower image, then samples that one pixel.
+  whether it landed on a flower image, then samples the pixels there.
 */
 
 const TOAST_ID = "hunt-petal";
 
-let pixelCanvas: CanvasRenderingContext2D | null = null;
+const minutes = (n: number) => (n === 1 ? "1 minute" : `${n} minutes`);
 
-/** The clicked pixel of the image, or null if the click missed it. */
-function pixelAt(img: HTMLImageElement, x: number, y: number) {
-  const rect = img.getBoundingClientRect();
-  if (
-    !img.complete ||
-    !img.naturalWidth ||
-    x < rect.left ||
-    x > rect.right ||
-    y < rect.top ||
-    y > rect.bottom
-  ) {
-    return null;
-  }
-  pixelCanvas ??= Object.assign(document.createElement("canvas"), {
-    width: 1,
-    height: 1,
+type Pixels = { data: Uint8ClampedArray; width: number; height: number };
+
+/**
+ * Each flower image's pixels, drawn whole once per source. Drawing it whole
+ * matters: these come through the image optimizer with a srcset, so the
+ * downloaded bitmap is not `naturalWidth` wide, and sampling a 1px slice of
+ * the source lands somewhere else. The whole-image draw uses one consistent
+ * size, which is the one read back here.
+ */
+const pixelCache = new Map<string, Pixels>();
+
+function pixelsOf(img: HTMLImageElement): Pixels | null {
+  const key = img.currentSrc || img.src;
+  const cached = pixelCache.get(key);
+  if (cached) return cached;
+  const width = img.naturalWidth;
+  const height = img.naturalHeight;
+  const ctx = Object.assign(document.createElement("canvas"), {
+    width,
+    height,
   }).getContext("2d", { willReadFrequently: true });
-  if (!pixelCanvas) return null;
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, width, height);
+  const pixels = {
+    data: ctx.getImageData(0, 0, width, height).data,
+    width,
+    height,
+  };
+  pixelCache.set(key, pixels);
+  return pixels;
+}
 
-  const sx = ((x - rect.left) / rect.width) * img.naturalWidth;
-  const sy = ((y - rect.top) / rect.height) * img.naturalHeight;
-  pixelCanvas.clearRect(0, 0, 1, 1);
-  pixelCanvas.drawImage(img, sx, sy, 1, 1, 0, 0, 1, 1);
-  return pixelCanvas.getImageData(0, 0, 1, 1).data;
+/** One pixel of the image, at a point given as fractions of its size. */
+function sample(pixels: Pixels, fx: number, fy: number) {
+  if (fx < 0 || fx >= 1 || fy < 0 || fy >= 1) return null;
+  const i =
+    (Math.floor(fy * pixels.height) * pixels.width +
+      Math.floor(fx * pixels.width)) *
+    4;
+  return pixels.data.subarray(i, i + 4);
+}
+
+/**
+ * How far from the click a petal still counts. The garlands sway with a
+ * slight rotation about one end, so mapping the click straight into the image
+ * can be off by up to ~20px at the far end, and by a different amount every
+ * moment. Searching this radius means a click on a petal is never missed; the
+ * cost is that a click on the stem right beside a petal also counts.
+ */
+const RADIUS_PX = 21;
+const STEP_PX = 3;
+
+/** Whether the click at (x, y) landed on (or right beside) a petal of this image. */
+function hitsPetal(img: HTMLImageElement, x: number, y: number) {
+  if (!img.complete || !img.naturalWidth) return false;
+  const rect = img.getBoundingClientRect();
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    return false;
+  }
+  // The landing sections are sheets that overlap and clip their own content,
+  // so a flower can be inside its box yet covered by the next sheet or cut
+  // off. Only count it if what's on top at that spot is the flower's own
+  // section. (elementFromPoint skips the pointer-events-none garland itself.)
+  const section = img.closest("section");
+  const onTop = document.elementFromPoint(x, y);
+  if (section && (!onTop || !section.contains(onTop))) return false;
+
+  const pixels = pixelsOf(img);
+  if (!pixels) return false;
+  for (let dy = -RADIUS_PX; dy <= RADIUS_PX; dy += STEP_PX) {
+    for (let dx = -RADIUS_PX; dx <= RADIUS_PX; dx += STEP_PX) {
+      if (dx * dx + dy * dy > RADIUS_PX * RADIUS_PX) continue;
+      const pixel = sample(
+        pixels,
+        (x + dx - rect.left) / rect.width,
+        (y + dy - rect.top) / rect.height,
+      );
+      if (pixel && isPetal(pixel)) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -84,22 +142,34 @@ export function HuntPetals() {
         "img[data-hunt-flower]",
       );
       for (const img of flowers) {
-        let pixel: Uint8ClampedArray | null;
+        let hit: boolean;
         try {
-          pixel = pixelAt(img, event.clientX, event.clientY);
+          hit = hitsPetal(img, event.clientX, event.clientY);
         } catch {
           continue; // a canvas the browser won't read; never a petal
         }
-        if (!pixel || !isPetal(pixel)) continue;
+        if (!hit) continue;
 
         pending = true;
         try {
-          const { code } = await pickPetal(img.dataset.huntFlower);
-          if (code) {
+          const result = await pickPetal(img.dataset.huntFlower);
+          if (result.status === "found") {
             toast.success("You picked the right petal.", {
               id: TOAST_ID,
-              description: `Your code: ${code}`,
+              description: `Your code: ${result.code}`,
               duration: Infinity,
+            });
+          } else if (result.status === "wrong") {
+            toast.error("Not this flower.", {
+              id: TOAST_ID,
+              description: `The petals close for ${minutes(result.minutes)}. Read your riddle again.`,
+              duration: 10_000,
+            });
+          } else if (result.status === "locked") {
+            toast("The petals are still closed.", {
+              id: TOAST_ID,
+              description: `Try again in ${minutes(result.minutes)}.`,
+              duration: 6_000,
             });
           }
         } finally {

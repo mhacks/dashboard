@@ -1,8 +1,13 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { huntCodes, huntProgress } from "@/lib/db/schema/hunt";
 import type { UserEntry } from "@/lib/db/schema/users";
+import {
+  flowerById,
+  randomFlowerId,
+  type HuntFlower,
+} from "@/lib/hunt/flowers";
 import { findOrganizerAccess } from "@/lib/queries/organizer-locations";
 
 /** Postgres text timestamps parse in Node but not Safari; send ISO. */
@@ -71,4 +76,32 @@ export async function hasUnlockedHunt(userId: string) {
     .where(eq(huntProgress.userId, userId))
     .limit(1);
   return Boolean(row);
+}
+
+/**
+ * The flower this hacker hunts for, or null if they haven't unlocked the
+ * hunt. Picked when they redeem a code; a row from before that gets one now,
+ * and the `flower is null` guard keeps two racing requests from disagreeing.
+ */
+export async function getHuntFlower(
+  userId: string,
+): Promise<HuntFlower | null> {
+  const [row] = await db
+    .select({ flower: huntProgress.flower })
+    .from(huntProgress)
+    .where(eq(huntProgress.userId, userId))
+    .limit(1);
+  if (!row) return null;
+  if (row.flower) return flowerById(row.flower);
+
+  await db
+    .update(huntProgress)
+    .set({ flower: randomFlowerId() })
+    .where(and(eq(huntProgress.userId, userId), isNull(huntProgress.flower)));
+  const [assigned] = await db
+    .select({ flower: huntProgress.flower })
+    .from(huntProgress)
+    .where(eq(huntProgress.userId, userId))
+    .limit(1);
+  return flowerById(assigned?.flower ?? null);
 }

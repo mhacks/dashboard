@@ -3,9 +3,12 @@ import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
 import { HUNT_PUZZLE_PATH } from "@/lib/hunt/constants";
-import { assignedFlower } from "@/lib/hunt/flowers";
 import { puzzleParagraphs } from "@/lib/hunt/puzzle-text";
-import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
+import {
+  canJoinHunt,
+  getHuntFlower,
+  hasUnlockedHunt,
+} from "@/lib/queries/hunt";
 import { BlockSelectAll } from "./block-select-all";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +27,9 @@ export default async function HuntPuzzlePage() {
     redirect("/find-my-organizer");
   }
 
-  const paragraphs = puzzleParagraphs(user.id, assignedFlower(user.id).riddle);
+  const flower = await getHuntFlower(user.id);
+  if (!flower) redirect("/find-my-organizer");
+  const paragraphs = puzzleParagraphs(user.id, flower.riddle);
 
   return (
     // Fixed colors, not theme tokens: the trick only works if the text is

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { randomInt } from "node:crypto";
 
 /*
   The flower challenge: each hacker is assigned one of the flowers on the
@@ -7,7 +7,9 @@ import { createHash } from "node:crypto";
   that flower on the main page is the next step.
 
   Assigning flowers per hacker means two hackers comparing notes usually have
-  different riddles and different answers.
+  different riddles and different answers. The pick is random and stored in
+  hunt_progress.flower, not derived from anything: this repo is public, so a
+  formula here would let a hacker work out their flower without the puzzle.
 
   DRAFT RIDDLES. They point at the flower without naming it and say "where you
   first arrived" rather than the main page.
@@ -48,11 +50,10 @@ export const HUNT_FLOWERS = [
 
 export type HuntFlower = (typeof HUNT_FLOWERS)[number];
 
-/** The flower this hacker is looking for. Stable for as long as their account is. */
-export function assignedFlower(userId: string): HuntFlower {
-  const n = createHash("sha256")
-    .update(`mhacks-hunt-flower-v1:${userId}`)
-    .digest()
-    .readUInt32BE(0);
-  return HUNT_FLOWERS[n % HUNT_FLOWERS.length];
+export function randomFlowerId(): HuntFlower["id"] {
+  return HUNT_FLOWERS[randomInt(0, HUNT_FLOWERS.length)].id;
+}
+
+export function flowerById(id: string | null): HuntFlower | null {
+  return HUNT_FLOWERS.find((flower) => flower.id === id) ?? null;
 }

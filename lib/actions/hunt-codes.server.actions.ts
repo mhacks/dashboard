@@ -14,6 +14,7 @@ import {
   isHuntCodeShape,
   newHuntCode,
 } from "@/lib/hunt/codes";
+import { randomFlowerId } from "@/lib/hunt/flowers";
 import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
 
@@ -112,7 +113,7 @@ export async function redeemHuntCode(
 
     await tx
       .insert(huntProgress)
-      .values({ userId: user.id, codeId: row.id })
+      .values({ userId: user.id, codeId: row.id, flower: randomFlowerId() })
       .onConflictDoNothing();
     return true;
   });
