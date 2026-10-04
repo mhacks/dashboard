@@ -62,9 +62,7 @@ export default function ScavengerHuntPage() {
           tended it every fall, and every fall she left a message for whoever
           was curious enough to find it. This year she left only the photograph
           above and a short note: &ldquo;I never write my secrets down. I plant
-          them. Look closely at what&apos;s growing, and you&apos;ll know the
-          word that opens the gate.&rdquo; Her gate has only ever had one lock:
-          a Vigenère cipher.
+          them.&rdquo; Her gate has only ever had one lock: a Vigenère cipher.
         </p>
 
         <section className="flex flex-col gap-3">
