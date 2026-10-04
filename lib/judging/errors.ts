@@ -30,7 +30,8 @@ const MESSAGES: Record<string, string> = {
   JUDGING_NEVER_STARTED: "No projects have been uploaded for judging yet.",
   JUDGING_ALREADY_STARTED:
     "Judging is running with a different project list. Stop judging before uploading a new one.",
-  POOL_EXHAUSTED: "Fewer than two projects are left to judge.",
+  POOL_EXHAUSTED:
+    "Fewer than two projects with a table are left to judge. Projects without a table are skipped.",
   JUDGE_DOES_NOT_OWN_PAIR:
     "That pair is no longer yours. Load your current pair and vote again.",
   ABSENT_NOT_IN_PAIR:

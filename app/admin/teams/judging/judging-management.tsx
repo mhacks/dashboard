@@ -15,8 +15,10 @@ import { toast } from "sonner";
 import {
   restoreJudgingProject,
   setJudgingOpen,
+  setJudgingPairMinutes,
   syncJudgingTables,
 } from "@/lib/actions/judging.server.actions";
+import { MAX_PAIR_SECONDS, MIN_PAIR_SECONDS } from "@/lib/judging/timer";
 import type { JudgingUploadResult } from "@/lib/judging/errors";
 import type { MdreddUnresolvedRow } from "@/lib/judging/mdredd";
 import type { TableSyncResult } from "@/lib/judging/teams";
@@ -66,6 +68,8 @@ export type JudgingPageState =
       projects: JudgingProjectRow[];
       /** Teams whose saved Devpost link matches no uploaded project. */
       unmatchedTeams: UnmatchedTeam[];
+      /** How long judges get per pair. */
+      pairMinutes: number;
     };
 
 export function JudgingManagement({ state }: { state: JudgingPageState }) {
@@ -86,6 +90,7 @@ function ReadyJudging({
   started,
   projects,
   unmatchedTeams,
+  pairMinutes,
 }: Extract<JudgingPageState, { kind: "ready" }>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -151,6 +156,7 @@ function ReadyJudging({
             {removedCount > 0 ? (
               <Badge variant="destructive">{removedCount} removed</Badge>
             ) : null}
+            <PairTimeControl minutes={pairMinutes} />
           </CardContent>
           <CardFooter className="flex flex-wrap gap-2">
             <Button
@@ -266,6 +272,73 @@ function ReadyJudging({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Minutes a judge gets per pair. A pair already handed out keeps its start
+ * time, so a change also shortens or lengthens pairs in progress.
+ */
+function PairTimeControl({ minutes }: { minutes: number }) {
+  const router = useRouter();
+  const [value, setValue] = useState(String(minutes));
+  const [isPending, startTransition] = useTransition();
+  const parsed = Number(value);
+  const changed = Number.isInteger(parsed) && parsed !== minutes;
+
+  function save() {
+    startTransition(async () => {
+      try {
+        const result = await setJudgingPairMinutes(parsed);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(result.message);
+        router.refresh();
+      } catch {
+        toast.error("Could not reach the server. Try again.");
+      }
+    });
+  }
+
+  return (
+    <form
+      className="flex basis-full flex-wrap items-center gap-2 pt-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (changed) save();
+      }}
+    >
+      <label htmlFor="pair-minutes" className="text-sm font-medium">
+        Minutes per pair
+      </label>
+      <Input
+        id="pair-minutes"
+        type="number"
+        inputMode="numeric"
+        min={MIN_PAIR_SECONDS / 60}
+        max={MAX_PAIR_SECONDS / 60}
+        step={1}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        disabled={isPending}
+        className="w-20"
+      />
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        disabled={isPending || !changed}
+      >
+        {isPending ? "Saving…" : "Save"}
+      </Button>
+      <p className="basis-full text-xs text-muted-foreground">
+        When time runs out, the judge moves to a new pair with no vote recorded.
+        Changes apply to pairs already in progress, counted from when each was
+        handed out.
+      </p>
+    </form>
   );
 }
 
@@ -426,8 +499,9 @@ function TablesCard({
         <CardTitle>Tables</CardTitle>
         <CardDescription>
           Projects are matched to teams by the Devpost link each team saved.
-          Judges always see current tables. Sync sends them to the judging
-          server for the export after a team moves.
+          Only projects with a table are sent to judges. Tables are re-sent to
+          the judging server whenever a judge asks for a pair after a change;
+          Sync sends them right away.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5 md:grid-cols-2">
