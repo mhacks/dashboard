@@ -120,6 +120,12 @@ export const ADMIN_AREAS: AdminArea[] = [
         description: "See where organizers are on a map.",
         icon: MapPinIcon,
       },
+      {
+        href: "/admin/hunt-codes",
+        title: "Hunt codes",
+        description: "Make a one-time code for a hacker who found you.",
+        icon: KeyRoundIcon,
+      },
     ],
   },
   {

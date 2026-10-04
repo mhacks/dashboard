@@ -5,6 +5,7 @@ import { Footer } from "@/components/landing/sections/Footer";
 import { Hero } from "@/components/landing/sections/Hero";
 import { Schedule } from "@/components/landing/sections/Schedule";
 import { Sponsors } from "@/components/landing/sections/Sponsors";
+import { HuntPetals } from "@/components/landing/HuntPetals";
 import { StackedPages } from "@/components/landing/StackedPages";
 
 export default function Home() {
@@ -18,6 +19,7 @@ export default function Home() {
       <Faq />
       <Footer />
       <StackedPages />
+      <HuntPetals />
     </main>
   );
 }

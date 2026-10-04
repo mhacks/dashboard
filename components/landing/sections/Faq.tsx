@@ -253,6 +253,7 @@ export function Faq() {
           >
             <MotionImage
               src={v.src}
+              data-hunt-flower="dwarf-lake-iris"
               alt=""
               width={v.intrinsicWidth}
               height={v.intrinsicHeight}
