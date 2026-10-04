@@ -29,16 +29,20 @@ export default async function HuntPuzzlePage() {
     // Fixed colors, not theme tokens: the trick only works if the text is
     // exactly the page's white. Highlighting uses the site's ::selection,
     // light text on moss, which is what gives it away.
-    <main className="min-h-dvh bg-white px-4 py-10 font-red-hat text-[#9a9a94] sm:px-10">
+    <main className="relative min-h-dvh bg-white px-4 py-10 font-red-hat text-[#9a9a94] sm:px-10">
       <p className="text-sm">Hmmm, blank page?</p>
-      <div className="mt-16 max-w-3xl text-[15px] leading-[1.7] text-white sm:ml-[12%]">
+      {/* Small and pinned into the top-right corner, away from where anyone
+          would look for text. */}
+      <div className="absolute top-2 right-2 w-[55%] max-w-[260px] text-[10px] leading-[1.45] text-white">
         {paragraphs.map((paragraph, index) => (
-          <p key={index} className="mb-6">
+          <p key={index} className="mb-2">
             {paragraph}
           </p>
         ))}
       </div>
-      <p className="mt-24 text-right text-sm">Is this the end?</p>
+      <p className="absolute right-4 bottom-8 text-sm sm:right-10">
+        Is this the end?
+      </p>
     </main>
   );
 }

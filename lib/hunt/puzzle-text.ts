@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
   screens find it in different spots, usually with different riddles.
 */
 
-const PARAGRAPHS = 6;
+const PARAGRAPHS = 4;
 
 const LATIN = (
   "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod " +
