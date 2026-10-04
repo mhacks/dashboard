@@ -7,6 +7,7 @@ import { requireOrganizer, requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { huntCodes, huntProgress } from "@/lib/db/schema/hunt";
+import { users } from "@/lib/db/schema/users";
 import {
   HUNT_CODE_TTL_MINUTES,
   HUNT_REDEEM_ATTEMPTS,
@@ -14,6 +15,7 @@ import {
   isHuntCodeShape,
   newHuntCode,
 } from "@/lib/hunt/codes";
+import { DECOY_LOCKOUT_MINUTES, isDecoyOrganizer } from "@/lib/hunt/decoys";
 import { randomFlowerId } from "@/lib/hunt/flowers";
 import { canJoinHunt, hasUnlockedHunt, isHuntEnded } from "@/lib/queries/hunt";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
@@ -27,6 +29,26 @@ const redeemLimiter = drizzleRateLimiter(
   HUNT_REDEEM_ATTEMPTS,
   HUNT_REDEEM_WINDOW_SECONDS,
 );
+
+/**
+ * Temporary (see lib/hunt/decoys.ts): a hacker who redeems a decoy
+ * organizer's code is blocked here for DECOY_LOCKOUT_MINUTES. Kept in the
+ * rate limiter's table so it needs no migration and expires on its own.
+ */
+const decoyLockout = drizzleRateLimiter(
+  "hunt:decoy",
+  1,
+  DECOY_LOCKOUT_MINUTES * 60,
+);
+
+/** Whole minutes left on this hacker's decoy lockout, or 0 if none. */
+async function decoyMinutesLeft(userId: string) {
+  const res = await decoyLockout.get(userId);
+  if (!res || res.consumedPoints <= 1 || res.msBeforeNext <= 0) return 0;
+  return Math.max(1, Math.ceil(res.msBeforeNext / 60_000));
+}
+
+const minutes = (n: number) => `${n} minute${n === 1 ? "" : "s"}`;
 
 /* Errors are returned rather than thrown: production builds replace a thrown
    server-action message with a generic digest. */
@@ -89,6 +111,14 @@ export async function redeemHuntCode(
     };
   }
 
+  const lockedFor = await decoyMinutesLeft(user.id);
+  if (lockedFor) {
+    return {
+      ok: false,
+      message: `You're still locked out for using the wrong organizer's code. Try again in ${minutes(lockedFor)}.`,
+    };
+  }
+
   const blocked = await rateLimitMessage(
     redeemLimiter,
     user.id,
@@ -114,17 +144,33 @@ export async function redeemHuntCode(
           gt(huntCodes.expiresAt, sql`now()`),
         ),
       )
-      .returning({ id: huntCodes.id });
-    if (!row) return false;
+      .returning({ id: huntCodes.id, organizerId: huntCodes.organizerId });
+    if (!row) return "invalid";
+
+    // A decoy's code is used up like any other, but unlocks nothing.
+    const [organizer] = await tx
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, row.organizerId))
+      .limit(1);
+    if (organizer && isDecoyOrganizer(organizer.email)) return "decoy";
 
     await tx
       .insert(huntProgress)
       .values({ userId: user.id, codeId: row.id, flower: randomFlowerId() })
       .onConflictDoNothing();
-    return true;
+    return "ok";
   });
 
-  if (!redeemed) {
+  if (redeemed === "decoy") {
+    await decoyLockout.block(user.id, DECOY_LOCKOUT_MINUTES * 60);
+    revalidatePath(ADMIN_PATH);
+    return {
+      ok: false,
+      message: `Wrong organizer! That code was a trap. You're locked out for ${minutes(DECOY_LOCKOUT_MINUTES)}, then find the right organizer.`,
+    };
+  }
+  if (redeemed === "invalid") {
     return {
       ok: false,
       message: `That code didn't work. It may be mistyped, already used, or more than ${HUNT_CODE_TTL_MINUTES} minutes old.`,
