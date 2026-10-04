@@ -426,8 +426,9 @@ function TablesCard({
         <CardTitle>Tables</CardTitle>
         <CardDescription>
           Projects are matched to teams by the Devpost link each team saved.
-          Judges always see current tables. Sync sends them to the judging
-          server for the export after a team moves.
+          Only projects with a table are sent to judges. Tables are re-sent to
+          the judging server whenever a judge asks for a pair after a change;
+          Sync sends them right away.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5 md:grid-cols-2">

@@ -13,8 +13,10 @@ import {
 } from "@/lib/judging/mdredd";
 import {
   getSubmittedTeams,
+  syncTablesIfStale,
   syncTablesToMdredd,
   teamsByUrl,
+  type JudgingTeam,
   type TableSyncResult,
 } from "@/lib/judging/teams";
 import { normalizeDevpostUrl } from "@/lib/judging/url";
@@ -31,10 +33,11 @@ export type JudgePair = [JudgeProject, JudgeProject];
 
 /* ——— judge ————————————————————————————————————————————————————— */
 
-async function withTeams(
+function withTeams(
   pair: [MdreddProject, MdreddProject],
-): Promise<JudgePair> {
-  const byUrl = teamsByUrl(await getSubmittedTeams());
+  submittedTeams: JudgingTeam[],
+): JudgePair {
+  const byUrl = teamsByUrl(submittedTeams);
   const annotate = (project: MdreddProject): JudgeProject => {
     const team = project.url
       ? byUrl.get(normalizeDevpostUrl(project.url))
@@ -63,8 +66,12 @@ export async function getJudgePair(
   const parsed = absentSchema.safeParse(absent);
   if (!parsed.success) return { ok: false, error: "Invalid absence report." };
   try {
+    // MDredd only draws projects with a table, so give it current tables
+    // before it draws.
+    const submittedTeams = await getSubmittedTeams();
+    await syncTablesIfStale(submittedTeams);
     const pair = await requestPair(user.id, parsed.data);
-    return { ok: true, message: "", data: await withTeams(pair) };
+    return { ok: true, message: "", data: withTeams(pair, submittedTeams) };
   } catch (error) {
     return judgingFailure(error, "Could not load your next pair. Try again.");
   }

@@ -45,14 +45,18 @@ projects that have no table and team links that match no project. A team that
 saved its `.../submissions/...` link instead of its public project link will not
 match.
 
-Judges always see the dashboard's current tables. MDredd's copy, used only for
-the export, is refreshed after each upload, before each export, and by **Sync
-tables**.
+Only projects with a table are drawn for judges; MDredd skips the rest. A
+project with no matching team, or whose team has no table, never reaches a
+judge until it gets one. MDredd's copy of the tables is refreshed after each
+upload, before each export, by **Sync tables**, and whenever a judge asks for a
+pair after assignments have changed (or at least once a minute while judging).
+A pair a judge already holds is still shown if one of its teams loses its
+table; the judge can mark that team absent.
 
 ## Rate limits
 
 MDredd limits pair requests and votes per judge (each judge's dashboard user
 id), so judges do not slow each other down. A judge who requests pairs or votes
 faster than that sees a short wait on `/judge`, which then loads the next pair
-on its own. Admin actions (upload, start, stop, restore, table sync) share one
-limit of a few calls per minute.
+on its own. Admin actions (upload, start, stop, restore) share one limit of a
+few calls per minute. Table syncs have their own, looser limit.
