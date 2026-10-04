@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireSessionUser } from "@/lib/auth/guards";
 import {
   createTeamForUser,
@@ -21,17 +22,31 @@ import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import { hasCheckedIn } from "@/lib/decisions";
 import { db } from "@/lib/db";
 import { hackerApplicants } from "@/lib/db/schema/applications";
-import type { TeamRow } from "@/lib/db/schema/teams";
 import type {
-  MemberTeam,
   TeamWithMembers,
   PendingInvitationSummary,
   SentInvitationSummary,
 } from "@/lib/types/teams";
 
-function toActionError(error: unknown, fallback: string): Error {
+// Failures are returned rather than thrown: Next replaces a thrown server
+// action error's message with a generic one in production builds.
+export type TeamActionResult =
+  { ok: true; warning?: string } | { ok: false; error: string };
+
+function teamActionFailure(
+  error: unknown,
+  fallback: string,
+): Extract<TeamActionResult, { ok: false }> {
+  if (error instanceof z.ZodError) {
+    return { ok: false, error: error.issues[0]?.message ?? fallback };
+  }
+  // The core functions throw plain Errors with messages meant for the
+  // hacker; anything else is unexpected and stays generic.
+  if (error instanceof Error && error.constructor === Error) {
+    return { ok: false, error: error.message };
+  }
   console.error(fallback, error);
-  return new Error(error instanceof Error ? error.message : fallback);
+  return { ok: false, error: fallback };
 }
 
 /** Reads are not covered by the mutation checks in team.actions. */
@@ -47,96 +62,104 @@ async function assertCallerCheckedIn(userId: string): Promise<void> {
   }
 }
 
-export const createTeam = async (name: string): Promise<TeamRow> => {
+export const createTeam = async (name: string): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   try {
-    const team = await createTeamForUser(userId, name);
+    await createTeamForUser(userId, name);
     revalidatePath("/dashboard/team");
-    return team;
+    return { ok: true };
   } catch (error) {
-    throw toActionError(error, "Failed to create team");
+    return teamActionFailure(error, "Failed to create team");
   }
 };
 
 export const inviteToTeam = async (
   email: string,
-): Promise<{ id: string; warning?: string }> => {
+): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   let result;
   try {
     result = await inviteToTeamForUser(userId, email);
     revalidatePath("/dashboard/team");
   } catch (error) {
-    throw toActionError(error, "Failed to send invitation");
+    return teamActionFailure(error, "Failed to send invitation");
   }
 
-  const { invitation, invitedEmail, teamName, inviterName } = result;
+  const { invitedEmail, teamName, inviterName } = result;
   try {
     await sendTeamInviteEmail({ email: invitedEmail, teamName, inviterName });
   } catch (error) {
     console.error("Failed to send team invite email", error);
     return {
-      id: invitation.id,
+      ok: true,
       warning: "Invitation sent, but the email could not be sent.",
     };
   }
 
-  return { id: invitation.id };
+  return { ok: true };
 };
 
-export const acceptInvitation = async (invitationId: string): Promise<void> => {
+export const acceptInvitation = async (
+  invitationId: string,
+): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   try {
     await acceptInvitationForUser(userId, invitationId);
     revalidatePath("/dashboard/team");
+    return { ok: true };
   } catch (error) {
-    throw toActionError(error, "Failed to accept invitation");
+    return teamActionFailure(error, "Failed to accept invitation");
   }
 };
 
 export const declineInvitation = async (
   invitationId: string,
-): Promise<void> => {
+): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   try {
     await declineInvitationForUser(userId, invitationId);
     revalidatePath("/dashboard/team");
+    return { ok: true };
   } catch (error) {
-    throw toActionError(error, "Failed to decline invitation");
+    return teamActionFailure(error, "Failed to decline invitation");
   }
 };
 
-export const cancelInvitation = async (invitationId: string): Promise<void> => {
+export const cancelInvitation = async (
+  invitationId: string,
+): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   try {
     await cancelInvitationForUser(userId, invitationId);
     revalidatePath("/dashboard/team");
+    return { ok: true };
   } catch (error) {
-    throw toActionError(error, "Failed to cancel invitation");
+    return teamActionFailure(error, "Failed to cancel invitation");
   }
 };
 
-export const renameTeam = async (name: string): Promise<MemberTeam> => {
+export const renameTeam = async (name: string): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   try {
-    const team = await renameTeamForUser(userId, name);
+    await renameTeamForUser(userId, name);
     revalidatePath("/dashboard/team");
     revalidatePath("/admin/teams");
-    return team;
+    return { ok: true };
   } catch (error) {
-    throw toActionError(error, "Failed to rename team");
+    return teamActionFailure(error, "Failed to rename team");
   }
 };
 
-export const leaveTeam = async (): Promise<void> => {
+export const leaveTeam = async (): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   try {
     await leaveTeamForUser(userId);
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/team");
     revalidateReservationPaths();
+    return { ok: true };
   } catch (error) {
-    throw toActionError(error, "Failed to leave team");
+    return teamActionFailure(error, "Failed to leave team");
   }
 };
 
@@ -162,13 +185,16 @@ export const getSentInvitations = async (): Promise<
   return getSentInvitationsForUser(userId);
 };
 
-export const saveTeamDevpostUrl = async (url: string): Promise<void> => {
+export const saveTeamDevpostUrl = async (
+  url: string,
+): Promise<TeamActionResult> => {
   const { id: userId } = await requireSessionUser();
   try {
     await saveTeamDevpostUrlForUser(userId, url);
     revalidatePath("/dashboard/team");
     revalidatePath("/admin/teams");
+    return { ok: true };
   } catch (error) {
-    throw toActionError(error, "Failed to save your Devpost link");
+    return teamActionFailure(error, "Failed to save your Devpost link");
   }
 };

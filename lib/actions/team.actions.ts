@@ -113,9 +113,7 @@ function windowClosedError(
   return state === "scheduled" ? scheduled : closed;
 }
 
-async function assertRegistrationWindowOpen(
-  tx: TeamTransaction,
-): Promise<void> {
+async function loadRegistrationWindowState(tx: TeamTransaction) {
   const [settings] = await tx
     .select({
       opensAt: teamRegistrationSettings.opensAt,
@@ -125,15 +123,62 @@ async function assertRegistrationWindowOpen(
     .where(eq(teamRegistrationSettings.id, TEAM_REGISTRATION_SETTINGS_ID))
     .for("share")
     .limit(1);
-  const state = getWindowAvailability({
+  return getWindowAvailability({
     opensAt: settings?.opensAt,
     closesAt: settings?.closesAt,
   }).state;
+}
+
+async function assertRegistrationWindowOpen(
+  tx: TeamTransaction,
+): Promise<void> {
+  const state = await loadRegistrationWindowState(tx);
   if (state !== "open") {
     throw new Error(
       windowClosedError(state, REGISTRATION_NOT_OPEN, REGISTRATION_CLOSED),
     );
   }
+}
+
+/**
+ * Invitations stay open past registration for a team that holds a table, so
+ * a teammate who joins late is still on the team being judged. Call this
+ * only while holding the team row lock: organizer moves and removals lock
+ * teams before tables, and the FOR SHARE here keeps the table from being
+ * released until this transaction commits.
+ */
+async function assertTeamInvitationsOpen(
+  tx: TeamTransaction,
+  teamId: string,
+): Promise<void> {
+  const state = await loadRegistrationWindowState(tx);
+  if (state === "open") return;
+  const [reservedTable] = await tx
+    .select({ id: tables.id })
+    .from(tables)
+    .where(eq(tables.reservedByTeamId, teamId))
+    .for("share")
+    .limit(1);
+  if (!reservedTable) {
+    throw new Error(
+      windowClosedError(state, REGISTRATION_NOT_OPEN, REGISTRATION_CLOSED),
+    );
+  }
+}
+
+async function lockTeamForInvitations(
+  tx: TeamTransaction,
+  teamId: string,
+): Promise<void> {
+  const [team] = await tx
+    .select({ id: teams.id })
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .for("update");
+  if (!team) {
+    throw new Error("This team no longer exists.");
+  }
+  await assertTeamInvitationsOpen(tx, teamId);
 }
 
 async function assertSubmissionWindowOpen(tx: TeamTransaction): Promise<void> {
@@ -289,8 +334,6 @@ export async function inviteToTeam(
   const normalizedEmail = inviteEmailSchema.parse(email);
 
   return db.transaction(async (tx) => {
-    await assertRegistrationWindowOpen(tx);
-
     const [membership] = await tx
       .select({ teamId: teamMembers.teamId })
       .from(teamMembers)
@@ -300,6 +343,19 @@ export async function inviteToTeam(
       throw new Error("You need to be on a team to invite people.");
     }
     const callerTeamId = membership.teamId;
+
+    // Lock the team row before counting — not protecting the hard 4-member
+    // invariant (acceptInvitation's lock does that), but members plus pending
+    // invites must stay within MAX_TEAM_SIZE so open slots can't be spammed.
+    const [team] = await tx
+      .select({ id: teams.id, name: teams.name })
+      .from(teams)
+      .where(eq(teams.id, callerTeamId))
+      .for("update");
+    if (!team) {
+      throw new Error("Your team no longer exists.");
+    }
+    await assertTeamInvitationsOpen(tx, callerTeamId);
 
     const [inviter] = await tx
       .select({
@@ -353,18 +409,6 @@ export async function inviteToTeam(
           ? "They're already on your team."
           : "They're already on a team.",
       );
-    }
-
-    // Lock the team row before counting — not protecting the hard 4-member
-    // invariant (acceptInvitation's lock does that), but members plus pending
-    // invites must stay within MAX_TEAM_SIZE so open slots can't be spammed.
-    const [team] = await tx
-      .select({ id: teams.id, name: teams.name })
-      .from(teams)
-      .where(eq(teams.id, callerTeamId))
-      .for("update");
-    if (!team) {
-      throw new Error("Your team no longer exists.");
     }
 
     const currentMembers = await tx
@@ -430,8 +474,6 @@ export async function acceptInvitation(
   invitationId: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    await assertRegistrationWindowOpen(tx);
-
     const [invitation] = await tx
       .select()
       .from(teamInvitations)
@@ -470,6 +512,7 @@ export async function acceptInvitation(
     if (!team) {
       throw new Error("This team no longer exists.");
     }
+    await assertTeamInvitationsOpen(tx, invitation.teamId);
 
     const currentMembers = await tx
       .select({ userId: teamMembers.userId })
@@ -517,8 +560,23 @@ export async function declineInvitation(
   invitationId: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    await assertRegistrationWindowOpen(tx);
     await loadCheckedInHacker(tx, userId);
+
+    const [invitation] = await tx
+      .select({ teamId: teamInvitations.teamId })
+      .from(teamInvitations)
+      .where(
+        and(
+          eq(teamInvitations.id, invitationId),
+          eq(teamInvitations.invitedUserId, userId),
+          eq(teamInvitations.status, "pending"),
+        ),
+      )
+      .for("update");
+    if (!invitation) {
+      throw new Error("Invitation not found or already handled.");
+    }
+    await lockTeamForInvitations(tx, invitation.teamId);
 
     const now = new Date().toISOString();
     const result = await tx
@@ -544,7 +602,6 @@ export async function cancelInvitation(
   invitationId: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    await assertRegistrationWindowOpen(tx);
     await loadCheckedInHacker(tx, userId);
 
     const [membership] = await tx
@@ -555,6 +612,24 @@ export async function cancelInvitation(
     if (!membership) {
       throw new Error("You're not on a team.");
     }
+
+    // Invitation before team, the order acceptInvitation and
+    // declineInvitation lock in.
+    const [invitation] = await tx
+      .select({ id: teamInvitations.id })
+      .from(teamInvitations)
+      .where(
+        and(
+          eq(teamInvitations.id, invitationId),
+          eq(teamInvitations.teamId, membership.teamId),
+          eq(teamInvitations.status, "pending"),
+        ),
+      )
+      .for("update");
+    if (!invitation) {
+      throw new Error("Invitation not found or already handled.");
+    }
+    await lockTeamForInvitations(tx, membership.teamId);
 
     const now = new Date().toISOString();
     const result = await tx
@@ -681,6 +756,10 @@ export async function getMyPendingInvitations(
       inviterEmail: users.email,
       inviterFirstName: hackerApplicants.firstName,
       inviterLastName: hackerApplicants.lastName,
+      teamHasTable: sql<boolean>`exists (
+        select 1 from ${tables}
+        where ${tables.reservedByTeamId} = ${teamInvitations.teamId}
+      )`,
     })
     .from(teamInvitations)
     .innerJoin(teams, eq(teams.id, teamInvitations.teamId))
@@ -704,6 +783,7 @@ export async function getMyPendingInvitations(
     id: row.id,
     teamId: row.teamId,
     teamName: row.teamName,
+    teamHasTable: row.teamHasTable,
     createdAt: row.createdAt,
     invitedByName:
       displayName(row.inviterFirstName, row.inviterLastName) ??

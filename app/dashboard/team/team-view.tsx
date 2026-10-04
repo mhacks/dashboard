@@ -37,6 +37,7 @@ import {
   cancelInvitation,
   leaveTeam,
   saveTeamDevpostUrl,
+  type TeamActionResult,
 } from "@/lib/actions/team.server.actions";
 import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
 import {
@@ -122,6 +123,12 @@ function windowPhrase(window: WindowSnapshot) {
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
+}
+
+/** Throws a team action's returned failure so runAction toasts it. */
+function unwrap(result: TeamActionResult) {
+  if (!result.ok) throw new Error(result.error);
+  return result;
 }
 
 const createTeamFormSchema = z.object({ name: teamNameSchema });
@@ -294,14 +301,14 @@ export function TeamView({
 
   const onCreateTeam = createForm.handleSubmit((values) => {
     runAction("create", async () => {
-      await createTeam(values.name);
+      unwrap(await createTeam(values.name));
       toast.success("Team created.");
     });
   });
 
   const onRenameTeam = renameForm.handleSubmit((values) => {
     runAction("rename", async () => {
-      await renameTeam(values.name);
+      unwrap(await renameTeam(values.name));
       toast.success("Team renamed.");
       setIsRenaming(false);
     });
@@ -314,7 +321,7 @@ export function TeamView({
 
   const onInvite = inviteForm.handleSubmit((values) => {
     runAction("invite", async () => {
-      const { warning } = await inviteToTeam(values.email);
+      const { warning } = unwrap(await inviteToTeam(values.email));
       if (warning) {
         toast.warning(warning);
       } else {
@@ -326,21 +333,21 @@ export function TeamView({
 
   function onAccept(invitation: PendingInvitationSummary) {
     runAction(`accept:${invitation.id}`, async () => {
-      await acceptInvitation(invitation.id);
+      unwrap(await acceptInvitation(invitation.id));
       toast.success(`Joined ${invitation.teamName}.`);
     });
   }
 
   function onDecline(invitation: PendingInvitationSummary) {
     runAction(`decline:${invitation.id}`, async () => {
-      await declineInvitation(invitation.id);
+      unwrap(await declineInvitation(invitation.id));
       toast.success("Invitation declined.");
     });
   }
 
   function onCancel(invitation: SentInvitationSummary) {
     runAction(`cancel:${invitation.id}`, async () => {
-      await cancelInvitation(invitation.id);
+      unwrap(await cancelInvitation(invitation.id));
       toast.success("Invitation cancelled.");
     });
   }
@@ -355,6 +362,8 @@ export function TeamView({
         )
       : null;
   const fullySubmitted = Boolean(team && tableReserved && devpostUrl);
+  // A team holding a table can keep inviting after registration closes.
+  const invitationsOpen = registrationOpen || tableReserved === true;
 
   const leavePrompt =
     team && team.members.length <= 1
@@ -364,7 +373,7 @@ export function TeamView({
   function confirmLeave() {
     setLeaveDialogOpen(false);
     runAction("leave", async () => {
-      await leaveTeam();
+      unwrap(await leaveTeam());
       toast.success("You left the team.");
     });
   }
@@ -403,7 +412,9 @@ export function TeamView({
                       ? "Check-in is required to manage this team. You can still leave."
                       : team.members.length >= MAX_TEAM_SIZE
                         ? `${windowPhrase(registration)} Your team is full.`
-                        : `${windowPhrase(registration)} Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
+                        : !registrationOpen && invitationsOpen
+                          ? `${windowPhrase(registration)} Your team has a table, so you can still invite up to ${MAX_TEAM_SIZE} people total.`
+                          : `${windowPhrase(registration)} Invite up to ${MAX_TEAM_SIZE} people total to hack together.`
                   }
                 >
                   {team.team.name}
@@ -454,7 +465,7 @@ export function TeamView({
                     onSubmit={onInvite}
                     isPending={isPending}
                     isSending={pendingKey === "invite"}
-                    locked={!registrationOpen}
+                    locked={!invitationsOpen}
                   />
                 ) : null}
 
@@ -463,7 +474,7 @@ export function TeamView({
                     invitations={sentInvitations}
                     isPending={isPending}
                     pendingKey={pendingKey}
-                    locked={!registrationOpen}
+                    locked={!invitationsOpen}
                     onCancel={onCancel}
                   />
                 ) : null}
@@ -494,7 +505,7 @@ export function TeamView({
                     invitations={pendingInvitations}
                     isPending={isPending}
                     pendingKey={pendingKey}
-                    locked={!registrationOpen}
+                    registrationOpen={registrationOpen}
                     onAccept={onAccept}
                     onDecline={onDecline}
                   />
@@ -566,7 +577,7 @@ export function TeamView({
               isSaving={pendingKey === "devpost"}
               onSave={(url) => {
                 runAction("devpost", async () => {
-                  await saveTeamDevpostUrl(url);
+                  unwrap(await saveTeamDevpostUrl(url));
                   toast.success(
                     devpostUrl
                       ? "Devpost link updated."
@@ -960,14 +971,14 @@ function PendingInvitationsList({
   invitations,
   isPending,
   pendingKey,
-  locked,
+  registrationOpen,
   onAccept,
   onDecline,
 }: {
   invitations: PendingInvitationSummary[];
   isPending: boolean;
   pendingKey: string | null;
-  locked: boolean;
+  registrationOpen: boolean;
   onAccept: (invitation: PendingInvitationSummary) => void;
   onDecline: (invitation: PendingInvitationSummary) => void;
 }) {
@@ -976,43 +987,48 @@ function PendingInvitationsList({
       <p className="font-red-hat-mono text-[10.5px] tracking-[0.16em] uppercase text-ui-ink-soft">
         Invitations for you
       </p>
-      {invitations.map((invitation) => (
-        <div
-          key={invitation.id}
-          className="flex flex-wrap items-center justify-between gap-3 border border-ui-line bg-ui-well px-3 py-2.5"
-        >
-          <div className="min-w-0">
-            <p className="truncate font-red-hat-mono text-[13px] font-medium text-ui-ink">
-              {invitation.teamName}
-            </p>
-            <p className="truncate text-[12px] text-ui-ink-soft">
-              from {invitation.invitedByName} ·{" "}
-              {formatDate(invitation.createdAt)}
-            </p>
+      {invitations.map((invitation) => {
+        const locked = !registrationOpen && !invitation.teamHasTable;
+        return (
+          <div
+            key={invitation.id}
+            className="flex flex-wrap items-center justify-between gap-3 border border-ui-line bg-ui-well px-3 py-2.5"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-red-hat-mono text-[13px] font-medium text-ui-ink">
+                {invitation.teamName}
+              </p>
+              <p className="truncate text-[12px] text-ui-ink-soft">
+                from {invitation.invitedByName} ·{" "}
+                {formatDate(invitation.createdAt)}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                disabled={isPending || locked}
+                onClick={() => onDecline(invitation)}
+                className={ACTION_OUTLINE}
+              >
+                {pendingKey === `decline:${invitation.id}`
+                  ? "Declining…"
+                  : "Decline"}
+              </button>
+              <button
+                type="button"
+                disabled={isPending || locked}
+                onClick={() => onAccept(invitation)}
+                className={ACTION_PRIMARY}
+              >
+                <Caret />{" "}
+                {pendingKey === `accept:${invitation.id}`
+                  ? "Joining…"
+                  : "Accept"}
+              </button>
+            </div>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              disabled={isPending || locked}
-              onClick={() => onDecline(invitation)}
-              className={ACTION_OUTLINE}
-            >
-              {pendingKey === `decline:${invitation.id}`
-                ? "Declining…"
-                : "Decline"}
-            </button>
-            <button
-              type="button"
-              disabled={isPending || locked}
-              onClick={() => onAccept(invitation)}
-              className={ACTION_PRIMARY}
-            >
-              <Caret />{" "}
-              {pendingKey === `accept:${invitation.id}` ? "Joining…" : "Accept"}
-            </button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

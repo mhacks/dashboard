@@ -80,6 +80,8 @@ export type PendingInvitationSummary = {
   id: string;
   teamId: string;
   teamName: string;
+  /** The team holds a table, so this invite stays usable after registration closes. */
+  teamHasTable: boolean;
   invitedByName: string;
   createdAt: string;
 };
