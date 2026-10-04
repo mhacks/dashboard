@@ -16,6 +16,7 @@ import {
 } from "@/lib/hunt/codes";
 import { randomFlowerId } from "@/lib/hunt/flowers";
 import { canJoinHunt, hasUnlockedHunt, isHuntEnded } from "@/lib/queries/hunt";
+import { isFindMyOrganizerHidden } from "@/lib/queries/organizer-locations";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
 
 const ADMIN_PATH = "/admin/hunt-codes";
@@ -74,6 +75,12 @@ export async function redeemHuntCode(
   input: unknown,
 ): Promise<RedeemHuntCodeResult> {
   const user = await requireSessionUser();
+  if (isFindMyOrganizerHidden(user)) {
+    return {
+      ok: false,
+      message: "The scavenger hunt has ended. Thanks for playing!",
+    };
+  }
   if (!(await canJoinHunt(user))) {
     return {
       ok: false,

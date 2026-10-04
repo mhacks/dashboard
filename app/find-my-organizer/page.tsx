@@ -16,6 +16,7 @@ import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
 import {
   findOrganizerAccess,
   getOrganizerMap,
+  isFindMyOrganizerHidden,
 } from "@/lib/queries/organizer-locations";
 import { HuntCodeEntry } from "./hunt-code-entry";
 import { PeopleView } from "./people-view";
@@ -36,30 +37,55 @@ function BackLink() {
   );
 }
 
+function Notice({
+  eyebrow,
+  heading,
+  lede,
+}: {
+  eyebrow: string;
+  heading: string;
+  lede: string;
+}) {
+  return (
+    <div className="font-red-hat">
+      <ConsoleShell>
+        <ConsolePage>
+          <Masthead title="Find an organizer" trailing={<BackLink />} />
+          <Panel eyebrow={eyebrow}>
+            <PanelHeading lede={lede}>{heading}</PanelHeading>
+            <ButtonLink href="/dashboard" external={false} variant="outline">
+              Back to your dashboard
+            </ButtonLink>
+          </Panel>
+          <ConsoleFooterRule />
+        </ConsolePage>
+      </ConsoleShell>
+    </div>
+  );
+}
+
 export default async function FindMyOrganizerPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=/find-my-organizer");
+  if (isFindMyOrganizerHidden(user)) {
+    return (
+      <Notice
+        eyebrow="PUZZLE HUNT"
+        heading="The scavenger hunt has ended"
+        lede="Thanks for playing!"
+      />
+    );
+  }
 
   const access = await findOrganizerAccess(user);
 
   if (access === "none") {
     return (
-      <div className="font-red-hat">
-        <ConsoleShell>
-          <ConsolePage>
-            <Masthead title="Find an organizer" trailing={<BackLink />} />
-            <Panel eyebrow="AT THE VENUE">
-              <PanelHeading lede="Once you've checked in at MHacks, this page shows where organizers are so you can find one when you need help.">
-                Available after check-in
-              </PanelHeading>
-              <ButtonLink href="/dashboard" external={false} variant="outline">
-                Back to your dashboard
-              </ButtonLink>
-            </Panel>
-            <ConsoleFooterRule />
-          </ConsolePage>
-        </ConsoleShell>
-      </div>
+      <Notice
+        eyebrow="AT THE VENUE"
+        heading="Available after check-in"
+        lede="Once you've checked in at MHacks, this page shows where organizers are so you can find one when you need help."
+      />
     );
   }
 

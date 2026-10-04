@@ -180,7 +180,7 @@ function SubmissionPath({
         ? "Register a team first."
         : tableReserved === null
           ? "Table status is unavailable right now."
-          : "Required before the Devpost link.",
+          : "Your Devpost link is required to reserve.",
     },
     {
       title: "Submit your Devpost link",
@@ -190,7 +190,7 @@ function SubmissionPath({
         tableReserved === true
           ? null
           : teamRegistered
-            ? "Reserve a table first."
+            ? "Saved when you reserve a table."
             : "Register a team, then reserve a table.",
     },
   ];
@@ -524,8 +524,8 @@ export function TeamView({
                 <PanelHeading
                   lede={
                     reservationOpen
-                      ? `${windowPhrase(reservationWindow)} Claim a judging table for your team. You can move to an open table while this is open.`
-                      : `${windowPhrase(reservationWindow)} Reserving a table is required before a Devpost link can be saved.`
+                      ? `${windowPhrase(reservationWindow)} Claim a judging table for your team with your Devpost link. You can move to an open table while this is open.`
+                      : `${windowPhrase(reservationWindow)} Reserving a table requires your team's Devpost link.`
                   }
                 >
                   Reserve a table
@@ -533,6 +533,7 @@ export function TeamView({
                 <ReservationDialog
                   buttonClassName={ACTION_OUTLINE}
                   primaryClassName={ACTION_PRIMARY}
+                  inputClassName={INPUT_CLASS}
                   columns={reservations.columns}
                   rows={reservations.rows}
                   teamId={team.team.id}
@@ -542,6 +543,7 @@ export function TeamView({
                       : "closed"
                   }
                   tables={reservations.tables}
+                  savedDevpostUrl={devpostUrl}
                 />
               </div>
             </Panel>
@@ -738,7 +740,7 @@ function DevpostSubmission({
       : !reservationsAvailable
         ? "Table reservations could not be loaded, so project submission is unavailable right now."
         : !tableReserved
-          ? `${windowPhrase(submission)} Reserve a table before submitting. A team has one Devpost link.`
+          ? `${windowPhrase(submission)} Reserving a table saves your Devpost link. A team has one Devpost link.`
           : `${windowPhrase(submission)} One Devpost link for the whole team.`;
 
   return (

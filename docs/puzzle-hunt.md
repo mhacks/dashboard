@@ -6,6 +6,9 @@
    `www.mhacks.org/find-my-organizer`.
 2. **Find an organizer** (`/find-my-organizer`, checked-in hackers): find an
    organizer on the map and ask for a code; entering it unlocks the puzzle.
+   **Currently hidden from hackers:** this page tells them the scavenger
+   hunt has ended, the puzzle redirects here, and codes can't be redeemed
+   (`isFindMyOrganizerHidden`).
 3. **The invisible-text puzzle** (`/find-my-organizer/puzzle`): a riddle for
    the hacker's flower hidden in white text.
 4. **The petal** (`/`, the main page): clicking a petal of their flower shows
