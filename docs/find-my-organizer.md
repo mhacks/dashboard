@@ -24,7 +24,9 @@ so a hall full of open pages costs one read per task, not one per hacker.
 The endpoint has no password. In the OwnTracks app:
 
 1. **Mode:** HTTP.
-2. **URL:** `https://mhacks.org/api/owntracks`.
+2. **URL:** `https://www.mhacks.org/api/owntracks`, with the `www`. The bare
+   `mhacks.org` redirects there, and OwnTracks drops a POST that gets
+   redirected, so nothing arrives.
 3. **Username:** the name shown on the map, so use the name hackers know you by
    (40 characters at most). Without one, the endpoint rejects the update.
 4. Set location access to **Always** (iOS) so it reports with the phone locked,
