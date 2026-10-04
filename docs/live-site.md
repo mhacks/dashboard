@@ -182,8 +182,11 @@ the SQL Editor.
   only new entries, not existing drafts or archives. Publish those manually after
   review when needed.
 - Existing non-calendar events are never silently adopted or overwritten. A
-  matching title and start time under a different slug aborts the whole import;
-  reconcile that event deliberately before retrying.
+  visible (not archived) non-calendar event with the same title and start time
+  as a calendar event aborts the whole import; reconcile that event deliberately
+  before retrying. Other calendar events and archived events don't count, so an
+  event moved or recreated in the calendar (even under a new calendar ID, onto
+  its own archived former copy) syncs normally.
 - Explicit cancellations archive imported events. Missing entries are reported
   but kept unless `--archive-missing` is supplied. Nothing is deleted, including
   attendance. Reappearing archived entries stay archived until manually published.

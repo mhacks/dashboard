@@ -163,6 +163,12 @@ export function buildSyncStatements(
       SELECT * FROM jsonb_to_recordset(${literal(JSON.stringify(events))}::jsonb)
       AS rows(uid text, slug text, name text, description text, location text,
         starts_at timestamptz, ends_at timestamptz, cancelled boolean)`,
+    // Refuse to duplicate an event an organizer created by hand. Calendar
+    // events are left out: the feed sets their final state (parseCalendar
+    // already rejects a duplicate within it), and comparing their old times
+    // would refuse an event moving into a slot another one is leaving. So are
+    // archived events, which are hidden from /live: an event recreated or
+    // moved under a new calendar UID lands on its archived former self.
     `DO $guard$
       BEGIN
         IF EXISTS (
@@ -170,9 +176,13 @@ export function buildSyncStatements(
             ON lower(btrim(existing.name)) = lower(btrim(incoming.name))
             AND existing.starts_at = incoming.starts_at
             AND existing.slug <> incoming.slug
+          LEFT JOIN public.live_event_details details
+            ON details.event_id = existing.id
           WHERE NOT incoming.cancelled
+            AND existing.slug NOT LIKE ${prefix}
+            AND details.status IS DISTINCT FROM 'archived'
         ) THEN
-          RAISE EXCEPTION 'An existing event matches a calendar title/time under a different slug. Reconcile it before importing; no changes were applied.';
+          RAISE EXCEPTION 'An event not created by the calendar has the same title and start time as a calendar event. Rename, move, or archive one of them; no changes were applied.';
         END IF;
       END $guard$`,
     `CREATE TEMP TABLE ${changes} ON COMMIT DROP AS
