@@ -233,6 +233,7 @@ export function Sponsors() {
         >
           <Image
             src="/sponsors/branch.webp"
+            data-hunt-flower="apple-blossom"
             alt=""
             width={2200}
             height={535}
@@ -279,6 +280,7 @@ export function Sponsors() {
           >
             <Image
               src="/sponsors/branch.webp"
+              data-hunt-flower="apple-blossom"
               alt=""
               width={2200}
               height={535}

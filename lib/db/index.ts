@@ -8,6 +8,7 @@ import * as discordSchema from "./schema/discord";
 import * as broadcastsSchema from "./schema/broadcasts";
 import * as emailSchema from "./schema/email";
 import * as eventsSchema from "./schema/events";
+import * as huntSchema from "./schema/hunt";
 import * as liveSchema from "./schema/live";
 import * as organizerLocationsSchema from "./schema/organizer-locations";
 import * as rateLimiterSchema from "./schema/rate-limiter";
@@ -33,6 +34,7 @@ export const db = drizzle({
     ...discordSchema,
     ...emailSchema,
     ...eventsSchema,
+    ...huntSchema,
     ...liveSchema,
     ...organizerLocationsSchema,
     ...rateLimiterSchema,

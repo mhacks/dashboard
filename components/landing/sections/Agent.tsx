@@ -52,6 +52,7 @@ export function Agent() {
         >
           <Image
             src="/agent/garland-susan.webp"
+            data-hunt-flower="black-eyed-susan"
             alt=""
             width={1800}
             height={507}
