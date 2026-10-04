@@ -6,6 +6,7 @@ import { HUNT_PUZZLE_PATH } from "@/lib/hunt/constants";
 import { assignedFlower } from "@/lib/hunt/flowers";
 import { puzzleParagraphs } from "@/lib/hunt/puzzle-text";
 import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
+import { BlockSelectAll } from "./block-select-all";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,8 @@ export default async function HuntPuzzlePage() {
     // exactly the page's white. Highlighting uses the site's ::selection,
     // light text on moss, which is what gives it away.
     <main className="relative min-h-dvh bg-white px-4 py-10 font-red-hat text-[#9a9a94] sm:px-10">
-      <p className="text-sm">Hmmm, blank page?</p>
+      <BlockSelectAll />
+      <p className="text-base">Hmmm, blank page?</p>
       {/* Small and pinned into the top-right corner, away from where anyone
           would look for text. */}
       <div className="absolute top-2 right-2 w-[55%] max-w-[260px] text-[10px] leading-[1.45] text-white">
@@ -40,7 +42,7 @@ export default async function HuntPuzzlePage() {
           </p>
         ))}
       </div>
-      <p className="absolute right-4 bottom-8 text-sm sm:right-10">
+      <p className="absolute right-4 bottom-8 text-base sm:right-10">
         Is this the end?
       </p>
     </main>

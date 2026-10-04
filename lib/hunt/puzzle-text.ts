@@ -10,7 +10,10 @@ import { createHash } from "node:crypto";
   screens find it in different spots, usually with different riddles.
 */
 
-const PARAGRAPHS = 4;
+const PARAGRAPHS = 8;
+/** Short paragraphs, so the wall reads as scattered fragments. */
+const MIN_SENTENCES = 1;
+const MAX_SENTENCES = 3;
 
 const LATIN = (
   "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod " +
@@ -65,8 +68,13 @@ export function puzzleParagraphs(userId: string, riddle: string): string[] {
   const random = seededRandom(seed);
 
   const paragraphs = Array.from({ length: PARAGRAPHS }, () =>
-    Array.from({ length: 4 + Math.floor(random() * 4) }, () =>
-      latinSentence(random),
+    Array.from(
+      {
+        length:
+          MIN_SENTENCES +
+          Math.floor(random() * (MAX_SENTENCES - MIN_SENTENCES + 1)),
+      },
+      () => latinSentence(random),
     ),
   );
 
