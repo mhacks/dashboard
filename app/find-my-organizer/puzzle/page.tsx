@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
 import { HUNT_PUZZLE_PATH } from "@/lib/hunt/constants";
@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "…" };
 export default async function HuntPuzzlePage() {
   const user = await getSessionUser();
   if (!user) redirect(`/login?next=${HUNT_PUZZLE_PATH}`);
-  if (isFindMyOrganizerHidden(user)) notFound();
+  if (isFindMyOrganizerHidden(user)) redirect("/find-my-organizer");
   if (!(await canJoinHunt(user)) || !(await hasUnlockedHunt(user.id))) {
     redirect("/find-my-organizer");
   }

@@ -11,7 +11,7 @@ nothing to turn on in the dashboard.
 | ------------------ | -------------------------------------------------------------------------------------- |
 | Organizers         | Everyone who has reported in the last 3 hours, including stale positions, and battery. |
 | Volunteers, judges | Name and position of people whose last update is under 15 minutes old. No battery.     |
-| Hackers            | A 404. The page, its puzzle, and hunt codes are hidden from hackers for now.           |
+| Hackers            | "The scavenger hunt has ended." The map, puzzle, and hunt codes are hidden for now.    |
 | Everyone else      | A note that the page opens after check-in.                                             |
 
 The filtering happens on the server, so hackers' browsers never receive stale

@@ -22,7 +22,8 @@ export type FindOrganizerAccess = "organizer" | "attendee" | "none";
 
 /**
  * Find my organizer, its hunt code entry, and the puzzle behind it are hidden
- * from hackers for now: the pages 404 and codes can't be redeemed.
+ * from hackers for now: they see "the scavenger hunt has ended" and codes
+ * can't be redeemed.
  * Organizers, volunteers, and judges keep the map.
  */
 export function isFindMyOrganizerHidden(user: UserEntry): boolean {

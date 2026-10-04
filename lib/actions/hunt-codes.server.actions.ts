@@ -76,7 +76,10 @@ export async function redeemHuntCode(
 ): Promise<RedeemHuntCodeResult> {
   const user = await requireSessionUser();
   if (isFindMyOrganizerHidden(user)) {
-    return { ok: false, message: "Hunt codes aren't available right now." };
+    return {
+      ok: false,
+      message: "The scavenger hunt has ended. Thanks for playing!",
+    };
   }
   if (!(await canJoinHunt(user))) {
     return {
