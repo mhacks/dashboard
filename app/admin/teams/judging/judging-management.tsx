@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDownIcon,
   DownloadIcon,
   Loader2Icon,
   PauseIcon,
@@ -32,6 +33,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -52,6 +61,8 @@ export type JudgingProjectRow = {
   tableNumber: number | null;
   strikes: number;
   removed: boolean;
+  /** Main track, then every sponsor prize the project opted into. */
+  tracks: string[];
 };
 
 export type UnmatchedTeam = {
@@ -172,12 +183,7 @@ function ReadyJudging({
               )}
               {started ? "Stop judging" : "Start judging"}
             </Button>
-            <Button asChild variant="outline">
-              <a href="/admin/teams/judging/export" download>
-                <DownloadIcon data-icon="inline-start" />
-                Export CSV
-              </a>
-            </Button>
+            <ExportMenu projects={projects} />
           </CardFooter>
         </Card>
 
@@ -272,6 +278,54 @@ function ReadyJudging({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Every project, or one track's projects strongest first. */
+function ExportMenu({ projects }: { projects: JudgingProjectRow[] }) {
+  const trackCounts = new Map<string, number>();
+  for (const project of projects) {
+    for (const track of project.tracks) {
+      trackCounts.set(track, (trackCounts.get(track) ?? 0) + 1);
+    }
+  }
+  const tracks = [...trackCounts].sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline">
+          <DownloadIcon data-icon="inline-start" />
+          Export CSV
+          <ChevronDownIcon data-icon="inline-end" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-auto max-w-80">
+        <DropdownMenuItem asChild>
+          <a href="/admin/teams/judging/export" download>
+            All projects
+          </a>
+        </DropdownMenuItem>
+        {tracks.length > 0 ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>By track</DropdownMenuLabel>
+            {tracks.map(([track, count]) => (
+              <DropdownMenuItem key={track} asChild>
+                <a
+                  href={`/admin/teams/judging/export?track=${encodeURIComponent(track)}`}
+                  download
+                  className="justify-between gap-4"
+                >
+                  <span className="truncate">{track}</span>
+                  <span className="text-muted-foreground">{count}</span>
+                </a>
+              </DropdownMenuItem>
+            ))}
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

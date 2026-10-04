@@ -1,14 +1,17 @@
 import { requireOrganizer } from "@/lib/auth/guards";
 import { getExportCsv } from "@/lib/judging/mdredd";
 import { syncTablesToMdredd } from "@/lib/judging/teams";
+import { filterExportByTrack } from "@/lib/judging/tracks";
 
 export const dynamic = "force-dynamic";
 
 /**
  * MDredd's project export with the Table Number column. Tables are synced
  * first, when the rate limit allows, so the column reflects current assignments.
+ *
+ * With `?track=`, only the projects that entered that track.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireOrganizer();
   } catch {
@@ -16,6 +19,7 @@ export async function GET() {
       status: 403,
     });
   }
+  const track = new URL(request.url).searchParams.get("track")?.trim();
   try {
     await syncTablesToMdredd();
   } catch (error) {
@@ -24,10 +28,10 @@ export async function GET() {
   }
   try {
     const csv = await getExportCsv();
-    return new Response(csv, {
+    return new Response(track ? filterExportByTrack(csv, track) : csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="judging-projects.csv"',
+        "Content-Disposition": `attachment; filename="${exportFilename(track)}"`,
         "Cache-Control": "no-store",
       },
     });
@@ -37,4 +41,12 @@ export async function GET() {
       status: 502,
     });
   }
+}
+
+function exportFilename(track: string | undefined) {
+  const slug = track
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug ? `judging-projects-${slug}.csv` : "judging-projects.csv";
 }

@@ -7,6 +7,7 @@ import {
 } from "@/lib/judging/mdredd";
 import { getSubmittedTeams, teamsByUrl } from "@/lib/judging/teams";
 import { DEFAULT_PAIR_SECONDS } from "@/lib/judging/timer";
+import { projectTracks } from "@/lib/judging/tracks";
 import { normalizeDevpostUrl } from "@/lib/judging/url";
 import { getJudgingSettings } from "@/lib/queries/judging-settings";
 import {
@@ -55,6 +56,7 @@ async function loadJudging(): Promise<JudgingPageState> {
         tableNumber: team?.tableNumber ?? null,
         strikes: entry.strikes,
         removed: entry.removed,
+        tracks: projectTracks(entry.attributes),
       };
     });
 
