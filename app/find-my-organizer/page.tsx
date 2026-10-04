@@ -11,10 +11,13 @@ import {
   Masthead,
 } from "@/components/console/shell";
 import { getSessionUser } from "@/lib/auth/session";
+import { HUNT_PUZZLE_PATH } from "@/lib/hunt/constants";
+import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
 import {
   findOrganizerAccess,
   getOrganizerMap,
 } from "@/lib/queries/organizer-locations";
+import { HuntCodeEntry } from "./hunt-code-entry";
 import { PeopleView } from "./people-view";
 
 // Reads live locations on every request.
@@ -60,7 +63,11 @@ export default async function FindMyOrganizerPage() {
     );
   }
 
-  const snapshot = await getOrganizerMap(access);
+  const [snapshot, inHunt] = await Promise.all([
+    getOrganizerMap(access),
+    canJoinHunt(user),
+  ]);
+  const unlocked = inHunt && (await hasUnlockedHunt(user.id));
 
   return (
     <div className="font-red-hat">
@@ -83,6 +90,37 @@ export default async function FindMyOrganizerPage() {
               organizerView={access === "organizer"}
             />
           </Panel>
+
+          {inHunt ? (
+            <Panel eyebrow="PUZZLE HUNT">
+              {unlocked ? (
+                <>
+                  <PanelHeading lede="You've already found an organizer. Pick up where you left off.">
+                    Puzzle unlocked
+                  </PanelHeading>
+                  <ButtonLink href={HUNT_PUZZLE_PATH} external={false}>
+                    Go to the puzzle
+                  </ButtonLink>
+                </>
+              ) : (
+                <>
+                  <PanelHeading lede="Find an organizer on the map and ask them for a code. It works once, so ask for your own.">
+                    Found one?
+                  </PanelHeading>
+                  <HuntCodeEntry />
+                </>
+              )}
+            </Panel>
+          ) : access === "organizer" ? (
+            <Panel eyebrow="PUZZLE HUNT">
+              <PanelHeading lede="When a hacker finds you, make them a one-time code.">
+                Hunt codes
+              </PanelHeading>
+              <ButtonLink href="/admin/hunt-codes" external={false}>
+                Make a code
+              </ButtonLink>
+            </Panel>
+          ) : null}
 
           <ConsoleFooterRule />
         </ConsolePage>
