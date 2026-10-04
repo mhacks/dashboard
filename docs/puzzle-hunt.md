@@ -70,7 +70,8 @@ flower. The flower images there carry `data-hunt-flower="<id>"`, and
 `components/landing/HuntPetals.tsx` listens for clicks on the page: if one
 lands on a petal of a tagged image, it asks the server (`pickPetal`) whether
 that is the hacker's flower. If it is, a toast shows their final code, e.g.
-`GM4Y-4W09`, and stays until they close it.
+`GM4Y-4W09`, tells them to open a ticket in the MHacks Discord and send it to
+claim their win, and stays until they close it (with a **Copy code** button).
 
 - **Petal, not stem or leaf**, is decided by colour: solid, not green, and not
   the dark centre of a black-eyed Susan. The garlands sway with a slight

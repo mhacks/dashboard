@@ -9,7 +9,8 @@ import { pickPetal } from "@/lib/actions/hunt-petal.server.actions";
   The last step of the puzzle hunt. Flower images on this page carry
   `data-hunt-flower="<id>"` (ids from lib/hunt/flowers.ts). A click on a petal
   of one asks the server whether it is the clicking hacker's flower; if so,
-  their final code appears in a toast. A wrong flower locks petals for a
+  their final code appears in a toast telling them to send it in a Discord
+  ticket, the last step. A wrong flower locks petals for a
   while, and says so. Visitors who aren't in the hunt see nothing.
 
   The garlands stay pointer-events-none, so nothing underneath stops working:
@@ -154,10 +155,21 @@ export function HuntPetals() {
         try {
           const result = await pickPetal(img.dataset.huntFlower);
           if (result.status === "found") {
+            const code = result.code;
+            // The last step: there is no page after this, so the toast says
+            // what to do with the code and stays until they close it.
             toast.success("You picked the right petal.", {
               id: TOAST_ID,
-              description: `Your code: ${result.code}`,
+              description: `Your code: ${code}. Open a ticket in the MHacks Discord and send this code to claim your win.`,
               duration: Infinity,
+              action: {
+                label: "Copy code",
+                onClick: (event) => {
+                  // Sonner closes the toast on action by default; keep it.
+                  event.preventDefault();
+                  void navigator.clipboard?.writeText(code);
+                },
+              },
             });
           } else if (result.status === "wrong") {
             toast.error("Not this flower.", {
