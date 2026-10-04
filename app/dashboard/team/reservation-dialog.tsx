@@ -20,26 +20,33 @@ import {
 } from "@/lib/actions/reservation";
 import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
 import type { TableWithTeam } from "@/lib/reservation/types";
+import { devpostUrlSchema } from "@/lib/types/teams";
 
 export function ReservationDialog({
   buttonClassName,
   primaryClassName,
+  inputClassName,
   columns,
   rows,
   teamId,
   state,
   tables,
+  savedDevpostUrl,
 }: {
   buttonClassName: string;
   primaryClassName: string;
+  inputClassName: string;
   columns: number;
   rows: number;
   teamId: string;
   state: ParticipantReservationSnapshot["state"];
   tables: TableWithTeam[];
+  savedDevpostUrl: string | null;
 }) {
   const router = useRouter();
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [devpostUrl, setDevpostUrl] = useState(savedDevpostUrl ?? "");
+  const [devpostError, setDevpostError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<
     "reserve" | "random" | null
   >(null);
@@ -61,12 +68,20 @@ export function ReservationDialog({
 
   function run(
     actionName: "reserve" | "random",
-    action: () => Promise<ActionResult>,
+    action: (devpostUrl: string) => Promise<ActionResult>,
   ) {
+    const parsedUrl = devpostUrlSchema.safeParse(devpostUrl);
+    if (!parsedUrl.success) {
+      setDevpostError(
+        parsedUrl.error.issues[0]?.message ?? "Enter a Devpost link",
+      );
+      return;
+    }
+    setDevpostError(null);
     setPendingAction(actionName);
     startTransition(async () => {
       try {
-        const result = await action();
+        const result = await action(parsedUrl.data);
         if (result.ok) {
           toast.success(result.message ?? "Saved.");
           setSelectedTableId(null);
@@ -85,6 +100,8 @@ export function ReservationDialog({
     <Dialog
       onOpenChange={() => {
         setSelectedTableId(null);
+        setDevpostUrl(savedDevpostUrl ?? "");
+        setDevpostError(null);
       }}
     >
       <DialogTrigger asChild>
@@ -121,14 +138,48 @@ export function ReservationDialog({
         </p>
 
         {canChoose ? (
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="reservation-devpost-url"
+              className="font-red-hat-mono text-[10.5px] tracking-[0.16em] text-ui-ink-soft uppercase"
+            >
+              Devpost link
+            </label>
+            <input
+              id="reservation-devpost-url"
+              type="url"
+              inputMode="url"
+              placeholder="https://devpost.com/software/your-project"
+              autoComplete="off"
+              required
+              disabled={isPending}
+              value={devpostUrl}
+              onChange={(event) => {
+                setDevpostUrl(event.target.value);
+                setDevpostError(null);
+              }}
+              className={inputClassName}
+            />
+            <p className="text-sm text-ui-ink-soft">
+              Your team&rsquo;s Devpost link is required to reserve a table.
+            </p>
+            {devpostError ? (
+              <p className="font-red-hat-mono text-[11px] text-red-700">
+                {devpostError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {canChoose ? (
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={isPending || !selectedTable}
+              disabled={isPending || !selectedTable || !devpostUrl.trim()}
               onClick={() => {
                 if (!selectedTable) return;
-                run("reserve", () =>
-                  reserveTable({ tableId: selectedTable.id }),
+                run("reserve", (url) =>
+                  reserveTable({ tableId: selectedTable.id, devpostUrl: url }),
                 );
               }}
               className={primaryClassName}
@@ -144,9 +195,11 @@ export function ReservationDialog({
             {moving ? null : (
               <button
                 type="button"
-                disabled={isPending}
+                disabled={isPending || !devpostUrl.trim()}
                 onClick={() => {
-                  run("random", () => randomlyAssignTable());
+                  run("random", (url) =>
+                    randomlyAssignTable({ devpostUrl: url }),
+                  );
                 }}
                 className={buttonClassName}
               >

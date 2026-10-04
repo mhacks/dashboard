@@ -5,6 +5,7 @@ import { requireSessionUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { judgingSettings, tables } from "@/lib/db/schema/reservation";
+import { submissionSettings, teamSubmissions } from "@/lib/db/schema/teams";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
   CHECKED_IN_RESERVATION_ERROR,
@@ -13,10 +14,15 @@ import {
   ReservationAccessError,
 } from "@/lib/reservation/access";
 import { writeReservationAudit } from "@/lib/reservation/audit";
-import { getReservationAvailability } from "@/lib/reservation/domain";
+import {
+  getReservationAvailability,
+  getWindowAvailability,
+} from "@/lib/reservation/domain";
 import { JUDGING_SETTINGS_ID } from "@/lib/queries/judging-settings";
+import { SUBMISSION_SETTINGS_ID } from "@/lib/queries/submission-settings";
 import { revalidateReservationPaths } from "@/lib/reservation/revalidate";
 import { reservationIdSchema } from "@/lib/reservation/validation";
+import { devpostUrlSchema } from "@/lib/types/teams";
 
 export type ActionResult =
   { ok: true; message?: string } | { ok: false; error: string };
@@ -32,7 +38,8 @@ type ReservationFailureCode =
   | "TABLE_NOT_FOUND"
   | "TABLE_TAKEN"
   | "TEAM_ALREADY_RESERVED"
-  | "FULL";
+  | "FULL"
+  | "SUBMISSION_LOCKED";
 
 const reservationFailureMessages: Record<ReservationFailureCode, string> = {
   RESERVATIONS_UNAVAILABLE: "Reservations are not open for this event.",
@@ -40,6 +47,8 @@ const reservationFailureMessages: Record<ReservationFailureCode, string> = {
   TABLE_TAKEN: "That table was just taken. Pick another.",
   TEAM_ALREADY_RESERVED: "Your team already has a table for this event.",
   FULL: "No open tables left for this event.",
+  SUBMISSION_LOCKED:
+    "Project submissions are closed, so your Devpost link can't be changed.",
 };
 
 class ReservationFailure extends Error {
@@ -83,6 +92,70 @@ async function lockOpenJudgingSettings(tx: ReservationTransaction) {
   }
 }
 
+function parseDevpostUrl(
+  devpostUrl: string,
+): { ok: true; url: string } | { ok: false; error: string } {
+  const parsed = devpostUrlSchema.safeParse(devpostUrl);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Enter a Devpost link",
+    };
+  }
+  return { ok: true, url: parsed.data };
+}
+
+// A table is reserved together with the team's Devpost link. A first link
+// is saved even outside the submission window, since reserving requires it;
+// changing an existing link still follows that window.
+async function saveReservationDevpostUrl(
+  tx: ReservationTransaction,
+  teamId: string,
+  userId: string,
+  devpostUrl: string,
+) {
+  const [existing] = await tx
+    .select({ devpostUrl: teamSubmissions.devpostUrl })
+    .from(teamSubmissions)
+    .where(eq(teamSubmissions.teamId, teamId))
+    .for("update")
+    .limit(1);
+  if (existing?.devpostUrl === devpostUrl) return;
+  if (existing) {
+    const [settings] = await tx
+      .select({
+        opensAt: submissionSettings.opensAt,
+        closesAt: submissionSettings.closesAt,
+      })
+      .from(submissionSettings)
+      .where(eq(submissionSettings.id, SUBMISSION_SETTINGS_ID))
+      .for("share")
+      .limit(1);
+    if (
+      getWindowAvailability({
+        opensAt: settings?.opensAt,
+        closesAt: settings?.closesAt,
+      }).state !== "open"
+    ) {
+      throw new ReservationFailure("SUBMISSION_LOCKED");
+    }
+  }
+
+  const now = new Date().toISOString();
+  await tx
+    .insert(teamSubmissions)
+    .values({
+      teamId,
+      devpostUrl,
+      submittedByUserId: userId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: teamSubmissions.teamId,
+      set: { devpostUrl, submittedByUserId: userId, updatedAt: now },
+    });
+}
+
 function knownReservationFailure(error: unknown): ActionResult | null {
   if (error instanceof ReservationAccessError) {
     return { ok: false, error: CHECKED_IN_RESERVATION_ERROR };
@@ -104,8 +177,10 @@ function knownReservationFailure(error: unknown): ActionResult | null {
 
 export async function reserveTable({
   tableId,
+  devpostUrl,
 }: {
   tableId: string;
+  devpostUrl: string;
 }): Promise<ActionResult> {
   const auth = await requireTeamId();
   if (!auth.ok) return auth;
@@ -115,6 +190,8 @@ export async function reserveTable({
     return { ok: false, error: "Select a valid table and try again." };
   }
   const selectedTableId = parsedTableId.data;
+  const parsedUrl = parseDevpostUrl(devpostUrl);
+  if (!parsedUrl.ok) return parsedUrl;
 
   let assignment: {
     tableNumber: number;
@@ -125,6 +202,7 @@ export async function reserveTable({
     assignment = await db.transaction(async (tx) => {
       await lockAcceptedReservationApplicant(tx, user.id);
       await lockOpenJudgingSettings(tx);
+      await saveReservationDevpostUrl(tx, teamId, user.id, parsedUrl.url);
 
       // Lock the destination and the team's current table together, in id
       // order, so two moves cannot claim the same open table.
@@ -241,10 +319,16 @@ export async function reserveTable({
   };
 }
 
-export async function randomlyAssignTable(): Promise<ActionResult> {
+export async function randomlyAssignTable({
+  devpostUrl,
+}: {
+  devpostUrl: string;
+}): Promise<ActionResult> {
   const auth = await requireTeamId();
   if (!auth.ok) return auth;
   const { teamId, user } = auth;
+  const parsedUrl = parseDevpostUrl(devpostUrl);
+  if (!parsedUrl.ok) return parsedUrl;
 
   let assigned: { tableNumber: number };
   try {
@@ -260,6 +344,7 @@ export async function randomlyAssignTable(): Promise<ActionResult> {
       if (existing) {
         throw new ReservationFailure("TEAM_ALREADY_RESERVED");
       }
+      await saveReservationDevpostUrl(tx, teamId, user.id, parsedUrl.url);
 
       const [candidate] = await tx
         .select({ id: tables.id, number: tables.number })
