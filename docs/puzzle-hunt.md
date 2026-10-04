@@ -70,8 +70,8 @@ flower. The flower images there carry `data-hunt-flower="<id>"`, and
 `components/landing/HuntPetals.tsx` listens for clicks on the page: if one
 lands on a petal of a tagged image, it asks the server (`pickPetal`) whether
 that is the hacker's flower. If it is, a toast shows their final code, e.g.
-`GM4Y-4W09`, tells them to open a ticket in the MHacks Discord and send it to
-claim their win, and stays until they close it (with a **Copy code** button).
+`GM4Y-4W09`, tells them to submit it with `/submit-code` in the MHacks
+Discord, and stays until they close it (with a **Copy code** button).
 
 - **Petal, not stem or leaf**, is decided by colour: solid, not green, and not
   the dark centre of a black-eyed Susan. The garlands sway with a slight
@@ -90,10 +90,33 @@ claim their win, and stays until they close it (with a **Copy code** button).
 - The garlands stay `pointer-events-none`, so nothing beneath them stops
   working.
 
+## Winning
+
+The hacker submits their code with the Discord bot's `/submit-code`. The bot
+asks `app/discord_auth/hunt/route.ts` (HMAC-signed, like
+`/discord_auth/claim`), which finds the dashboard account linked to their
+Discord account and compares the code with _their own_ `petal_code`, so
+someone else's code doesn't count. Typing is forgiving: case, spaces, a
+missing dash, and `O`/`I`/`L` for `0`/`1` are all accepted. Wrong tries are
+rate limited to 10 per 10 minutes.
+
+The first right code ends the hunt: one guarded upsert sets
+`hunt_settings.ended_at` and `winner_user_id`, so two hackers submitting at
+once can't both win. The bot then posts the winner in #announcements,
+pinging `@everyone`. Once the hunt has ended:
+
+- `/submit-code` tells everyone else it's over.
+- Petals stop giving out new codes (a hacker who already has one still sees it).
+- Organizer codes can no longer be redeemed to join.
+
+If the announcement fails to post (missing channel permissions, say), the
+winner is still told they won and the error is logged; post it by hand.
+
 ## Resetting
 
 ```sql
 delete from public.hunt_progress where user_id = '…'; -- one hacker starts over
 update public.hunt_progress set petal_code = null, petal_found_at = null, petal_misses = 0, petal_locked_until = null where user_id = '…'; -- redo just the petal
-delete from public.hunt_progress; delete from public.hunt_codes; -- everyone
+delete from public.hunt_progress; delete from public.hunt_codes; delete from public.hunt_settings; -- everyone
+delete from public.hunt_settings; -- reopen the hunt after a win, keeping progress
 ```

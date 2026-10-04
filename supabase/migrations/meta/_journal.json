@@ -393,6 +393,13 @@
       "when": 1791080644477,
       "tag": "20261004022404_scavenger_hunt",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791082671450,
+      "tag": "20261004025751_hunt_settings",
+      "breakpoints": true
     }
   ]
 }

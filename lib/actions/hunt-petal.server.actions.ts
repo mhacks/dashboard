@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { huntProgress } from "@/lib/db/schema/hunt";
 import { newPetalCode } from "@/lib/hunt/codes";
-import { canJoinHunt, getHuntFlower } from "@/lib/queries/hunt";
+import { canJoinHunt, getHuntFlower, isHuntEnded } from "@/lib/queries/hunt";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
 
 /** Petal clicks are cheap to make; this only stops a script hammering it. */
@@ -24,6 +24,8 @@ const LOCK_MINUTES = 5;
   - wrong: a different flower; petals are locked for `minutes`.
   - locked: still locked from an earlier wrong flower, so this click wasn't
     checked; `minutes` until they can try again.
+  - ended: someone has already won, so no new codes are given out. Hackers
+    who found theirs earlier still see it.
   - none: not taking part (logged out, not checked in, puzzle not unlocked).
     Silent, so visitors clicking flowers on the main page see nothing.
 
@@ -34,6 +36,7 @@ const LOCK_MINUTES = 5;
 export type PickPetalResult =
   | { status: "found"; code: string }
   | { status: "wrong" | "locked"; minutes: number }
+  | { status: "ended" }
   | { status: "none" };
 
 const NONE: PickPetalResult = { status: "none" };
@@ -106,6 +109,7 @@ export async function pickPetal(flowerId: unknown): Promise<PickPetalResult> {
       ? { status: "found", code: progress.petalCode }
       : NONE;
   }
+  if (await isHuntEnded()) return { status: "ended" };
   if (progress.locked && progress.lockedUntil) {
     return {
       status: "locked",

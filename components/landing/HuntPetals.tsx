@@ -9,9 +9,10 @@ import { pickPetal } from "@/lib/actions/hunt-petal.server.actions";
   The last step of the puzzle hunt. Flower images on this page carry
   `data-hunt-flower="<id>"` (ids from lib/hunt/flowers.ts). A click on a petal
   of one asks the server whether it is the clicking hacker's flower; if so,
-  their final code appears in a toast telling them to send it in a Discord
-  ticket, the last step. A wrong flower locks petals for a
-  while, and says so. Visitors who aren't in the hunt see nothing.
+  their final code appears in a toast telling them to submit it with
+  /submit-code in the MHacks Discord, the last step; the first hacker to do
+  so wins and ends the hunt. A wrong flower locks petals for a while, and
+  says so. Visitors who aren't in the hunt see nothing.
 
   The garlands stay pointer-events-none, so nothing underneath stops working:
   this listens on the document and works out from the click's position
@@ -160,7 +161,7 @@ export function HuntPetals() {
             // what to do with the code and stays until they close it.
             toast.success("You picked the right petal.", {
               id: TOAST_ID,
-              description: `Your code: ${code}. Open a ticket in the MHacks Discord and send this code to claim your win.`,
+              description: `Your code: ${code}. Submit it with /submit-code in the MHacks Discord. The first hacker to do so wins!`,
               duration: Infinity,
               action: {
                 label: "Copy code",
@@ -175,6 +176,12 @@ export function HuntPetals() {
             toast.error("Not this flower.", {
               id: TOAST_ID,
               description: `The petals close for ${minutes(result.minutes)}. Read your riddle again.`,
+              duration: 10_000,
+            });
+          } else if (result.status === "ended") {
+            toast("The scavenger hunt has ended.", {
+              id: TOAST_ID,
+              description: "Someone has already won. Thanks for playing!",
               duration: 10_000,
             });
           } else if (result.status === "locked") {

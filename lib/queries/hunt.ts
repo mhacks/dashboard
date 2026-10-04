@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { huntCodes, huntProgress } from "@/lib/db/schema/hunt";
+import { huntCodes, huntProgress, huntSettings } from "@/lib/db/schema/hunt";
 import type { UserEntry } from "@/lib/db/schema/users";
 import {
   flowerById,
@@ -104,4 +104,44 @@ export async function getHuntFlower(
     .where(eq(huntProgress.userId, userId))
     .limit(1);
   return flowerById(assigned?.flower ?? null);
+}
+
+/** Whether someone has already won, which ends the hunt for everyone. */
+export async function isHuntEnded() {
+  const [row] = await db
+    .select({ endedAt: huntSettings.endedAt })
+    .from(huntSettings)
+    .limit(1);
+  return Boolean(row?.endedAt);
+}
+
+/**
+ * Ends the hunt with this user as the winner, unless it has already ended.
+ * One statement, so of two hackers submitting at once exactly one gets true.
+ */
+export async function endHuntWithWinner(userId: string) {
+  const [row] = await db
+    .insert(huntSettings)
+    .values({ endedAt: sql`now()`, winnerUserId: userId })
+    .onConflictDoUpdate({
+      target: huntSettings.id,
+      set: {
+        endedAt: sql`now()`,
+        winnerUserId: userId,
+        updatedAt: sql`now()`,
+      },
+      setWhere: isNull(huntSettings.endedAt),
+    })
+    .returning({ id: huntSettings.id });
+  return Boolean(row);
+}
+
+/** The final code this hacker was given, or null if they haven't found it. */
+export async function getPetalCode(userId: string) {
+  const [row] = await db
+    .select({ petalCode: huntProgress.petalCode })
+    .from(huntProgress)
+    .where(eq(huntProgress.userId, userId))
+    .limit(1);
+  return row?.petalCode ?? null;
 }
