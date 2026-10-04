@@ -37,6 +37,7 @@ import {
   cancelInvitation,
   leaveTeam,
   saveTeamDevpostUrl,
+  type TeamActionResult,
 } from "@/lib/actions/team.server.actions";
 import type { ParticipantReservationSnapshot } from "@/lib/db/queries/reservation";
 import {
@@ -122,6 +123,12 @@ function windowPhrase(window: WindowSnapshot) {
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
+}
+
+/** Throws a team action's returned failure so runAction toasts it. */
+function unwrap(result: TeamActionResult) {
+  if (!result.ok) throw new Error(result.error);
+  return result;
 }
 
 const createTeamFormSchema = z.object({ name: teamNameSchema });
@@ -294,14 +301,14 @@ export function TeamView({
 
   const onCreateTeam = createForm.handleSubmit((values) => {
     runAction("create", async () => {
-      await createTeam(values.name);
+      unwrap(await createTeam(values.name));
       toast.success("Team created.");
     });
   });
 
   const onRenameTeam = renameForm.handleSubmit((values) => {
     runAction("rename", async () => {
-      await renameTeam(values.name);
+      unwrap(await renameTeam(values.name));
       toast.success("Team renamed.");
       setIsRenaming(false);
     });
@@ -314,7 +321,7 @@ export function TeamView({
 
   const onInvite = inviteForm.handleSubmit((values) => {
     runAction("invite", async () => {
-      const { warning } = await inviteToTeam(values.email);
+      const { warning } = unwrap(await inviteToTeam(values.email));
       if (warning) {
         toast.warning(warning);
       } else {
@@ -326,21 +333,21 @@ export function TeamView({
 
   function onAccept(invitation: PendingInvitationSummary) {
     runAction(`accept:${invitation.id}`, async () => {
-      await acceptInvitation(invitation.id);
+      unwrap(await acceptInvitation(invitation.id));
       toast.success(`Joined ${invitation.teamName}.`);
     });
   }
 
   function onDecline(invitation: PendingInvitationSummary) {
     runAction(`decline:${invitation.id}`, async () => {
-      await declineInvitation(invitation.id);
+      unwrap(await declineInvitation(invitation.id));
       toast.success("Invitation declined.");
     });
   }
 
   function onCancel(invitation: SentInvitationSummary) {
     runAction(`cancel:${invitation.id}`, async () => {
-      await cancelInvitation(invitation.id);
+      unwrap(await cancelInvitation(invitation.id));
       toast.success("Invitation cancelled.");
     });
   }
@@ -366,7 +373,7 @@ export function TeamView({
   function confirmLeave() {
     setLeaveDialogOpen(false);
     runAction("leave", async () => {
-      await leaveTeam();
+      unwrap(await leaveTeam());
       toast.success("You left the team.");
     });
   }
@@ -570,7 +577,7 @@ export function TeamView({
               isSaving={pendingKey === "devpost"}
               onSave={(url) => {
                 runAction("devpost", async () => {
-                  await saveTeamDevpostUrl(url);
+                  unwrap(await saveTeamDevpostUrl(url));
                   toast.success(
                     devpostUrl
                       ? "Devpost link updated."
