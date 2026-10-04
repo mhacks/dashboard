@@ -12,6 +12,7 @@ import {
 } from "@/components/console/shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { HUNT_PUZZLE_PATH } from "@/lib/hunt/constants";
+import { huntMapLockedMs } from "@/lib/hunt/decoy-lockout";
 import { canJoinHunt, hasUnlockedHunt } from "@/lib/queries/hunt";
 import {
   findOrganizerAccess,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/queries/organizer-locations";
 import { HuntCodeEntry } from "./hunt-code-entry";
 import { PeopleView } from "./people-view";
+import { RefreshAfter } from "./refresh-after";
 
 // Reads live locations on every request.
 export const dynamic = "force-dynamic";
@@ -63,11 +65,15 @@ export default async function FindMyOrganizerPage() {
     );
   }
 
+  // Temporary: a hacker who used a decoy organizer's code loses the map for a
+  // while. Checked before reading locations, so none reach the page.
+  const lockedMs = access === "organizer" ? 0 : await huntMapLockedMs(user.id);
   const [snapshot, inHunt] = await Promise.all([
-    getOrganizerMap(access),
+    lockedMs ? null : getOrganizerMap(access),
     canJoinHunt(user),
   ]);
   const unlocked = inHunt && (await hasUnlockedHunt(user.id));
+  const lockedMinutes = Math.ceil(lockedMs / 60_000);
 
   return (
     <div className="font-red-hat">
@@ -75,21 +81,32 @@ export default async function FindMyOrganizerPage() {
         <ConsolePage>
           <Masthead title="Find an organizer" trailing={<BackLink />} />
 
-          <Panel eyebrow="MAP">
-            <PanelHeading
-              lede={
-                access === "organizer"
-                  ? "Everyone whose phone has reported in the last few hours, including anyone who has gone quiet."
-                  : "Organizers who have shared their location recently. Tap a name to find them on the map."
-              }
-            >
-              Where organizers are
-            </PanelHeading>
-            <PeopleView
-              snapshot={snapshot}
-              organizerView={access === "organizer"}
-            />
-          </Panel>
+          {snapshot === null ? (
+            <Panel eyebrow="MAP">
+              <PanelHeading
+                lede={`That code came from a decoy organizer, so the map is hidden for about ${lockedMinutes} more minute${lockedMinutes === 1 ? "" : "s"}. It comes back on its own.`}
+              >
+                Map hidden
+              </PanelHeading>
+              <RefreshAfter ms={lockedMs} />
+            </Panel>
+          ) : (
+            <Panel eyebrow="MAP">
+              <PanelHeading
+                lede={
+                  access === "organizer"
+                    ? "Everyone whose phone has reported in the last few hours, including anyone who has gone quiet."
+                    : "Organizers who have shared their location recently. Tap a name to find them on the map."
+                }
+              >
+                Where organizers are
+              </PanelHeading>
+              <PeopleView
+                snapshot={snapshot}
+                organizerView={access === "organizer"}
+              />
+            </Panel>
+          )}
 
           {inHunt ? (
             <Panel eyebrow="PUZZLE HUNT">

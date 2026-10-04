@@ -131,7 +131,7 @@ export const ADMIN_AREAS: AdminArea[] = [
         // Temporary: remove with the hunt_decoy_organizers table.
         href: "/admin/hunt-codes/decoys",
         title: "Hunt decoys",
-        description: "Pick organizers whose codes lock hackers out.",
+        description: "Pick organizers whose codes hide the map from hackers.",
         icon: ShieldAlertIcon,
       },
     ],

@@ -44,6 +44,8 @@ export function HuntCodeEntry() {
       }
       setError(result.message);
       setCode("");
+      // A decoy organizer's code hides the map; show that straight away.
+      router.refresh();
     });
   }
 

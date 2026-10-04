@@ -176,8 +176,8 @@ export const huntSettings = pgTable(
 
 /*
   Temporary: decoy organizers, set on /admin/hunt-codes/decoys. Their codes
-  look like anyone else's, but redeeming one unlocks nothing and locks the
-  hacker out of entering codes for a while (redeemHuntCode). Drop the table
+  look like anyone else's, but redeeming one unlocks nothing and hides the
+  organizer map from the hacker for a while (lib/hunt/decoy-lockout.ts). Drop the table
   once the hunt is over.
 */
 export const huntDecoyOrganizers = pgTable(

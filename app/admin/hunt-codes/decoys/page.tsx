@@ -19,7 +19,7 @@ export default async function HuntDecoysPage() {
     <AdminPageShell width="narrow">
       <AdminPageHeader
         title="Hunt decoys"
-        description={`Codes from a decoy look normal, but a hacker who enters one is locked out of entering codes for ${DECOY_LOCKOUT_MINUTES} minutes, and the code unlocks nothing.`}
+        description={`Codes from a decoy look normal, but a hacker who enters one loses the organizer map for ${DECOY_LOCKOUT_MINUTES} minutes, and the code unlocks nothing.`}
       />
       <DecoyList roster={roster} />
     </AdminPageShell>

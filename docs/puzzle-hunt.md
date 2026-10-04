@@ -44,13 +44,19 @@ sees **Go to the puzzle** instead and never needs another code.
 **Decoy organizers (temporary).** Organizers ticked on
 **`/admin/hunt-codes/decoys`** (table `hunt_decoy_organizers`) make codes that
 look normal, but redeeming one unlocks nothing: the code is used up and the
-hacker can't enter codes for 10 minutes. That page is separate from Hunt codes
-because Hunt codes is on screen in front of hackers. The lockout lives in the
-rate limiter's table (key `hunt:decoy:<user id>`) and expires by itself. To
-lift one early:
+hacker loses the organizer map on `/find-my-organizer` for 10 minutes. The
+page skips reading locations entirely while the map is hidden, shows "Map
+hidden" instead, and brings the map back by itself when time is up. Hackers
+can still enter codes meanwhile, if they find a real organizer without it.
+The decoys page is separate from Hunt codes because Hunt codes is on screen
+in front of hackers.
+
+The lockout lives in the rate limiter's table (key `hunt:decoy:<user id>`,
+`lib/hunt/decoy-lockout.ts`) and expires by itself. To lift one early:
 `delete from public.rate_limiter_flexible where key = 'hunt:decoy:<user id>';`
-When the hunt is over, remove the page, its admin link, `setHuntDecoy`, the
-check in `redeemHuntCode`, and the table.
+When the hunt is over, remove the decoys page and its admin link,
+`setHuntDecoy`, the check in `redeemHuntCode`, the lockout in
+`app/find-my-organizer/page.tsx`, `lib/hunt/decoy-lockout.ts`, and the table.
 
 Codes are stored as typed in `hunt_codes`: with a million possible values a
 hash would be reversed instantly, so the rate limit and the 5-minute expiry

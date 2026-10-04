@@ -20,11 +20,13 @@ import {
   isHuntCodeShape,
   newHuntCode,
 } from "@/lib/hunt/codes";
+import { lockHuntMap } from "@/lib/hunt/decoy-lockout";
 import { randomFlowerId } from "@/lib/hunt/flowers";
 import { canJoinHunt, hasUnlockedHunt, isHuntEnded } from "@/lib/queries/hunt";
 import { drizzleRateLimiter, rateLimitMessage } from "@/lib/rate-limit/drizzle";
 
 const ADMIN_PATH = "/admin/hunt-codes";
+const FIND_PATH = "/find-my-organizer";
 /** Collisions need two open codes out of a million; a few retries is plenty. */
 const GENERATE_TRIES = 5;
 
@@ -33,24 +35,6 @@ const redeemLimiter = drizzleRateLimiter(
   HUNT_REDEEM_ATTEMPTS,
   HUNT_REDEEM_WINDOW_SECONDS,
 );
-
-/**
- * Temporary (see huntDecoyOrganizers): a hacker who redeems a decoy
- * organizer's code is blocked here for DECOY_LOCKOUT_MINUTES. Kept in the
- * rate limiter's table so it needs no migration and expires on its own.
- */
-const decoyLockout = drizzleRateLimiter(
-  "hunt:decoy",
-  1,
-  DECOY_LOCKOUT_MINUTES * 60,
-);
-
-/** Whole minutes left on this hacker's decoy lockout, or 0 if none. */
-async function decoyMinutesLeft(userId: string) {
-  const res = await decoyLockout.get(userId);
-  if (!res || res.consumedPoints <= 1 || res.msBeforeNext <= 0) return 0;
-  return Math.max(1, Math.ceil(res.msBeforeNext / 60_000));
-}
 
 const minutes = (n: number) => `${n} minute${n === 1 ? "" : "s"}`;
 
@@ -115,14 +99,6 @@ export async function redeemHuntCode(
     };
   }
 
-  const lockedFor = await decoyMinutesLeft(user.id);
-  if (lockedFor) {
-    return {
-      ok: false,
-      message: `You're still locked out for using the wrong organizer's code. Try again in ${minutes(lockedFor)}.`,
-    };
-  }
-
   const blocked = await rateLimitMessage(
     redeemLimiter,
     user.id,
@@ -167,11 +143,12 @@ export async function redeemHuntCode(
   });
 
   if (redeemed === "decoy") {
-    await decoyLockout.block(user.id, DECOY_LOCKOUT_MINUTES * 60);
+    await lockHuntMap(user.id);
     revalidatePath(ADMIN_PATH);
+    revalidatePath(FIND_PATH);
     return {
       ok: false,
-      message: `Wrong organizer! That code was a trap. You're locked out for ${minutes(DECOY_LOCKOUT_MINUTES)}, then find the right organizer.`,
+      message: `Wrong organizer! That code was a trap. The map is hidden for ${minutes(DECOY_LOCKOUT_MINUTES)}, so you'll have to find the right one without it.`,
     };
   }
   if (redeemed === "invalid") {
